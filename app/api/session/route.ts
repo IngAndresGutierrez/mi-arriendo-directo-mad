@@ -1,17 +1,17 @@
 import { cookies } from "next/headers";
 
-import { adminAuth } from "@/lib/firebase/admin";
-import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from "@/lib/auth/session";
-import { createSessionSchema } from "@/lib/validations/auth";
+import { adminAuth } from "@/shared/firebase/admin";
+import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from "@/shared/auth/session";
+import { createSessionSchema } from "@/features/auth";
 
-/** Ventana máxima entre el login y la emisión de la cookie de larga duración. */
+/** Maximum window between the sign-in and issuing the long-lived cookie. */
 const MAX_LOGIN_AGE_MS = 5 * 60 * 1000;
 
 /**
- * Canjea el idToken del cliente por una session cookie httpOnly.
+ * Exchanges the client's idToken for an httpOnly session cookie.
  *
- * Este endpoint es público: valida el cuerpo, verifica el token contra Firebase y exige
- * que el login sea reciente antes de emitir una cookie que vive 5 días.
+ * This endpoint is public: it validates the body, verifies the token against Firebase and
+ * requires a recent sign-in before issuing a cookie that lives for 5 days.
  */
 export async function POST(request: Request): Promise<Response> {
   let body: unknown;
@@ -27,7 +27,7 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   try {
-    // `true` rechaza además tokens de sesiones ya revocadas.
+    // `true` also rejects tokens from already revoked sessions.
     const claims = await adminAuth.verifyIdToken(parsed.data.idToken, true);
 
     if (Date.now() - claims.auth_time * 1000 > MAX_LOGIN_AGE_MS) {
@@ -49,21 +49,20 @@ export async function POST(request: Request): Promise<Response> {
 
     return new Response(null, { status: 204 });
   } catch {
-    // No filtres el error de Firebase: distinguiría token expirado de token falso.
+    // Do not leak Firebase's error: it would tell an expired token from a forged one.
     return Response.json({ error: "No pudimos crear la sesión" }, { status: 401 });
   }
 }
 
 /**
- * Re-emite la session cookie para el **mismo** usuario, con sus claims actuales.
+ * Re-issues the session cookie for the **same** user, with their current claims.
  *
- * Necesario tras cambiar un custom claim (por ejemplo el rol al completar el perfil): la
- * cookie existente se acuñó antes y conserva los claims viejos.
+ * Needed after changing a custom claim (the role when the profile is completed, for
+ * instance): the existing cookie was minted earlier and still carries the old claims.
  *
- * A diferencia de `POST`, no exige login reciente: quien llama ya tiene una session cookie
- * válida y solo puede refrescar la suya, así que no hay escalada de privilegios. La
- * comprobación estricta de `auth_time` se mantiene donde sí importa: al crear la sesión
- * desde cero.
+ * Unlike `POST`, it does not require a recent sign-in: the caller already holds a valid
+ * session cookie and can only refresh their own, so there is no privilege escalation. The
+ * strict `auth_time` check stays where it matters: creating the session from scratch.
  */
 export async function PATCH(request: Request): Promise<Response> {
   let body: unknown;
@@ -90,7 +89,7 @@ export async function PATCH(request: Request): Promise<Response> {
       adminAuth.verifyIdToken(parsed.data.idToken, true),
     ]);
 
-    // Solo puedes refrescar tu propia sesión.
+    // You may only refresh your own session.
     if (currentClaims.uid !== tokenClaims.uid) {
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
@@ -113,7 +112,7 @@ export async function PATCH(request: Request): Promise<Response> {
   }
 }
 
-/** Cierra la sesión y revoca los refresh tokens del usuario. */
+/** Signs the user out and revokes their refresh tokens. */
 export async function DELETE(): Promise<Response> {
   const cookieStore = await cookies();
   const cookie = cookieStore.get(SESSION_COOKIE)?.value;
@@ -123,7 +122,7 @@ export async function DELETE(): Promise<Response> {
       const claims = await adminAuth.verifySessionCookie(cookie);
       await adminAuth.revokeRefreshTokens(claims.sub);
     } catch {
-      // cookie inválida o expirada: basta con borrarla del navegador
+      // invalid or expired cookie: clearing it from the browser is enough
     }
   }
 
