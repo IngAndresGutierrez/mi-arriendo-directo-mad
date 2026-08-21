@@ -58,12 +58,12 @@ names this project started with.
 - `app/globals.css` — MAD UI tokens (light + dark, sidebar, charts, domain states).
 - `components.json` — shadcn `radix-nova`. Use `shadcn add`, **never** `shadcn init` again.
 - `.env.example` — template; copy to `.env.local` (already created with the public keys).
-- `.env.production` — **git-tracked on purpose**: the Firebase *web* config, which Next inlines
-  into the browser bundle at build time. Not secrets — access control lives in the rules. It is
-  here because the Vercel team enforces sensitive environment variables, and a sensitive
-  variable never reaches the build step: a missing `NEXT_PUBLIC_*` is inlined as `undefined`
-  and the web SDK then fails with `auth/invalid-api-key` on a build that went green. The
-  service account never goes in this file.
+- `shared/firebase/public-config.ts` — the Firebase **web** config, hardcoded. Public by
+  design: Next inlines every `NEXT_PUBLIC_*` into the browser bundle, so these values ship to
+  every visitor and access control lives in the rules. They are in code because the server needs
+  them at request time too and this project's Vercel variables are sensitive ones that never
+  reach the Function; reading them from `process.env` returned 500 on every route. Each value
+  still honours an env override. The service account never goes here.
 - `.firebaserc` — default project: **`mi-arriendo-directo-mad`**.
 - `shared/firebase/analytics.ts` — deferred Analytics behind `isSupported()`; never pass
   personal data as event parameters.
