@@ -1,37 +1,36 @@
 ---
 name: firestore-security-rules
-description: Escribir y revisar reglas de seguridad de Firestore y Cloud Storage para datos sensibles (contratos, cédulas, ingresos, pagos). Úsala al crear o modificar firestore.rules / storage.rules, al añadir una colección nueva, o cuando haya que decidir quién puede leer un documento.
+description: Writing and reviewing Firestore and Cloud Storage security rules for sensitive data (contracts, identity documents, income, payments). Use it when creating or modifying firestore.rules / storage.rules, when adding a new collection, or whenever you have to decide who may read a document.
 ---
 
 # Firestore & Storage Security Rules
 
-Los archivos reales del proyecto son **`firestore.rules`** y **`storage.rules`** en la raíz.
-Esta skill explica el *por qué* y los patrones; al modificar reglas, edita esos archivos y
-mantén la coherencia con lo que ya está ahí.
+The project's real files are **`firestore.rules`** and **`storage.rules`** at the repo root.
+This skill explains the *why* and the patterns; when you change rules, edit those files and keep
+them consistent with what is already there.
 
-Este proyecto guarda **datos personales sensibles**: cédulas, certificados laborales,
-ingresos, contratos de arrendamiento y pagos. Las rules son la última línea de defensa:
-asume que el cliente es hostil y que cualquier query que las rules permitan será ejecutada.
+This project stores **sensitive personal data**: national id documents, employment letters,
+income, rental contracts and payments. The rules are the last line of defence: assume the client
+is hostile and that any query the rules allow will be executed.
 
-## Principios no negociables
+## Non-negotiable principles
 
-1. **Deny by default.** Ninguna colección tiene acceso hasta que una regla lo conceda
-   explícitamente. Nunca `allow read, write: if true;` ni `if request.auth != null;` como
-   regla global.
-2. **Nada de wildcard recursivo permisivo.** `match /{document=**}` con `allow` amplio anula
-   todas las reglas específicas de abajo.
-3. **Separa `read` en `get` y `list`.** Un `list` permisivo deja enumerar toda la colección
-   aunque cada `get` parezca seguro. Los datos de identidad casi nunca deben ser listables.
-4. **Valida forma y tipos en escritura**, no solo autorización. Sin validación el cliente
-   puede escribir `estado: "aprobada"` o `canon: -1`.
-5. **Campos inmutables**: `estado`, `montos`, `createdAt`, `propietarioUid` no los cambia el
-   inquilino. Si un campo solo lo puede mover el backend, prohíbelo al cliente y hazlo con
-   Admin SDK (que ignora las rules).
-6. **Las rules no son un filtro.** No transforman documentos: si un doc contiene un campo
-   sensible y concedes `get`, el cliente lo ve completo. Separa lo sensible en subcolección
-   o documento aparte.
+1. **Deny by default.** No collection has access until a rule grants it explicitly. Never
+   `allow read, write: if true;` and never `if request.auth != null;` as a blanket rule.
+2. **No permissive recursive wildcard.** `match /{document=**}` with a broad `allow` overrides
+   every specific rule below it.
+3. **Split `read` into `get` and `list`.** A permissive `list` lets the client enumerate the
+   whole collection even if each `get` looks safe. Identity data should almost never be listable.
+4. **Validate shape and types on write**, not just authorization. Without validation the client
+   can write `status: "approved"` or `rent: -1`.
+5. **Immutable fields**: `status`, amounts, `createdAt`, `landlordUid` are not changed by the
+   tenant. If only the backend may move a field, forbid it to the client and do it with the
+   Admin SDK (which ignores the rules).
+6. **Rules are not a filter.** They do not transform documents: if a doc contains a sensitive
+   field and you grant `get`, the client sees all of it. Split the sensitive part into a
+   subcollection or a separate document.
 
-## Esqueleto del proyecto
+## The project's skeleton
 
 ```javascript
 rules_version = '2';
@@ -49,125 +48,124 @@ service cloud.firestore {
     function isOwner(userId) {
       return isSignedIn() && uid() == userId;
     }
-    // rol desde custom claims (los pone el Admin SDK, el cliente no los puede falsificar)
+    // role from custom claims (the Admin SDK sets them, the client cannot forge them)
     function hasRole(role) {
       return isSignedIn() && request.auth.token.role == role;
     }
-    function isPropietario() { return hasRole('propietario'); }
-    function isAdmin()       { return hasRole('admin'); }
+    function isLandlord() { return hasRole('landlord'); }
+    function isAdmin()    { return hasRole('admin'); }
 
-    // datos entrantes / existentes
+    // incoming / existing data
     function incoming() { return request.resource.data; }
     function current()  { return resource.data; }
 
-    // solo estas keys cambiaron
+    // only these keys changed
     function onlyChanged(keys) {
       return incoming().diff(current()).affectedKeys().hasOnly(keys);
     }
-    function unchanged(campos) {
-      return !incoming().diff(current()).affectedKeys().hasAny(campos);
+    function unchanged(fields) {
+      return !incoming().diff(current()).affectedKeys().hasAny(fields);
     }
 
-    // ---------- usuarios ----------
-    match /usuarios/{userId} {
+    // ---------- users ----------
+    match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();                       // nadie enumera usuarios
+      allow list: if isAdmin();                       // nobody enumerates users
       allow create: if isOwner(userId)
                     && incoming().keys().hasOnly(
-                         ['nombre','email','telefono','rol','createdAt'])
-                    && incoming().rol in ['inquilino','propietario'];
+                         ['fullName','email','phone','role','createdAt'])
+                    && incoming().role in ['tenant','landlord'];
       allow update: if isOwner(userId)
-                    && onlyChanged(['nombre','telefono','updatedAt']);  // rol NO
+                    && onlyChanged(['fullName','phone','updatedAt']);  // role NOT included
       allow delete: if isAdmin();
 
-      // documentos de identidad: aislados en subcolección, nunca listables
-      match /documentos/{docId} {
+      // identity documents: isolated in a subcollection, never listable to others
+      match /documents/{docId} {
         allow get: if isOwner(userId) || isAdmin();
         allow list: if isOwner(userId) || isAdmin();
-        allow create: if isOwner(userId) && validDocumento();
-        allow update, delete: if isAdmin();           // append-only para el usuario
+        allow create: if isOwner(userId) && validDocument();
+        allow update, delete: if isAdmin();           // append-only for the user
       }
-      function validDocumento() {
-        return incoming().keys().hasOnly(['tipo','storagePath','subidoEn'])
-            && incoming().tipo in ['cedula_frente','cedula_reverso','certificado_laboral',
-                                   'extracto_bancario']
+      function validDocument() {
+        return incoming().keys().hasOnly(['type','storagePath','uploadedAt'])
+            && incoming().type in ['id_front','id_back','employment_letter','bank_statement']
             && incoming().storagePath is string
-            && incoming().storagePath.matches('^postulantes/' + userId + '/.*');
+            && incoming().storagePath.matches('^applicants/' + userId + '/.*');
       }
     }
 
-    // ---------- inmuebles ----------
-    match /inmuebles/{inmuebleId} {
-      // catálogo público: solo si el doc está publicado y no trae datos del dueño
-      allow get, list: if current().estado == 'disponible' || isOwnerInmueble() || isAdmin();
+    // ---------- properties ----------
+    match /properties/{propertyId} {
+      // public catalog: only if the doc is published and carries no owner data
+      allow get, list: if current().status == 'available' || isPropertyOwner() || isAdmin();
 
-      allow create: if isPropietario()
-                    && incoming().propietarioUid == uid()
-                    && validInmueble();
-      allow update: if (isOwnerInmueble() && validInmueble() && unchanged(['propietarioUid']))
+      allow create: if isLandlord()
+                    && incoming().landlordUid == uid()
+                    && validProperty();
+      allow update: if (isPropertyOwner() && validProperty() && unchanged(['landlordUid']))
                     || isAdmin();
-      allow delete: if isOwnerInmueble() || isAdmin();
+      allow delete: if isPropertyOwner() || isAdmin();
 
-      function isOwnerInmueble() {
-        return isSignedIn() && current().propietarioUid == uid();
+      function isPropertyOwner() {
+        return isSignedIn() && current().landlordUid == uid();
       }
-      function validInmueble() {
-        return incoming().canon is int && incoming().canon > 0
-            && incoming().ciudad is string && incoming().ciudad.size() <= 80
-            && incoming().estado in ['borrador','disponible','arrendado','inactivo'];
+      function validProperty() {
+        return incoming().rent is int && incoming().rent > 0
+            && incoming().address.city is string && incoming().address.city.size() <= 80
+            && incoming().status in ['draft','available','rented','inactive'];
       }
     }
 
-    // ---------- postulaciones ----------
-    // Visible SOLO para el inquilino que la creó y el propietario del inmueble.
-    match /postulaciones/{postulacionId} {
-      allow get: if esInquilino() || esPropietarioDelInmueble() || isAdmin();
+    // ---------- applications ----------
+    // Visible ONLY to the tenant who created it and to the property's landlord.
+    match /applications/{applicationId} {
+      allow get: if isApplicationTenant() || isApplicationLandlord() || isAdmin();
       allow list: if isSignedIn()
                   && (request.query.limit <= 50)
-                  && (resource == null || esInquilino() || esPropietarioDelInmueble());
+                  && (resource == null || isApplicationTenant() || isApplicationLandlord());
 
       allow create: if isSignedIn()
-                    && incoming().inquilinoUid == uid()
-                    && incoming().estado == 'pendiente'          // no se auto-aprueba
-                    && exists(/databases/$(database)/documents/inmuebles/$(incoming().inmuebleId));
+                    && incoming().tenantUid == uid()
+                    && incoming().status == 'pending'            // no self-approval
+                    && exists(/databases/$(database)/documents/properties/$(incoming().propertyId));
 
-      // el inquilino solo retira; aprobar/rechazar lo hace el propietario
-      allow update: if (esInquilino() && onlyChanged(['estado','updatedAt'])
-                        && incoming().estado == 'retirada')
-                    || (esPropietarioDelInmueble() && onlyChanged(['estado','notas','updatedAt'])
-                        && incoming().estado in ['aprobada','rechazada'])
+      // the tenant only withdraws; approving/rejecting belongs to the landlord
+      allow update: if (isApplicationTenant() && onlyChanged(['status','updatedAt'])
+                        && incoming().status == 'withdrawn')
+                    || (isApplicationLandlord() && onlyChanged(['status','notes','updatedAt'])
+                        && incoming().status in ['approved','rejected'])
                     || isAdmin();
       allow delete: if isAdmin();
 
-      function esInquilino() {
-        return isSignedIn() && current().inquilinoUid == uid();
+      function isApplicationTenant() {
+        return isSignedIn() && current().tenantUid == uid();
       }
-      function esPropietarioDelInmueble() {
-        return isSignedIn() && get(/databases/$(database)/documents/inmuebles/$(current().inmuebleId))
-                 .data.propietarioUid == uid();
+      function isApplicationLandlord() {
+        return isSignedIn() && get(/databases/$(database)/documents/properties/$(current().propertyId))
+                 .data.landlordUid == uid();
       }
     }
 
-    // ---------- contratos y pagos: solo lectura para las partes ----------
-    match /contratos/{contratoId} {
-      allow get: if esParte() || isAdmin();
-      allow list: if false;                            // se consultan por query en el servidor
-      allow create, update, delete: if false;          // solo Admin SDK
-      function esParte() {
+    // ---------- contracts and payments: read-only for the parties ----------
+    match /contracts/{contractId} {
+      allow get: if isContractParty() || isAdmin();
+      allow list: if false;                            // queried from the server
+      allow create, update, delete: if false;          // Admin SDK only
+      function isContractParty() {
         return isSignedIn()
-            && (current().inquilinoUid == uid() || current().propietarioUid == uid());
+            && (current().tenantUid == uid() || current().landlordUid == uid());
       }
 
-      match /pagos/{pagoId} {
-        // ⚠️ `&&` liga más fuerte que `||`: SIEMPRE parentiza una condición mixta,
-        // o terminas concediendo acceso a quien no debías.
+      match /payments/{paymentId} {
+        // ⚠️ `&&` binds tighter than `||`: ALWAYS parenthesize a mixed condition, or you end
+        // up granting access to someone you did not mean to.
         allow get, list: if isAdmin()
-                         || (isSignedIn() && esParteDelContratoPadre());
-        allow write: if false;                         // los pagos los escribe el backend
+                         || (isSignedIn() && isParentContractParty());
+        allow write: if false;                         // payments are written by the backend
 
-        function esParteDelContratoPadre() {
-          let contrato = get(/databases/$(database)/documents/contratos/$(contratoId)).data;
-          return contrato.inquilinoUid == uid() || contrato.propietarioUid == uid();
+        function isParentContractParty() {
+          let contract = get(/databases/$(database)/documents/contracts/$(contractId)).data;
+          return contract.tenantUid == uid() || contract.landlordUid == uid();
         }
       }
     }
@@ -175,76 +173,76 @@ service cloud.firestore {
 }
 ```
 
-## Cosas que rompen en producción
+## Things that break in production
 
-- **`get()` cuesta una lectura y hay tope de 10 por request** (20 en `list`). Si necesitas
-  más, **desnormaliza**: copia `propietarioUid` dentro de la postulación en lugar de leer el
-  inmueble en cada regla.
-- **`list` y `resource`**: en una query, `resource` es cada doc candidato; no puedes usar
-  `resource` para restringir *qué* pide el cliente. Fuerza el filtro con
-  `request.query.limit` y validando los `where` esperados, o simplemente cierra `list` y haz
-  la consulta desde el servidor con Admin SDK.
-- **Una regla de `list` debe ser verificable desde la query, no desde el resultado.**
-  Verificado en el emulador: con `allow list: if resource.data.estado == 'disponible'`, un
-  `getDocs(collection(db, "inmuebles"))` sin filtro se deniega **incluso si la colección está
-  vacía**. El cliente debe incluir el `where` que hace cumplir la regla:
-  `query(collection(db, "inmuebles"), where("estado", "==", "disponible"))`. Si tu catálogo
-  devuelve `permission-denied` con reglas que "parecen correctas", casi siempre es esto.
-- **Custom claims caducan**: el token del cliente conserva el claim viejo hasta ~1h o hasta
-  `getIdToken(true)`. Tras cambiar un rol, fuerza refresh.
-- **Rules ≠ validación de negocio.** Cualquier invariante que cruce documentos (p. ej. "un
-  inmueble arrendado no acepta postulaciones") va en Server Action / Admin SDK.
-- **Admin SDK ignora completamente las rules.** No lo uses como excusa para dejar rules
-  laxas, pero sí para todo lo que el cliente no debe poder hacer.
-- **`&&` tiene mayor precedencia que `||`.** `A && B || C` es `(A && B) || C`. En una regla
-  de seguridad esa diferencia es una fuga: parentiza siempre.
-- **En `create` no existe `resource`.** Cualquier helper que use `resource.data` falla en
-  creación: separa los helpers de `create` y de `update`.
+- **`get()` costs a read and there is a cap of 10 per request** (20 in a `list`). If you need
+  more, **denormalize**: copy `landlordUid` into the application instead of reading the property
+  in every rule.
+- **`list` and `resource`**: in a query, `resource` is each candidate doc; you cannot use
+  `resource` to restrict *what* the client asks for. Force the filter with `request.query.limit`
+  and by validating the expected `where`s, or simply close `list` and run the query from the
+  server with the Admin SDK.
+- **A `list` rule must be verifiable from the query, not from the result.** Verified against the
+  emulator: with `allow list: if resource.data.status == 'available'`, a
+  `getDocs(collection(db, "properties"))` with no filter is denied **even when the collection is
+  empty**. The client must include the `where` that satisfies the rule:
+  `query(collection(db, "properties"), where("status", "==", "available"))`. If your catalog
+  returns `permission-denied` with rules that "look right", this is almost always why.
+- **Custom claims go stale**: the client's token keeps the old claim for up to ~1h, or until
+  `getIdToken(true)`. After changing a role, force a refresh.
+- **Rules ≠ business validation.** Any invariant spanning documents (e.g. "a rented property
+  accepts no applications") belongs in a Server Action / the Admin SDK.
+- **The Admin SDK ignores the rules entirely.** Not an excuse for lax rules, but it is the tool
+  for everything the client must not be able to do.
+- **`&&` has higher precedence than `||`.** `A && B || C` is `(A && B) || C`. In a security rule
+  that difference is a leak: always parenthesize.
+- **In `create` there is no `resource`.** Any helper using `resource.data` fails on creation:
+  keep the `create` and `update` helpers separate.
 
-## Verificación obligatoria
+## Mandatory verification
 
-Toda regla nueva o modificada se prueba con el emulador antes de desplegar:
+Every new or modified rule is tested against the emulator before deploying:
 
 ```bash
-# el emulador de Firestore requiere JDK 21 o superior
+# the Firestore emulator needs JDK 21 or newer
 firebase emulators:exec --only firestore --project demo-mad "pnpm vitest run tests/rules"
 firebase deploy --only firestore:rules,storage
 ```
 
-Test con `@firebase/rules-unit-testing`, cubriendo siempre el caso negativo:
+Tests with `@firebase/rules-unit-testing`, always covering the negative case:
 
 ```ts
 import { assertFails, assertSucceeds, initializeTestEnvironment } from "@firebase/rules-unit-testing";
 
 const env = await initializeTestEnvironment({ projectId: "demo-mad" });
-const otro = env.authenticatedContext("uid-ajeno").firestore();
+const outsider = env.authenticatedContext("uid-third-party").firestore();
 
-// un tercero NUNCA lee la postulación de otro
-await assertFails(getDoc(doc(otro, "postulaciones/p1")));
-// el inquilino no se aprueba a sí mismo
-await assertFails(updateDoc(doc(inquilino, "postulaciones/p1"), { estado: "aprobada" }));
+// a third party NEVER reads someone else's application
+await assertFails(getDoc(doc(outsider, "applications/a1")));
+// the tenant does not approve their own application
+await assertFails(updateDoc(doc(tenant, "applications/a1"), { status: "approved" }));
 ```
 
-## Storage Rules (documentos de identidad)
+## Storage Rules (identity documents)
 
 ```javascript
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    match /postulantes/{userId}/{allPaths=**} {
+    match /applicants/{userId}/{allPaths=**} {
       allow read: if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null
                    && request.auth.uid == userId
                    && request.resource.size < 8 * 1024 * 1024
                    && request.resource.contentType.matches('image/(jpeg|png|webp)|application/pdf');
     }
-    match /inmuebles/{inmuebleId}/{allPaths=**} {
-      allow read: if true;                                  // fotos del listado
+    match /properties/{propertyId}/{allPaths=**} {
+      allow read: if true;                                  // listing photos
       allow write: if request.auth != null
                    && request.resource.size < 8 * 1024 * 1024
                    && request.resource.contentType.matches('image/.*');
     }
-    match /{allPaths=**} { allow read, write: if false; }    // cierre explícito
+    match /{allPaths=**} { allow read, write: if false; }    // explicit closure
   }
 }
 ```

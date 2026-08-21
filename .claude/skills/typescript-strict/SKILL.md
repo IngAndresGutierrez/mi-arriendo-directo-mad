@@ -1,210 +1,213 @@
 ---
 name: typescript-strict
-description: Tipado estricto en TypeScript para los modelos de dominio (Inmueble, Postulacion, Contrato, Pago) y para los datos que vuelven de Firestore. Úsala al definir tipos o interfaces, al escribir converters de Firestore, al tocar tsconfig.json, y siempre que aparezca la tentación de usar any o un cast.
+description: Strict TypeScript for the domain models (Property, Application, Contract, Payment) and for the data coming back from Firestore. Use it when defining types or interfaces, when writing Firestore converters, when touching tsconfig.json, and whenever the temptation to use any or a cast shows up.
 ---
 
-# TypeScript estricto
+# Strict TypeScript
 
-`tsconfig.json` ya tiene `strict: true`. Eso es el piso, no el techo.
+`tsconfig.json` already has `strict: true`. That is the floor, not the ceiling.
 
-## Prohibiciones
+## Prohibitions
 
-| Nunca | Por qué / en su lugar |
+| Never | Why / what instead |
 | --- | --- |
-| `any` (explícito o implícito) | apaga el chequeo en cascada. Usa `unknown` + validación con Zod |
-| `as Inmueble` sobre datos externos | una aserción es una promesa sin verificar. Valida con Zod o un converter |
-| `as any` para "callar" un error | el error es real: arregla el tipo |
-| `@ts-ignore` | si es inevitable, `@ts-expect-error` **con comentario del por qué** |
-| `!` (non-null) en datos de red o Firestore | úsalo solo en env vars ya validadas al arranque |
-| `object`, `Function`, `{}` | tipa la forma real |
-| `enum` | usa union de literales o `as const` (mejor tree-shaking, sin runtime) |
+| `any` (explicit or implicit) | it switches off checking downstream. Use `unknown` + Zod validation |
+| `as Property` over external data | an assertion is an unverified promise. Validate with Zod or a converter |
+| `as any` to "silence" an error | the error is real: fix the type |
+| `@ts-ignore` | if unavoidable, `@ts-expect-error` **with a comment saying why** |
+| `!` (non-null) on network or Firestore data | only use it on env vars already validated at boot |
+| `object`, `Function`, `{}` | type the real shape |
+| `enum` | use a union of literals or `as const` (better tree-shaking, no runtime) |
 
-Excepción única al `!`: acceso a variables de entorno en un módulo que ya falla rápido si
-faltan.
+The single exception for `!`: reading environment variables in a module that already fails fast
+when they are missing.
 
-## Modelos de dominio: un tipo por frontera
+## Domain models: one type per boundary
 
-Distingue **tres formas** del mismo dato y no las mezcles:
+Distinguish **three shapes** of the same data and never mix them:
 
-1. `XInput` — lo que envía el usuario (validado por Zod).
-2. `XDoc` — lo que vive en Firestore (con `Timestamp`, sin `id`).
-3. `X` — lo que consume la UI (con `id`, fechas como `string` ISO, serializable para el
-   RSC payload).
+1. `XInput` — what the user submits (validated by Zod).
+2. `XDoc` — what lives in Firestore (with `Timestamp`, without `id`).
+3. `X` — what the UI consumes (with `id`, dates as ISO `string`, serializable for the RSC
+   payload).
 
 ```ts
-// lib/domain/inmueble.ts
+// features/property/domain/property.ts
 import type { Timestamp } from "firebase-admin/firestore";
 
-export type EstadoInmueble = "borrador" | "disponible" | "arrendado" | "inactivo";
-export type TipoInmueble = "apartamento" | "casa" | "apartaestudio" | "local" | "oficina";
+export type PropertyStatus = "draft" | "available" | "rented" | "inactive";
+export type PropertyType = "apartment" | "house" | "studio" | "retail" | "office";
 
-/** Pesos colombianos, enteros. Nunca float para dinero. */
+/** Colombian pesos, integers. Never a float for money. */
 export type PesosCOP = number & { readonly __brand: "PesosCOP" };
 export const pesos = (n: number): PesosCOP => {
-  if (!Number.isInteger(n) || n < 0) throw new RangeError(`Monto inválido: ${n}`);
+  if (!Number.isInteger(n) || n < 0) throw new RangeError(`Invalid amount: ${n}`);
   return n as PesosCOP;
 };
 
 export type Uid = string & { readonly __brand: "Uid" };
-export type InmuebleId = string & { readonly __brand: "InmuebleId" };
+export type PropertyId = string & { readonly __brand: "PropertyId" };
 
-/** Forma persistida en Firestore. */
-export interface InmuebleDoc {
-  readonly propietarioUid: Uid;
-  readonly titulo: string;
-  readonly tipo: TipoInmueble;
-  readonly estado: EstadoInmueble;
-  readonly canon: PesosCOP;
-  readonly administracion: PesosCOP | null;
-  readonly direccion: { readonly ciudad: string; readonly barrio: string; readonly linea: string };
+/** The shape persisted in Firestore. */
+export interface PropertyDoc {
+  readonly landlordUid: Uid;
+  readonly title: string;
+  readonly type: PropertyType;
+  readonly status: PropertyStatus;
+  readonly rent: PesosCOP;
+  readonly adminFee: PesosCOP | null;
+  readonly address: { readonly city: string; readonly neighborhood: string; readonly line: string };
   readonly areaM2: number;
-  readonly habitaciones: number;
-  readonly banos: number;
-  readonly fotos: readonly string[];
+  readonly bedrooms: number;
+  readonly bathrooms: number;
+  readonly photos: readonly string[];
   readonly createdAt: Timestamp;
   readonly updatedAt: Timestamp;
 }
 
-/** Forma que cruza a los componentes: 100% serializable. */
-export type Inmueble = Omit<InmuebleDoc, "createdAt" | "updatedAt"> & {
-  readonly id: InmuebleId;
+/** The shape that crosses to components: 100% serializable. */
+export type Property = Omit<PropertyDoc, "createdAt" | "updatedAt"> & {
+  readonly id: PropertyId;
   readonly createdAt: string;   // ISO 8601
   readonly updatedAt: string;
 };
 ```
 
-Los **branded types** evitan el bug clásico de pasar un `propietarioUid` donde iba un
-`inquilinoUid`, o un id de inmueble donde iba uno de postulación: ambos son `string` para el
-compilador si no los marcas.
+**Branded types** prevent the classic bug of passing a `landlordUid` where a `tenantUid` was
+expected, or a property id where an application id belonged: to the compiler they are both just
+`string` unless you mark them.
 
-## Uniones discriminadas para estados con datos distintos
+## Discriminated unions for states that carry different data
 
-No modeles con campos opcionales lo que en realidad son estados mutuamente excluyentes.
+Do not model mutually exclusive states with optional fields.
 
 ```ts
-// ❌ invita a leer motivoRechazo cuando fue aprobada
-type Postulacion = { estado: string; motivoRechazo?: string; contratoId?: string };
+// ❌ invites reading rejectionReason on an approved application
+type Application = { status: string; rejectionReason?: string; contractId?: string };
 
-// ✅ el compilador te obliga a cubrir cada caso
-export type Postulacion =
-  | { readonly estado: "pendiente"; readonly id: PostulacionId; readonly enviadaEn: string }
-  | { readonly estado: "aprobada"; readonly id: PostulacionId; readonly contratoId: ContratoId }
-  | { readonly estado: "rechazada"; readonly id: PostulacionId; readonly motivo: string }
-  | { readonly estado: "retirada"; readonly id: PostulacionId; readonly retiradaEn: string };
+// ✅ the compiler forces you to cover every case
+export type Application =
+  | { readonly status: "pending"; readonly id: ApplicationId; readonly submittedAt: string }
+  | { readonly status: "approved"; readonly id: ApplicationId; readonly contractId: ContractId }
+  | { readonly status: "rejected"; readonly id: ApplicationId; readonly reason: string }
+  | { readonly status: "withdrawn"; readonly id: ApplicationId; readonly withdrawnAt: string };
 
-function etiqueta(p: Postulacion): string {
-  switch (p.estado) {
-    case "pendiente": return "En revisión";
-    case "aprobada":  return `Aprobada · contrato ${p.contratoId}`;
-    case "rechazada": return `Rechazada: ${p.motivo}`;
-    case "retirada":  return "Retirada por el inquilino";
-    default: return assertNever(p);       // error de compilación si agregas un estado nuevo
+function label(a: Application): string {
+  switch (a.status) {
+    case "pending":   return "En revisión";
+    case "approved":  return `Aprobada · contrato ${a.contractId}`;
+    case "rejected":  return `Rechazada: ${a.reason}`;
+    case "withdrawn": return "Retirada por el inquilino";
+    default: return assertNever(a);       // compile error when you add a new status
   }
 }
 
 export function assertNever(x: never): never {
-  throw new Error(`Caso no manejado: ${JSON.stringify(x)}`);
+  throw new Error(`Unhandled case: ${JSON.stringify(x)}`);
 }
 ```
 
-## Firestore nunca devuelve datos tipados: usa converters
+(The labels above are user-facing copy, which stays in es-CO — see the language policy in
+`CLAUDE.md`. The keys, the types and everything else are English.)
 
-`snap.data()` es `DocumentData`. Un `as InmuebleDoc` es mentira. Encapsula la conversión en un
-solo lugar y valida ahí.
+## Firestore never returns typed data: use converters
+
+`snap.data()` is `DocumentData`. An `as PropertyDoc` is a lie. Encapsulate the conversion in one
+place and validate there.
 
 ```ts
-// lib/firebase/converters.ts (cliente, SDK modular)
+// features/property/data/converters.ts (client, modular SDK)
 import {
   type FirestoreDataConverter,
   type QueryDocumentSnapshot,
   type WithFieldValue,
 } from "firebase/firestore";
-import { inmuebleDocSchema } from "@/lib/schemas/inmueble";
+import { propertyDocSchema } from "../validations/property";
 
-export const inmuebleConverter: FirestoreDataConverter<Inmueble, InmuebleDoc> = {
-  toFirestore(inmueble: WithFieldValue<Inmueble>) {
-    const { id: _id, createdAt: _c, updatedAt: _u, ...resto } = inmueble as Inmueble;
-    return resto;
+export const propertyConverter: FirestoreDataConverter<Property, PropertyDoc> = {
+  toFirestore(property: WithFieldValue<Property>) {
+    const { id: _id, createdAt: _c, updatedAt: _u, ...rest } = property as Property;
+    return rest;
   },
-  fromFirestore(snap: QueryDocumentSnapshot): Inmueble {
-    const parsed = inmuebleDocSchema.safeParse(snap.data());
+  fromFirestore(snap: QueryDocumentSnapshot): Property {
+    const parsed = propertyDocSchema.safeParse(snap.data());
     if (!parsed.success) {
-      // dato corrupto en la BD: falla ruidosamente en lugar de propagar undefined
-      throw new Error(`Inmueble ${snap.id} inválido: ${parsed.error.message}`);
+      // corrupt data in the DB: fail loudly instead of propagating undefined
+      throw new Error(`Property ${snap.id} is invalid: ${parsed.error.message}`);
     }
     return {
       ...parsed.data,
-      id: snap.id as InmuebleId,
+      id: snap.id as PropertyId,
       createdAt: parsed.data.createdAt.toDate().toISOString(),
       updatedAt: parsed.data.updatedAt.toDate().toISOString(),
     };
   },
 };
 
-// uso: el tipo fluye solo
-const ref = doc(db, "inmuebles", id).withConverter(inmuebleConverter);
-const inmueble = (await getDoc(ref)).data();   // Inmueble | undefined
+// usage: the type flows on its own
+const ref = doc(db, "properties", id).withConverter(propertyConverter);
+const property = (await getDoc(ref)).data();   // Property | undefined
 ```
 
-En el servidor, el equivalente es `adminDb.collection("inmuebles").withConverter(...)`.
+On the server the equivalent is `adminDb.collection("properties").withConverter(...)`.
 
-Deriva los tipos de dominio **desde el schema de Zod** donde puedas, para no mantener dos
-definiciones desincronizadas: `export type InmuebleInput = z.infer<typeof inmuebleSchema>`
-(skill `zod-react-hook-form`).
+Derive the domain types **from the Zod schema** wherever you can, so you do not maintain two
+definitions that drift apart: `export type PropertyInput = z.infer<typeof propertySchema>` (the
+`zod-react-hook-form` skill).
 
-## Patrones útiles
+## Useful patterns
 
 ```ts
-// resultado explícito en vez de throw para errores esperables
+// an explicit result instead of throwing for expected errors
 export type Result<T, E = string> =
   | { readonly ok: true; readonly value: T }
   | { readonly ok: false; readonly error: E };
 
-// entrada externa siempre unknown
+// external input is always unknown
 export async function POST(request: Request) {
   const body: unknown = await request.json();
-  const parsed = schema.safeParse(body);          // ← única puerta de entrada
+  const parsed = schema.safeParse(body);          // ← the single entry point
 }
 
-// readonly por defecto en props y datos de dominio
-type Props = { readonly items: readonly Inmueble[] };
+// readonly by default on props and domain data
+type Props = { readonly items: readonly Property[] };
 
-// satisfies: valida sin ensanchar el tipo
+// satisfies: validates without widening the type
 export const LABELS = {
-  pendiente: "En revisión",
-  aprobada: "Aprobada",
-  rechazada: "Rechazada",
-  retirada: "Retirada",
-} satisfies Record<Postulacion["estado"], string>;
+  pending: "En revisión",
+  approved: "Aprobada",
+  rejected: "Rechazada",
+  withdrawn: "Retirada",
+} satisfies Record<Application["status"], string>;
 ```
 
-## Flags recomendados
+## Recommended flags
 
-Al endurecer `tsconfig.json`, añade (y arregla lo que rompa, no lo silencies):
+When tightening `tsconfig.json`, add these (and fix what breaks, do not silence it):
 
 ```jsonc
 {
   "compilerOptions": {
     "strict": true,
-    "noUncheckedIndexedAccess": true,   // arr[0] es T | undefined — clave con snap.docs
+    "noUncheckedIndexedAccess": true,   // arr[0] is T | undefined — key with snap.docs
     "noImplicitOverride": true,
     "exactOptionalPropertyTypes": true,
     "noFallthroughCasesInSwitch": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
-    "verbatimModuleSyntax": true        // fuerza import type explícito
+    "verbatimModuleSyntax": true        // forces an explicit import type
   }
 }
 ```
 
-## Verificación
+## Verification
 
-Antes de dar por terminado un cambio de tipos:
+Before calling a type change done:
 
 ```bash
-pnpm exec tsc --noEmit
+pnpm typecheck
 pnpm lint
 ```
 
-`tsc --noEmit` limpio no es opcional: `next build` con Turbopack no siempre reporta todos los
-errores de tipo del proyecto.
+A clean `tsc --noEmit` is not optional: `next build` with Turbopack does not always report every
+type error in the project.
