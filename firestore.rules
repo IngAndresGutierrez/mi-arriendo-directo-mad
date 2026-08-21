@@ -1,0 +1,195 @@
+rules_version = '2';
+
+// =============================================================================
+// miarriendodirecto.com — Security Rules
+//
+// Deny-by-default. El cliente es hostil: si una regla lo permite, alguien lo hará.
+// Datos sensibles (documentos de identidad, ingresos, contratos, pagos) NO son
+// listables por el cliente. Todo lo que solo puede hacer el backend usa
+// `if false` y se ejecuta con el Admin SDK, que ignora estas reglas.
+//
+// Probar antes de desplegar (requiere JDK 21+ para el emulador):
+//   firebase emulators:exec --only firestore --project demo-mad "<comando de tests>"
+// =============================================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------- helpers --------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function uid() {
+      return request.auth.uid;
+    }
+    function isOwner(userId) {
+      return isSignedIn() && uid() == userId;
+    }
+    // Roles desde custom claims: los pone el Admin SDK, el cliente no los falsifica.
+    function hasRole(rol) {
+      return isSignedIn() && request.auth.token.rol == rol;
+    }
+    function isPropietario() { return hasRole('propietario'); }
+    function isAdmin()       { return hasRole('admin'); }
+
+    function incoming() { return request.resource.data; }
+    function current()  { return resource.data; }
+
+    function changedKeys() {
+      return incoming().diff(current()).affectedKeys();
+    }
+    function onlyChanged(keys) {
+      return changedKeys().hasOnly(keys);
+    }
+    function unchanged(campos) {
+      return !changedKeys().hasAny(campos);
+    }
+
+    // ------------------------------- usuarios -------------------------------
+    match /usuarios/{userId} {
+      allow get:  if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();                        // nadie enumera usuarios
+
+      allow create: if isOwner(userId)
+                    && incoming().keys().hasOnly(
+                         ['nombre', 'email', 'telefono', 'rol', 'createdAt'])
+                    && incoming().nombre is string
+                    && incoming().nombre.size() >= 3
+                    && incoming().nombre.size() <= 120
+                    && incoming().email == request.auth.token.email
+                    && incoming().rol in ['inquilino', 'propietario'];
+
+      // el rol NO lo cambia el usuario: eso es un custom claim vía Admin SDK
+      allow update: if isOwner(userId)
+                    && onlyChanged(['nombre', 'telefono', 'updatedAt']);
+      allow delete: if isAdmin();
+
+      // Documentos de identidad: subcolección aparte para que un `get` del perfil
+      // nunca exponga la cédula. Append-only para el dueño.
+      match /documentos/{documentoId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create: if isOwner(userId) && documentoValido(userId);
+        allow update, delete: if isAdmin();
+      }
+      function documentoValido(userId) {
+        return incoming().keys().hasOnly(['tipo', 'storagePath', 'subidoEn'])
+            && incoming().tipo in ['cedula_frente', 'cedula_reverso',
+                                   'certificado_laboral', 'extracto_bancario']
+            && incoming().storagePath is string
+            && incoming().storagePath.matches('^postulantes/' + userId + '/.*');
+      }
+    }
+
+    // ------------------------------- inmuebles ------------------------------
+    match /inmuebles/{inmuebleId} {
+      // Catálogo público: solo lo publicado; el dueño y admin ven todo lo suyo.
+      //
+      // OJO: un `list` sin filtro se deniega SIEMPRE (incluso sobre colección vacía),
+      // porque la regla debe poder verificarse a partir de la query. El catálogo
+      // público debe consultar SIEMPRE con where("estado", "==", "disponible").
+      allow get, list: if current().estado == 'disponible'
+                       || esDuenoInmueble()
+                       || isAdmin();
+
+      allow create: if isPropietario()
+                    && incoming().propietarioUid == uid()
+                    && inmuebleValido();
+      allow update: if (esDuenoInmueble() && inmuebleValido()
+                        && unchanged(['propietarioUid', 'createdAt']))
+                    || isAdmin();
+      allow delete: if esDuenoInmueble() || isAdmin();
+
+      function esDuenoInmueble() {
+        return isSignedIn() && current().propietarioUid == uid();
+      }
+      function inmuebleValido() {
+        return incoming().titulo is string
+            && incoming().titulo.size() >= 5
+            && incoming().titulo.size() <= 140
+            && incoming().tipo in ['apartamento', 'casa', 'apartaestudio', 'local', 'oficina']
+            && incoming().estado in ['borrador', 'disponible', 'arrendado', 'inactivo']
+            // dinero: enteros en pesos, nunca float
+            && incoming().canon is int
+            && incoming().canon > 0
+            && incoming().canon <= 1000000000
+            && incoming().direccion.ciudad is string
+            && incoming().direccion.ciudad.size() <= 80
+            && incoming().areaM2 is number
+            && incoming().areaM2 > 0
+            && incoming().habitaciones is int
+            && incoming().banos is int;
+      }
+    }
+
+    // ----------------------------- postulaciones ----------------------------
+    // Visible SOLO para el inquilino que la creó y el propietario del inmueble.
+    match /postulaciones/{postulacionId} {
+      allow get:  if esInquilino() || esPropietarioDelInmueble() || isAdmin();
+      // `list` acotado: el cliente no puede barrer la colección completa
+      allow list: if isAdmin()
+                  || (isSignedIn()
+                      && request.query.limit <= 50
+                      && (esInquilino() || esPropietarioDelInmueble()));
+
+      allow create: if isSignedIn()
+                    && incoming().inquilinoUid == uid()
+                    && incoming().estado == 'pendiente'   // nadie se auto-aprueba
+                    && incoming().inmuebleId is string
+                    && exists(/databases/$(database)/documents/inmuebles/$(incoming().inmuebleId))
+                    // se desnormaliza el dueño para no gastar un get() en cada regla
+                    && incoming().propietarioUid ==
+                       get(/databases/$(database)/documents/inmuebles/$(incoming().inmuebleId))
+                         .data.propietarioUid;
+
+      // el inquilino solo puede retirar; aprobar/rechazar es del propietario
+      allow update: if (esInquilino()
+                        && onlyChanged(['estado', 'updatedAt'])
+                        && incoming().estado == 'retirada'
+                        && current().estado == 'pendiente')
+                    || (esPropietarioDelInmueble()
+                        && onlyChanged(['estado', 'notas', 'updatedAt'])
+                        && incoming().estado in ['aprobada', 'rechazada']
+                        && current().estado == 'pendiente')
+                    || isAdmin();
+
+      allow delete: if isAdmin();
+
+      function esInquilino() {
+        return isSignedIn() && current().inquilinoUid == uid();
+      }
+      function esPropietarioDelInmueble() {
+        return isSignedIn() && current().propietarioUid == uid();
+      }
+    }
+
+    // -------------------------- contratos y pagos ---------------------------
+    // Solo lectura para las partes. Los escribe el backend con el Admin SDK.
+    match /contratos/{contratoId} {
+      allow get:  if esParteDelContrato() || isAdmin();
+      allow list: if false;                    // se consultan desde el servidor
+      allow create, update, delete: if false;  // solo Admin SDK
+
+      function esParteDelContrato() {
+        return isSignedIn()
+            && (current().inquilinoUid == uid() || current().propietarioUid == uid());
+      }
+
+      match /pagos/{pagoId} {
+        allow get, list: if isAdmin()
+                         || (isSignedIn() && esParteDelContratoPadre());
+        allow write: if false;                 // los pagos los registra el backend
+
+        function esParteDelContratoPadre() {
+          let contrato = get(/databases/$(database)/documents/contratos/$(contratoId)).data;
+          return contrato.inquilinoUid == uid() || contrato.propietarioUid == uid();
+        }
+      }
+    }
+
+    // ------------------------- cierre explícito -----------------------------
+    // Cualquier ruta no declarada arriba queda denegada.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

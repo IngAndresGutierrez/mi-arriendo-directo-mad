@@ -1,0 +1,66 @@
+# miarriendodirecto.com — Reglas para asistentes de IA
+# Espejo de CLAUDE.md para Cursor / Windsurf. Si divergen, CLAUDE.md manda.
+# Guías detalladas por área: .claude/skills/<nombre>/SKILL.md
+
+## Stack real (no asumas otras versiones)
+- Next.js 16.3.2 — App Router, Turbopack por defecto, React 19.2
+- TypeScript strict, Tailwind CSS v4 (CSS-first, SIN tailwind.config.js), shadcn/ui
+- Firebase JS SDK modular v12 (cliente) + firebase-admin v14 (servidor)
+- Zod v4 + react-hook-form v7, pnpm
+
+Antes de escribir código de framework, lee la doc versionada en
+`node_modules/next/dist/docs/01-app/`. Tu conocimiento de Next.js 14/15 está desactualizado.
+
+## SEGURIDAD — reglas absolutas
+1. NUNCA pongas un secreto en código del cliente. Solo `NEXT_PUBLIC_FIREBASE_*` (config
+   pública del SDK web) puede estar en el bundle del navegador.
+2. NUNCA prefijes con `NEXT_PUBLIC_` una credencial de service account. `FIREBASE_PRIVATE_KEY`
+   y `FIREBASE_CLIENT_EMAIL` son solo servidor, se leen de variables de entorno, jamás se
+   hardcodean ni se commitean ni se imprimen en logs.
+3. NUNCA importes `firebase-admin` (ni `lib/firebase/admin.ts`) desde un archivo con
+   `"use client"`. Ese módulo empieza con `import "server-only"`.
+4. NUNCA devuelvas desde el servidor objetos del Admin SDK, tokens, ni el error crudo de Zod.
+   Serializa a POJO plano y filtra.
+5. NUNCA escribas Security Rules permisivas: nada de `allow read, write: if true;` ni de
+   `if request.auth != null;` como regla global. Deny-by-default, `get` separado de `list`.
+6. NUNCA guardes cédulas, ingresos ni contratos en `localStorage`, `searchParams`, logs, ni en
+   un `"use cache"` compartido entre usuarios.
+7. Toda Server Action / Route Handler: autenticar → validar con Zod → autorizar contra el dato
+   real → invariantes → escribir. El `uid` sale de la sesión, nunca del `FormData`.
+
+## Next.js 16 (errores frecuentes)
+- `cookies()`, `headers()`, `params`, `searchParams` son ASÍNCRONOS: `await`.
+- `middleware.ts` ya no existe → `proxy.ts` con `export function proxy` (runtime nodejs).
+- `revalidateTag(tag, 'max')` requiere el segundo argumento; `updateTag(tag)` en Server
+  Actions para read-your-writes.
+- `cacheComponents: true` en lugar de `experimental.ppr`; `"use cache"` en lugar de
+  `unstable_cache`; `cacheLife`/`cacheTag` sin prefijo `unstable_`.
+- `PageProps` / `LayoutProps` / `RouteContext` son tipos globales generados: no los importes.
+- No uses `runtime = "edge"`: el default Node soporta streaming y `firebase-admin`.
+- Server Components por defecto; `"use client"` lo más abajo posible del árbol.
+
+## Firebase
+- Solo API modular: `import { doc, getDoc } from "firebase/firestore"`. PROHIBIDO v8/compat
+  (`firebase.firestore()`, `db.collection(...).doc(...)`, `firebase/compat/*`).
+- `initializeApp` con guard `getApps().length ? getApp() : initializeApp(...)`.
+- Lectura en Server Components → Admin SDK. Tiempo real y formularios → SDK de cliente.
+- Sesión: idToken del cliente → Route Handler → session cookie httpOnly con Admin SDK.
+- Dinero en enteros COP. Timestamps con `serverTimestamp()` / `FieldValue.serverTimestamp()`.
+
+## Tipos
+- Prohibido `any`, `as any`, `@ts-ignore`, y castear datos de Firestore. Entrada externa es
+  `unknown` y se valida con Zod. Converters (`withConverter`) para tipar documentos.
+- Uniones discriminadas para estados (`Postulacion`), branded types para ids y montos.
+- `pnpm exec tsc --noEmit` limpio antes de terminar.
+
+## UI (MAD UI)
+- Púrpura `#2D124D` = estructura, encabezados, bordes activos.
+- Cian `#00E5FF` = CTA principal, badge "Aprobado", barras de progreso, focus ring.
+- Fondo `#F8F9FA`; tarjetas blancas encima.
+- Nunca hex suelto en un componente: usa tokens semánticos (`bg-primary`, `bg-accent`,
+  `text-accent-foreground`). Si falta un token, agrégalo a `app/globals.css`.
+- Texto blanco sobre cian NO pasa contraste AA: sobre cian va púrpura oscuro.
+- Tailwind v4: la config vive en `@theme` dentro del CSS. No crees `tailwind.config.js`.
+- shadcn/ui se instala como código (`pnpm dlx shadcn@latest add ...`); compón con `cn()` y
+  `cva`. No dejes `TODO` ni comentarios inconclusos.
+- Copy en español de Colombia; montos con `Intl.NumberFormat("es-CO", { currency: "COP" })`.

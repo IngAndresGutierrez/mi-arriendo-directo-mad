@@ -1,0 +1,31 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "inmuebles",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ciudad", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "postulaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "inquilinoUid", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "postulaciones",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "propietarioUid", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}

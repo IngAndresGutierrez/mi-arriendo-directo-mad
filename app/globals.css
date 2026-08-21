@@ -1,8 +1,146 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* ==========================================================================
+   MAD UI — Sistema de diseño de miarriendodirecto.com
+   Púrpura profundo #2D124D  ·  Cian eléctrico #00E5FF  ·  Fondo #F8F9FA
+   Nunca uses estos hex directamente en un componente: consume los tokens
+   semánticos de abajo (bg-primary, bg-accent, text-accent-foreground, ...).
+   ========================================================================== */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* --- paleta de marca (no usar directo en componentes) --- */
+  --brand-purple-950: #1a0a2e;
+  --brand-purple-900: #2d124d; /* PÚRPURA DE MARCA */
+  --brand-purple-800: #3d1a66;
+  --brand-purple-700: #4e2280;
+  --brand-purple-600: #6330a3;
+  --brand-purple-500: #7c45c4;
+  --brand-purple-300: #bfa0e6;
+  --brand-purple-100: #efe6fa;
+  --brand-purple-50: #f8f4fe;
+
+  --brand-cyan-700: #008a99;
+  --brand-cyan-600: #00b8cc;
+  --brand-cyan-500: #00e5ff; /* CIAN DE MARCA */
+  --brand-cyan-300: #8af3ff;
+  --brand-cyan-100: #e0fcff;
+
+  /* --- tokens semánticos --- */
+  --radius: 0.625rem;
+
+  --background: #f8f9fa; /* blanco roto / arena */
+  --foreground: var(--brand-purple-950);
+  --card: #ffffff; /* tarjetas blancas sobre el fondo arena */
+  --card-foreground: var(--brand-purple-950);
+  --popover: #ffffff;
+  --popover-foreground: var(--brand-purple-950);
+
+  /* estructura, encabezados, bordes activos */
+  --primary: var(--brand-purple-900);
+  --primary-foreground: #ffffff;
+
+  --secondary: var(--brand-purple-100);
+  --secondary-foreground: var(--brand-purple-900);
+
+  /* CTA principal, badge "Aprobado", barras de progreso */
+  --accent: var(--brand-cyan-500);
+  --accent-foreground: var(--brand-purple-900); /* texto OSCURO sobre cian */
+
+  --muted: #f1f0f4;
+  --muted-foreground: #5b5468;
+
+  --destructive: #c81e1e;
+  --destructive-foreground: #ffffff;
+
+  --border: #e4e1ea;
+  --input: #e4e1ea;
+  --ring: var(--brand-cyan-600);
+
+  --chart-1: var(--brand-cyan-500);
+  --chart-2: var(--brand-purple-600);
+  --chart-3: var(--brand-purple-900);
+  --chart-4: var(--brand-cyan-700);
+  --chart-5: var(--brand-purple-300);
+
+  /* sidebar púrpura: estructura de la app autenticada */
+  --sidebar: var(--brand-purple-900);
+  --sidebar-foreground: #f5f3ff;
+  --sidebar-primary: var(--brand-cyan-500);
+  --sidebar-primary-foreground: var(--brand-purple-900);
+  --sidebar-accent: var(--brand-purple-800);
+  --sidebar-accent-foreground: #f5f3ff;
+  --sidebar-border: color-mix(in oklab, #ffffff 12%, transparent);
+  --sidebar-ring: var(--brand-cyan-500);
+
+  /* estados del dominio: semáforo propio, ni púrpura ni cian */
+  --estado-pendiente: #b45309;
+  --estado-pendiente-bg: #fffbeb;
+  --estado-aprobada: #15803d;
+  --estado-aprobada-bg: #ecfdf5;
+  --estado-rechazada: #b91c1c;
+  --estado-rechazada-bg: #fef2f2;
+  --estado-al-dia: var(--brand-cyan-700);
+  --estado-al-dia-bg: var(--brand-cyan-100);
+  --estado-en-mora: #b91c1c;
+  --estado-en-mora-bg: #fef2f2;
+}
+
+.dark {
+  --background: var(--brand-purple-950);
+  --foreground: #f5f3ff;
+  --card: var(--brand-purple-900);
+  --card-foreground: #f5f3ff;
+  --popover: var(--brand-purple-900);
+  --popover-foreground: #f5f3ff;
+
+  --primary: var(--brand-cyan-500);
+  --primary-foreground: var(--brand-purple-950);
+
+  --secondary: var(--brand-purple-800);
+  --secondary-foreground: #f5f3ff;
+
+  --accent: var(--brand-cyan-500);
+  --accent-foreground: var(--brand-purple-950);
+
+  --muted: var(--brand-purple-800);
+  --muted-foreground: #c4b5fd;
+
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+
+  --border: color-mix(in oklab, #ffffff 12%, transparent);
+  --input: color-mix(in oklab, #ffffff 16%, transparent);
+  --ring: var(--brand-cyan-500);
+
+  --chart-1: var(--brand-cyan-500);
+  --chart-2: var(--brand-purple-300);
+  --chart-3: var(--brand-cyan-300);
+  --chart-4: var(--brand-purple-500);
+  --chart-5: var(--brand-cyan-700);
+
+  --sidebar: var(--brand-purple-950);
+  --sidebar-foreground: #f5f3ff;
+  --sidebar-primary: var(--brand-cyan-500);
+  --sidebar-primary-foreground: var(--brand-purple-950);
+  --sidebar-accent: var(--brand-purple-800);
+  --sidebar-accent-foreground: #f5f3ff;
+  --sidebar-border: color-mix(in oklab, #ffffff 12%, transparent);
+  --sidebar-ring: var(--brand-cyan-500);
+
+  --estado-pendiente: #fbbf24;
+  --estado-pendiente-bg: color-mix(in oklab, #fbbf24 16%, transparent);
+  --estado-aprobada: #4ade80;
+  --estado-aprobada-bg: color-mix(in oklab, #4ade80 16%, transparent);
+  --estado-rechazada: #f87171;
+  --estado-rechazada-bg: color-mix(in oklab, #f87171 16%, transparent);
+  --estado-al-dia: var(--brand-cyan-300);
+  --estado-al-dia-bg: color-mix(in oklab, var(--brand-cyan-500) 16%, transparent);
+  --estado-en-mora: #f87171;
+  --estado-en-mora-bg: color-mix(in oklab, #f87171 16%, transparent);
 }
 
 @theme inline {
@@ -10,17 +148,70 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-geist-sans);
+
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* utilidades de estado: bg-estado-aprobada-bg, text-estado-aprobada, ... */
+  --color-estado-pendiente: var(--estado-pendiente);
+  --color-estado-pendiente-bg: var(--estado-pendiente-bg);
+  --color-estado-aprobada: var(--estado-aprobada);
+  --color-estado-aprobada-bg: var(--estado-aprobada-bg);
+  --color-estado-rechazada: var(--estado-rechazada);
+  --color-estado-rechazada-bg: var(--estado-rechazada-bg);
+  --color-estado-al-dia: var(--estado-al-dia);
+  --color-estado-al-dia-bg: var(--estado-al-dia-bg);
+  --color-estado-en-mora: var(--estado-en-mora);
+  --color-estado-en-mora-bg: var(--estado-en-mora-bg);
+
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-}
-
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
 }
