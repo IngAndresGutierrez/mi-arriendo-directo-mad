@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthShell } from "@/shared/shell/auth-shell";
 import { safeRedirect } from "@/shared/auth/routes";
 import { requireUser } from "@/shared/auth/session";
 import { getProfile } from "@/lib/data/profile";

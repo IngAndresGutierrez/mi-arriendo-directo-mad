@@ -4,10 +4,10 @@ import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeftIcon } from "lucide-react";
 
-import { FormAlert } from "@/components/auth/form-alert";
+import { FormAlert } from "@/shared/form/form-alert";
 import { PasswordRequirements } from "@/components/auth/password-requirements";
-import { SubmitButton } from "@/components/auth/submit-button";
-import { TextField } from "@/components/ui/text-field";
+import { SubmitButton } from "@/shared/form/submit-button";
+import { TextField } from "@/shared/form/text-field";
 import { signupSchema, type SignupInput } from "@/lib/validations/auth";
 
 const REQUIREMENTS_ID = "password-requirements";

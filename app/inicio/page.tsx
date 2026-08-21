@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
 import { HouseIcon, SparklesIcon } from "lucide-react";
 
-import { AppSidebar } from "@/components/app/app-sidebar";
-import { ComingSoonCard } from "@/components/app/coming-soon-card";
+import { AppSidebar } from "@/shared/shell/app-sidebar";
+import { ComingSoonCard } from "@/shared/ui/coming-soon-card";
 import { ContractsCard } from "@/components/app/contracts-card";
-import { SupportCard } from "@/components/app/support-card";
-import { TooltipProvider } from "@/components/ui/tooltip";
+import { SupportCard } from "@/shared/shell/support-card";
+import { TooltipProvider } from "@/shared/ui/tooltip";
 import { requireCompleteProfile } from "@/shared/auth/session";
 import { getUserContracts } from "@/lib/data/contracts";
 import { getProfile } from "@/lib/data/profile";
