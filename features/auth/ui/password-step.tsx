@@ -20,7 +20,7 @@ type PasswordStepProps = {
   onSubmitPassword: (password: string) => Promise<void>;
 };
 
-/** Paso 2 del registro: crear la contraseña de la cuenta. */
+/** Signup step 2: create the account password. */
 export function PasswordStep({
   email,
   error,
@@ -39,8 +39,8 @@ export function PasswordStep({
     defaultValues: { password: "" },
   });
 
-  // `useWatch` en lugar de `watch()`: el segundo devuelve una función que el React Compiler
-  // no puede memoizar de forma segura.
+  // `useWatch` instead of `watch()`: the latter returns a function the React Compiler
+  // cannot memoize safely.
   const password = useWatch({ control, name: "password" }) ?? "";
   const isSaving = isSubmitting || isBusy;
 
@@ -76,8 +76,8 @@ export function PasswordStep({
           type="password"
           autoComplete="new-password"
           placeholder="••••••••"
-          // El checklist describe el campo; el error solo aparece si algo se escapa de él
-          // (por ejemplo, exceder el largo máximo).
+          // The checklist describes the field; the error only shows when something slips
+          // past it (exceeding the maximum length, for instance).
           hint={<PasswordRequirements id={REQUIREMENTS_ID} value={password} />}
           error={errors.password?.message}
           disabled={isSaving}

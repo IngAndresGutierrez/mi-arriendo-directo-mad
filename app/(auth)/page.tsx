@@ -17,7 +17,7 @@ export default async function LoginPage(props: PageProps<"/">) {
   const { next } = await props.searchParams;
   const redirectTo = safeRedirect(next);
 
-  // Quien ya tiene sesión no necesita ver el formulario.
+  // Anyone who already has a session does not need to see the form.
   const user = await getSessionUser();
   if (user) redirect(redirectTo);
 

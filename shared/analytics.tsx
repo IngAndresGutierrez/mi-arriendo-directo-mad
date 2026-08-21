@@ -3,11 +3,10 @@
 import { useEffect } from "react";
 
 /**
- * Inicializa Google Analytics **después** de la hidratación y con `import()` dinámico:
- * el chunk de Firebase Analytics no entra en el bundle inicial ni bloquea la interacción.
+ * Initializes Google Analytics **after** hydration and through a dynamic `import()`: the
+ * Firebase Analytics chunk stays out of the initial bundle and never blocks interaction.
  *
- * No renderiza nada. La recolección de vistas de página la hace Firebase por su cuenta
- * una vez inicializado.
+ * Renders nothing. Page view collection is handled by Firebase itself once initialized.
  */
 export function Analytics() {
   useEffect(() => {

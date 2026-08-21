@@ -1,13 +1,13 @@
 import Image from "next/image";
 
-/** Dimensiones intrínsecas de `public/logo.png`. Un solo sitio para estos números. */
+/** Intrinsic dimensions of `public/logo.png`. One single place for these numbers. */
 const INTRINSIC_WIDTH = 2172;
 const INTRINSIC_HEIGHT = 724;
 
 type LogoProps = {
-  /** Ancho renderizado en px. Alimenta también `sizes`, para que no se dupliquen. */
+  /** Rendered width in px. It also feeds `sizes`, so the two cannot diverge. */
   width: number;
-  /** `true` solo en el logo visible sin hacer scroll: precarga la imagen. */
+  /** `true` only for the logo visible without scrolling: it preloads the image. */
   priority?: boolean;
   className?: string;
 };

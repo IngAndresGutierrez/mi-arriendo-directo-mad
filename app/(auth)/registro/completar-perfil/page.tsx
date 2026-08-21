@@ -19,11 +19,11 @@ export default async function CompleteProfilePage(
   const { next } = await props.searchParams;
   const redirectTo = safeRedirect(next);
 
-  // `requireUser` y no `requireCompleteProfile`: aquí es donde el perfil se completa, así
-  // que exigirlo produciría un bucle de redirección.
+  // `requireUser` and not `requireCompleteProfile`: this is where the profile gets
+  // completed, so requiring it would cause a redirect loop.
   const user = await requireUser();
 
-  // Quien ya lo completó no tiene nada que hacer en esta pantalla.
+  // Anyone who already completed it has no business on this screen.
   if (await getProfile(user.uid)) redirect(redirectTo);
 
   return (

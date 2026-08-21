@@ -1,13 +1,13 @@
 /**
- * Datos geográficos y de contacto de Colombia.
+ * Colombian geography and contact data.
  *
- * La división territorial es departamento + ciudad: no hay "estado/provincia" ni código
- * postal, que en Colombia apenas se usa.
+ * The territorial division is department + city: there is no "state/province" and no postal
+ * code, which is barely used in Colombia.
  *
- * Los indicativos telefónicos y las reglas por país viven en `shared/phone/countries.ts`.
+ * Dial codes and per-country rules live in `shared/phone/countries.ts`.
  */
 
-/** 32 departamentos más el Distrito Capital, en orden alfabético. */
+/** The 32 departments plus the Capital District, alphabetically. */
 export const DEPARTMENTS = [
   "Amazonas",
   "Antioquia",
@@ -47,16 +47,16 @@ export const DEPARTMENTS = [
 export type Department = (typeof DEPARTMENTS)[number];
 
 /**
- * Opciones de género.
+ * Gender options.
  *
- * Es un dato sensible bajo la Ley 1581 de 2012, así que "Prefiero no decirlo" es una opción
- * de primera clase, no una omisión.
+ * Sensitive data under Colombian Law 1581 of 2012, so "prefer not to say" is a first-class
+ * option, not an omission.
  */
 export const GENDERS = ["female", "male", "non_binary", "prefer_not_to_say"] as const;
 
 export type Gender = (typeof GENDERS)[number];
 
-// Las etiquetas son copy: el producto le habla al usuario en es-CO.
+// The labels are copy: the product speaks to the user in es-CO.
 const GENDER_LABELS: Readonly<Record<Gender, string>> = {
   female: "Femenino",
   male: "Masculino",
@@ -64,22 +64,22 @@ const GENDER_LABELS: Readonly<Record<Gender, string>> = {
   prefer_not_to_say: "Prefiero no decirlo",
 };
 
-/** Derivado de `GENDERS`: la lista y las etiquetas no pueden desincronizarse. */
+/** Derived from `GENDERS`: the list and the labels cannot drift apart. */
 export const GENDER_OPTIONS = GENDERS.map((value) => ({
   value,
   label: GENDER_LABELS[value],
 }));
 
 /**
- * Rol con el que nace toda cuenta.
+ * The role every account is born with.
  *
- * El onboarding ya no pregunta el rol, así que se aplica el menos privilegiado: un
- * inquilino no puede publicar inmuebles. Pasar a `propietario` requiere un flujo aparte
- * (el rol vive en custom claims y solo lo cambia el Admin SDK).
+ * Onboarding no longer asks for the role, so the least privileged one applies: a tenant
+ * cannot publish properties. Becoming a `landlord` needs a separate flow (the role lives
+ * in custom claims and only the Admin SDK changes it).
  */
 export const DEFAULT_USER_ROLE = "tenant";
 
-/** Edad mínima para firmar un contrato de arrendamiento en Colombia. */
+/** Minimum age to sign a rental contract in Colombia. */
 export const MIN_AGE = 18;
-/** Tope defensivo: descarta fechas absurdas o tecleadas mal. */
+/** Defensive cap: discards absurd or mistyped dates. */
 export const MAX_AGE = 110;

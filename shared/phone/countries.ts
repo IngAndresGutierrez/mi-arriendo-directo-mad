@@ -1,16 +1,16 @@
 /**
- * Países para el selector de teléfono.
+ * Countries for the phone selector.
  *
- * El producto opera en Colombia, así que **Colombia es el valor por defecto** y encabeza la
- * lista. Los demás existen porque hay propietarios que viven fuera e inquilinos extranjeros:
- * su celular no es colombiano.
+ * The product operates in Colombia, so **Colombia is the default** and heads the list. The
+ * rest exist because some landlords live abroad and some tenants are foreigners: their
+ * mobile number is not Colombian.
  *
- * Lista curada, no exhaustiva: cada indicativo de aquí está verificado. Preferimos una lista
- * corta y correcta a 200 países con códigos inventados. Para agregar uno, añade la entrada
- * y —si su formato es estricto— su regla en `PHONE_RULES`.
+ * A curated list, not an exhaustive one: every dial code here is verified. A short correct
+ * list beats 200 countries with made-up codes. To add one, add the entry and — if its
+ * format is strict — its rule in `PHONE_RULES`.
  *
- * El `iso` es la clave, no el indicativo: `+1` lo comparten Estados Unidos, Canadá, Puerto
- * Rico y República Dominicana.
+ * The `iso` is the key, not the dial code: `+1` is shared by the United States, Canada,
+ * Puerto Rico and the Dominican Republic.
  */
 export type Country = {
   readonly iso: string;
@@ -50,10 +50,10 @@ export const COUNTRIES: readonly Country[] = [
   { iso: "GB", name: "Reino Unido", dialCode: "+44", flag: "🇬🇧" },
 ];
 
-/** País preseleccionado. */
+/** Pre-selected country. */
 export const DEFAULT_COUNTRY_ISO = "CO";
 
-/** Tupla de códigos ISO para `z.enum`, sin casts. */
+/** Tuple of ISO codes for `z.enum`, no casts. */
 export const COUNTRY_ISO_CODES = COUNTRIES.map((country) => country.iso) as [string, ...string[]];
 
 const BY_ISO = new Map(COUNTRIES.map((country) => [country.iso, country]));
@@ -65,9 +65,9 @@ export function findCountry(iso: string): Country | undefined {
 type PhoneRule = { readonly pattern: RegExp; readonly message: string; readonly example: string };
 
 /**
- * Reglas por país. Solo definimos la de Colombia con precisión: es el caso que nos importa y
- * el que podemos validar sin equivocarnos. Para el resto usamos una regla genérica en vez de
- * inventar formatos nacionales que no podemos verificar.
+ * Per-country rules. Only Colombia is defined precisely: it is the case that matters and the
+ * one we can validate without getting it wrong. Everything else falls back to a generic rule
+ * instead of inventing national formats we cannot verify.
  */
 const PHONE_RULES: Readonly<Record<string, PhoneRule>> = {
   CO: {
@@ -87,7 +87,7 @@ export function phoneRuleFor(iso: string): PhoneRule {
   return PHONE_RULES[iso] ?? GENERIC_PHONE_RULE;
 }
 
-/** Número en formato E.164, que es como se almacena: `+573001234567`. */
+/** Number in E.164, which is how it is stored: `+573001234567`. */
 export function toE164(iso: string, nationalDigits: string): string | null {
   const country = findCountry(iso);
   if (!country) return null;

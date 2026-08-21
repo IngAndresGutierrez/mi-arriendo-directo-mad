@@ -18,14 +18,14 @@ export const metadata: Metadata = {
 export default async function HomePage() {
   const user = await requireCompleteProfile();
 
-  // Independientes: en paralelo para no encadenar dos viajes a Firestore.
+  // Independent reads: run them in parallel so the Firestore round trips do not chain.
   const [profile, contracts] = await Promise.all([
     getProfile(user.uid),
     getUserContracts(user.uid),
   ]);
 
-  // El saludo se calcula en hora de Colombia, no en la del servidor: en Vercel sería UTC y
-  // a las 8 p.m. de Bogotá saludaría "Buenos días".
+  // The greeting is computed in Colombian time, not the server's: on Vercel that would be
+  // UTC, and at 8 p.m. in Bogotá it would say "Buenos días".
   const greeting = greetingForHour(hourInProductTimeZone(new Date()));
   const name = profile ? firstName(profile.fullName) : "";
 
@@ -63,7 +63,7 @@ export default async function HomePage() {
                 </div>
               </ComingSoonCard>
 
-              {/* Contenido estático: no promete ninguna función, así que va sin tooltip. */}
+              {/* Static content: it promises no functionality, so it needs no tooltip. */}
               <section className="rounded-2xl border border-border bg-card p-5">
                 <h2 className="flex items-center gap-2 font-semibold text-foreground">
                   <SparklesIcon className="size-4 text-accent" aria-hidden="true" />

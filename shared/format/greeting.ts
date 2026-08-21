@@ -1,8 +1,8 @@
 /**
- * Saludo según la hora del día.
+ * Greeting based on the time of day.
  *
- * Función pura: recibe la hora ya resuelta, no consulta el reloj. Así el test puede fijarla
- * y el saludo no depende de dónde corra el servidor.
+ * A pure function: it receives the hour already resolved, it never reads the clock. That
+ * way the test can pin it and the greeting does not depend on where the server runs.
  */
 export type Greeting = "Buenos días" | "Buenas tardes" | "Buenas noches";
 
@@ -12,10 +12,10 @@ export function greetingForHour(hour: number): Greeting {
   return "Buenas noches";
 }
 
-/** Zona horaria del producto. El saludo se calcula en hora de Colombia, no del servidor. */
+/** The product's time zone. The greeting is computed in Colombian time, not the server's. */
 export const PRODUCT_TIME_ZONE = "America/Bogota";
 
-/** Hora (0–23) en la zona del producto para un instante dado. */
+/** Hour (0–23) in the product's time zone for a given instant. */
 export function hourInProductTimeZone(instant: Date): number {
   const formatted = new Intl.DateTimeFormat("en-US", {
     timeZone: PRODUCT_TIME_ZONE,
@@ -26,7 +26,7 @@ export function hourInProductTimeZone(instant: Date): number {
   return Number.parseInt(formatted, 10) % 24;
 }
 
-/** Primer nombre, para saludar sin recitar el nombre completo. */
+/** First name, to greet without reciting the full name. */
 export function firstName(fullName: string): string {
   return fullName.trim().split(/\s+/)[0] ?? "";
 }

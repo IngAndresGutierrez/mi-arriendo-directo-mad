@@ -6,13 +6,13 @@ import type { UserRole } from "@/shared/auth/session";
 import type { Department, Gender } from "../domain/colombia";
 import { adminDb } from "@/shared/firebase/admin";
 
-/** Forma que consume la UI: serializable, sin `Timestamp`. */
+/** The shape the UI consumes: serializable, no `Timestamp`. */
 export type Profile = {
   readonly fullName: string;
   readonly email: string;
-  /** E.164, p. ej. `+573001234567`. */
+  /** E.164, e.g. `+573001234567`. */
   readonly phone: string;
-  /** ISO del país elegido: `+1` lo comparten varios, no se deduce del número. */
+  /** ISO of the chosen country: `+1` is shared by several, it cannot be derived from the number. */
   readonly phoneCountry: string;
   readonly gender: Gender;
   readonly address: {
@@ -30,11 +30,11 @@ function asString(value: unknown): string | null {
 }
 
 /**
- * Perfil del usuario, o `null` si aún no completó el onboarding.
+ * The user's profile, or `null` if they have not completed onboarding yet.
  *
- * Cacheado por request: la misma lectura la necesitan el guard y la pantalla que la usa.
- * Si el documento existe pero está incompleto, devuelve `null` para que el guard mande a
- * completarlo en lugar de renderizar una pantalla con huecos.
+ * Cached per request: the guard and the screen that uses it need the same read. If the
+ * document exists but is incomplete it returns `null`, so the guard sends the user back to
+ * finish it instead of rendering a screen full of holes.
  */
 export const getProfile = cache(async (uid: string): Promise<Profile | null> => {
   const snapshot = await adminDb.collection("users").doc(uid).get();
@@ -54,8 +54,8 @@ export const getProfile = cache(async (uid: string): Promise<Profile | null> => 
   const department = asString(address.department);
   const role = asString(data.role);
 
-  // Un perfil a medias cuenta como inexistente: mejor volver al formulario que renderizar
-  // una pantalla con campos vacíos.
+  // A half-filled profile counts as missing: better to go back to the form than to render
+  // a screen with empty fields.
   if (
     !fullName ||
     !email ||

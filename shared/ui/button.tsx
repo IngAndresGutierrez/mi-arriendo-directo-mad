@@ -10,8 +10,8 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/80",
-        // MAD UI: CTA principal en cian. El texto va en púrpura oscuro porque
-        // blanco sobre #00E5FF no pasa contraste AA.
+        // MAD UI: primary CTA in cyan. The text is dark purple because white on
+        // #00E5FF fails AA contrast.
         accent:
           "bg-accent font-semibold text-accent-foreground hover:bg-[color-mix(in_oklch,var(--accent),var(--foreground)_10%)]",
         outline:

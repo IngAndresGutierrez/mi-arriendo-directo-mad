@@ -13,21 +13,21 @@ import { COUNTRIES, findCountry, phoneRuleFor } from "@/shared/phone/countries";
 
 type PhoneFieldProps = {
   label: string;
-  /** ISO del país seleccionado. */
+  /** ISO of the selected country. */
   country: string;
   onCountryChange: (iso: string) => void;
   countryError?: string;
   numberError?: string;
   disabled?: boolean;
-  /** Props de `register("phone.national")` de react-hook-form. */
+  /** Props from react-hook-form's `register("phone.national")`. */
   inputProps: React.ComponentProps<"input">;
 };
 
 /**
- * Teléfono internacional: selector de país + número nacional.
+ * International phone: country selector + national number.
  *
- * Un solo `<label>` para el número; el selector de país lleva su propio `aria-label` porque
- * es un control aparte que necesita nombre accesible propio.
+ * One `<label>` for the number; the country selector carries its own `aria-label` because
+ * it is a separate control that needs its own accessible name.
  */
 export function PhoneField({
   label,
@@ -51,13 +51,13 @@ export function PhoneField({
         <Select value={country} onValueChange={onCountryChange} disabled={disabled}>
           <SelectTrigger
             aria-label="Código de país"
-            // `data-[size=default]:h-11` y no solo `h-11`: SelectTrigger trae
-            // `data-[size=default]:h-8`, y una clase con variante gana por especificidad a
-            // una plana. Sin esto el selector queda más bajo que el input.
+            // `data-[size=default]:h-11` and not just `h-11`: SelectTrigger ships
+            // `data-[size=default]:h-8`, and a variant class beats a flat one on
+            // specificity. Without this the selector ends up shorter than the input.
             className="h-11 w-[7.5rem] shrink-0 data-[size=default]:h-11"
             aria-invalid={countryError ? true : undefined}
           >
-            {/* El trigger muestra bandera e indicativo; el nombre completo va en la lista. */}
+            {/* The trigger shows flag and dial code; the full name lives in the list. */}
             <SelectValue placeholder="País">
               {selected ? (
                 <span className="flex items-center gap-1.5">

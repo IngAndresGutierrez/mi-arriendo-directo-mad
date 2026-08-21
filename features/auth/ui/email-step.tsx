@@ -19,7 +19,7 @@ type EmailStepProps = {
   onSubmitEmail: (email: string) => void;
 };
 
-/** Paso 1 del registro: elegir cómo crear la cuenta. */
+/** Signup step 1: choose how to create the account. */
 export function EmailStep({
   error,
   isGoogleLoading,

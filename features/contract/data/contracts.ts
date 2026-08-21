@@ -23,12 +23,12 @@ function toSummary(doc: { id: string; data: () => Record<string, unknown> }): Co
 }
 
 /**
- * Contratos donde el usuario es parte, como inquilino o como propietario.
+ * Contracts the user is a party to, either as tenant or as landlord.
  *
- * Son dos consultas porque Firestore no cruza campos distintos en un `where` simple; van en
- * paralelo con `Promise.all` para no encadenar dos viajes de red. Se deduplica por id: un
- * mismo contrato no puede tener a la misma persona en los dos roles, pero la unión debe ser
- * defensiva.
+ * Two queries, because Firestore cannot OR across different fields in a simple `where`;
+ * they run in parallel with `Promise.all` so the round trips do not chain. Deduplicated by
+ * id: one contract cannot have the same person in both roles, but the union should be
+ * defensive anyway.
  */
 export const getUserContracts = cache(async (uid: string): Promise<readonly ContractSummary[]> => {
   const contracts = adminDb.collection("contracts");

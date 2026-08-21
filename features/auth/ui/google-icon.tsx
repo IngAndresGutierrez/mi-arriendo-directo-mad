@@ -1,6 +1,6 @@
 import type { SVGProps } from "react";
 
-/** Logo de Google en sus colores oficiales; no se tiñe con los tokens de la marca. */
+/** Google's logo in its official colors; it is never tinted with the brand tokens. */
 export function GoogleIcon(props: SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" {...props}>

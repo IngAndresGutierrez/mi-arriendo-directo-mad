@@ -1,10 +1,10 @@
 /**
- * Inicialización de la app de Firebase en el cliente. Este módulo importa **solo**
- * `firebase/app`, nada más.
+ * Firebase app initialization on the client. This module imports **only**
+ * `firebase/app`, nothing else.
  *
- * Está separado de `client.ts` a propósito: quien necesite únicamente la app —por ejemplo
- * Analytics— no debe arrastrar Firestore, Auth y Storage al bundle. Ese acoplamiento
- * costaba cientos de KB en páginas que no usan la base de datos.
+ * It is deliberately separate from the service modules: code that only needs the app —
+ * Analytics, for instance — must not drag Firestore, Auth and Storage into the bundle.
+ * That coupling cost hundreds of KB on pages that never touch the database.
  */
 import { getApp, getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 
@@ -31,12 +31,12 @@ function readPublicConfig(): FirebaseOptions {
 
   return {
     ...(required as FirebaseOptions),
-    // Opcional: solo lo usa Analytics.
+    // Optional: only Analytics uses it.
     measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
   };
 }
 
-/** `getApps()` evita `duplicate-app` cuando el HMR de `next dev` recarga el módulo. */
+/** `getApps()` avoids `duplicate-app` when `next dev` HMR reloads the module. */
 export const firebaseApp = getApps().length ? getApp() : initializeApp(readPublicConfig());
 
 export const useEmulator = process.env.NEXT_PUBLIC_FIREBASE_USE_EMULATOR === "1";

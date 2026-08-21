@@ -1,6 +1,6 @@
 import { Separator } from "@/shared/ui/separator";
 
-/** Separador "o" entre el acceso con proveedor y el acceso con correo. */
+/** The "or" divider between provider sign-in and email sign-in. */
 export function OrDivider() {
   return (
     <div className="flex items-center gap-3">

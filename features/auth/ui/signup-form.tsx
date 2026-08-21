@@ -10,10 +10,10 @@ import { EmailStep } from "./email-step";
 import { PasswordStep } from "./password-step";
 
 /**
- * Registro en dos pasos.
+ * Two-step signup.
  *
- * El correo vive en estado del componente, **nunca en la URL**: un `?email=` quedaría en el
- * historial del navegador y en los logs del servidor.
+ * The email lives in component state, **never in the URL**: an `?email=` would end up in
+ * the browser history and in the server logs.
  */
 export function SignupForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();

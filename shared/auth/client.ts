@@ -14,11 +14,11 @@ import {
 import { auth } from "@/shared/firebase/auth";
 
 /**
- * Canjea el idToken recién emitido por una session cookie httpOnly.
+ * Exchanges the freshly issued idToken for an httpOnly session cookie.
  *
- * A partir de aquí los Server Components y las Server Actions conocen al usuario sin
- * necesitar el SDK web. La sesión del cliente se conserva aparte (persistencia por
- * defecto) porque las Security Rules la necesitan para las lecturas en tiempo real.
+ * From here on Server Components and Server Actions know the user without needing the web
+ * SDK. The client session is kept separately (default persistence) because Security Rules
+ * need it for realtime reads.
  */
 async function createServerSession(credential: UserCredential): Promise<void> {
   const idToken = await credential.user.getIdToken();
@@ -30,7 +30,7 @@ async function createServerSession(credential: UserCredential): Promise<void> {
   });
 
   if (!response.ok) {
-    // Deja cliente y servidor en el mismo estado: sin sesión.
+    // Leave client and server in the same state: signed out.
     await signOut(auth).catch(() => undefined);
     throw new Error("No pudimos crear la sesión. Inténtalo de nuevo.");
   }
@@ -44,8 +44,8 @@ export async function signInWithEmail(email: string, password: string): Promise<
 export async function signUpWithEmail(email: string, password: string): Promise<void> {
   const credential = await createUserWithEmailAndPassword(auth, email, password);
 
-  // Si el correo de verificación falla, la cuenta ya existe: no abortes el registro,
-  // el usuario puede reenviarlo después.
+  // If the verification email fails the account already exists: do not abort signup,
+  // the user can resend it later.
   await sendEmailVerification(credential.user).catch(() => undefined);
 
   await createServerSession(credential);
@@ -53,8 +53,8 @@ export async function signUpWithEmail(email: string, password: string): Promise<
 
 export async function signInWithGoogle(): Promise<void> {
   const provider = new GoogleAuthProvider();
-  // Fuerza el selector de cuenta: evita entrar con una cuenta de Google ya activa sin
-  // que la persona lo note.
+  // Force the account chooser: keeps the user from signing in with an already active
+  // Google account without noticing.
   provider.setCustomParameters({ prompt: "select_account" });
 
   const credential = await signInWithPopup(auth, provider);
@@ -62,11 +62,11 @@ export async function signInWithGoogle(): Promise<void> {
 }
 
 /**
- * Refresca la session cookie con los claims actuales del usuario.
+ * Refreshes the session cookie with the user's current claims.
  *
- * Llámalo después de que el servidor cambie un custom claim (el rol al completar el
- * perfil): `getIdToken(true)` fuerza un token nuevo con el claim ya incluido, y el
- * servidor re-acuña la cookie. Sin esto, los Server Components siguen leyendo el rol viejo.
+ * Call it after the server changes a custom claim (the role, when the profile is
+ * completed): `getIdToken(true)` forces a new token that already carries the claim, and
+ * the server re-mints the cookie. Without this, Server Components keep reading the old role.
  */
 export async function refreshServerSession(): Promise<void> {
   const user = auth.currentUser;

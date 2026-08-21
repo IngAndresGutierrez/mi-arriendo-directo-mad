@@ -8,7 +8,7 @@ const CURRENCY = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
-// Claves en ingles (son valores almacenados); etiquetas en es-CO (son copy).
+// Keys in English (they are stored values); labels in es-CO (they are copy).
 const STATUS_LABEL: Readonly<Record<string, string>> = {
   active: "Vigente",
   ended: "Terminado",
@@ -16,8 +16,8 @@ const STATUS_LABEL: Readonly<Record<string, string>> = {
 };
 
 /**
- * Contratos del usuario. Con datos reales de Firestore, así que el estado vacío es el que
- * verá cualquier cuenta nueva: es el caso normal, no una excepción.
+ * The user's contracts, from real Firestore data — so the empty state is what every new
+ * account sees: the normal case, not an exception.
  */
 export function ContractsCard({ contracts }: { contracts: readonly ContractSummary[] }) {
   if (contracts.length === 0) {

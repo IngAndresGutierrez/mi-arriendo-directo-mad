@@ -1,6 +1,6 @@
 /**
- * API pública del módulo de acceso. Lo que no esté aquí es interno del feature
- * y se puede mover o renombrar sin buscar por todo el repo.
+ * Public API of the access module. Anything not exported here is internal to the feature
+ * and can be moved or renamed without searching the whole repo.
  */
 export { LoginForm } from "./ui/login-form";
 export { SignupForm } from "./ui/signup-form";

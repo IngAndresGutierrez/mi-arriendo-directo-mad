@@ -1,5 +1,5 @@
 /**
- * API pública del módulo de perfil. Lo que no esté aquí es interno del feature.
+ * Public API of the profile module. Anything not exported here is internal to the feature.
  */
 export { requireCompleteProfile } from "./data/guards";
 export { getProfile, type Profile } from "./data/profile";

@@ -38,7 +38,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
   function goToDestination() {
     startNavigation(() => {
       router.replace(redirectTo);
-      // Descarta el cache del router para que los Server Components ya vean la sesión.
+      // Drop the router cache so Server Components see the session right away.
       router.refresh();
     });
   }
