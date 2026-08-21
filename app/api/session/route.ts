@@ -2,7 +2,7 @@ import { cookies } from "next/headers";
 
 import { adminAuth } from "@/shared/firebase/admin";
 import { SESSION_COOKIE, SESSION_MAX_AGE_MS } from "@/shared/auth/session";
-import { createSessionSchema } from "@/lib/validations/auth";
+import { createSessionSchema } from "@/features/auth";
 
 /** Ventana máxima entre el login y la emisión de la cookie de larga duración. */
 const MAX_LOGIN_AGE_MS = 5 * 60 * 1000;

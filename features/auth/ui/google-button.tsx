@@ -2,7 +2,7 @@
 
 import { Loader2Icon } from "lucide-react";
 
-import { GoogleIcon } from "@/components/auth/google-icon";
+import { GoogleIcon } from "./google-icon";
 import { Button } from "@/shared/ui/button";
 
 /** SVG estático elevado a nivel de módulo: no hay que recrear el nodo en cada render. */

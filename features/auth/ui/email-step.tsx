@@ -5,11 +5,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { FormAlert } from "@/shared/form/form-alert";
-import { GoogleButton } from "@/components/auth/google-button";
-import { OrDivider } from "@/components/auth/or-divider";
+import { GoogleButton } from "./google-button";
+import { OrDivider } from "./or-divider";
 import { SubmitButton } from "@/shared/form/submit-button";
 import { TextField } from "@/shared/form/text-field";
-import { emailSchema, type EmailInput } from "@/lib/validations/auth";
+import { emailSchema, type EmailInput } from "../validations/auth";
 
 type EmailStepProps = {
   error: string | null;

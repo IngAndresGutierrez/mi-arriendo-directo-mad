@@ -5,10 +5,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { FormAlert } from "@/shared/form/form-alert";
-import { PasswordRequirements } from "@/components/auth/password-requirements";
+import { PasswordRequirements } from "./password-requirements";
 import { SubmitButton } from "@/shared/form/submit-button";
 import { TextField } from "@/shared/form/text-field";
-import { signupSchema, type SignupInput } from "@/lib/validations/auth";
+import { signupSchema, type SignupInput } from "../validations/auth";
 
 const REQUIREMENTS_ID = "password-requirements";
 

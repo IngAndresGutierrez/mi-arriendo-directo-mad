@@ -5,7 +5,7 @@ import { AuthShell } from "@/shared/shell/auth-shell";
 import { safeRedirect } from "@/shared/auth/routes";
 import { getSessionUser } from "@/shared/auth/session";
 
-import { SignupForm } from "./signup-form";
+import { SignupForm } from "@/features/auth";
 
 export const metadata: Metadata = {
   title: "Crear cuenta",
