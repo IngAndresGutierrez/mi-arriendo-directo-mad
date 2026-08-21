@@ -48,8 +48,10 @@ export async function POST(request: Request): Promise<Response> {
     });
 
     return new Response(null, { status: 204 });
-  } catch {
-    // Do not leak Firebase's error: it would tell an expired token from a forged one.
+  } catch (error) {
+    // The client gets a generic message — a specific one would tell an expired token from a
+    // forged one. The server keeps the reason, or an outage like this one is undebuggable.
+    console.error("POST /api/session failed:", error instanceof Error ? error.message : error);
     return Response.json({ error: "No pudimos crear la sesión" }, { status: 401 });
   }
 }
