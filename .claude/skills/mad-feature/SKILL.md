@@ -17,7 +17,7 @@ qué cargar, en qué orden trabajar y cuándo has terminado de verdad.
 
 | Cosa | Realidad |
 | --- | --- |
-| Estructura | **No hay `src/`**. Es `app/`, `lib/`, `components/`, `tests/` en la raíz. |
+| Estructura | **No hay `src/`**. Es `app/` (solo routing), `features/<dominio>/`, `shared/` y `tests/rules/`. La define `mad-architecture`. |
 | Framework | Next.js **16.3.2**, App Router, Turbopack, React 19.2 |
 | Estilos | Tailwind CSS **v4** — CSS-first, `@theme` en `app/globals.css`, **sin `tailwind.config.js`** |
 | UI | shadcn/ui estilo `radix-nova` (primitivas Radix, iconos lucide). `components/ui/*` |
@@ -182,7 +182,7 @@ Esto se torció una vez y hubo que refactorizar todo el código. No lo repitas:
 Escribe el test que puede fallar por la razón correcta. Un test que pasa siempre es peor que
 no tener test.
 
-**a) Unitario — `tests/unit/`, `pnpm test`**
+**a) Unitario — colocado junto al código (`features/**`, `shared/**`), `pnpm test`**
 Schemas Zod y lógica pura: normalización, cálculos de dinero, máquinas de estado, helpers como
 `safeRedirect`. Para cada schema, al menos un caso válido y un caso inválido por regla no
 trivial (formato de cédula, celular colombiano, canon entero y positivo, consentimiento).
@@ -219,8 +219,10 @@ terminar**, en el mismo paso.
 No reportes la feature como terminada sin esto:
 
 ```bash
+pnpm typegen       # tras mover o renombrar rutas; si no, tsc falla por PageProps
 pnpm typecheck     # tsc --noEmit, limpio
-pnpm lint          # eslint, sin warnings
+pnpm lint          # eslint, sin warnings — incluye las fronteras entre módulos
+pnpm arch          # dependency-cruiser: ciclos y flechas prohibidas
 pnpm build         # compila
 pnpm test          # unitarios (si tocaste schemas o lógica)
 pnpm test:rules    # rules (si tocaste firestore.rules o storage.rules)

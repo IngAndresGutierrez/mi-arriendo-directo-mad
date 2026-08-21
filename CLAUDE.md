@@ -23,25 +23,43 @@ asíncronos, `middleware.ts` → `proxy.ts`). Consulta `node_modules/next/dist/d
 antes de escribir código de framework.
 
 ## Archivos base ya creados
-- `lib/firebase/app.ts` — solo inicializa la app (`firebaseApp`). Un módulo por servicio:
-  `lib/firebase/auth.ts`, `lib/firebase/db.ts`, `lib/firebase/storage.ts`. **No hagas un
+- `shared/firebase/app.ts` — solo inicializa la app (`firebaseApp`). Un módulo por servicio:
+  `shared/firebase/auth.ts`, `shared/firebase/db.ts`, `shared/firebase/storage.ts`. **No hagas un
   barrel que reexporte los tres**: costaba 630 KB de SDK en el login.
-- `components/analytics.tsx` — carga Analytics con `import()` dinámico tras la hidratación.
-- `components/brand/logo.tsx` — `<Logo width={200} priority />`; único sitio con las
+- `shared/analytics.tsx` — carga Analytics con `import()` dinámico tras la hidratación.
+- `shared/brand/logo.tsx` — `<Logo width={200} priority />`; único sitio con las
   dimensiones del PNG.
-- `lib/firebase/admin.ts` — Admin SDK (`server-only`): `adminAuth`, `adminDb`, `adminStorage`.
-- `lib/auth/session.ts` — `getSessionUser()`, `requireUser()`, `requireRole()` sobre la cookie
+- `shared/firebase/admin.ts` — Admin SDK (`server-only`): `adminAuth`, `adminDb`, `adminStorage`.
+- `shared/auth/session.ts` — `getSessionUser()`, `requireUser()`, `requireRole()` sobre la cookie
   httpOnly `session`.
 - `firestore.rules` / `storage.rules` / `firestore.indexes.json` / `firebase.json`.
 - `app/globals.css` — tokens MAD UI (light + dark, sidebar, charts, estados del dominio).
 - `components.json` — shadcn `radix-nova`. Usa `shadcn add`, **nunca** `shadcn init` de nuevo.
 - `.env.example` — plantilla; copia a `.env.local` (ya creado con las llaves públicas).
 - `.firebaserc` — proyecto por defecto: **`mi-arriendo-directo-mad`**.
-- `lib/firebase/analytics.ts` — Analytics diferido con `isSupported()`; nunca le pases datos
+- `shared/firebase/analytics.ts` — Analytics diferido con `isSupported()`; nunca le pases datos
   personales como parámetros de evento.
 
+## Estructura del código
+El corte es **vertical por dominio**. `mad-architecture` es la fuente de verdad; en corto:
+
+```
+app/                  solo routing. (auth)/ y (app)/ son route groups: no cambian la URL
+features/<dominio>/   domain/ validations/ data/ actions/ ui/ + index.ts (API pública)
+shared/               ui/ form/ shell/ brand/ auth/ firebase/ format/ phone/ lib/
+tests/rules/          security rules (los unitarios van colocados junto al código)
+```
+
+Las fronteras no son una convención escrita, están **verificadas**: `tsconfig` solo expone
+`@/app/*`, `@/features/*` y `@/shared/*` (no hay comodín `@/*`), eslint prohíbe importar los
+internos de otro feature y el Admin SDK fuera de `data/`/`actions/`/`api/`, y `pnpm arch`
+(dependency-cruiser) revisa ciclos, `shared → features` y la pureza de `domain/`.
+
+Dentro de un feature se importa con **rutas relativas**; `@/features/<dominio>` es solo para
+cruzar de módulo, y siempre contra su `index.ts`.
+
 ## Rutas (todas en español)
-Las constantes viven en `lib/auth/routes.ts`; usa esas, no strings literales.
+Las constantes viven en `shared/auth/routes.ts`; usa esas, no strings literales.
 
 | Ruta | Constante | Qué es |
 | --- | --- | --- |
@@ -55,13 +73,15 @@ Las constantes viven en `lib/auth/routes.ts`; usa esas, no strings literales.
   revoca los refresh tokens.
 - `requireUser()` redirige a `LOGIN_ROUTE`; `requireRole()` a `HOME_ROUTE`.
 - **`requireCompleteProfile()` es el guard de toda pantalla del producto**: exige sesión y
-  perfil. La pantalla de onboarding usa `requireUser()`, no esta, o el redirect haría bucle.
+  perfil. Vive en `features/perfil` (se importa de `@/features/perfil`), no en `shared/auth`:
+  "¿tiene perfil?" es una pregunta del dominio de perfil. La pantalla de onboarding usa
+  `requireUser()`, no esta, o el redirect haría bucle.
 - `POST /api/session` crea la cookie (exige login reciente); **`PATCH` la re-acuña** con los
   claims actuales tras cambiar el rol; `DELETE` cierra sesión.
 - **`/` es el login, así que el destino tras entrar NUNCA puede ser `/`**: sería un bucle
   infinito. `safeRedirect()` rechaza `/`, `/registro` y `/recuperar` como destino, además de
   cualquier URL externa (open redirect).
-- El layout de login y registro es `components/auth/auth-shell.tsx`. Su panel lateral usa el
+- El layout de login y registro es `shared/shell/auth-shell.tsx`. Su panel lateral usa el
   token `panel-marca` (púrpura en ambos temas), nunca `bg-primary`.
 - El correo del paso 1 del registro vive en estado del componente, **nunca en la URL**.
 
@@ -102,26 +122,25 @@ el riesgo de dejar un campo sin conectar.
 
 | Componente | Para |
 | --- | --- |
-| `components/ui/text-field.tsx` | `TextField`: label + input + error + `aria-invalid`/`aria-describedby`. Acepta `{...register("campo")}` directo. |
-| `components/auth/form-alert.tsx` | `FormAlert`: error a nivel de formulario con `role="alert"`. |
-| `components/auth/google-button.tsx` | `GoogleButton`: acceso con Google, con spinner. |
-| `components/auth/or-divider.tsx` | `OrDivider`: separador "o". |
-| `components/auth/submit-button.tsx` | `SubmitButton`: CTA cian con spinner y etiqueta de progreso. |
-| `components/auth/password-requirements.tsx` | `PasswordRequirements`: checklist derivado de `PASSWORD_REQUIREMENTS`. |
-| `components/auth/auth-shell.tsx` | `AuthShell`: layout de dos columnas de login y registro. |
-| `components/brand/logo.tsx` | `Logo`: único sitio con las dimensiones del PNG. |
-| `components/ui/select-field.tsx` | `SelectField`: select con label, error y ARIA. Se controla con `Controller`. |
-| `components/auth/role-choice.tsx` | `RoleChoice`: elección de rol con radios reales. |
-| `components/auth/phone-field.tsx` | `PhoneField`: selector de país + número nacional. |
-| `components/app/app-sidebar.tsx` | `AppSidebar`: menú lateral del producto. **Es Client Component**: pasa componentes de icono a `NavItem` y usa `usePathname`. |
-| `components/app/nav-item.tsx` | `NavItem`: sin `href` se renderiza deshabilitado con tooltip "Próximamente". |
-| `components/app/coming-soon-card.tsx` | `ComingSoonCard`: envuelve UI maquetada cuya función no existe aún. |
+| `shared/form/text-field.tsx` | `TextField`: label + input + error + `aria-invalid`/`aria-describedby`. Acepta `{...register("campo")}` directo. |
+| `shared/form/form-alert.tsx` | `FormAlert`: error a nivel de formulario con `role="alert"`. |
+| `features/auth/ui/google-button.tsx` | `GoogleButton`: acceso con Google, con spinner. |
+| `features/auth/ui/or-divider.tsx` | `OrDivider`: separador "o". |
+| `shared/form/submit-button.tsx` | `SubmitButton`: CTA cian con spinner y etiqueta de progreso. |
+| `features/auth/ui/password-requirements.tsx` | `PasswordRequirements`: checklist derivado de `PASSWORD_REQUIREMENTS`. |
+| `shared/shell/auth-shell.tsx` | `AuthShell`: layout de dos columnas de login y registro. |
+| `shared/brand/logo.tsx` | `Logo`: único sitio con las dimensiones del PNG. |
+| `shared/form/select-field.tsx` | `SelectField`: select con label, error y ARIA. Se controla con `Controller`. |
+| `shared/form/phone-field.tsx` | `PhoneField`: selector de país + número nacional. |
+| `shared/shell/app-sidebar.tsx` | `AppSidebar`: menú lateral del producto. **Es Client Component**: pasa componentes de icono a `NavItem` y usa `usePathname`. |
+| `shared/ui/nav-item.tsx` | `NavItem`: sin `href` se renderiza deshabilitado con tooltip "Próximamente". |
+| `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: envuelve UI maquetada cuya función no existe aún. |
 
 ## Teléfonos
 - Se guardan en **E.164** (`telefono: "+573001234567"`) más el ISO del país
   (`telefonoPais: "CO"`). El país no se deduce del número: `+1` lo comparten Estados Unidos,
   Canadá, Puerto Rico y República Dominicana.
-- El catálogo está en `lib/domain/countries.ts`. **Colombia es el valor por defecto** y
+- El catálogo está en `shared/phone/countries.ts`. **Colombia es el valor por defecto** y
   encabeza la lista. La lista es curada, no exhaustiva: cada indicativo está verificado.
 - La validación es por país: Colombia estricta (10 dígitos empezando por 3), el resto
   genérica (6–14 dígitos). Para endurecer otro país, añade su regla en `PHONE_RULES`.
@@ -131,7 +150,7 @@ el riesgo de dejar un campo sin conectar.
 ## Secciones aún no construidas
 El menú lateral muestra Soporte, Contrato, Facturación y Ajustes **deshabilitadas** con un
 tooltip de "Próximamente", en lugar de enlazar a 404. Para activar una: crea la ruta y
-añade su `href` en el arreglo `NAV` de `components/app/app-sidebar.tsx`.
+añade su `href` en el arreglo `NAV` de `shared/shell/app-sidebar.tsx`.
 
 La tarjeta de soporte y la del catálogo están maquetadas dentro de `ComingSoonCard`: se ven
 pero no son interactivas. La de soporte **no lleva foto de persona** a propósito — una imagen
@@ -139,12 +158,17 @@ de stock presentada como "nuestro equipo" afirmaría algo falso.
 
 ## Comandos de verificación
 ```bash
+pnpm typegen       # next typegen — regenera los tipos de ruta (PageProps, LayoutProps)
 pnpm typecheck     # tsc --noEmit
-pnpm lint          # eslint
+pnpm lint          # eslint, incluidas las fronteras entre módulos
+pnpm arch          # dependency-cruiser: ciclos y flechas prohibidas entre capas
 pnpm build         # next build
-pnpm test          # unitarios: schemas y lógica pura (tests/unit/)
+pnpm test          # unitarios: schemas y lógica pura, colocados en features/ y shared/
 pnpm test:rules    # security rules contra el emulador (tests/rules/) — requiere JDK 21+
 ```
+
+Tras mover o renombrar una ruta: `rm -rf .next && pnpm typegen`, o `tsc` falla por los tipos
+generados y el error no tiene nada que ver con tu cambio.
 
 ## Tests de Security Rules
 `pnpm test:rules` levanta el emulador de Firestore y corre `tests/rules/` (35 casos, con
@@ -165,7 +189,7 @@ colección, agrega también su test de acceso denegado.
    del SDK web) llegan al navegador. `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL` y
    cualquier credencial de service account **jamás** se prefijan con `NEXT_PUBLIC_`, ni se
    hardcodean, ni se loggean, ni se commitean.
-2. **`firebase-admin` es solo servidor.** `lib/firebase/admin.ts` empieza con
+2. **`firebase-admin` es solo servidor.** `shared/firebase/admin.ts` empieza con
    `import "server-only"` y nunca se importa desde un archivo con `"use client"`.
 3. **Toda Server Action y Route Handler revalida**: autenticar (sesión) → validar (Zod) →
    autorizar contra el dato real → invariantes de negocio → escribir. Nunca confíes en un

@@ -10,7 +10,7 @@
     "typegen": "next typegen",
     "typecheck": "tsc --noEmit",
     "arch": "depcruise app features shared --config .dependency-cruiser.cjs",
-    "test": "vitest run tests/unit features shared",
+    "test": "vitest run features shared",
     "test:rules": "firebase emulators:exec --only firestore --project demo-mad-rules \"vitest run tests/rules\""
   },
   "dependencies": {
