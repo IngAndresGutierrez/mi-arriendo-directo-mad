@@ -4,9 +4,8 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/shared/shell/auth-shell";
 import { safeRedirect } from "@/shared/auth/routes";
 import { requireUser } from "@/shared/auth/session";
-import { getProfile } from "@/features/profile";
-
-import { CompleteProfileForm } from "@/features/profile";
+import { SignOutButton } from "@/shared/shell/sign-out-button";
+import { CompleteProfileForm, getProfile } from "@/features/profile";
 
 export const metadata: Metadata = {
   title: "Completa tu perfil",
@@ -31,6 +30,7 @@ export default async function CompleteProfilePage(
       title="Te damos la bienvenida"
       description="Crea tu cuenta y únete a la nueva forma de arrendar, sin trámites innecesarios."
       contentWidth="lg"
+      action={<SignOutButton variant="inline" />}
     >
       <h1 className="text-2xl font-semibold tracking-tight text-primary dark:text-foreground">
         Completa tu perfil
