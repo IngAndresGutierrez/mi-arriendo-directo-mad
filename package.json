@@ -7,9 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:rules": "firebase emulators:exec --only firestore --project demo-mad-rules \"vitest run tests/rules\"",
+    "typegen": "next typegen",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run tests/unit"
+    "arch": "depcruise app features shared --config .dependency-cruiser.cjs",
+    "test": "vitest run tests/unit features shared",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-mad-rules \"vitest run tests/rules\""
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",
@@ -34,6 +36,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "dependency-cruiser": "^16.10.4",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
     "tailwindcss": "^4",
