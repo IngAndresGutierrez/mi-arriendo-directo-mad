@@ -31,7 +31,7 @@ function toSummary(doc: { id: string; data: () => Record<string, unknown> }): Co
  * defensive anyway.
  */
 export const getUserContracts = cache(async (uid: string): Promise<readonly ContractSummary[]> => {
-  const contracts = adminDb.collection("contracts");
+  const contracts = adminDb().collection("contracts");
 
   const [asTenant, asLandlord] = await Promise.all([
     contracts.where("tenantUid", "==", uid).limit(20).get(),

@@ -48,7 +48,10 @@ names this project started with.
 - `shared/analytics.tsx` — loads Analytics through a dynamic `import()` after hydration.
 - `shared/brand/logo.tsx` — `<Logo width={200} priority />`; the only place with the PNG's
   dimensions.
-- `shared/firebase/admin.ts` — Admin SDK (`server-only`): `adminAuth`, `adminDb`, `adminStorage`.
+- `shared/firebase/admin.ts` — Admin SDK (`server-only`): `adminAuth()`, `adminDb()`,
+  `adminStorage()`. They are **lazy accessors, not constants**: importing the module must not
+  read the service account, because `next build` imports every route and on Vercel the
+  credentials are sensitive env vars that never reach the build step.
 - `shared/auth/session.ts` — `getSessionUser()`, `requireUser()`, `requireRole()` over the
   httpOnly `session` cookie.
 - `firestore.rules` / `storage.rules` / `firestore.indexes.json` / `firebase.json`.

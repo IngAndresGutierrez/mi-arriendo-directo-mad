@@ -37,7 +37,7 @@ function asString(value: unknown): string | null {
  * finish it instead of rendering a screen full of holes.
  */
 export const getProfile = cache(async (uid: string): Promise<Profile | null> => {
-  const snapshot = await adminDb.collection("users").doc(uid).get();
+  const snapshot = await adminDb().collection("users").doc(uid).get();
   if (!snapshot.exists) return null;
 
   const data = snapshot.data() ?? {};

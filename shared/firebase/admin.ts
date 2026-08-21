@@ -6,13 +6,19 @@
  *
  * This SDK IGNORES Security Rules entirely: every operation here is fully privileged.
  * Authorize explicitly in each Server Action / Route Handler.
+ *
+ * Initialization is **lazy on purpose**: importing this module must not read the service
+ * account. `next build` imports every route to collect its configuration, and on Vercel the
+ * credentials are sensitive environment variables, which reach the Function at runtime but
+ * not the build step — an eager `initializeApp()` at module scope failed the build with
+ * "Failed to collect configuration for /api/session". A build never needs a private key.
  */
 import "server-only";
 
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
-import { getAuth } from "firebase-admin/auth";
-import { getFirestore } from "firebase-admin/firestore";
-import { getStorage } from "firebase-admin/storage";
+import { getAuth, type Auth } from "firebase-admin/auth";
+import { getFirestore, type Firestore } from "firebase-admin/firestore";
+import { getStorage, type Storage } from "firebase-admin/storage";
 
 function createApp(): App {
   const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -22,8 +28,8 @@ function createApp(): App {
   if (!projectId || !clientEmail || !privateKey) {
     // Do not include the values in the message: this error ends up in logs.
     throw new Error(
-      "Credenciales del Admin SDK incompletas. Requiere FIREBASE_PROJECT_ID, " +
-        "FIREBASE_CLIENT_EMAIL y FIREBASE_PRIVATE_KEY.",
+      "Incomplete Admin SDK credentials. FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL and " +
+        "FIREBASE_PRIVATE_KEY are required.",
     );
   }
 
@@ -35,18 +41,35 @@ function createApp(): App {
 }
 
 /** Fluid Compute reuses instances across requests: initialize once per process. */
-const [existingApp] = getApps();
-const adminApp: App = existingApp ?? createApp();
+let app: App | undefined;
+function adminApp(): App {
+  app ??= getApps()[0] ?? createApp();
+  return app;
+}
 
-export const adminAuth = getAuth(adminApp);
-export const adminStorage = getStorage(adminApp);
+let auth: Auth | undefined;
+export function adminAuth(): Auth {
+  auth ??= getAuth(adminApp());
+  return auth;
+}
 
-export const adminDb = getFirestore(adminApp);
+let storage: Storage | undefined;
+export function adminStorage(): Storage {
+  storage ??= getStorage(adminApp());
+  return storage;
+}
 
-// `settings()` may only be called before the first operation, and only once;
-// the flag keeps a second server bundle from invoking it again.
-const SETTINGS_FLAG = "__madFirestoreSettings";
-if (!(SETTINGS_FLAG in globalThis)) {
-  Object.defineProperty(globalThis, SETTINGS_FLAG, { value: true });
-  adminDb.settings({ ignoreUndefinedProperties: true });
+let db: Firestore | undefined;
+export function adminDb(): Firestore {
+  if (!db) {
+    db = getFirestore(adminApp());
+    // `settings()` may only be called before the first operation, and only once; the flag
+    // keeps a second server bundle from invoking it again on the same instance.
+    const FLAG = "__madFirestoreSettings";
+    if (!(FLAG in globalThis)) {
+      Object.defineProperty(globalThis, FLAG, { value: true });
+      db.settings({ ignoreUndefinedProperties: true });
+    }
+  }
+  return db;
 }

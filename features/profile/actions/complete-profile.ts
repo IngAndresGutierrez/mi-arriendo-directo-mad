@@ -59,7 +59,7 @@ export async function completeProfile(formData: FormData): Promise<CompleteProfi
     return { ok: false, fieldErrors: { phone: ["Selecciona un país válido"] } };
   }
 
-  const profileRef = adminDb.collection("users").doc(user.uid);
+  const profileRef = adminDb().collection("users").doc(user.uid);
 
   const existing = await profileRef.get();
   if (existing.exists) {
@@ -88,7 +88,7 @@ export async function completeProfile(formData: FormData): Promise<CompleteProfi
 
   // The role lives in custom claims: Security Rules read it from there and the client
   // cannot forge it. The browser token keeps the old claim until it is refreshed.
-  await adminAuth.setCustomUserClaims(user.uid, { role: DEFAULT_USER_ROLE });
+  await adminAuth().setCustomUserClaims(user.uid, { role: DEFAULT_USER_ROLE });
 
   return { ok: true };
 }

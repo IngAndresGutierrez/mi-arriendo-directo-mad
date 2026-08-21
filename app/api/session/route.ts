@@ -28,13 +28,13 @@ export async function POST(request: Request): Promise<Response> {
 
   try {
     // `true` also rejects tokens from already revoked sessions.
-    const claims = await adminAuth.verifyIdToken(parsed.data.idToken, true);
+    const claims = await adminAuth().verifyIdToken(parsed.data.idToken, true);
 
     if (Date.now() - claims.auth_time * 1000 > MAX_LOGIN_AGE_MS) {
       return Response.json({ error: "Vuelve a iniciar sesión" }, { status: 401 });
     }
 
-    const sessionCookie = await adminAuth.createSessionCookie(parsed.data.idToken, {
+    const sessionCookie = await adminAuth().createSessionCookie(parsed.data.idToken, {
       expiresIn: SESSION_MAX_AGE_MS,
     });
 
@@ -85,8 +85,8 @@ export async function PATCH(request: Request): Promise<Response> {
 
   try {
     const [currentClaims, tokenClaims] = await Promise.all([
-      adminAuth.verifySessionCookie(currentCookie, true),
-      adminAuth.verifyIdToken(parsed.data.idToken, true),
+      adminAuth().verifySessionCookie(currentCookie, true),
+      adminAuth().verifyIdToken(parsed.data.idToken, true),
     ]);
 
     // You may only refresh your own session.
@@ -94,7 +94,7 @@ export async function PATCH(request: Request): Promise<Response> {
       return Response.json({ error: "No autorizado" }, { status: 403 });
     }
 
-    const sessionCookie = await adminAuth.createSessionCookie(parsed.data.idToken, {
+    const sessionCookie = await adminAuth().createSessionCookie(parsed.data.idToken, {
       expiresIn: SESSION_MAX_AGE_MS,
     });
 
@@ -119,8 +119,8 @@ export async function DELETE(): Promise<Response> {
 
   if (cookie) {
     try {
-      const claims = await adminAuth.verifySessionCookie(cookie);
-      await adminAuth.revokeRefreshTokens(claims.sub);
+      const claims = await adminAuth().verifySessionCookie(cookie);
+      await adminAuth().revokeRefreshTokens(claims.sub);
     } catch {
       // invalid or expired cookie: clearing it from the browser is enough
     }
