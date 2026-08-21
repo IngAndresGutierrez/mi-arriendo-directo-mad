@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { GENDERS, MIN_AGE } from "@/lib/domain/colombia";
+import { GENDERS, MIN_AGE } from "../domain/colombia";
 import { COUNTRIES, DEFAULT_COUNTRY_ISO, findCountry, toE164 } from "@/shared/phone/countries";
 import {
   ageInYears,
   completeProfileSchema,
   validateBirthDate,
-} from "@/lib/validations/profile";
+} from "./profile";
 
 const PERFIL_VALIDO = {
   fullName: "Ana María Restrepo",

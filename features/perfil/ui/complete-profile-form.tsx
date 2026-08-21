@@ -13,17 +13,17 @@ import { Checkbox } from "@/shared/ui/checkbox";
 import { Label } from "@/shared/ui/label";
 import { SelectField } from "@/shared/form/select-field";
 import { TextField } from "@/shared/form/text-field";
-import { DEPARTMENTS, GENDER_OPTIONS, MIN_AGE } from "@/lib/domain/colombia";
+import { DEPARTMENTS, GENDER_OPTIONS, MIN_AGE } from "../domain/colombia";
 import { DEFAULT_COUNTRY_ISO } from "@/shared/phone/countries";
 import {
   completeProfileSchema,
   type CompleteProfileFormValues,
   type CompleteProfileInput,
-} from "@/lib/validations/profile";
+} from "../validations/profile";
 
 import { refreshServerSession } from "@/shared/auth/client";
 
-import { completeProfile } from "./actions";
+import { completeProfile } from "../actions/complete-profile";
 
 const DEPARTMENT_OPTIONS = DEPARTMENTS.map((name) => ({ value: name, label: name }));
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { DEPARTMENTS, GENDERS, MAX_AGE, MIN_AGE } from "@/lib/domain/colombia";
+import { DEPARTMENTS, GENDERS, MAX_AGE, MIN_AGE } from "../domain/colombia";
 import { COUNTRY_ISO_CODES, phoneRuleFor } from "@/shared/phone/countries";
 
 /** Hoisted: crear el RegExp en cada llamada es trabajo repetido. */

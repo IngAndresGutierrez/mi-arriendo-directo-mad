@@ -3,7 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import type { UserRole } from "@/shared/auth/session";
-import type { Department, Gender } from "@/lib/domain/colombia";
+import type { Department, Gender } from "../domain/colombia";
 import { adminDb } from "@/shared/firebase/admin";
 
 /** Forma que consume la UI: serializable, sin `Timestamp`. */
