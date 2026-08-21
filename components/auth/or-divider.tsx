@@ -1,4 +1,4 @@
-import { Separator } from "@/components/ui/separator";
+import { Separator } from "@/shared/ui/separator";
 
 /** Separador "o" entre el acceso con proveedor y el acceso con correo. */
 export function OrDivider() {

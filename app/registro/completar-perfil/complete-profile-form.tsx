@@ -6,13 +6,13 @@ import Link from "next/link";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { FormAlert } from "@/components/auth/form-alert";
-import { PhoneField } from "@/components/auth/phone-field";
-import { SubmitButton } from "@/components/auth/submit-button";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import { SelectField } from "@/components/ui/select-field";
-import { TextField } from "@/components/ui/text-field";
+import { FormAlert } from "@/shared/form/form-alert";
+import { PhoneField } from "@/shared/form/phone-field";
+import { SubmitButton } from "@/shared/form/submit-button";
+import { Checkbox } from "@/shared/ui/checkbox";
+import { Label } from "@/shared/ui/label";
+import { SelectField } from "@/shared/form/select-field";
+import { TextField } from "@/shared/form/text-field";
 import { DEPARTMENTS, GENDER_OPTIONS, MIN_AGE } from "@/lib/domain/colombia";
 import { DEFAULT_COUNTRY_ISO } from "@/shared/phone/countries";
 import {

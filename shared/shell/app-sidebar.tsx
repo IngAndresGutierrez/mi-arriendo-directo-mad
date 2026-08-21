@@ -12,7 +12,7 @@ import {
   SettingsIcon,
 } from "lucide-react";
 
-import { NavItem, type NavEntry } from "@/components/app/nav-item";
+import { NavItem, type NavEntry } from "@/shared/ui/nav-item";
 import { HOME_ROUTE } from "@/shared/auth/routes";
 
 import { SignOutButton } from "./sign-out-button";

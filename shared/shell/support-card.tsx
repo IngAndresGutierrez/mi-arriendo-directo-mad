@@ -1,6 +1,6 @@
 import { HeadsetIcon, MessageCircleIcon } from "lucide-react";
 
-import { ComingSoonCard } from "@/components/app/coming-soon-card";
+import { ComingSoonCard } from "@/shared/ui/coming-soon-card";
 
 /**
  * Tarjeta de soporte, maquetada.

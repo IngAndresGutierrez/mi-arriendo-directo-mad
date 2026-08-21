@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
-import { FormAlert } from "@/components/auth/form-alert";
+import { FormAlert } from "@/shared/form/form-alert";
 import { GoogleButton } from "@/components/auth/google-button";
 import { OrDivider } from "@/components/auth/or-divider";
-import { SubmitButton } from "@/components/auth/submit-button";
-import { TextField } from "@/components/ui/text-field";
+import { SubmitButton } from "@/shared/form/submit-button";
+import { TextField } from "@/shared/form/text-field";
 import { emailSchema, type EmailInput } from "@/lib/validations/auth";
 
 type EmailStepProps = {
