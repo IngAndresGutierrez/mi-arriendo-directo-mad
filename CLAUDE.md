@@ -52,6 +52,20 @@ escribir código, no después:
 | `typescript-strict` | tipos de dominio, converters de Firestore, `tsconfig.json` |
 | `zod-react-hook-form` | cualquier formulario o schema de validación |
 
+## Tests de Security Rules
+`pnpm test:rules` levanta el emulador de Firestore y corre `tests/rules/` (35 casos, con
+caso negativo obligatorio). Requiere **JDK 21+**; `openjdk@21` de Homebrew es *keg-only*, así
+que hay que ponerlo en el PATH:
+
+```bash
+export JAVA_HOME=/opt/homebrew/opt/openjdk@21
+export PATH="$JAVA_HOME/bin:$PATH"        # persistir en ~/.zshrc si lo usas seguido
+pnpm test:rules
+```
+
+Toda regla nueva o modificada se prueba aquí antes de `firebase deploy`. Al agregar una
+colección, agrega también su test de acceso denegado.
+
 ## Seguridad — invariantes que no se negocian
 1. **Ningún secreto en el cliente.** Solo las llaves `NEXT_PUBLIC_FIREBASE_*` (config pública
    del SDK web) llegan al navegador. `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL` y
