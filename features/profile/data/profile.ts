@@ -37,22 +37,22 @@ function asString(value: unknown): string | null {
  * completarlo en lugar de renderizar una pantalla con huecos.
  */
 export const getProfile = cache(async (uid: string): Promise<Profile | null> => {
-  const snapshot = await adminDb.collection("usuarios").doc(uid).get();
+  const snapshot = await adminDb.collection("users").doc(uid).get();
   if (!snapshot.exists) return null;
 
   const data = snapshot.data() ?? {};
-  const address = (data.direccion ?? {}) as Record<string, unknown>;
+  const address = (data.address ?? {}) as Record<string, unknown>;
 
-  const fullName = asString(data.nombre);
+  const fullName = asString(data.fullName);
   const email = asString(data.email);
-  const phone = asString(data.telefono);
-  const phoneCountry = asString(data.telefonoPais);
-  const gender = asString(data.genero);
-  const birthDate = asString(data.fechaNacimiento);
-  const line = asString(address.linea);
-  const city = asString(address.ciudad);
-  const department = asString(address.departamento);
-  const role = asString(data.rol);
+  const phone = asString(data.phone);
+  const phoneCountry = asString(data.phoneCountry);
+  const gender = asString(data.gender);
+  const birthDate = asString(data.birthDate);
+  const line = asString(address.line);
+  const city = asString(address.city);
+  const department = asString(address.department);
+  const role = asString(data.role);
 
   // Un perfil a medias cuenta como inexistente: mejor volver al formulario que renderizar
   // una pantalla con campos vacíos.

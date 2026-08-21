@@ -8,10 +8,10 @@ import {
   validateBirthDate,
 } from "./profile";
 
-const PERFIL_VALIDO = {
+const VALID_PROFILE = {
   fullName: "Ana María Restrepo",
   phone: { country: "CO", national: "3001234567" },
-  gender: "femenino",
+  gender: "female",
   address: {
     line: "Calle 60 #10-20, apto 301",
     city: "Bogotá",
@@ -23,23 +23,23 @@ const PERFIL_VALIDO = {
 
 describe("completeProfileSchema", () => {
   it("acepta un perfil completo", () => {
-    expect(completeProfileSchema.safeParse(PERFIL_VALIDO).success).toBe(true);
+    expect(completeProfileSchema.safeParse(VALID_PROFILE).success).toBe(true);
   });
 
   it("el rol no viene del formulario: el schema no lo acepta como campo", () => {
-    const parsed = completeProfileSchema.parse({ ...PERFIL_VALIDO, role: "propietario" });
+    const parsed = completeProfileSchema.parse({ ...VALID_PROFILE, role: "landlord" });
     expect("role" in parsed).toBe(false);
   });
 
   describe("nombre completo", () => {
     it("exige nombre y apellido", () => {
-      const r = completeProfileSchema.safeParse({ ...PERFIL_VALIDO, fullName: "Ana" });
+      const r = completeProfileSchema.safeParse({ ...VALID_PROFILE, fullName: "Ana" });
       expect(r.success).toBe(false);
       expect(r.error?.issues[0]?.message).toBe("Ingresa tu nombre y tu apellido");
     });
 
     it("recorta espacios", () => {
-      const r = completeProfileSchema.parse({ ...PERFIL_VALIDO, fullName: "  Ana Restrepo  " });
+      const r = completeProfileSchema.parse({ ...VALID_PROFILE, fullName: "  Ana Restrepo  " });
       expect(r.fullName).toBe("Ana Restrepo");
     });
   });
@@ -51,7 +51,7 @@ describe("completeProfileSchema", () => {
       ["con paréntesis", "(300) 1234567"],
     ])("normaliza un celular colombiano %s", (_caso, entrada) => {
       const r = completeProfileSchema.parse({
-        ...PERFIL_VALIDO,
+        ...VALID_PROFILE,
         phone: { country: "CO", national: entrada },
       });
       expect(r.phone.national).toBe("3001234567");
@@ -65,7 +65,7 @@ describe("completeProfileSchema", () => {
       ["vacío", ""],
     ])("rechaza en Colombia un número %s", (_caso, entrada) => {
       const r = completeProfileSchema.safeParse({
-        ...PERFIL_VALIDO,
+        ...VALID_PROFILE,
         phone: { country: "CO", national: entrada },
       });
       expect(r.success).toBe(false);
@@ -76,13 +76,13 @@ describe("completeProfileSchema", () => {
       // 612345678 no empieza por 3 ni tiene 10 dígitos: inválido en CO, válido en ES.
       expect(
         completeProfileSchema.safeParse({
-          ...PERFIL_VALIDO,
+          ...VALID_PROFILE,
           phone: { country: "CO", national: "612345678" },
         }).success,
       ).toBe(false);
       expect(
         completeProfileSchema.safeParse({
-          ...PERFIL_VALIDO,
+          ...VALID_PROFILE,
           phone: { country: "ES", national: "612345678" },
         }).success,
       ).toBe(true);
@@ -91,7 +91,7 @@ describe("completeProfileSchema", () => {
     it("rechaza un país que no está en la lista", () => {
       expect(
         completeProfileSchema.safeParse({
-          ...PERFIL_VALIDO,
+          ...VALID_PROFILE,
           phone: { country: "XX", national: "3001234567" },
         }).success,
       ).toBe(false);
@@ -135,11 +135,11 @@ describe("completeProfileSchema", () => {
 
   describe("género", () => {
     it.each(GENDERS)("acepta %s", (gender) => {
-      expect(completeProfileSchema.safeParse({ ...PERFIL_VALIDO, gender }).success).toBe(true);
+      expect(completeProfileSchema.safeParse({ ...VALID_PROFILE, gender }).success).toBe(true);
     });
 
     it("rechaza un valor fuera de la lista", () => {
-      expect(completeProfileSchema.safeParse({ ...PERFIL_VALIDO, gender: "otro" }).success).toBe(
+      expect(completeProfileSchema.safeParse({ ...VALID_PROFILE, gender: "otro" }).success).toBe(
         false,
       );
     });
@@ -148,8 +148,8 @@ describe("completeProfileSchema", () => {
   describe("dirección", () => {
     it("rechaza un departamento que no existe", () => {
       const r = completeProfileSchema.safeParse({
-        ...PERFIL_VALIDO,
-        address: { ...PERFIL_VALIDO.address, department: "Cataluña" },
+        ...VALID_PROFILE,
+        address: { ...VALID_PROFILE.address, department: "Cataluña" },
       });
       expect(r.success).toBe(false);
     });
@@ -157,14 +157,14 @@ describe("completeProfileSchema", () => {
     it("exige ciudad y dirección", () => {
       expect(
         completeProfileSchema.safeParse({
-          ...PERFIL_VALIDO,
-          address: { ...PERFIL_VALIDO.address, city: "" },
+          ...VALID_PROFILE,
+          address: { ...VALID_PROFILE.address, city: "" },
         }).success,
       ).toBe(false);
       expect(
         completeProfileSchema.safeParse({
-          ...PERFIL_VALIDO,
-          address: { ...PERFIL_VALIDO.address, line: "Cra" },
+          ...VALID_PROFILE,
+          address: { ...VALID_PROFILE.address, line: "Cra" },
         }).success,
       ).toBe(false);
     });
@@ -172,7 +172,7 @@ describe("completeProfileSchema", () => {
 
   describe("consentimiento", () => {
     it("rechaza el consentimiento sin marcar", () => {
-      const r = completeProfileSchema.safeParse({ ...PERFIL_VALIDO, acceptsTerms: false });
+      const r = completeProfileSchema.safeParse({ ...VALID_PROFILE, acceptsTerms: false });
       expect(r.success).toBe(false);
       expect(r.error?.issues[0]?.message).toBe(
         "Debes aceptar los Términos y la Política de privacidad",

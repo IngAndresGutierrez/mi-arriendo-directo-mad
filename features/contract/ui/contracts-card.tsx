@@ -8,10 +8,11 @@ const CURRENCY = new Intl.NumberFormat("es-CO", {
   maximumFractionDigits: 0,
 });
 
-const ESTADO_LABEL: Readonly<Record<string, string>> = {
-  vigente: "Vigente",
-  terminado: "Terminado",
-  pendiente: "Pendiente de firma",
+// Claves en ingles (son valores almacenados); etiquetas en es-CO (son copy).
+const STATUS_LABEL: Readonly<Record<string, string>> = {
+  active: "Vigente",
+  ended: "Terminado",
+  pending_signature: "Pendiente de firma",
 };
 
 /**
@@ -48,10 +49,10 @@ export function ContractsCard({ contracts }: { contracts: readonly ContractSumma
           <li key={contract.id} className="flex items-center justify-between gap-4 py-3">
             <div>
               <p className="text-sm font-medium text-foreground">
-                {ESTADO_LABEL[contract.estado] ?? contract.estado}
+                {STATUS_LABEL[contract.status] ?? contract.status}
               </p>
               <p className="text-sm text-muted-foreground">
-                Canon {CURRENCY.format(contract.canon)}
+                Canon {CURRENCY.format(contract.rent)}
               </p>
             </div>
           </li>

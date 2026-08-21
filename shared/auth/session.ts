@@ -19,7 +19,7 @@ export const SESSION_COOKIE = "session";
 /** 5 días, el máximo razonable para una session cookie de Firebase. */
 export const SESSION_MAX_AGE_MS = 60 * 60 * 24 * 5 * 1000;
 
-export type UserRole = "inquilino" | "propietario" | "admin";
+export type UserRole = "tenant" | "landlord" | "admin";
 
 export type SessionUser = {
   readonly uid: string;
@@ -28,10 +28,10 @@ export type SessionUser = {
   readonly role: UserRole;
 };
 
-const ROLES = new Set<string>(["inquilino", "propietario", "admin"]);
+const ROLES = new Set<string>(["tenant", "landlord", "admin"]);
 
 function normalizeRole(value: unknown): UserRole {
-  return typeof value === "string" && ROLES.has(value) ? (value as UserRole) : "inquilino";
+  return typeof value === "string" && ROLES.has(value) ? (value as UserRole) : "tenant";
 }
 
 /**
@@ -51,7 +51,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
     return {
       uid: claims.uid,
       email: claims.email ?? null,
-      role: normalizeRole(claims.rol),
+      role: normalizeRole(claims.role),
     };
   } catch {
     // No loggees la cookie ni el error crudo: contiene material de sesión.
