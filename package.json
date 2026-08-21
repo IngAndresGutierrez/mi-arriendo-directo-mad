@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test:rules": "firebase emulators:exec --only firestore --project demo-mad-rules \"vitest run tests/rules\"",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run tests/unit"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.1",

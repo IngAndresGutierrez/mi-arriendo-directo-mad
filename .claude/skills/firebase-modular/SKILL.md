@@ -27,13 +27,26 @@ Señales de que estás copiando código legado: `firebase.` como objeto global,
 `.collection(...).doc(...)` encadenado, `firebase/compat/*`, `FieldValue.serverTimestamp()`
 como método de instancia, `db.settings({})`.
 
-## Inicialización única (HMR-safe)
+## Un módulo por servicio (no un barrel)
 
-**Ya existe `lib/firebase/client.ts`**: impórtalo (`import { db, auth, storage } from "@/lib/firebase/client"`)
-en lugar de inicializar Firebase de nuevo. `initializeApp` dos veces lanza `duplicate-app`.
+El SDK ya está inicializado. Importa **solo el servicio que uses**:
+
+| Import | Trae |
+| --- | --- |
+| `@/lib/firebase/app` | solo la app inicializada (`firebaseApp`, `usaEmulador`) |
+| `@/lib/firebase/auth` | `auth` |
+| `@/lib/firebase/db` | `db` (Firestore, con caché persistente) |
+| `@/lib/firebase/storage` | `storage` |
+
+**No crees un módulo que reexporte los tres.** Ese barrel existía y costaba ~630 KB de SDK
+en la pantalla de login, que solo autentica; separarlo bajó el bundle inicial un 35 %
+(medido). Si una pantalla no consulta Firestore, no debe pagar Firestore.
+
+Cada módulo hace su propio guard de `initializeApp` (`getApps()`, en `app.ts`) y conecta su
+emulador justo después de crear la instancia.
 
 ```ts
-// lib/firebase/client.ts (extracto)
+// lib/firebase/app.ts (extracto)
 import { getApp, getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import {
@@ -53,18 +66,14 @@ const options: FirebaseOptions = {
 };
 
 export const firebaseApp = getApps().length ? getApp() : initializeApp(options);
-
-export const auth = getAuth(firebaseApp);
-export const storage = getStorage(firebaseApp);
-export const db = initializeFirestore(firebaseApp, {
-  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
-});
 ```
 
 - `enableIndexedDbPersistence()` está **deprecado**: usa `persistentLocalCache` en
   `initializeFirestore`.
 - Solo las llaves `NEXT_PUBLIC_*` de esta config viven en el cliente. La private key del
   service account **jamás** entra a este archivo → ver skill `firebase-admin-sdk`.
+- Analytics importa `app.ts`, nunca un módulo de servicio, y se carga con `import()`
+  dinámico tras la hidratación (`components/analytics.tsx`).
 
 ## Frontera cliente / servidor en App Router
 
@@ -73,7 +82,7 @@ El SDK de cliente necesita `window` para persistencia de Auth. Por eso:
 - Todo archivo que importe `firebase/auth` o hooks de Firestore en tiempo real va en un
   módulo con `"use client"`.
 - Para lectura en Server Components / Server Actions usa el **Admin SDK**, no este.
-- No importes `lib/firebase/client.ts` desde un Server Component: arrastra ~100KB al RSC payload.
+- No importes los módulos de cliente desde un Server Component: arrastran el SDK al RSC payload.
 
 ## Operaciones canónicas
 

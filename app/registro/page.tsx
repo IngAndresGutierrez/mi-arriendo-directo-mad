@@ -1,0 +1,32 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+
+import { AuthShell } from "@/components/auth/auth-shell";
+import { safeRedirect, LOGIN_ROUTE } from "@/lib/auth/routes";
+import { getSessionUser } from "@/lib/auth/session";
+
+import { SignupForm } from "./signup-form";
+
+export const metadata: Metadata = {
+  title: "Crear cuenta",
+  description:
+    "Crea tu cuenta en miarriendoDIRECTO.com y arrienda sin intermediarios ni trámites innecesarios.",
+};
+
+export default async function RegistroPage(props: PageProps<"/registro">) {
+  const { next } = await props.searchParams;
+  const redirectTo = safeRedirect(next);
+
+  const user = await getSessionUser();
+  if (user) redirect(redirectTo);
+
+  return (
+    <AuthShell
+      title="Te damos la bienvenida"
+      description="Crea tu cuenta y únete a la nueva forma de arrendar, sin trámites innecesarios."
+    >
+      <SignupForm redirectTo={redirectTo} />
+    </AuthShell>
+  );
+}

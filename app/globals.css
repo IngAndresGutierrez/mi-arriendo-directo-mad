@@ -76,6 +76,12 @@
   --sidebar-border: color-mix(in oklab, #ffffff 12%, transparent);
   --sidebar-ring: var(--brand-cyan-500);
 
+  /* Panel de marca (columna lateral de login y registro, hero, footer): púrpura en AMBOS temas.
+     No uses `bg-primary` para esto: en dark `--primary` es cian y el panel se rompe. */
+  --panel-marca: var(--brand-purple-900);
+  --panel-marca-foreground: #f5f3ff;
+  --panel-marca-muted: #cdc2e0;
+
   /* estados del dominio: semáforo propio, ni púrpura ni cian */
   --estado-pendiente: #b45309;
   --estado-pendiente-bg: #fffbeb;
@@ -131,6 +137,10 @@
   --sidebar-border: color-mix(in oklab, #ffffff 12%, transparent);
   --sidebar-ring: var(--brand-cyan-500);
 
+  --panel-marca: var(--brand-purple-950);
+  --panel-marca-foreground: #f5f3ff;
+  --panel-marca-muted: #c4b5fd;
+
   --estado-pendiente: #fbbf24;
   --estado-pendiente-bg: color-mix(in oklab, #fbbf24 16%, transparent);
   --estado-aprobada: #4ade80;
@@ -182,6 +192,10 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  --color-panel-marca: var(--panel-marca);
+  --color-panel-marca-foreground: var(--panel-marca-foreground);
+  --color-panel-marca-muted: var(--panel-marca-muted);
 
   /* utilidades de estado: bg-estado-aprobada-bg, text-estado-aprobada, ... */
   --color-estado-pendiente: var(--estado-pendiente);

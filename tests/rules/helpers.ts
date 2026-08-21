@@ -23,15 +23,21 @@ export const INMUEBLE_ID = "inmueble-1";
 export const POSTULACION_ID = "postulacion-1";
 export const CONTRATO_ID = "contrato-1";
 
-export async function crearEntorno(): Promise<RulesTestEnvironment> {
+export async function createTestEnvironment(): Promise<RulesTestEnvironment> {
   return initializeTestEnvironment({
     projectId: PROJECT_ID,
     firestore: { rules: readFileSync("firestore.rules", "utf8"), host: "127.0.0.1", port: 8080 },
   });
 }
 
-/** Cliente autenticado con el rol en custom claims, tal como lo pondría el Admin SDK. */
-export function como(
+/**
+ * Cliente autenticado con el rol en custom claims, tal como lo pondría el Admin SDK.
+ *
+ * Los términos del dominio (`inquilino`, `propietario`, `inmueble`, `postulacion`) se
+ * mantienen en español: son los nombres reales de las colecciones y de los claims en
+ * Firestore, y cambiarlos aquí desalinearía el test de las rules desplegadas.
+ */
+export function actingAs(
   env: RulesTestEnvironment,
   uid: string,
   rol?: "inquilino" | "propietario" | "admin",
@@ -42,12 +48,12 @@ export function como(
     .firestore() as unknown as Firestore;
 }
 
-export function anonimo(env: RulesTestEnvironment): Firestore {
+export function anonymous(env: RulesTestEnvironment): Firestore {
   return env.unauthenticatedContext().firestore() as unknown as Firestore;
 }
 
 /** Datos base: un inmueble publicado y una postulación pendiente sobre él. */
-export async function sembrar(env: RulesTestEnvironment): Promise<void> {
+export async function seed(env: RulesTestEnvironment): Promise<void> {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
 

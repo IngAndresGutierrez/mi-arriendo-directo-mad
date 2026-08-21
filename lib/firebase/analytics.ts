@@ -5,22 +5,25 @@
  * render en el servidor (recuerda: un Client Component también se renderiza en el
  * servidor). Por eso se inicializa de forma diferida, tras el montaje, y detrás de
  * `isSupported()` (Safari en modo privado y algunos navegadores no lo soportan).
+ *
+ * Importa `lib/firebase/app` y no un módulo de servicio: así este chunk no arrastra
+ * Firestore ni Storage.
  */
 import { getAnalytics, isSupported, logEvent, type Analytics } from "firebase/analytics";
 
-import { firebaseApp } from "@/lib/firebase/client";
+import { firebaseApp } from "@/lib/firebase/app";
 
-let instancia: Analytics | null = null;
+let instance: Analytics | null = null;
 
 /** `null` si el navegador no lo soporta, si falta measurementId, o si se llama en el servidor. */
 export async function getAnalyticsInstance(): Promise<Analytics | null> {
   if (typeof window === "undefined") return null;
   if (!process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) return null;
-  if (instancia) return instancia;
+  if (instance) return instance;
   if (!(await isSupported())) return null;
 
-  instancia = getAnalytics(firebaseApp);
-  return instancia;
+  instance = getAnalytics(firebaseApp);
+  return instance;
 }
 
 /**
@@ -30,10 +33,10 @@ export async function getAnalyticsInstance(): Promise<Analytics | null> {
  * ni nombres. Solo identificadores no sensibles (inmuebleId, ciudad, tipo).
  */
 export async function trackEvent(
-  nombre: string,
-  parametros?: Readonly<Record<string, string | number | boolean>>,
+  name: string,
+  params?: Readonly<Record<string, string | number | boolean>>,
 ): Promise<void> {
   const analytics = await getAnalyticsInstance();
   if (!analytics) return;
-  logEvent(analytics, nombre, parametros);
+  logEvent(analytics, name, params);
 }

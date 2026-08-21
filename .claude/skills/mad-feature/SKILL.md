@@ -1,35 +1,277 @@
 ---
 name: mad-feature
-description: Genera características y flujos completos para miarriendodirecto.com procesando mockups, esquemas o imágenes junto con la arquitectura Next.js y Firebase.
+description: Construye una funcionalidad completa de miarriendodirecto.com a partir de un mockup, imagen, esquema o descripción. Úsala cuando el usuario pida una pantalla, flujo o feature nuevo, o comparta un diseño de referencia. Orquesta las demás skills del proyecto, el sistema de diseño MAD UI y la barra de verificación.
 ---
 
-# Skill: MAD Feature Generator
+# MAD Feature — de una imagen a una funcionalidad verificada
 
-Actúa como un desarrollador Senior Fullstack especializado en Next.js (App Router), Firebase v10+ y Tailwind CSS para la plataforma PropTech **miarriendodirecto.com**.
+Eres el desarrollador senior de **miarriendodirecto.com** (PropTech colombiano: arriendo
+directo entre propietario e inquilino, con validación de perfiles, contratos y pagos).
 
-Cuando ejecutes esta skill analizando una imagen o diseño de referencia:
+Esta skill es el **orquestador**. No repite lo que ya está documentado en otra parte: te dice
+qué cargar, en qué orden trabajar y cuándo has terminado de verdad.
 
-## 1. Sistema de Diseño Mandatorio (Tokens de Marca)
-- **Primary / Trust:** `#2D124D` (Púrpura Profundo) -> Encabezados, navegación, estructura principal, bordes activos.
-- **Secondary / Accent:** `#00E5FF` (Cian Eléctrico) -> Botones de acción principales (CTA), badges de estado "Aprobado", barras de progreso.
-- **Background:** `#F8F9FA` (Blanco Roto / Arena) -> Fondos de página y contenedores secundarios.
-- **Componentes:** Usa exclusivamente componentes reutilizables de `shadcn/ui` (`Button`, `Card`, `Dialog`, `Form`, `Input`, `Badge`, `Progress`, `Calendar`).
+---
 
-## 2. Arquitectura de Desarrollo
-Genera el flujo funcional dividiendo el código en 3 capas bien estructuradas:
+## 0. Hechos del repositorio (no los asumas, ya están verificados)
 
-1. **Tipos y Validación (`src/lib/validations/`):**
-   - Tipado estricto en TypeScript.
-   - Esquemas de validación con **Zod** para formularios e inserciones en base de datos.
+| Cosa | Realidad |
+| --- | --- |
+| Estructura | **No hay `src/`**. Es `app/`, `lib/`, `components/`, `tests/` en la raíz. |
+| Framework | Next.js **16.3.2**, App Router, Turbopack, React 19.2 |
+| Estilos | Tailwind CSS **v4** — CSS-first, `@theme` en `app/globals.css`, **sin `tailwind.config.js`** |
+| UI | shadcn/ui estilo `radix-nova` (primitivas Radix, iconos lucide). `components/ui/*` |
+| Firebase | SDK modular **v12** (cliente) + `firebase-admin` **v14** (servidor) |
+| Formularios | Zod **v4** + react-hook-form v7 + `@hookform/resolvers` v5 |
+| Gestor | **pnpm** |
+| Rutas | Todas en español. Constantes en `lib/auth/routes.ts` |
 
-2. **Backend & Firebase (`src/lib/firebase/` o Server Actions):**
-   - Usa **Firebase SDK v10+ Modular** (`getDoc`, `setDoc`, `addDoc`, `updateDoc`).
-   - Implementa llamadas seguras para Firestore y Firebase Storage.
+Dos correcciones frecuentes sobre este stack:
 
-3. **Frontend Component (`src/components/` o `src/app/`):**
-   - Server Components por defecto. Usa `'use client'` solo para secciones interactivas o formularios.
-   - Integra `react-hook-form` con `@hookform/resolvers/zod`.
-   - Maneja estados de carga (`Skeleton` / loaders) y deshabilitado de botones durante peticiones.
+- El registry `radix-nova` **no expone `form`**. `shadcn add @shadcn/form` no hace nada. Arma
+  los formularios con `Label` + `Input` + react-hook-form y cablea el ARIA a mano.
+- **Nunca vuelvas a correr `shadcn init`**: sobreescribe `components.json` y
+  `app/globals.css`, y con eso te llevas los tokens MAD UI. Solo `shadcn add`.
 
-## 3. Instrucción de Salida
-Crea o actualiza los archivos necesarios completos, funcionales y sin comentarios inconclusos o marcadores de posición (`TODO`).
+---
+
+## 1. Skills que debes cargar (delegación explícita)
+
+No reescribas de memoria lo que estas skills ya resuelven. Cárgalas **antes** de escribir el
+código del área correspondiente:
+
+| Cargar | Cuándo |
+| --- | --- |
+`nextjs-app-router` | cualquier archivo en `app/`, Server Actions, caching, `proxy.ts` |
+`typescript-strict` | modelos de dominio, converters de Firestore, cualquier tipo nuevo |
+`zod-react-hook-form` | todo formulario y todo schema de validación |
+`shadcn-tailwind` | todo componente visual, tokens, `globals.css` |
+`firebase-modular` | SDK de cliente: auth, tiempo real, Storage |
+`firebase-admin-sdk` | servidor: sesión, claims, escrituras privilegiadas |
+`firestore-security-rules` | colección nueva, o "¿quién puede leer esto?" |
+**`frontend-design`** | jerarquía visual, tipografía, composición, densidad, ritmo |
+**`vercel-react-best-practices`** | rendimiento: waterfalls, bundle, re-renders, RSC |
+
+### Cómo usar `frontend-design` sin romper la marca
+
+Esa skill está escrita para inventar una identidad visual desde cero — te va a pedir elegir
+paleta y tipografía con criterio propio y "tomar un riesgo estético". **Aquí la paleta y la
+tipografía ya están decididas y no se negocian.** Úsala solo para lo que sí es tu decisión:
+
+- ✅ Jerarquía y escala tipográfica, espaciado, densidad, ritmo vertical, composición,
+  agrupación de información, qué merece énfasis, cómo se ve el estado vacío.
+- ❌ Colores nuevos, fuentes nuevas, "riesgos estéticos" sobre la identidad, gradientes o
+  sombras que no salgan de los tokens.
+
+Si el diseño necesita un color que no existe como token, **agrégalo a `app/globals.css`** con
+nombre semántico y mapéalo en `@theme inline`; nunca lo escribas suelto en un componente.
+
+### Cómo usar `vercel-react-best-practices`
+
+Son 70 reglas por prioridad. No las apliques todas a ciegas: en una pantalla nueva importan
+sobre todo las categorías `async-` (waterfalls), `bundle-` y `server-`, y de estas cuatro
+casi siempre aplican:
+
+- `async-parallel` — `Promise.all` para lecturas independientes de Firestore.
+- `server-serialization` — pasa lo mínimo del Server al Client Component.
+- `server-auth-actions` — autentica cada Server Action como si fuera un endpoint público.
+- `bundle-dynamic-imports` — `next/dynamic` para lo pesado (mapas, gráficas, visores de PDF).
+
+Las de `rerender-` y `js-` se aplican cuando hay un problema medido, no preventivamente.
+
+---
+
+## 2. Lee la imagen completa antes de escribir nada
+
+Un mockup muestra **un** estado: el feliz, con datos perfectos y texto corto. La mayor parte
+del código de una feature real es lo que la imagen no muestra. Antes de codificar, escribe el
+inventario:
+
+1. **Datos**: qué campos aparecen, de qué colección salen, cuáles son sensibles.
+2. **Acciones**: cada botón y enlace — a dónde va, qué escribe, quién tiene permiso.
+3. **Estados que la imagen nunca trae**:
+   - cargando (skeleton, no spinner a pantalla completa)
+   - vacío (primer uso: qué texto y qué acción ofrece)
+   - error (de red, de permisos, de validación)
+   - sin permiso para ver esto
+   - texto largo (un título de 140 caracteres, un nombre compuesto, `text-balance`/`truncate`)
+   - montos en cero, negativos o gigantes
+   - móvil (390px) y lectura con zoom al 200%
+4. **Copy**: español de Colombia. Montos con
+   `Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 })`.
+5. **Lo que el diseño promete pero no puede cumplir** — dilo antes de construir. Ejemplos
+   reales: un "código de 6 dígitos" necesita proveedor de correo; un selector de idioma
+   implica i18n completo; un enlace a `/terminos` necesita que esa página exista.
+
+Si el diseño de referencia trae la marca de otro producto (colores, logo, tipografía), **la
+identidad se reemplaza por MAD UI**; lo que se copia es la estructura y la composición.
+
+---
+
+## 3. Orden de construcción: contratos primero
+
+Construir de la UI hacia adentro produce el código no mantenible: tipos inventados para que
+compile el JSX, validación duplicada, `any` para salir del paso. Trabaja al revés:
+
+1. **Dominio y tipos** (`lib/domain/`) — las tres formas del dato: `XInput` (lo que envía el
+   usuario), `XDoc` (lo que vive en Firestore, con `Timestamp`), `X` (lo que consume la UI,
+   serializable). Uniones discriminadas para estados; branded types para ids y montos.
+2. **Validación** (`lib/validations/`) — un schema Zod por caso de uso. Es la única puerta de
+   entrada de datos externos. Deriva los tipos del schema: `z.output<typeof schema>`.
+3. **Rules** (`firestore.rules`, `storage.rules`) — antes de escribir un solo documento nuevo.
+   Con su test de acceso denegado.
+4. **Acceso a datos** (`lib/data/`) — lecturas de servidor con Admin SDK, serializadas a POJO.
+   Un módulo por agregado, no consultas sueltas dentro de los componentes.
+5. **Mutaciones** (Server Actions) — orden invariable: **autenticar → validar con Zod →
+   autorizar contra el dato real → invariantes de negocio → escribir → invalidar cache**.
+6. **UI** (`app/`, `components/`) — Server Components por defecto; `"use client"` en la hoja
+   más baja del árbol.
+7. **Verificación** (sección 6).
+
+### Dónde va cada archivo
+
+```
+app/<ruta>/page.tsx            Server Component: sesión, datos, composición
+app/<ruta>/<algo>-form.tsx     "use client": interactividad
+app/<ruta>/actions.ts          "use server": mutaciones
+app/api/<x>/route.ts           Route Handlers
+components/<dominio>/          composiciones del producto
+components/ui/                 primitivas shadcn — sin lógica de negocio
+lib/domain/                    tipos del dominio
+lib/validations/               schemas Zod
+lib/data/                      lecturas de servidor
+lib/auth/routes.ts            constantes de rutas — nunca strings literales
+tests/rules/                   tests de security rules
+tests/unit/                    tests de schemas y lógica pura
+```
+
+---
+
+## 4. Convención de nombres
+
+Esto se torció una vez y hubo que refactorizar todo el código. No lo repitas:
+
+- **Identificadores en inglés**: variables, funciones, tipos, componentes, props, archivos.
+  `signInWithEmail`, `isBusy`, `SubmitButton`, `redirectTo` — no `iniciarSesion`, `ocupado`.
+- **Copy y comentarios en español (es-CO)**: es el idioma del producto y del equipo.
+- **Vocabulario del dominio, en español**: `inquilino`, `propietario`, `inmueble`,
+  `postulacion`, `canon`. Son los nombres reales de las colecciones y de los custom claims
+  en Firestore; traducirlos desalinearía el código de las rules ya desplegadas.
+- **URLs en español**: `/registro`, `/panel`, `/recuperar`. Las ve el usuario.
+- Archivos en `kebab-case`, componentes en `PascalCase`, constantes de módulo en
+  `SCREAMING_SNAKE_CASE`.
+
+## 5. Reglas de ingeniería que no se negocian
+
+- **Sin secretos en el cliente.** Solo `NEXT_PUBLIC_FIREBASE_*`. `lib/firebase/admin.ts`
+  empieza con `import "server-only"`.
+- **Sin `any`, sin `as` sobre datos externos, sin `@ts-ignore`.** Entrada externa es
+  `unknown` + Zod.
+- **Sin hex sueltos en componentes.** Tokens semánticos o token nuevo en `globals.css`.
+- **Sin strings de ruta literales.** Constantes de `lib/auth/routes.ts`.
+- **Sin `TODO`, sin marcadores, sin funciones que devuelvan datos falsos.** Si algo no se
+  puede completar, dilo en la respuesta; no lo dejes fingido en el código.
+- **Sin enlaces colgantes.** Si añades un `<Link href="/x">`, o creas `/x` o lo reportas
+  explícitamente como pendiente.
+- **Datos personales**: nunca en `searchParams`, ni en `localStorage`, ni en logs, ni en un
+  `"use cache"` compartido entre usuarios. Un correo en la URL queda en el historial y en los
+  logs del servidor: pásalo por estado del componente.
+- **Serializa en la frontera**: `Timestamp` y `DocumentReference` no cruzan al cliente.
+- **Accesibilidad**: `<label>` real para cada campo, `aria-invalid` + `aria-describedby` en
+  errores, foco visible en todo control, estado nunca comunicado solo por color, `aria-label`
+  en botones de solo icono.
+
+---
+
+## 6. Testing: tres niveles, y lo que va en cada uno
+
+Escribe el test que puede fallar por la razón correcta. Un test que pasa siempre es peor que
+no tener test.
+
+**a) Unitario — `tests/unit/`, `pnpm test`**
+Schemas Zod y lógica pura: normalización, cálculos de dinero, máquinas de estado, helpers como
+`safeRedirect`. Para cada schema, al menos un caso válido y un caso inválido por regla no
+trivial (formato de cédula, celular colombiano, canon entero y positivo, consentimiento).
+
+**b) Security rules — `tests/rules/`, `pnpm test:rules`** (requiere JDK 21+)
+**Obligatorio para toda colección nueva.** Cada regla necesita su caso negativo: un tercero
+que no puede leer, alguien que no puede auto-aprobarse, un campo que no puede cambiar.
+`assertFails` solo pasa con `PERMISSION_DENIED`, así que un error de otro tipo no te da un
+falso verde. Si dudas de que la suite detecte algo, **debilita la regla a propósito y confirma
+que el test falla** antes de confiar en él.
+
+**c) Flujo real en el navegador**
+Levanta la app y **condúcela**; compilar no es verificar. Usa la skill `run`. El driver de
+Playwright vive en el scratchpad de la sesión (`npm i playwright` en un directorio aparte para
+no tocar `package.json`). Para cada feature, conduce como mínimo:
+
+- el camino feliz de punta a punta, y **afirma sobre la consecuencia real** (cookie creada,
+  documento escrito, URL final), no solo que aparece un texto;
+- un camino de fallo (credenciales malas, sin permiso, validación);
+- 390px de ancho, comprobando que no haya scroll horizontal;
+- consola sin `pageerror`.
+
+Dos trampas al conducir: acota los selectores al formulario (`form [role="alert"]`) porque el
+overlay de `next dev` también usa `role="alert"`; y espera a que el botón vuelva a su estado
+inactivo antes de leer el resultado, o capturarás la pantalla a mitad del envío.
+
+Si la feature toca datos reales, crea el dato de prueba con el Admin SDK y **bórralo al
+terminar**, en el mismo paso.
+
+---
+
+## 7. Definición de "listo"
+
+No reportes la feature como terminada sin esto:
+
+```bash
+pnpm typecheck     # tsc --noEmit, limpio
+pnpm lint          # eslint, sin warnings
+pnpm build         # compila
+pnpm test          # unitarios (si tocaste schemas o lógica)
+pnpm test:rules    # rules (si tocaste firestore.rules o storage.rules)
+```
+
+Más: la app levantada y el flujo conducido, capturas mirando el resultado, y los datos de
+prueba borrados.
+
+Al reportar, di explícitamente: qué **no** quedó hecho, qué enlaces apuntan a rutas que aún no
+existen, qué decisiones tomaste que el usuario debería revisar, y qué no pudiste verificar y
+por qué. Un reporte que solo lista lo que salió bien es un reporte incompleto.
+
+---
+
+## 8. Trampas ya pagadas en este proyecto
+
+Estas costaron tiempo. No las repitas:
+
+- **`bg-primary` no sirve para superficies de marca.** En modo oscuro `--primary` es cian y un
+  panel entero queda de cian. Usa el token `panel-marca` (púrpura en ambos temas).
+- **El modo oscuro no está activo**: shadcn usa la variante por clase (`.dark`) y nada la
+  añade. Los tokens oscuros existen y son correctos, pero hoy la app renderiza solo en claro.
+  Y el logo púrpura sobre fondo oscuro se vuelve ilegible: haría falta una versión en reverso.
+- **`/` es el login.** El destino tras autenticarse nunca puede ser `/` ni `/registro`: sería
+  un bucle. `safeRedirect()` ya los rechaza, junto con las URLs externas.
+- **Un `list` de Firestore sin filtro se deniega siempre**, incluso sobre colección vacía: la
+  regla debe ser verificable desde la query. El catálogo público **tiene** que consultar con
+  `where("estado", "==", "disponible")`.
+- **`&&` liga más fuerte que `||`** en las rules. `A && B || C` es `(A && B) || C`, y ahí se
+  cuelan permisos. Parentiza siempre.
+- **En `create` no existe `resource`.** Un helper que use `resource.data` falla en creación.
+- **`watch()` de react-hook-form** dispara `react-hooks/incompatible-library`; usa `useWatch`.
+- **Al mover o renombrar rutas, borra `.next`**: los tipos generados siguen apuntando a la
+  ruta vieja y `tsc` falla con un error que no tiene nada que ver con tu código.
+- **`revalidateTag` exige segundo argumento** en Next 16. Para read-your-writes usa
+  `updateTag` dentro de una Server Action.
+- **`cookies()`, `headers()`, `params` y `searchParams` son asíncronos.** Siempre `await`.
+- **No dupliques markup de formulario.** Existen `TextField`, `FormAlert`, `GoogleButton`,
+  `OrDivider`, `SubmitButton` y `PasswordRequirements`. Repetir el `aria-describedby` a mano
+  en cada formulario acabó dejando un campo con el error calculado y nunca renderizado: una
+  contraseña demasiado larga fallaba en silencio.
+- **No pases JSX como prop** (`alerta={<p .../>}`) para compartir un trozo de UI. Pasa datos
+  (`error: string | null`) y deja que el hijo lo renderice.
+- **Importa los tipos de React explícitamente** (`import type { ReactNode }`), no
+  `React.ReactNode` apoyado en el namespace UMD global.
+- **El error de Firebase no se muestra crudo.** Tradúcelo con `lib/auth/errors.ts`, y que
+  credenciales inválidas y usuario inexistente compartan mensaje: si no, el formulario sirve
+  para enumerar cuentas.

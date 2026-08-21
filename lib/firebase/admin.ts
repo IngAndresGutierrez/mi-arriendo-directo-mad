@@ -14,7 +14,7 @@ import { getAuth } from "firebase-admin/auth";
 import { getFirestore } from "firebase-admin/firestore";
 import { getStorage } from "firebase-admin/storage";
 
-function crearApp(): App {
+function createApp(): App {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
@@ -35,8 +35,8 @@ function crearApp(): App {
 }
 
 /** Fluid Compute reutiliza instancias entre requests: inicializa una sola vez por proceso. */
-const [appExistente] = getApps();
-const adminApp: App = appExistente ?? crearApp();
+const [existingApp] = getApps();
+const adminApp: App = existingApp ?? createApp();
 
 export const adminAuth = getAuth(adminApp);
 export const adminStorage = getStorage(adminApp);
@@ -45,8 +45,8 @@ export const adminDb = getFirestore(adminApp);
 
 // `settings()` solo puede llamarse antes de la primera operación y una única vez;
 // el flag evita que un segundo bundle del servidor lo vuelva a invocar.
-const FLAG_SETTINGS = "__madFirestoreSettings";
-if (!(FLAG_SETTINGS in globalThis)) {
-  Object.defineProperty(globalThis, FLAG_SETTINGS, { value: true });
+const SETTINGS_FLAG = "__madFirestoreSettings";
+if (!(SETTINGS_FLAG in globalThis)) {
+  Object.defineProperty(globalThis, SETTINGS_FLAG, { value: true });
   adminDb.settings({ ignoreUndefinedProperties: true });
 }

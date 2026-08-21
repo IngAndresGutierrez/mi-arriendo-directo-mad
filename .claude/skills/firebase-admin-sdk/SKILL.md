@@ -29,7 +29,7 @@ Variables de entorno (en `.env.local` y `vercel env`, **sin** `NEXT_PUBLIC_`):
 ## Inicialización singleton
 
 **Ya existen `lib/firebase/admin.ts`** (`adminAuth`, `adminDb`, `adminStorage`) y
-**`lib/auth/session.ts`** (`getSessionUser`, `requireUser`, `requireRol`). Impórtalos; no
+**`lib/auth/session.ts`** (`getSessionUser`, `requireUser`, `requireRole`). Impórtalos; no
 crees otra instancia. Fluid Compute reutiliza instancias entre requests.
 
 ```ts

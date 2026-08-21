@@ -30,6 +30,27 @@ error.format() / error.flatten()            z.treeifyError(error) / z.flattenErr
 Otras notas de v4: `.default()` aplica a la salida, `z.coerce.*` sigue existiendo,
 `z.output<typeof s>` vs `z.input<typeof s>` importan cuando hay `transform`/`coerce`.
 
+### Trampa: el orden de validación y normalización
+
+`.trim()` y `.toLowerCase()` son **transformaciones que corren después de validar**. Por eso
+`z.email().trim()` rechaza `"  a@b.com "`: valida con los espacios y recorta después. Es un
+bug real y silencioso — en móvil el autocompletado y el pegado añaden espacios constantemente.
+
+```ts
+// ❌ rechaza correos con espacios al pegar
+z.email({ error: "Correo inválido" }).trim().toLowerCase()
+
+// ✅ normaliza primero, valida después
+const emailNormalizado = z
+  .string({ error: "Ingresa tu correo" })
+  .trim()
+  .toLowerCase()
+  .pipe(z.email({ error: "Correo inválido" }));
+```
+
+Extrae el campo a una constante reutilizable como esa en vez de repetir la cadena en cada
+schema: así el arreglo se hace una vez. En el repo está en `lib/validations/auth.ts`.
+
 ## Un schema por caso de uso, en `lib/schemas/`
 
 Los schemas son la **frontera única** de datos externos. Se comparten entre cliente y

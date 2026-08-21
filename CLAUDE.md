@@ -23,9 +23,14 @@ asíncronos, `middleware.ts` → `proxy.ts`). Consulta `node_modules/next/dist/d
 antes de escribir código de framework.
 
 ## Archivos base ya creados
-- `lib/firebase/client.ts` — SDK modular (cliente): `auth`, `db`, `storage`, emuladores.
+- `lib/firebase/app.ts` — solo inicializa la app (`firebaseApp`). Un módulo por servicio:
+  `lib/firebase/auth.ts`, `lib/firebase/db.ts`, `lib/firebase/storage.ts`. **No hagas un
+  barrel que reexporte los tres**: costaba 630 KB de SDK en el login.
+- `components/analytics.tsx` — carga Analytics con `import()` dinámico tras la hidratación.
+- `components/brand/logo.tsx` — `<Logo width={200} priority />`; único sitio con las
+  dimensiones del PNG.
 - `lib/firebase/admin.ts` — Admin SDK (`server-only`): `adminAuth`, `adminDb`, `adminStorage`.
-- `lib/auth/session.ts` — `getSessionUser()`, `requireUser()`, `requireRol()` sobre la cookie
+- `lib/auth/session.ts` — `getSessionUser()`, `requireUser()`, `requireRole()` sobre la cookie
   httpOnly `session`.
 - `firestore.rules` / `storage.rules` / `firestore.indexes.json` / `firebase.json`.
 - `app/globals.css` — tokens MAD UI (light + dark, sidebar, charts, estados del dominio).
@@ -35,11 +40,33 @@ antes de escribir código de framework.
 - `lib/firebase/analytics.ts` — Analytics diferido con `isSupported()`; nunca le pases datos
   personales como parámetros de evento.
 
-Pendiente de implementar: `POST/DELETE /api/session` (crear y borrar la session cookie) y la
-ruta `/login` a la que redirige `requireUser()`.
+## Rutas (todas en español)
+Las constantes viven en `lib/auth/routes.ts`; usa esas, no strings literales.
+
+| Ruta | Constante | Qué es |
+| --- | --- | --- |
+| `/` | `LOGIN_ROUTE` | Login (correo + contraseña, Google). Es la raíz del sitio. |
+| `/registro` | `SIGNUP_ROUTE` | Registro en 2 pasos: correo → contraseña. |
+| `/panel` | `HOME_ROUTE` | Destino tras autenticarse. Provisional: reemplazar por el portal real. |
+| `/recuperar` | `PASSWORD_RESET_ROUTE` | **Sin implementar** (da 404). |
+
+- `POST /api/session` canjea el idToken por session cookie httpOnly; `DELETE` cierra sesión y
+  revoca los refresh tokens.
+- `requireUser()` redirige a `LOGIN_ROUTE`; `requireRole()` a `HOME_ROUTE`.
+- **`/` es el login, así que el destino tras entrar NUNCA puede ser `/`**: sería un bucle
+  infinito. `safeRedirect()` rechaza `/`, `/registro` y `/recuperar` como destino, además de
+  cualquier URL externa (open redirect).
+- El layout de login y registro es `components/auth/auth-shell.tsx`. Su panel lateral usa el
+  token `panel-marca` (púrpura en ambos temas), nunca `bg-primary`.
+- El correo del paso 1 del registro vive en estado del componente, **nunca en la URL**.
+
+Enlaces que aún no tienen ruta (dan 404): `/recuperar`, `/terminos`, `/privacidad`.
+El documento `usuarios/{uid}` y el claim `rol` se crean en el onboarding, no en el registro:
+las rules exigen `nombre` y el diseño de registro no lo pide.
 
 ## Skills del proyecto
-Las skills en `.claude/skills/` son la fuente de verdad de cada área. Invócalas **antes** de
+Las skills en `.claude/skills/` son la fuente de verdad de cada área. Las dos últimas son
+externas, instaladas con `npx skills add` y versionadas en `.agents/skills/`. Invócalas **antes** de
 escribir código, no después:
 
 | Skill | Cuándo |
@@ -51,6 +78,41 @@ escribir código, no después:
 | `shadcn-tailwind` | componentes, `app/globals.css`, `components.json`, colores |
 | `typescript-strict` | tipos de dominio, converters de Firestore, `tsconfig.json` |
 | `zod-react-hook-form` | cualquier formulario o schema de validación |
+| `mad-feature` | construir una pantalla o flujo completo desde un mockup — orquesta las demás |
+| `frontend-design` | jerarquía visual, tipografía, composición (**no** para elegir colores: la paleta ya está fija) |
+| `vercel-react-best-practices` | rendimiento: waterfalls, bundle, RSC, re-renders |
+
+## Convención de nombres
+- **Identificadores en inglés**: variables, funciones, tipos, componentes, props, archivos.
+- **Copy y comentarios en español** (es-CO): es el idioma del producto y del equipo.
+- **Vocabulario del dominio, en español**: `inquilino`, `propietario`, `inmueble`,
+  `postulacion`, `canon`. Son los nombres reales de las colecciones de Firestore y de los
+  custom claims; traducirlos desalinearía el código de las rules desplegadas.
+- **URLs en español** (`/registro`, `/panel`, `/recuperar`): son visibles para el usuario.
+
+## Componentes compartidos de formulario
+Reutilízalos en vez de repetir markup; antes cada formulario duplicaba el ARIA y se corría
+el riesgo de dejar un campo sin conectar.
+
+| Componente | Para |
+| --- | --- |
+| `components/ui/text-field.tsx` | `TextField`: label + input + error + `aria-invalid`/`aria-describedby`. Acepta `{...register("campo")}` directo. |
+| `components/auth/form-alert.tsx` | `FormAlert`: error a nivel de formulario con `role="alert"`. |
+| `components/auth/google-button.tsx` | `GoogleButton`: acceso con Google, con spinner. |
+| `components/auth/or-divider.tsx` | `OrDivider`: separador "o". |
+| `components/auth/submit-button.tsx` | `SubmitButton`: CTA cian con spinner y etiqueta de progreso. |
+| `components/auth/password-requirements.tsx` | `PasswordRequirements`: checklist derivado de `PASSWORD_REQUIREMENTS`. |
+| `components/auth/auth-shell.tsx` | `AuthShell`: layout de dos columnas de login y registro. |
+| `components/brand/logo.tsx` | `Logo`: único sitio con las dimensiones del PNG. |
+
+## Comandos de verificación
+```bash
+pnpm typecheck     # tsc --noEmit
+pnpm lint          # eslint
+pnpm build         # next build
+pnpm test          # unitarios: schemas y lógica pura (tests/unit/)
+pnpm test:rules    # security rules contra el emulador (tests/rules/) — requiere JDK 21+
+```
 
 ## Tests de Security Rules
 `pnpm test:rules` levanta el emulador de Firestore y corre `tests/rules/` (35 casos, con
