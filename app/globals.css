@@ -5,14 +5,14 @@
 @custom-variant dark (&:is(.dark *));
 
 /* ==========================================================================
-   MAD UI — Sistema de diseño de miarriendodirecto.com
-   Púrpura profundo #2D124D  ·  Cian eléctrico #00E5FF  ·  Fondo #F8F9FA
-   Nunca uses estos hex directamente en un componente: consume los tokens
-   semánticos de abajo (bg-primary, bg-accent, text-accent-foreground, ...).
+   MAD UI — miarriendodirecto.com design system
+   Deep purple #2D124D  ·  Electric cyan #00E5FF  ·  Background #F8F9FA
+   Never use these hex values directly in a component: consume the semantic
+   tokens below (bg-primary, bg-accent, text-accent-foreground, ...).
    ========================================================================== */
 
 :root {
-  /* --- paleta de marca (no usar directo en componentes) --- */
+  /* --- brand palette (never used directly in components) --- */
   --brand-purple-950: #1a0a2e;
   --brand-purple-900: #2d124d; /* PÚRPURA DE MARCA */
   --brand-purple-800: #3d1a66;
@@ -29,7 +29,7 @@
   --brand-cyan-300: #8af3ff;
   --brand-cyan-100: #e0fcff;
 
-  /* --- tokens semánticos --- */
+  /* --- semantic tokens --- */
   --radius: 0.625rem;
 
   --background: #f8f9fa; /* blanco roto / arena */
@@ -39,14 +39,14 @@
   --popover: #ffffff;
   --popover-foreground: var(--brand-purple-950);
 
-  /* estructura, encabezados, bordes activos */
+  /* structure, headings, active borders */
   --primary: var(--brand-purple-900);
   --primary-foreground: #ffffff;
 
   --secondary: var(--brand-purple-100);
   --secondary-foreground: var(--brand-purple-900);
 
-  /* CTA principal, badge "Aprobado", barras de progreso */
+  /* primary CTA, "approved" badge, progress bars */
   --accent: var(--brand-cyan-500);
   --accent-foreground: var(--brand-purple-900); /* texto OSCURO sobre cian */
 
@@ -66,7 +66,7 @@
   --chart-4: var(--brand-cyan-700);
   --chart-5: var(--brand-purple-300);
 
-  /* sidebar púrpura: estructura de la app autenticada */
+  /* purple sidebar: the authenticated app's structure */
   --sidebar: var(--brand-purple-900);
   --sidebar-foreground: #f5f3ff;
   --sidebar-primary: var(--brand-cyan-500);
@@ -76,23 +76,23 @@
   --sidebar-border: color-mix(in oklab, #ffffff 12%, transparent);
   --sidebar-ring: var(--brand-cyan-500);
 
-  /* Panel de marca (columna lateral de login y registro, hero, footer): púrpura en AMBOS temas.
-     No uses `bg-primary` para esto: en dark `--primary` es cian y el panel se rompe. */
-  --panel-marca: var(--brand-purple-900);
-  --panel-marca-foreground: #f5f3ff;
-  --panel-marca-muted: #cdc2e0;
+  /* Brand panel (login and signup side column, hero, footer): purple in BOTH themes.
+     Do not use `bg-primary` for this: in dark mode `--primary` is cyan and the panel breaks. */
+  --brand-panel: var(--brand-purple-900);
+  --brand-panel-foreground: #f5f3ff;
+  --brand-panel-muted: #cdc2e0;
 
-  /* estados del dominio: semáforo propio, ni púrpura ni cian */
-  --estado-pendiente: #b45309;
-  --estado-pendiente-bg: #fffbeb;
-  --estado-aprobada: #15803d;
-  --estado-aprobada-bg: #ecfdf5;
-  --estado-rechazada: #b91c1c;
-  --estado-rechazada-bg: #fef2f2;
-  --estado-al-dia: var(--brand-cyan-700);
-  --estado-al-dia-bg: var(--brand-cyan-100);
-  --estado-en-mora: #b91c1c;
-  --estado-en-mora-bg: #fef2f2;
+  /* domain statuses: their own traffic light, neither purple nor cyan */
+  --status-pending: #b45309;
+  --status-pending-bg: #fffbeb;
+  --status-approved: #15803d;
+  --status-approved-bg: #ecfdf5;
+  --status-rejected: #b91c1c;
+  --status-rejected-bg: #fef2f2;
+  --status-current: var(--brand-cyan-700);
+  --status-current-bg: var(--brand-cyan-100);
+  --status-overdue: #b91c1c;
+  --status-overdue-bg: #fef2f2;
 }
 
 .dark {
@@ -137,20 +137,20 @@
   --sidebar-border: color-mix(in oklab, #ffffff 12%, transparent);
   --sidebar-ring: var(--brand-cyan-500);
 
-  --panel-marca: var(--brand-purple-950);
-  --panel-marca-foreground: #f5f3ff;
-  --panel-marca-muted: #c4b5fd;
+  --brand-panel: var(--brand-purple-950);
+  --brand-panel-foreground: #f5f3ff;
+  --brand-panel-muted: #c4b5fd;
 
-  --estado-pendiente: #fbbf24;
-  --estado-pendiente-bg: color-mix(in oklab, #fbbf24 16%, transparent);
-  --estado-aprobada: #4ade80;
-  --estado-aprobada-bg: color-mix(in oklab, #4ade80 16%, transparent);
-  --estado-rechazada: #f87171;
-  --estado-rechazada-bg: color-mix(in oklab, #f87171 16%, transparent);
-  --estado-al-dia: var(--brand-cyan-300);
-  --estado-al-dia-bg: color-mix(in oklab, var(--brand-cyan-500) 16%, transparent);
-  --estado-en-mora: #f87171;
-  --estado-en-mora-bg: color-mix(in oklab, #f87171 16%, transparent);
+  --status-pending: #fbbf24;
+  --status-pending-bg: color-mix(in oklab, #fbbf24 16%, transparent);
+  --status-approved: #4ade80;
+  --status-approved-bg: color-mix(in oklab, #4ade80 16%, transparent);
+  --status-rejected: #f87171;
+  --status-rejected-bg: color-mix(in oklab, #f87171 16%, transparent);
+  --status-current: var(--brand-cyan-300);
+  --status-current-bg: color-mix(in oklab, var(--brand-cyan-500) 16%, transparent);
+  --status-overdue: #f87171;
+  --status-overdue-bg: color-mix(in oklab, #f87171 16%, transparent);
 }
 
 @theme inline {
@@ -193,21 +193,21 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  --color-panel-marca: var(--panel-marca);
-  --color-panel-marca-foreground: var(--panel-marca-foreground);
-  --color-panel-marca-muted: var(--panel-marca-muted);
+  --color-brand-panel: var(--brand-panel);
+  --color-brand-panel-foreground: var(--brand-panel-foreground);
+  --color-brand-panel-muted: var(--brand-panel-muted);
 
-  /* utilidades de estado: bg-estado-aprobada-bg, text-estado-aprobada, ... */
-  --color-estado-pendiente: var(--estado-pendiente);
-  --color-estado-pendiente-bg: var(--estado-pendiente-bg);
-  --color-estado-aprobada: var(--estado-aprobada);
-  --color-estado-aprobada-bg: var(--estado-aprobada-bg);
-  --color-estado-rechazada: var(--estado-rechazada);
-  --color-estado-rechazada-bg: var(--estado-rechazada-bg);
-  --color-estado-al-dia: var(--estado-al-dia);
-  --color-estado-al-dia-bg: var(--estado-al-dia-bg);
-  --color-estado-en-mora: var(--estado-en-mora);
-  --color-estado-en-mora-bg: var(--estado-en-mora-bg);
+  /* status utilities: bg-status-approved-bg, text-status-approved, ... */
+  --color-status-pending: var(--status-pending);
+  --color-status-pending-bg: var(--status-pending-bg);
+  --color-status-approved: var(--status-approved);
+  --color-status-approved-bg: var(--status-approved-bg);
+  --color-status-rejected: var(--status-rejected);
+  --color-status-rejected-bg: var(--status-rejected-bg);
+  --color-status-current: var(--status-current);
+  --color-status-current-bg: var(--status-current-bg);
+  --color-status-overdue: var(--status-overdue);
+  --color-status-overdue-bg: var(--status-overdue-bg);
 
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);

@@ -36,7 +36,7 @@ export function NavItem({ label, icon: Icon, href }: NavEntry) {
             tabIndex={0}
             className={cn(
               BASE,
-              "cursor-not-allowed text-panel-marca-muted/60",
+              "cursor-not-allowed text-brand-panel-muted/60",
               "focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none",
             )}
           >
@@ -60,7 +60,7 @@ export function NavItem({ label, icon: Icon, href }: NavEntry) {
         "focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none",
         isActive
           ? "bg-accent/15 text-accent"
-          : "text-panel-marca-muted hover:bg-white/5 hover:text-panel-marca-foreground",
+          : "text-brand-panel-muted hover:bg-white/5 hover:text-brand-panel-foreground",
       )}
     >
       <Icon className="size-5" aria-hidden="true" />

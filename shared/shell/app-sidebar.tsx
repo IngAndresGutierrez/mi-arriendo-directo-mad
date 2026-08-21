@@ -33,14 +33,14 @@ export function AppSidebar() {
   return (
     <nav
       aria-label="Navegación principal"
-      className="flex w-20 shrink-0 flex-col items-center gap-1 bg-panel-marca px-2 py-4"
+      className="flex w-20 shrink-0 flex-col items-center gap-1 bg-brand-panel px-2 py-4"
     >
       {/*
         Icon mark: the full logo does not fit in 80px. It sits on a light chip because its
         strokes are purple and would vanish against the panel's purple background. Until a
         reversed version of the logo exists, this is how it stays legible.
       */}
-      <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-panel-marca-foreground">
+      <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-brand-panel-foreground">
         <Image
           src="/isotipo.png"
           alt="miarriendoDIRECTO.com"
