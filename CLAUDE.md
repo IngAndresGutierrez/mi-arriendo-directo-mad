@@ -84,6 +84,7 @@ escribir código, no después:
 | `typescript-strict` | tipos de dominio, converters de Firestore, `tsconfig.json` |
 | `zod-react-hook-form` | cualquier formulario o schema de validación |
 | `mad-feature` | construir una pantalla o flujo completo desde un mockup — orquesta las demás |
+| `mad-architecture` | dónde va cada archivo, fronteras entre módulos, mover/renombrar carpetas, refactor estructural |
 | `frontend-design` | jerarquía visual, tipografía, composición (**no** para elegir colores: la paleta ya está fija) |
 | `vercel-react-best-practices` | rendimiento: waterfalls, bundle, RSC, re-renders |
 
