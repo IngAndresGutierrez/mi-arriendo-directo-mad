@@ -47,7 +47,7 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 
   try {
     // `true` also checks that the session has not been revoked.
-    const claims = await adminAuth.verifySessionCookie(cookie, true);
+    const claims = await adminAuth().verifySessionCookie(cookie, true);
     return {
       uid: claims.uid,
       email: claims.email ?? null,
