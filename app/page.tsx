@@ -5,7 +5,7 @@ import { AuthShell } from "@/shared/shell/auth-shell";
 import { safeRedirect } from "@/shared/auth/routes";
 import { getSessionUser } from "@/shared/auth/session";
 
-import { LoginForm } from "./login-form";
+import { LoginForm } from "@/features/auth";
 
 export const metadata: Metadata = {
   title: "Iniciar sesión",

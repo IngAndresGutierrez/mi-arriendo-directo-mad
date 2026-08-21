@@ -1,6 +1,6 @@
 import { CheckIcon } from "lucide-react";
 
-import { PASSWORD_REQUIREMENTS } from "@/lib/validations/auth";
+import { PASSWORD_REQUIREMENTS } from "../validations/auth";
 import { cn } from "@/shared/lib/utils";
 
 /**

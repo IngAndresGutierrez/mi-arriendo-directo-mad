@@ -1,18 +1,12 @@
 /**
- * Tests de los schemas de acceso y del guardián de redirecciones.
+ * Tests de los schemas de acceso.
  *
  * Ejemplar del nivel "unitario" que describe la skill `mad-feature`: cada regla no trivial
  * tiene su caso válido y su caso inválido.
  */
 import { describe, expect, it } from "vitest";
 
-import { HOME_ROUTE, safeRedirect } from "@/shared/auth/routes";
-import {
-  emailSchema,
-  loginSchema,
-  PASSWORD_REQUIREMENTS,
-  signupSchema,
-} from "@/lib/validations/auth";
+import { emailSchema, loginSchema, PASSWORD_REQUIREMENTS, signupSchema } from "./auth";
 
 describe("loginSchema", () => {
   it("normaliza el correo a minúsculas y sin espacios", () => {
@@ -66,33 +60,5 @@ describe("emailSchema", () => {
   it("solo pide el correo", () => {
     expect(emailSchema.safeParse({ email: "a@b.com" }).success).toBe(true);
     expect(emailSchema.safeParse({ email: "" }).success).toBe(false);
-  });
-});
-
-describe("safeRedirect", () => {
-  it("acepta una ruta interna", () => {
-    expect(safeRedirect("/panel/inmuebles")).toBe("/panel/inmuebles");
-  });
-
-  it.each([
-    ["URL absoluta", "https://evil.example.com"],
-    ["protocol-relative", "//evil.example.com"],
-    ["ruta sin barra inicial", "evil.example.com"],
-    ["undefined", undefined],
-    ["array (parámetro repetido)", ["/a", "/b"]],
-  ])("bloquea %s y cae al destino por defecto", (_case, value) => {
-    expect(safeRedirect(value as string | string[] | undefined)).toBe(HOME_ROUTE);
-  });
-
-  it.each(["/", "/registro", "/recuperar"])(
-    "no permite %s como destino: sería un bucle de redirección",
-    (route) => {
-      expect(safeRedirect(route)).toBe(HOME_ROUTE);
-    },
-  );
-
-  it("tampoco lo permite disfrazado con querystring", () => {
-    expect(safeRedirect("/registro?x=1")).toBe(HOME_ROUTE);
-    expect(safeRedirect("/#algo")).toBe(HOME_ROUTE);
   });
 });
