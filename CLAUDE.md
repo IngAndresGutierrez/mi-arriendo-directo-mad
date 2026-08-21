@@ -1,203 +1,221 @@
-# miarriendodirecto.com - Guía del Proyecto
+# miarriendodirecto.com — Project Guide
 
-## Stack Tecnológico
-- **Frontend:** Next.js (App Router), TypeScript Strict, Tailwind CSS, shadcn/ui
+## Tech Stack
+- **Frontend:** Next.js (App Router), TypeScript strict, Tailwind CSS, shadcn/ui
 - **Backend:** Firebase Modular SDK v10+, Firestore, Firebase Auth, Cloud Storage
 
-## Sistema de Diseño (MAD UI)
-- **Primary / Trust:** `#2D124D` (Púrpura Profundo) -> Encabezados, estructuras, bordes activos.
-- **Secondary / Accent:** `#00E5FF` (Cian Eléctrico) -> Botones principales (CTA), badges de estado "Aprobado", barras de progreso.
-- **Background:** `#F8F9FA` (Blanco Roto / Arena) -> Fondos de página y contenedores.
+## Design System (MAD UI)
+- **Primary / Trust:** `#2D124D` (deep purple) -> headings, structure, active borders.
+- **Secondary / Accent:** `#00E5FF` (electric cyan) -> primary CTAs, "approved" status badges, progress bars.
+- **Background:** `#F8F9FA` (off-white / sand) -> page and container backgrounds.
 
-## Reglas de Código
-- **Next.js:** Usa Server Components por defecto. Agrega `'use client'` solo para secciones interactivas.
-- **Firebase:** Usa estrictamente el SDK Modular v10+ (`getDoc`, `setDoc`, `addDoc`). No uses la sintaxis legada v8.
-- **Validaciones:** Esquemas con Zod e integración con `react-hook-form`.
-- **UI:** Reutiliza componentes de `shadcn/ui` sin dejar comentarios inconclusos o marcadores `TODO`.
+## Code Rules
+- **Next.js:** Server Components by default. Add `'use client'` only for interactive sections.
+- **Firebase:** Modular SDK v10+ only (`getDoc`, `setDoc`, `addDoc`). Never the legacy v8 syntax.
+- **Validation:** Zod schemas wired to `react-hook-form`.
+- **UI:** Reuse `shadcn/ui` components, and never leave unfinished comments or `TODO` markers.
 
-## Documentación de Next.js versionada
+## Versioned Next.js docs
 @AGENTS.md
 
-La versión instalada es **Next.js 16.3.2** (Turbopack por defecto, `params`/`cookies()`
-asíncronos, `middleware.ts` → `proxy.ts`). Consulta `node_modules/next/dist/docs/01-app/`
-antes de escribir código de framework.
+The installed version is **Next.js 16.3.2** (Turbopack by default, async `params`/`cookies()`,
+`middleware.ts` → `proxy.ts`). Check `node_modules/next/dist/docs/01-app/` before writing
+framework code.
 
-## Archivos base ya creados
-- `shared/firebase/app.ts` — solo inicializa la app (`firebaseApp`). Un módulo por servicio:
-  `shared/firebase/auth.ts`, `shared/firebase/db.ts`, `shared/firebase/storage.ts`. **No hagas un
-  barrel que reexporte los tres**: costaba 630 KB de SDK en el login.
-- `shared/analytics.tsx` — carga Analytics con `import()` dinámico tras la hidratación.
-- `shared/brand/logo.tsx` — `<Logo width={200} priority />`; único sitio con las
-  dimensiones del PNG.
+## Language policy
+Everything is in **English** — identifiers, comments, JSDoc, test names, commit messages,
+documentation, Firestore collection and field names, custom claims and their values.
+
+Three exceptions, and only these:
+1. **URLs** (`/registro`, `/inicio`, `/registro/completar-perfil`): users see them.
+2. **Copy visible to the user**: labels, error messages, titles, page metadata. The product
+   is Colombian PropTech and speaks **es-CO** to tenants and landlords.
+3. **Proper nouns and user content**: department names (`Bogotá D.C.`), addresses, and the
+   fixture data that stands in for what a user would type.
+
+Keys are English, labels are Spanish — `GENDER_LABELS` and `STATUS_LABEL` are the pattern:
+`{ female: "Femenino" }`, `{ active: "Vigente" }`.
+
+Domain glossary (the deployed names): `users`, `properties`, `applications`, `contracts`,
+`payments`; `role` with values `tenant` / `landlord` / `admin`; `rent` for the monthly amount,
+`status` for state. `scripts/migrate-i18n-domain.mjs` records the rename from the Spanish
+names this project started with.
+
+## Base files already in place
+- `shared/firebase/app.ts` — initializes the app only (`firebaseApp`). One module per service:
+  `shared/firebase/auth.ts`, `shared/firebase/db.ts`, `shared/firebase/storage.ts`. **Never write
+  a barrel re-exporting the three**: it cost 630 KB of SDK on the login screen.
+- `shared/analytics.tsx` — loads Analytics through a dynamic `import()` after hydration.
+- `shared/brand/logo.tsx` — `<Logo width={200} priority />`; the only place with the PNG's
+  dimensions.
 - `shared/firebase/admin.ts` — Admin SDK (`server-only`): `adminAuth`, `adminDb`, `adminStorage`.
-- `shared/auth/session.ts` — `getSessionUser()`, `requireUser()`, `requireRole()` sobre la cookie
-  httpOnly `session`.
+- `shared/auth/session.ts` — `getSessionUser()`, `requireUser()`, `requireRole()` over the
+  httpOnly `session` cookie.
 - `firestore.rules` / `storage.rules` / `firestore.indexes.json` / `firebase.json`.
-- `app/globals.css` — tokens MAD UI (light + dark, sidebar, charts, estados del dominio).
-- `components.json` — shadcn `radix-nova`. Usa `shadcn add`, **nunca** `shadcn init` de nuevo.
-- `.env.example` — plantilla; copia a `.env.local` (ya creado con las llaves públicas).
-- `.firebaserc` — proyecto por defecto: **`mi-arriendo-directo-mad`**.
-- `shared/firebase/analytics.ts` — Analytics diferido con `isSupported()`; nunca le pases datos
-  personales como parámetros de evento.
+- `app/globals.css` — MAD UI tokens (light + dark, sidebar, charts, domain states).
+- `components.json` — shadcn `radix-nova`. Use `shadcn add`, **never** `shadcn init` again.
+- `.env.example` — template; copy to `.env.local` (already created with the public keys).
+- `.firebaserc` — default project: **`mi-arriendo-directo-mad`**.
+- `shared/firebase/analytics.ts` — deferred Analytics behind `isSupported()`; never pass
+  personal data as event parameters.
 
-## Estructura del código
-El corte es **vertical por dominio**. `mad-architecture` es la fuente de verdad; en corto:
+## Code structure
+The split is **vertical, by domain**. `mad-architecture` is the source of truth; in short:
 
 ```
-app/                  solo routing. (auth)/ y (app)/ son route groups: no cambian la URL
-features/<dominio>/   domain/ validations/ data/ actions/ ui/ + index.ts (API pública)
+app/                  routing only. (auth)/ and (app)/ are route groups: they do not change the URL
+features/<domain>/    domain/ validations/ data/ actions/ ui/ + index.ts (public API)
 shared/               ui/ form/ shell/ brand/ auth/ firebase/ format/ phone/ lib/
-tests/rules/          security rules (los unitarios van colocados junto al código)
+tests/rules/          security rules (unit tests are colocated with the code)
 ```
 
-Las fronteras no son una convención escrita, están **verificadas**: `tsconfig` solo expone
-`@/app/*`, `@/features/*` y `@/shared/*` (no hay comodín `@/*`), eslint prohíbe importar los
-internos de otro feature y el Admin SDK fuera de `data/`/`actions/`/`api/`, y `pnpm arch`
-(dependency-cruiser) revisa ciclos, `shared → features` y la pureza de `domain/`.
+The boundaries are not a written convention, they are **enforced**: `tsconfig` only exposes
+`@/app/*`, `@/features/*` and `@/shared/*` (there is no `@/*` wildcard), eslint forbids
+importing another feature's internals and the Admin SDK outside `data/`/`actions/`/`api/`, and
+`pnpm arch` (dependency-cruiser) checks cycles, `shared → features` and the purity of `domain/`.
 
-Dentro de un feature se importa con **rutas relativas**; `@/features/<dominio>` es solo para
-cruzar de módulo, y siempre contra su `index.ts`.
+Inside a feature, import with **relative paths**; `@/features/<domain>` is only for crossing
+module boundaries, and always against its `index.ts`.
 
-## Rutas (todas en español)
-Las constantes viven en `shared/auth/routes.ts`; usa esas, no strings literales.
+## Routes (all in Spanish)
+The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 
-| Ruta | Constante | Qué es |
+| Route | Constant | What it is |
 | --- | --- | --- |
-| `/` | `LOGIN_ROUTE` | Login (correo + contraseña, Google). Es la raíz del sitio. |
-| `/registro` | `SIGNUP_ROUTE` | Registro en 2 pasos: correo → contraseña. |
-| `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: hay sesión pero falta el perfil. |
-| `/inicio` | `HOME_ROUTE` | Portal del usuario: saludo, contratos y atajos. Destino tras autenticarse. |
-| `/recuperar` | `PASSWORD_RESET_ROUTE` | **Sin implementar** (da 404). |
+| `/` | `LOGIN_ROUTE` | Login (email + password, Google). It is the site root. |
+| `/registro` | `SIGNUP_ROUTE` | Two-step signup: email → password. |
+| `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: there is a session but no profile yet. |
+| `/inicio` | `HOME_ROUTE` | User portal: greeting, contracts and shortcuts. Destination after signing in. |
+| `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
 
-- `POST /api/session` canjea el idToken por session cookie httpOnly; `DELETE` cierra sesión y
-  revoca los refresh tokens.
-- `requireUser()` redirige a `LOGIN_ROUTE`; `requireRole()` a `HOME_ROUTE`.
-- **`requireCompleteProfile()` es el guard de toda pantalla del producto**: exige sesión y
-  perfil. Vive en `features/perfil` (se importa de `@/features/perfil`), no en `shared/auth`:
-  "¿tiene perfil?" es una pregunta del dominio de perfil. La pantalla de onboarding usa
-  `requireUser()`, no esta, o el redirect haría bucle.
-- `POST /api/session` crea la cookie (exige login reciente); **`PATCH` la re-acuña** con los
-  claims actuales tras cambiar el rol; `DELETE` cierra sesión.
-- **`/` es el login, así que el destino tras entrar NUNCA puede ser `/`**: sería un bucle
-  infinito. `safeRedirect()` rechaza `/`, `/registro` y `/recuperar` como destino, además de
-  cualquier URL externa (open redirect).
-- El layout de login y registro es `shared/shell/auth-shell.tsx`. Su panel lateral usa el
-  token `panel-marca` (púrpura en ambos temas), nunca `bg-primary`.
-- El correo del paso 1 del registro vive en estado del componente, **nunca en la URL**.
+- `POST /api/session` exchanges the idToken for an httpOnly session cookie (and requires a
+  recent sign-in); **`PATCH` re-mints it** with the current claims after a role change;
+  `DELETE` signs out and revokes the refresh tokens.
+- `requireUser()` redirects to `LOGIN_ROUTE`; `requireRole()` to `HOME_ROUTE`.
+- **`requireCompleteProfile()` is the guard for every product screen**: it requires a session
+  and a profile. It lives in `features/profile` (import it from `@/features/profile`), not in
+  `shared/auth`: "does this user have a profile?" is a question of the profile domain. The
+  onboarding screen uses `requireUser()`, not this one, or the redirect would loop.
+- **`/` is the login, so the destination after signing in can NEVER be `/`**: it would loop
+  forever. `safeRedirect()` rejects `/`, `/registro` and `/recuperar` as destinations, plus
+  any external URL (open redirect).
+- The login and signup layout is `shared/shell/auth-shell.tsx`. Its side panel uses the
+  `panel-marca` token (purple in both themes), never `bg-primary`.
+- The email from signup step 1 lives in component state, **never in the URL**.
 
-Enlaces que aún no tienen ruta (dan 404): `/recuperar`, `/terminos`, `/privacidad`.
-El documento `usuarios/{uid}` y el claim `rol` se crean en el onboarding, no en el registro:
-las rules exigen `nombre` y el diseño de registro no lo pide.
+Links with no route yet (they 404): `/recuperar`, `/terminos`, `/privacidad`.
+The `users/{uid}` document and the `role` claim are created during onboarding, not at signup:
+the rules require `fullName` and the signup design does not ask for it.
 
-## Skills del proyecto
-Las skills en `.claude/skills/` son la fuente de verdad de cada área. Las dos últimas son
-externas, instaladas con `npx skills add` y versionadas en `.agents/skills/`. Invócalas **antes** de
-escribir código, no después:
+## Project skills
+The skills in `.claude/skills/` are the source of truth for their area. The last two are
+external, installed with `npx skills add` and versioned in `.agents/skills/`. Invoke them
+**before** writing code, not after:
 
-| Skill | Cuándo |
+| Skill | When |
 | --- | --- |
-| `nextjs-app-router` | cualquier archivo en `app/`, `next.config.ts`, `proxy.ts`, Server Actions, caching |
-| `firebase-modular` | SDK de cliente: init, Firestore, Auth, Storage, emuladores |
-| `firebase-admin-sdk` | servidor: session cookies, custom claims, escrituras privilegiadas |
-| `firestore-security-rules` | `firestore.rules`, `storage.rules`, colección nueva, "¿quién puede leer esto?" |
-| `shadcn-tailwind` | componentes, `app/globals.css`, `components.json`, colores |
-| `typescript-strict` | tipos de dominio, converters de Firestore, `tsconfig.json` |
-| `zod-react-hook-form` | cualquier formulario o schema de validación |
-| `mad-feature` | construir una pantalla o flujo completo desde un mockup — orquesta las demás |
-| `mad-architecture` | dónde va cada archivo, fronteras entre módulos, mover/renombrar carpetas, refactor estructural |
-| `frontend-design` | jerarquía visual, tipografía, composición (**no** para elegir colores: la paleta ya está fija) |
-| `vercel-react-best-practices` | rendimiento: waterfalls, bundle, RSC, re-renders |
+| `nextjs-app-router` | any file in `app/`, `next.config.ts`, `proxy.ts`, Server Actions, caching |
+| `firebase-modular` | client SDK: init, Firestore, Auth, Storage, emulators |
+| `firebase-admin-sdk` | server: session cookies, custom claims, privileged writes |
+| `firestore-security-rules` | `firestore.rules`, `storage.rules`, a new collection, "who can read this?" |
+| `shadcn-tailwind` | components, `app/globals.css`, `components.json`, colors |
+| `typescript-strict` | domain types, Firestore converters, `tsconfig.json` |
+| `zod-react-hook-form` | any form or validation schema |
+| `mad-feature` | building a whole screen or flow from a mockup — it orchestrates the rest |
+| `mad-architecture` | where each file goes, module boundaries, moving/renaming folders, structural refactors |
+| `frontend-design` | visual hierarchy, typography, composition (**not** for picking colors: the palette is fixed) |
+| `vercel-react-best-practices` | performance: waterfalls, bundle, RSC, re-renders |
 
-## Convención de nombres
-- **Identificadores en inglés**: variables, funciones, tipos, componentes, props, archivos.
-- **Copy y comentarios en español** (es-CO): es el idioma del producto y del equipo.
-- **Vocabulario del dominio, en español**: `inquilino`, `propietario`, `inmueble`,
-  `postulacion`, `canon`. Son los nombres reales de las colecciones de Firestore y de los
-  custom claims; traducirlos desalinearía el código de las rules desplegadas.
-- **URLs en español** (`/registro`, `/panel`, `/recuperar`): son visibles para el usuario.
+## Naming conventions
+- **Everything in English**: variables, functions, types, components, props, files, comments,
+  test names, Firestore collections and fields, custom claims and their values.
+- **Files** in `kebab-case`, **components** in `PascalCase`, **module constants** in
+  `SCREAMING_SNAKE_CASE`.
+- **The three exceptions** are in "Language policy" above: URLs, user-facing copy, and
+  proper nouns / user content.
 
-## Componentes compartidos de formulario
-Reutilízalos en vez de repetir markup; antes cada formulario duplicaba el ARIA y se corría
-el riesgo de dejar un campo sin conectar.
+## Shared form components
+Reuse them instead of repeating markup; each form used to duplicate the ARIA wiring, with the
+risk of leaving a field unconnected.
 
-| Componente | Para |
+| Component | For |
 | --- | --- |
-| `shared/form/text-field.tsx` | `TextField`: label + input + error + `aria-invalid`/`aria-describedby`. Acepta `{...register("campo")}` directo. |
-| `shared/form/form-alert.tsx` | `FormAlert`: error a nivel de formulario con `role="alert"`. |
-| `features/auth/ui/google-button.tsx` | `GoogleButton`: acceso con Google, con spinner. |
-| `features/auth/ui/or-divider.tsx` | `OrDivider`: separador "o". |
-| `shared/form/submit-button.tsx` | `SubmitButton`: CTA cian con spinner y etiqueta de progreso. |
-| `features/auth/ui/password-requirements.tsx` | `PasswordRequirements`: checklist derivado de `PASSWORD_REQUIREMENTS`. |
-| `shared/shell/auth-shell.tsx` | `AuthShell`: layout de dos columnas de login y registro. |
-| `shared/brand/logo.tsx` | `Logo`: único sitio con las dimensiones del PNG. |
-| `shared/form/select-field.tsx` | `SelectField`: select con label, error y ARIA. Se controla con `Controller`. |
-| `shared/form/phone-field.tsx` | `PhoneField`: selector de país + número nacional. |
-| `shared/shell/app-sidebar.tsx` | `AppSidebar`: menú lateral del producto. **Es Client Component**: pasa componentes de icono a `NavItem` y usa `usePathname`. |
-| `shared/ui/nav-item.tsx` | `NavItem`: sin `href` se renderiza deshabilitado con tooltip "Próximamente". |
-| `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: envuelve UI maquetada cuya función no existe aún. |
+| `shared/form/text-field.tsx` | `TextField`: label + input + error + `aria-invalid`/`aria-describedby`. Takes `{...register("field")}` directly. |
+| `shared/form/form-alert.tsx` | `FormAlert`: form-level error with `role="alert"`. |
+| `features/auth/ui/google-button.tsx` | `GoogleButton`: Google sign-in, with spinner. |
+| `features/auth/ui/or-divider.tsx` | `OrDivider`: the "or" divider. |
+| `shared/form/submit-button.tsx` | `SubmitButton`: cyan CTA with spinner and progress label. |
+| `features/auth/ui/password-requirements.tsx` | `PasswordRequirements`: checklist derived from `PASSWORD_REQUIREMENTS`. |
+| `shared/shell/auth-shell.tsx` | `AuthShell`: two-column layout for login and signup. |
+| `shared/brand/logo.tsx` | `Logo`: the only place with the PNG's dimensions. |
+| `shared/form/select-field.tsx` | `SelectField`: select with label, error and ARIA. Controlled with `Controller`. |
+| `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. |
+| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the product's sidebar. **It is a Client Component**: it passes icon components to `NavItem` and uses `usePathname`. |
+| `shared/ui/nav-item.tsx` | `NavItem`: without `href` it renders disabled with a "coming soon" tooltip. |
+| `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: wraps mocked-up UI whose function does not exist yet. |
 
-## Teléfonos
-- Se guardan en **E.164** (`telefono: "+573001234567"`) más el ISO del país
-  (`telefonoPais: "CO"`). El país no se deduce del número: `+1` lo comparten Estados Unidos,
-  Canadá, Puerto Rico y República Dominicana.
-- El catálogo está en `shared/phone/countries.ts`. **Colombia es el valor por defecto** y
-  encabeza la lista. La lista es curada, no exhaustiva: cada indicativo está verificado.
-- La validación es por país: Colombia estricta (10 dígitos empezando por 3), el resto
-  genérica (6–14 dígitos). Para endurecer otro país, añade su regla en `PHONE_RULES`.
-- El formulario revalida el número al cambiar de país; si no, el error del país anterior se
-  queda visible.
+## Phone numbers
+- Stored in **E.164** (`phone: "+573001234567"`) plus the country ISO (`phoneCountry: "CO"`).
+  The country is not derived from the number: `+1` is shared by the United States, Canada,
+  Puerto Rico and the Dominican Republic.
+- The catalog is in `shared/phone/countries.ts`. **Colombia is the default** and heads the
+  list. The list is curated, not exhaustive: every dial code in it is verified.
+- Validation is per country: strict for Colombia (10 digits starting with 3), generic for the
+  rest (6–14 digits). To tighten another country, add its rule to `PHONE_RULES`.
+- The form revalidates the number when the country changes; without that, the previous
+  country's error stays on screen.
 
-## Secciones aún no construidas
-El menú lateral muestra Soporte, Contrato, Facturación y Ajustes **deshabilitadas** con un
-tooltip de "Próximamente", en lugar de enlazar a 404. Para activar una: crea la ruta y
-añade su `href` en el arreglo `NAV` de `shared/shell/app-sidebar.tsx`.
+## Sections not built yet
+The sidebar shows Soporte, Contrato, Facturación and Ajustes **disabled**, with a "coming
+soon" tooltip, instead of linking to a 404. To activate one: create the route and add its
+`href` to the `NAV` array in `shared/shell/app-sidebar.tsx`.
 
-La tarjeta de soporte y la del catálogo están maquetadas dentro de `ComingSoonCard`: se ven
-pero no son interactivas. La de soporte **no lleva foto de persona** a propósito — una imagen
-de stock presentada como "nuestro equipo" afirmaría algo falso.
+The support card and the catalog card are mocked up inside `ComingSoonCard`: they are visible
+but not interactive. The support card deliberately **carries no photo of a person** — a stock
+image presented as "our team" would claim something false.
 
-## Comandos de verificación
+## Verification commands
 ```bash
-pnpm typegen       # next typegen — regenera los tipos de ruta (PageProps, LayoutProps)
+pnpm typegen       # next typegen — regenerates the route types (PageProps, LayoutProps)
 pnpm typecheck     # tsc --noEmit
-pnpm lint          # eslint, incluidas las fronteras entre módulos
-pnpm arch          # dependency-cruiser: ciclos y flechas prohibidas entre capas
+pnpm lint          # eslint, module boundaries included
+pnpm arch          # dependency-cruiser: cycles and forbidden arrows between layers
 pnpm build         # next build
-pnpm test          # unitarios: schemas y lógica pura, colocados en features/ y shared/
-pnpm test:rules    # security rules contra el emulador (tests/rules/) — requiere JDK 21+
+pnpm test          # unit: schemas and pure logic, colocated in features/ and shared/
+pnpm test:rules    # security rules against the emulator (tests/rules/) — needs JDK 21+
 ```
 
-Tras mover o renombrar una ruta: `rm -rf .next && pnpm typegen`, o `tsc` falla por los tipos
-generados y el error no tiene nada que ver con tu cambio.
+After moving or renaming a route: `rm -rf .next && pnpm typegen`, or `tsc` fails on the
+generated types with an error that has nothing to do with your change.
 
-## Tests de Security Rules
-`pnpm test:rules` levanta el emulador de Firestore y corre `tests/rules/` (35 casos, con
-caso negativo obligatorio). Requiere **JDK 21+**; `openjdk@21` de Homebrew es *keg-only*, así
-que hay que ponerlo en el PATH:
+## Security Rules tests
+`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (59 cases, every rule
+with a mandatory negative case). It needs **JDK 21+**; Homebrew's `openjdk@21` is *keg-only*,
+so it has to go on the PATH:
 
 ```bash
 export JAVA_HOME=/opt/homebrew/opt/openjdk@21
-export PATH="$JAVA_HOME/bin:$PATH"        # persistir en ~/.zshrc si lo usas seguido
+export PATH="$JAVA_HOME/bin:$PATH"        # persist it in ~/.zshrc if you use it often
 pnpm test:rules
 ```
 
-Toda regla nueva o modificada se prueba aquí antes de `firebase deploy`. Al agregar una
-colección, agrega también su test de acceso denegado.
+Every new or modified rule is tested here before `firebase deploy`. When you add a
+collection, add its access-denied test too.
 
-## Seguridad — invariantes que no se negocian
-1. **Ningún secreto en el cliente.** Solo las llaves `NEXT_PUBLIC_FIREBASE_*` (config pública
-   del SDK web) llegan al navegador. `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL` y
-   cualquier credencial de service account **jamás** se prefijan con `NEXT_PUBLIC_`, ni se
-   hardcodean, ni se loggean, ni se commitean.
-2. **`firebase-admin` es solo servidor.** `shared/firebase/admin.ts` empieza con
-   `import "server-only"` y nunca se importa desde un archivo con `"use client"`.
-3. **Toda Server Action y Route Handler revalida**: autenticar (sesión) → validar (Zod) →
-   autorizar contra el dato real → invariantes de negocio → escribir. Nunca confíes en un
-   `uid` o `id` que venga del `FormData`.
-4. **Las Security Rules son deny-by-default.** Nada de `allow read, write: if true;` ni de
-   `if request.auth != null;` como regla global. Cédulas, ingresos, contratos y pagos no son
-   listables por el cliente.
-5. **Datos sensibles nunca se cachean en un scope compartido** (`"use cache"` sin tag por
-   uid), ni se guardan en `localStorage`, ni viajan en `searchParams`, ni se loggean.
-6. **Cualquier cambio en rules se prueba con el emulador** (`firebase emulators:exec`) con
-   caso negativo incluido, antes de `firebase deploy`.
+## Security — non-negotiable invariants
+1. **No secrets on the client.** Only the `NEXT_PUBLIC_FIREBASE_*` keys (the web SDK's public
+   config) reach the browser. `FIREBASE_PRIVATE_KEY`, `FIREBASE_CLIENT_EMAIL` and any service
+   account credential are **never** prefixed with `NEXT_PUBLIC_`, hardcoded, logged or
+   committed.
+2. **`firebase-admin` is server-only.** `shared/firebase/admin.ts` starts with
+   `import "server-only"` and is never imported from a file marked `"use client"`.
+3. **Every Server Action and Route Handler revalidates**: authenticate (session) → validate
+   (Zod) → authorize against the real data → business invariants → write. Never trust a `uid`
+   or an `id` that arrives in the `FormData`.
+4. **Security Rules are deny-by-default.** No `allow read, write: if true;` and no
+   `if request.auth != null;` as a blanket rule. Identity documents, income, contracts and
+   payments are not listable by the client.
+5. **Sensitive data is never cached in a shared scope** (`"use cache"` without a per-uid tag),
+   never stored in `localStorage`, never carried in `searchParams`, never logged.
+6. **Any rules change is tested against the emulator** (`firebase emulators:exec`), negative
+   case included, before `firebase deploy`.
