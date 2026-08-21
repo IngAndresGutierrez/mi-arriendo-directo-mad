@@ -53,12 +53,27 @@ function createApp(): App {
   });
 }
 
-const adminApp = getApps().length ? getApps()[0]! : createApp();
+// Lazy on purpose: importing this module must NOT read the service account.
+let app: App | undefined;
+function adminApp(): App {
+  app ??= getApps()[0] ?? createApp();
+  return app;
+}
 
-export const adminAuth = getAuth(adminApp);
-export const adminDb = getFirestore(adminApp);
-adminDb.settings({ ignoreUndefinedProperties: true });
+let auth: Auth | undefined;
+export function adminAuth(): Auth {
+  auth ??= getAuth(adminApp());
+  return auth;
+}
+// …same shape for adminDb() and adminStorage()
 ```
+
+**Never initialize at module scope.** `next build` imports every route to collect its
+configuration, so an eager `initializeApp()` runs during the build — and on Vercel the
+credentials are sensitive environment variables, which reach the Function at runtime but not
+the build step. The symptom is `Failed to collect configuration for /api/session` with
+"incomplete Admin SDK credentials", on a project whose variables are perfectly set. A build
+never needs a private key.
 
 **Always** import by subpath (`firebase-admin/app`, `firebase-admin/auth`,
 `firebase-admin/firestore`), never `import admin from "firebase-admin"` with

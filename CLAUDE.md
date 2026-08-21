@@ -48,13 +48,22 @@ names this project started with.
 - `shared/analytics.tsx` — loads Analytics through a dynamic `import()` after hydration.
 - `shared/brand/logo.tsx` — `<Logo width={200} priority />`; the only place with the PNG's
   dimensions.
-- `shared/firebase/admin.ts` — Admin SDK (`server-only`): `adminAuth`, `adminDb`, `adminStorage`.
+- `shared/firebase/admin.ts` — Admin SDK (`server-only`): `adminAuth()`, `adminDb()`,
+  `adminStorage()`. They are **lazy accessors, not constants**: importing the module must not
+  read the service account, because `next build` imports every route and on Vercel the
+  credentials are sensitive env vars that never reach the build step.
 - `shared/auth/session.ts` — `getSessionUser()`, `requireUser()`, `requireRole()` over the
   httpOnly `session` cookie.
 - `firestore.rules` / `storage.rules` / `firestore.indexes.json` / `firebase.json`.
 - `app/globals.css` — MAD UI tokens (light + dark, sidebar, charts, domain states).
 - `components.json` — shadcn `radix-nova`. Use `shadcn add`, **never** `shadcn init` again.
 - `.env.example` — template; copy to `.env.local` (already created with the public keys).
+- `.env.production` — **git-tracked on purpose**: the Firebase *web* config, which Next inlines
+  into the browser bundle at build time. Not secrets — access control lives in the rules. It is
+  here because the Vercel team enforces sensitive environment variables, and a sensitive
+  variable never reaches the build step: a missing `NEXT_PUBLIC_*` is inlined as `undefined`
+  and the web SDK then fails with `auth/invalid-api-key` on a build that went green. The
+  service account never goes in this file.
 - `.firebaserc` — default project: **`mi-arriendo-directo-mad`**.
 - `shared/firebase/analytics.ts` — deferred Analytics behind `isSupported()`; never pass
   personal data as event parameters.
