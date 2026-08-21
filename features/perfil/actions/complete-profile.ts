@@ -5,9 +5,9 @@ import { z } from "zod";
 
 import { requireUser } from "@/shared/auth/session";
 import { adminAuth, adminDb } from "@/shared/firebase/admin";
-import { DEFAULT_USER_ROLE } from "@/lib/domain/colombia";
+import { DEFAULT_USER_ROLE } from "../domain/colombia";
 import { toE164 } from "@/shared/phone/countries";
-import { completeProfileSchema, validateBirthDate } from "@/lib/validations/profile";
+import { completeProfileSchema, validateBirthDate } from "../validations/profile";
 
 export type CompleteProfileResult =
   | { readonly ok: true }
