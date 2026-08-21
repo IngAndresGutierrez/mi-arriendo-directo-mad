@@ -3,11 +3,10 @@ import { HouseIcon, SparklesIcon } from "lucide-react";
 
 import { AppSidebar } from "@/shared/shell/app-sidebar";
 import { ComingSoonCard } from "@/shared/ui/coming-soon-card";
-import { ContractsCard } from "@/components/app/contracts-card";
 import { SupportCard } from "@/shared/shell/support-card";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
-import { getUserContracts } from "@/lib/data/contracts";
+import { ContractsCard, getUserContracts } from "@/features/contrato";
 import { getProfile, requireCompleteProfile } from "@/features/perfil";
 import { firstName, greetingForHour, hourInProductTimeZone } from "@/shared/format/greeting";
 
