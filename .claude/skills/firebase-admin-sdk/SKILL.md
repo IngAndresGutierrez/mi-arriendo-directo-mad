@@ -193,8 +193,18 @@ Solo el Admin SDK los define, y las rules los leen vía `request.auth.token.rol`
 
 ```ts
 await adminAuth.setCustomUserClaims(uid, { rol: "propietario" });
-// el cliente debe refrescar: await getIdToken(true)  — si no, conserva el claim viejo ~1h
 ```
+
+**Y la session cookie también queda vieja.** Se acuñó antes del claim, así que
+`verifySessionCookie` seguirá devolviendo el rol anterior y los Server Components leerán mal.
+Tras cambiar un claim hay que re-acuñar la cookie:
+
+1. cliente: `await user.getIdToken(true)` → token nuevo con el claim ya incluido;
+2. `PATCH /api/session` con ese token → `createSessionCookie` de nuevo.
+
+Ese `PATCH` **no** exige login reciente (a diferencia de `POST`): quien llama ya tiene una
+cookie válida y solo puede refrescar la suya, así que no hay escalada. Verifica que el `uid`
+de la cookie y el del token coincidan.
 
 ## Firestore desde Admin: API distinta a la del cliente
 

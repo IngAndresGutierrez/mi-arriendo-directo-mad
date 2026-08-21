@@ -272,6 +272,19 @@ Estas costaron tiempo. No las repitas:
   (`error: string | null`) y deja que el hijo lo renderice.
 - **Importa los tipos de React explícitamente** (`import type { ReactNode }`), no
   `React.ReactNode` apoyado en el namespace UMD global.
+- **Tras `setCustomUserClaims`, re-acuña la session cookie.** La cookie se firmó antes del
+  claim: sin `PATCH /api/session` el servidor sigue leyendo el rol viejo. Se manifestó como
+  un usuario que eligió "propietario" y aparecía como "inquilino".
+- **El `Label` de shadcn trae `flex`.** Para un label de prosa con enlaces dentro hay que
+  pasarle `block`, o el texto y los enlaces se apilan como items de flex.
+- **`z.literal(true)` no sirve como valor por defecto de un formulario**: su tipo de entrada
+  es `true` y el checkbox arranca en `false`. Usa `z.boolean().refine((v) => v === true)`.
+- **Tipa `useForm` con entrada y salida** (`useForm<z.input<S>, unknown, z.output<S>>`) cuando
+  el schema transforma; si no, `handleSubmit` no encaja.
+- **Los teléfonos se guardan en E.164 más el ISO del país.** El país no se deduce del
+  número: `+1` lo comparten cuatro países de la lista. Y si la validación depende del país,
+  el formulario debe **revalidar el número al cambiar el selector**, o el error del país
+  anterior se queda pegado aunque el número ya sea válido.
 - **El error de Firebase no se muestra crudo.** Tradúcelo con `lib/auth/errors.ts`, y que
   credenciales inválidas y usuario inexistente compartan mensaje: si no, el formulario sirve
   para enumerar cuentas.

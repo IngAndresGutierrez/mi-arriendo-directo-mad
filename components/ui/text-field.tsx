@@ -53,11 +53,6 @@ export function TextField({
         {...inputProps}
       />
 
-      {/*
-        `div` y no `p`: el hint acepta cualquier ReactNode y puede traer listas u otros
-        elementos de bloque. Un `<ul>` dentro de un `<p>` es HTML inválido — el navegador
-        cierra el párrafo solo y la hidratación puede desajustarse.
-      */}
       {hint ? (
         <div id={hintId} className="text-sm text-muted-foreground">
           {hint}

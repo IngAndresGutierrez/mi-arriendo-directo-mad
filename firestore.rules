@@ -50,19 +50,51 @@ service cloud.firestore {
       allow get:  if isOwner(userId) || isAdmin();
       allow list: if isAdmin();                        // nadie enumera usuarios
 
+      // El perfil lo escribe el backend con el Admin SDK (Server Action
+      // `completarPerfil`), que además fija el custom claim del rol. Estas reglas existen
+      // para el caso en que el cliente escriba directamente: validan la misma forma.
       allow create: if isOwner(userId)
+                    && incoming().keys().hasAll(
+                         ['nombre', 'email', 'telefono', 'telefonoPais', 'genero',
+                          'direccion', 'fechaNacimiento', 'rol', 'aceptoTerminosEn',
+                          'createdAt'])
                     && incoming().keys().hasOnly(
-                         ['nombre', 'email', 'telefono', 'rol', 'createdAt'])
-                    && incoming().nombre is string
-                    && incoming().nombre.size() >= 3
-                    && incoming().nombre.size() <= 120
+                         ['nombre', 'email', 'telefono', 'telefonoPais', 'genero',
+                          'direccion', 'fechaNacimiento', 'rol', 'aceptoTerminosEn',
+                          'createdAt', 'updatedAt'])
+                    && perfilValido()
                     && incoming().email == request.auth.token.email
                     && incoming().rol in ['inquilino', 'propietario'];
 
-      // el rol NO lo cambia el usuario: eso es un custom claim vía Admin SDK
+      // El rol NO lo cambia el usuario: es un custom claim que solo pone el Admin SDK.
+      // Tampoco puede reescribir el registro de su consentimiento ni su fecha de creación.
       allow update: if isOwner(userId)
-                    && onlyChanged(['nombre', 'telefono', 'updatedAt']);
+                    && onlyChanged(['nombre', 'telefono', 'telefonoPais', 'genero',
+                                    'direccion', 'updatedAt'])
+                    && perfilValido();
       allow delete: if isAdmin();
+
+      function perfilValido() {
+        return incoming().nombre is string
+            && incoming().nombre.size() >= 5
+            && incoming().nombre.size() <= 120
+            && incoming().telefono is string
+            // E.164: indicativo + número. `[+]` evita dudas de escape en el literal.
+            && incoming().telefono.matches('^[+][1-9][0-9]{7,14}$')
+            // ISO 3166-1 alfa-2 del país elegido: `+1` lo comparten varios países, así que
+            // el país no se puede deducir del número.
+            && incoming().telefonoPais is string
+            && incoming().telefonoPais.matches('^[A-Z]{2}$')
+            && incoming().genero in ['femenino', 'masculino', 'no_binario',
+                                     'prefiero_no_decir']
+            && incoming().direccion.linea is string
+            && incoming().direccion.linea.size() >= 5
+            && incoming().direccion.linea.size() <= 160
+            && incoming().direccion.ciudad is string
+            && incoming().direccion.ciudad.size() <= 80
+            && incoming().direccion.departamento is string
+            && incoming().direccion.departamento.size() <= 40;
+      }
 
       // Documentos de identidad: subcolección aparte para que un `get` del perfil
       // nunca exponga la cédula. Append-only para el dueño.

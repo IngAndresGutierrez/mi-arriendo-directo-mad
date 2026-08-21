@@ -47,12 +47,17 @@ Las constantes viven en `lib/auth/routes.ts`; usa esas, no strings literales.
 | --- | --- | --- |
 | `/` | `LOGIN_ROUTE` | Login (correo + contraseña, Google). Es la raíz del sitio. |
 | `/registro` | `SIGNUP_ROUTE` | Registro en 2 pasos: correo → contraseña. |
+| `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: hay sesión pero falta el perfil. |
 | `/panel` | `HOME_ROUTE` | Destino tras autenticarse. Provisional: reemplazar por el portal real. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Sin implementar** (da 404). |
 
 - `POST /api/session` canjea el idToken por session cookie httpOnly; `DELETE` cierra sesión y
   revoca los refresh tokens.
 - `requireUser()` redirige a `LOGIN_ROUTE`; `requireRole()` a `HOME_ROUTE`.
+- **`requireCompleteProfile()` es el guard de toda pantalla del producto**: exige sesión y
+  perfil. La pantalla de onboarding usa `requireUser()`, no esta, o el redirect haría bucle.
+- `POST /api/session` crea la cookie (exige login reciente); **`PATCH` la re-acuña** con los
+  claims actuales tras cambiar el rol; `DELETE` cierra sesión.
 - **`/` es el login, así que el destino tras entrar NUNCA puede ser `/`**: sería un bucle
   infinito. `safeRedirect()` rechaza `/`, `/registro` y `/recuperar` como destino, además de
   cualquier URL externa (open redirect).
@@ -104,6 +109,20 @@ el riesgo de dejar un campo sin conectar.
 | `components/auth/password-requirements.tsx` | `PasswordRequirements`: checklist derivado de `PASSWORD_REQUIREMENTS`. |
 | `components/auth/auth-shell.tsx` | `AuthShell`: layout de dos columnas de login y registro. |
 | `components/brand/logo.tsx` | `Logo`: único sitio con las dimensiones del PNG. |
+| `components/ui/select-field.tsx` | `SelectField`: select con label, error y ARIA. Se controla con `Controller`. |
+| `components/auth/role-choice.tsx` | `RoleChoice`: elección de rol con radios reales. |
+| `components/auth/phone-field.tsx` | `PhoneField`: selector de país + número nacional. |
+
+## Teléfonos
+- Se guardan en **E.164** (`telefono: "+573001234567"`) más el ISO del país
+  (`telefonoPais: "CO"`). El país no se deduce del número: `+1` lo comparten Estados Unidos,
+  Canadá, Puerto Rico y República Dominicana.
+- El catálogo está en `lib/domain/countries.ts`. **Colombia es el valor por defecto** y
+  encabeza la lista. La lista es curada, no exhaustiva: cada indicativo está verificado.
+- La validación es por país: Colombia estricta (10 dígitos empezando por 3), el resto
+  genérica (6–14 dígitos). Para endurecer otro país, añade su regla en `PHONE_RULES`.
+- El formulario revalida el número al cambiar de país; si no, el error del país anterior se
+  queda visible.
 
 ## Comandos de verificación
 ```bash

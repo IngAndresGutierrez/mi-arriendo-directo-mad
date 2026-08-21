@@ -9,6 +9,8 @@
 export const LOGIN_ROUTE = "/";
 export const SIGNUP_ROUTE = "/registro";
 export const PASSWORD_RESET_ROUTE = "/recuperar";
+/** Onboarding: hay sesión pero el perfil todavía no está completo. */
+export const COMPLETE_PROFILE_ROUTE = "/registro/completar-perfil";
 
 /** A dónde llega alguien recién autenticado. */
 export const HOME_ROUTE = "/panel";

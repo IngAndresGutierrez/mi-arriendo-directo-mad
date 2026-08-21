@@ -9,7 +9,6 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { OrDivider } from "@/components/auth/or-divider";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { TextField } from "@/components/ui/text-field";
-import { LOGIN_ROUTE } from "@/lib/auth/routes";
 import { emailSchema, type EmailInput } from "@/lib/validations/auth";
 
 type EmailStepProps = {
@@ -88,16 +87,6 @@ export function EmailStep({
             Política de privacidad
           </Link>
           .
-        </p>
-
-        <p className="text-center text-sm text-muted-foreground">
-          ¿Ya tienes cuenta?{" "}
-          <Link
-            href={LOGIN_ROUTE}
-            className="font-semibold text-primary underline-offset-4 hover:underline dark:text-foreground"
-          >
-            Inicia sesión
-          </Link>
         </p>
       </div>
     </>

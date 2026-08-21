@@ -12,7 +12,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { HOME_ROUTE, LOGIN_ROUTE } from "@/lib/auth/routes";
+import { COMPLETE_PROFILE_ROUTE, HOME_ROUTE, LOGIN_ROUTE } from "@/lib/auth/routes";
 import { adminAuth } from "@/lib/firebase/admin";
 
 export const SESSION_COOKIE = "session";
@@ -63,6 +63,23 @@ export const getSessionUser = cache(async (): Promise<SessionUser | null> => {
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();
   if (!user) redirect(LOGIN_ROUTE);
+  return user;
+}
+
+/**
+ * Sesión **y** perfil completo. Úsalo en toda pantalla del producto.
+ *
+ * Quien acaba de registrarse tiene sesión pero no perfil: lo manda a completarlo. La
+ * pantalla de onboarding usa `requireUser()`, no esta, o el redirect sería un bucle.
+ */
+export async function requireCompleteProfile(): Promise<SessionUser> {
+  const user = await requireUser();
+
+  // Import diferido: `lib/data/profile` importa el Admin SDK y no queremos que toda
+  // pantalla que solo necesite `requireUser` arrastre la lectura de Firestore.
+  const { hasProfile } = await import("@/lib/data/profile");
+  if (!(await hasProfile(user.uid))) redirect(COMPLETE_PROFILE_ROUTE);
+
   return user;
 }
 

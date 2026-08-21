@@ -72,7 +72,7 @@ describe("usuarios", () => {
     const db = actingAs(env, UID_INQUILINO, "inquilino");
     await assertFails(updateDoc(doc(db, `usuarios/${UID_INQUILINO}`), { rol: "admin" }));
     await assertSucceeds(
-      updateDoc(doc(db, `usuarios/${UID_INQUILINO}`), { telefono: "3009999999" }),
+      updateDoc(doc(db, `usuarios/${UID_INQUILINO}`), { telefono: "+573009999999" }),
     );
   });
 

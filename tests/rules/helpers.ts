@@ -52,18 +52,35 @@ export function anonymous(env: RulesTestEnvironment): Firestore {
   return env.unauthenticatedContext().firestore() as unknown as Firestore;
 }
 
+/**
+ * Perfil con la forma que exigen las rules tras `/registro/completar-perfil`.
+ * Los tests lo mutan campo a campo para comprobar cada validación.
+ */
+export function perfilCompleto(rol: "inquilino" | "propietario" = "inquilino") {
+  return {
+    nombre: "Inquilino Uno Pérez",
+    email: "inquilino@example.com",
+    telefono: "+573001234567",
+    telefonoPais: "CO",
+    genero: "prefiero_no_decir",
+    direccion: {
+      linea: "Calle 60 #10-20",
+      ciudad: "Bogotá",
+      departamento: "Bogotá D.C.",
+    },
+    fechaNacimiento: "1995-04-12",
+    aceptoTerminosEn: new Date(),
+    rol,
+    createdAt: new Date(),
+  };
+}
+
 /** Datos base: un inmueble publicado y una postulación pendiente sobre él. */
 export async function seed(env: RulesTestEnvironment): Promise<void> {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
 
-    await db.doc(`usuarios/${UID_INQUILINO}`).set({
-      nombre: "Inquilino Uno",
-      email: "inquilino@example.com",
-      telefono: "3001234567",
-      rol: "inquilino",
-      createdAt: new Date(),
-    });
+    await db.doc(`usuarios/${UID_INQUILINO}`).set(perfilCompleto("inquilino"));
 
     await db.doc(`usuarios/${UID_INQUILINO}/documentos/cedula`).set({
       tipo: "cedula_frente",

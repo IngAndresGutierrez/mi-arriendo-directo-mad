@@ -1,9 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { AuthShell } from "@/components/auth/auth-shell";
-import { safeRedirect, LOGIN_ROUTE } from "@/lib/auth/routes";
+import { safeRedirect } from "@/lib/auth/routes";
 import { getSessionUser } from "@/lib/auth/session";
 
 import { SignupForm } from "./signup-form";

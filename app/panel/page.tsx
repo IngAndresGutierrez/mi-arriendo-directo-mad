@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 
 import { Logo } from "@/components/brand/logo";
-import { requireUser } from "@/lib/auth/session";
+import { requireCompleteProfile } from "@/lib/auth/session";
 
 import { SignOutButton } from "./sign-out-button";
 
@@ -17,7 +17,7 @@ const ROLE_LABEL = {
 } as const;
 
 export default async function DashboardPage() {
-  const user = await requireUser();
+  const user = await requireCompleteProfile();
 
   return (
     <div className="min-h-svh bg-background">

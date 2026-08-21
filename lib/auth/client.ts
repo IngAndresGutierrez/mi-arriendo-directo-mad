@@ -61,6 +61,30 @@ export async function signInWithGoogle(): Promise<void> {
   await createServerSession(credential);
 }
 
+/**
+ * Refresca la session cookie con los claims actuales del usuario.
+ *
+ * Llámalo después de que el servidor cambie un custom claim (el rol al completar el
+ * perfil): `getIdToken(true)` fuerza un token nuevo con el claim ya incluido, y el
+ * servidor re-acuña la cookie. Sin esto, los Server Components siguen leyendo el rol viejo.
+ */
+export async function refreshServerSession(): Promise<void> {
+  const user = auth.currentUser;
+  if (!user) return;
+
+  const idToken = await user.getIdToken(true);
+
+  const response = await fetch("/api/session", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ idToken }),
+  });
+
+  if (!response.ok) {
+    throw new Error("No pudimos actualizar tu sesión. Vuelve a iniciar sesión.");
+  }
+}
+
 export async function sendPasswordReset(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email);
 }

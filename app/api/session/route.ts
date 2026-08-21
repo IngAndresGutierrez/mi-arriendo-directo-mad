@@ -54,6 +54,65 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
+/**
+ * Re-emite la session cookie para el **mismo** usuario, con sus claims actuales.
+ *
+ * Necesario tras cambiar un custom claim (por ejemplo el rol al completar el perfil): la
+ * cookie existente se acuñó antes y conserva los claims viejos.
+ *
+ * A diferencia de `POST`, no exige login reciente: quien llama ya tiene una session cookie
+ * válida y solo puede refrescar la suya, así que no hay escalada de privilegios. La
+ * comprobación estricta de `auth_time` se mantiene donde sí importa: al crear la sesión
+ * desde cero.
+ */
+export async function PATCH(request: Request): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: "Cuerpo inválido" }, { status: 400 });
+  }
+
+  const parsed = createSessionSchema.safeParse(body);
+  if (!parsed.success) {
+    return Response.json({ error: "Cuerpo inválido" }, { status: 400 });
+  }
+
+  const cookieStore = await cookies();
+  const currentCookie = cookieStore.get(SESSION_COOKIE)?.value;
+  if (!currentCookie) {
+    return Response.json({ error: "No hay sesión que refrescar" }, { status: 401 });
+  }
+
+  try {
+    const [currentClaims, tokenClaims] = await Promise.all([
+      adminAuth.verifySessionCookie(currentCookie, true),
+      adminAuth.verifyIdToken(parsed.data.idToken, true),
+    ]);
+
+    // Solo puedes refrescar tu propia sesión.
+    if (currentClaims.uid !== tokenClaims.uid) {
+      return Response.json({ error: "No autorizado" }, { status: 403 });
+    }
+
+    const sessionCookie = await adminAuth.createSessionCookie(parsed.data.idToken, {
+      expiresIn: SESSION_MAX_AGE_MS,
+    });
+
+    cookieStore.set(SESSION_COOKIE, sessionCookie, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: SESSION_MAX_AGE_MS / 1000,
+    });
+
+    return new Response(null, { status: 204 });
+  } catch {
+    return Response.json({ error: "No pudimos refrescar la sesión" }, { status: 401 });
+  }
+}
+
 /** Cierra la sesión y revoca los refresh tokens del usuario. */
 export async function DELETE(): Promise<Response> {
   const cookieStore = await cookies();
