@@ -1,39 +1,39 @@
 ---
 name: firebase-admin-sdk
-description: Firebase Admin SDK en el servidor - Server Actions, Route Handlers, session cookies, custom claims y escrituras privilegiadas en Firestore. Úsala al manejar credenciales de service account, verificar sesiones en el servidor o escribir datos que el cliente no puede tocar (contratos, pagos, estados).
+description: Firebase Admin SDK on the server - Server Actions, Route Handlers, session cookies, custom claims and privileged Firestore writes. Use it when handling service account credentials, verifying sessions on the server, or writing data the client must not touch (contracts, payments, statuses).
 ---
 
-# Firebase Admin SDK (servidor)
+# Firebase Admin SDK (server)
 
-`firebase-admin` v14. Corre **solo** en Node (runtime por defecto de Vercel Functions /
-Fluid Compute). Ignora por completo las Security Rules: cada línea que escribas aquí es
-código con privilegios totales.
+`firebase-admin` v14. It runs **only** on Node (the default runtime of Vercel Functions /
+Fluid Compute). It ignores Security Rules entirely: every line you write here is fully
+privileged code.
 
-## Regla #1: nunca cruza al cliente
+## Rule #1: it never crosses to the client
 
 ```ts
-// lib/firebase/admin.ts
-import "server-only";                     // build error si alguien lo importa desde el cliente
+// shared/firebase/admin.ts
+import "server-only";                     // build error if anyone imports it from the client
 ```
 
-Prohibido:
-- Importar `lib/firebase/admin.ts` desde un archivo con `"use client"`.
-- Prefijar cualquier secreto con `NEXT_PUBLIC_` (eso lo inyecta en el bundle del navegador).
-- Devolver desde una Server Action objetos del Admin SDK (`DocumentReference`, `Timestamp`,
-  `UserRecord` completo). Serializa a POJO plano antes de retornar.
-- Loggear `FIREBASE_PRIVATE_KEY` o el `idToken` completo.
+Forbidden:
+- Importing `shared/firebase/admin.ts` from a file marked `"use client"`.
+- Prefixing any secret with `NEXT_PUBLIC_` (that injects it into the browser bundle).
+- Returning Admin SDK objects from a Server Action (`DocumentReference`, `Timestamp`, a full
+  `UserRecord`). Serialize to a plain POJO before returning.
+- Logging `FIREBASE_PRIVATE_KEY` or the full `idToken`.
 
-Variables de entorno (en `.env.local` y `vercel env`, **sin** `NEXT_PUBLIC_`):
+Environment variables (in `.env.local` and `vercel env`, **without** `NEXT_PUBLIC_`):
 `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY`.
 
-## Inicialización singleton
+## Singleton initialization
 
-**Ya existen `lib/firebase/admin.ts`** (`adminAuth`, `adminDb`, `adminStorage`) y
-**`lib/auth/session.ts`** (`getSessionUser`, `requireUser`, `requireRole`). Impórtalos; no
-crees otra instancia. Fluid Compute reutiliza instancias entre requests.
+**`shared/firebase/admin.ts` already exists** (`adminAuth`, `adminDb`, `adminStorage`) and so
+does **`shared/auth/session.ts`** (`getSessionUser`, `requireUser`, `requireRole`). Import
+them; do not create another instance. Fluid Compute reuses instances across requests.
 
 ```ts
-// lib/firebase/admin.ts (extracto)
+// shared/firebase/admin.ts (excerpt)
 import "server-only";
 import { cert, getApps, initializeApp, type App } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
@@ -41,13 +41,13 @@ import { getFirestore } from "firebase-admin/firestore";
 
 function createApp(): App {
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
-  if (!privateKey) throw new Error("FIREBASE_PRIVATE_KEY no está definida");
+  if (!privateKey) throw new Error("FIREBASE_PRIVATE_KEY is not defined");
 
   return initializeApp({
     credential: cert({
       projectId: process.env.FIREBASE_PROJECT_ID,
       clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-      // las variables de entorno escapan los saltos de línea
+      // environment variables store the newlines escaped
       privateKey: privateKey.replace(/\\n/g, "\n"),
     }),
   });
@@ -60,35 +60,35 @@ export const adminDb = getFirestore(adminApp);
 adminDb.settings({ ignoreUndefinedProperties: true });
 ```
 
-Imports **siempre** por subpath (`firebase-admin/app`, `firebase-admin/auth`,
-`firebase-admin/firestore`), nunca `import admin from "firebase-admin"` con
-`admin.firestore()` — esa es la forma legada.
+**Always** import by subpath (`firebase-admin/app`, `firebase-admin/auth`,
+`firebase-admin/firestore`), never `import admin from "firebase-admin"` with
+`admin.firestore()` — that is the legacy form.
 
-## Sesión: session cookies, no idToken en cada request
+## Session: session cookies, not an idToken on every request
 
-Un `idToken` dura 1h y verificarlo con `verifyIdToken` hace red. La session cookie dura días
-y se verifica localmente.
+An `idToken` lasts 1h and verifying it with `verifyIdToken` hits the network. A session cookie
+lasts days and is verified locally.
 
 ```ts
 // app/api/session/route.ts
 import { cookies } from "next/headers";
-import { adminAuth } from "@/lib/firebase/admin";
+import { adminAuth } from "@/shared/firebase/admin";
 
-const MAX_AGE = 60 * 60 * 24 * 5 * 1000; // 5 días
+const MAX_AGE = 60 * 60 * 24 * 5 * 1000; // 5 days
 
 export async function POST(request: Request) {
   const { idToken } = (await request.json()) as { idToken?: string };
-  if (!idToken) return new Response("Falta idToken", { status: 400 });
+  if (!idToken) return new Response("Missing idToken", { status: 400 });
 
-  // revoked:true rechaza tokens de sesiones revocadas
+  // revoked:true rejects tokens from revoked sessions
   const decoded = await adminAuth.verifyIdToken(idToken, true);
-  // exige login reciente antes de emitir cookie de larga duración
+  // require a recent sign-in before issuing a long-lived cookie
   if (Date.now() - decoded.auth_time * 1000 > 5 * 60 * 1000) {
-    return new Response("Reautenticación requerida", { status: 401 });
+    return new Response("Reauthentication required", { status: 401 });
   }
 
   const sessionCookie = await adminAuth.createSessionCookie(idToken, { expiresIn: MAX_AGE });
-  const jar = await cookies();                    // ⚠️ async en Next 16
+  const jar = await cookies();                    // ⚠️ async in Next 16
   jar.set("session", sessionCookie, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -111,16 +111,17 @@ export async function DELETE() {
 }
 ```
 
-Helper que usan Server Components y Server Actions:
+The helper Server Components and Server Actions use:
 
 ```ts
-// lib/auth/session.ts
+// shared/auth/session.ts
 import "server-only";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { adminAuth } from "@/lib/firebase/admin";
+import { adminAuth } from "@/shared/firebase/admin";
+import { LOGIN_ROUTE } from "@/shared/auth/routes";
 
-export type SessionUser = { uid: string; email: string | null; rol: "inquilino" | "propietario" | "admin" };
+export type SessionUser = { uid: string; email: string | null; role: "tenant" | "landlord" | "admin" };
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   const session = (await cookies()).get("session")?.value;
@@ -130,112 +131,112 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     return {
       uid: claims.uid,
       email: claims.email ?? null,
-      rol: (claims.rol as SessionUser["rol"]) ?? "inquilino",
+      role: (claims.role as SessionUser["role"]) ?? "tenant",
     };
   } catch {
-    return null;                                  // cookie inválida/expirada/revocada
+    return null;                                  // invalid / expired / revoked cookie
   }
 }
 
 export async function requireUser(): Promise<SessionUser> {
   const user = await getSessionUser();
-  if (!user) redirect("/login");                  // o unauthorized() si activas authInterrupts
+  if (!user) redirect(LOGIN_ROUTE);               // or unauthorized() if you enable authInterrupts
   return user;
 }
 ```
 
-## Toda Server Action revalida autorización
+## Every Server Action revalidates authorization
 
-El cliente puede invocar una Server Action con cualquier payload. Nunca confíes en un `uid`
-que venga del formulario.
+The client can invoke a Server Action with any payload. Never trust a `uid` that arrives in
+the form.
 
 ```ts
 "use server";
 import { updateTag } from "next/cache";
 import { FieldValue } from "firebase-admin/firestore";
-import { requireUser } from "@/lib/auth/session";
-import { adminDb } from "@/lib/firebase/admin";
-import { aprobarPostulacionSchema } from "@/lib/schemas/postulacion";
+import { requireUser } from "@/shared/auth/session";
+import { adminDb } from "@/shared/firebase/admin";
+import { approveApplicationSchema } from "../validations/application";
 
-export async function aprobarPostulacion(formData: FormData) {
-  const user = await requireUser();                        // 1. autenticación
-  const parsed = aprobarPostulacionSchema.safeParse(Object.fromEntries(formData));
+export async function approveApplication(formData: FormData) {
+  const user = await requireUser();                        // 1. authentication
+  const parsed = approveApplicationSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { ok: false as const, errors: parsed.error.flatten().fieldErrors };
 
-  const ref = adminDb.collection("postulaciones").doc(parsed.data.postulacionId);
+  const ref = adminDb.collection("applications").doc(parsed.data.applicationId);
 
   await adminDb.runTransaction(async (tx) => {
     const snap = await tx.get(ref);
-    if (!snap.exists) throw new Error("Postulación no encontrada");
-    const post = snap.data()!;
+    if (!snap.exists) throw new Error("Application not found");
+    const application = snap.data()!;
 
-    const inmueble = await tx.get(adminDb.collection("inmuebles").doc(post.inmuebleId));
-    // 2. autorización: ¿este usuario es dueño del inmueble?
-    if (inmueble.data()?.propietarioUid !== user.uid) throw new Error("No autorizado");
-    // 3. invariante de negocio
-    if (post.estado !== "pendiente") throw new Error("La postulación ya fue resuelta");
+    const property = await tx.get(adminDb.collection("properties").doc(application.propertyId));
+    // 2. authorization: does this user own the property?
+    if (property.data()?.landlordUid !== user.uid) throw new Error("Not authorized");
+    // 3. business invariant
+    if (application.status !== "pending") throw new Error("The application was already resolved");
 
-    tx.update(ref, { estado: "aprobada", resueltaEn: FieldValue.serverTimestamp() });
+    tx.update(ref, { status: "approved", resolvedAt: FieldValue.serverTimestamp() });
   });
 
-  updateTag(`postulaciones-${user.uid}`);                  // read-your-writes
+  updateTag(`applications-${user.uid}`);                    // read-your-writes
   return { ok: true as const };
 }
 ```
 
-Orden invariable: **autenticar → validar con Zod → autorizar contra el dato real →
-invariantes → escribir → invalidar cache**.
+Invariable order: **authenticate → validate with Zod → authorize against the real data →
+invariants → write → invalidate cache**.
 
-## Custom claims para roles
+## Custom claims for roles
 
-Los roles viven en claims, no en un campo de Firestore que el cliente pueda leer/escribir.
-Solo el Admin SDK los define, y las rules los leen vía `request.auth.token.rol`.
+Roles live in claims, not in a Firestore field the client can read or write. Only the Admin SDK
+sets them, and the rules read them through `request.auth.token.role`.
 
 ```ts
-await adminAuth.setCustomUserClaims(uid, { rol: "propietario" });
+await adminAuth.setCustomUserClaims(uid, { role: "landlord" });
 ```
 
-**Y la session cookie también queda vieja.** Se acuñó antes del claim, así que
-`verifySessionCookie` seguirá devolviendo el rol anterior y los Server Components leerán mal.
-Tras cambiar un claim hay que re-acuñar la cookie:
+**And the session cookie goes stale too.** It was minted before the claim, so
+`verifySessionCookie` will keep returning the previous role and Server Components will read it
+wrong. After changing a claim the cookie has to be re-minted:
 
-1. cliente: `await user.getIdToken(true)` → token nuevo con el claim ya incluido;
-2. `PATCH /api/session` con ese token → `createSessionCookie` de nuevo.
+1. client: `await user.getIdToken(true)` → a new token that already carries the claim;
+2. `PATCH /api/session` with that token → `createSessionCookie` again.
 
-Ese `PATCH` **no** exige login reciente (a diferencia de `POST`): quien llama ya tiene una
-cookie válida y solo puede refrescar la suya, así que no hay escalada. Verifica que el `uid`
-de la cookie y el del token coincidan.
+That `PATCH` does **not** require a recent sign-in (unlike `POST`): the caller already holds a
+valid cookie and can only refresh their own, so there is no escalation. Verify that the cookie's
+`uid` and the token's match.
 
-## Firestore desde Admin: API distinta a la del cliente
+## Firestore from Admin: a different API from the client's
 
 ```ts
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
-// aquí SÍ es encadenado (esta es la API oficial del Admin SDK, no v8 legado)
-await adminDb.collection("contratos").doc(id).set({
-  creadoEn: FieldValue.serverTimestamp(),
-  saldo: FieldValue.increment(-monto),
+// here chaining IS correct (this is the Admin SDK's official API, not legacy v8)
+await adminDb.collection("contracts").doc(id).set({
+  createdAt: FieldValue.serverTimestamp(),
+  balance: FieldValue.increment(-amount),
 });
 
-const snap = await adminDb.collection("postulaciones")
-  .where("inquilinoUid", "==", user.uid)
+const snap = await adminDb.collection("applications")
+  .where("tenantUid", "==", user.uid)
   .orderBy("createdAt", "desc")
   .limit(20)
   .get();
 ```
 
-- `FieldValue.serverTimestamp()` / `FieldValue.increment()` / `FieldValue.arrayUnion()`
-  vienen de `firebase-admin/firestore` (no de `firebase/firestore`).
-- **Serializa antes de devolver a un componente**: `Timestamp` no es serializable en el RSC
+- `FieldValue.serverTimestamp()` / `FieldValue.increment()` / `FieldValue.arrayUnion()` come
+  from `firebase-admin/firestore` (not from `firebase/firestore`).
+- **Serialize before returning to a component**: `Timestamp` is not serializable in the RSC
   payload → `snap.data().createdAt.toDate().toISOString()`.
-- Usa `runTransaction` para cualquier cambio de estado con condición previa, y
-  `bulkWriter()`/`batch()` para escrituras masivas (tope 500 por batch).
+- Use `runTransaction` for any state change with a precondition, and `bulkWriter()`/`batch()`
+  for bulk writes (500 per batch max).
 
-## Notas de runtime
+## Runtime notes
 
-- No lo uses en `proxy.ts`: el runtime de proxy no debe hacer verificación de red y el
-  bundle es demasiado grande. En proxy solo comprueba **presencia** de la cookie; la
-  verificación real ocurre en la página/action.
-- No fuerces `runtime = "edge"`: `firebase-admin` requiere APIs de Node.
-- Emulador: exporta `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080` y
-  `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099`; el SDK los detecta solo.
+- Do not use it in `proxy.ts`: the proxy runtime should not do network verification and the
+  bundle is too large. In the proxy only check the **presence** of the cookie; the real
+  verification happens in the page or the action.
+- Do not force `runtime = "edge"`: `firebase-admin` needs Node APIs.
+- Emulator: export `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080` and
+  `FIREBASE_AUTH_EMULATOR_HOST=127.0.0.1:9099`; the SDK detects them on its own.
