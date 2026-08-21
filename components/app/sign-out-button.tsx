@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOutIcon } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
 import { signOutUser } from "@/lib/auth/client";
 import { LOGIN_ROUTE } from "@/lib/auth/routes";
 
@@ -20,9 +19,14 @@ export function SignOutButton() {
   }
 
   return (
-    <Button type="button" variant="outline" size="lg" disabled={isSigningOut} onClick={onClick}>
-      <LogOutIcon />
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={isSigningOut}
+      className="flex w-full flex-col items-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-medium text-panel-marca-muted transition-colors hover:bg-white/5 hover:text-panel-marca-foreground focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none disabled:opacity-50"
+    >
+      <LogOutIcon className="size-5" aria-hidden="true" />
       {isSigningOut ? "Saliendo…" : "Cerrar sesión"}
-    </Button>
+    </button>
   );
 }

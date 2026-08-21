@@ -285,6 +285,16 @@ Estas costaron tiempo. No las repitas:
   número: `+1` lo comparten cuatro países de la lista. Y si la validación depende del país,
   el formulario debe **revalidar el número al cambiar el selector**, o el error del país
   anterior se queda pegado aunque el número ya sea válido.
+- **No pases componentes como props de Server a Client Component.** Un icono de lucide es
+  una función y no cruza la frontera RSC: `Functions cannot be passed directly to Client
+  Components`. Pasa el elemento JSX ya creado, o marca el padre como `"use client"`.
+- **El saludo por hora se calcula en la zona del producto**, no en la del servidor: en Vercel
+  el reloj es UTC y a las 8 p.m. de Bogotá saludaría "Buenos días". Usa `Intl.DateTimeFormat`
+  con `timeZone: "America/Bogota"` y mantén la función pura (recibe la hora, no la consulta).
+- **El isotipo púrpura desaparece sobre el panel púrpura.** Mientras no exista una versión en
+  reverso del logo, va sobre un chip claro.
+- **Conduce contra `pnpm start`, no `next dev`**: el overlay de desarrollo intercepta los
+  clics de Playwright (`<nextjs-portal> subtree intercepts pointer events`).
 - **El error de Firebase no se muestra crudo.** Tradúcelo con `lib/auth/errors.ts`, y que
   credenciales inválidas y usuario inexistente compartan mensaje: si no, el formulario sirve
   para enumerar cuentas.

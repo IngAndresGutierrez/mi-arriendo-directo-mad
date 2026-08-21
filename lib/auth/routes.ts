@@ -13,7 +13,7 @@ export const PASSWORD_RESET_ROUTE = "/recuperar";
 export const COMPLETE_PROFILE_ROUTE = "/registro/completar-perfil";
 
 /** A dónde llega alguien recién autenticado. */
-export const HOME_ROUTE = "/panel";
+export const HOME_ROUTE = "/inicio";
 
 /**
  * Pantallas públicas de acceso. Redirigir aquí después de entrar produciría un bucle: la

@@ -48,7 +48,7 @@ Las constantes viven en `lib/auth/routes.ts`; usa esas, no strings literales.
 | `/` | `LOGIN_ROUTE` | Login (correo + contraseña, Google). Es la raíz del sitio. |
 | `/registro` | `SIGNUP_ROUTE` | Registro en 2 pasos: correo → contraseña. |
 | `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: hay sesión pero falta el perfil. |
-| `/panel` | `HOME_ROUTE` | Destino tras autenticarse. Provisional: reemplazar por el portal real. |
+| `/inicio` | `HOME_ROUTE` | Portal del usuario: saludo, contratos y atajos. Destino tras autenticarse. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Sin implementar** (da 404). |
 
 - `POST /api/session` canjea el idToken por session cookie httpOnly; `DELETE` cierra sesión y
@@ -112,6 +112,9 @@ el riesgo de dejar un campo sin conectar.
 | `components/ui/select-field.tsx` | `SelectField`: select con label, error y ARIA. Se controla con `Controller`. |
 | `components/auth/role-choice.tsx` | `RoleChoice`: elección de rol con radios reales. |
 | `components/auth/phone-field.tsx` | `PhoneField`: selector de país + número nacional. |
+| `components/app/app-sidebar.tsx` | `AppSidebar`: menú lateral del producto. **Es Client Component**: pasa componentes de icono a `NavItem` y usa `usePathname`. |
+| `components/app/nav-item.tsx` | `NavItem`: sin `href` se renderiza deshabilitado con tooltip "Próximamente". |
+| `components/app/coming-soon-card.tsx` | `ComingSoonCard`: envuelve UI maquetada cuya función no existe aún. |
 
 ## Teléfonos
 - Se guardan en **E.164** (`telefono: "+573001234567"`) más el ISO del país
@@ -123,6 +126,15 @@ el riesgo de dejar un campo sin conectar.
   genérica (6–14 dígitos). Para endurecer otro país, añade su regla en `PHONE_RULES`.
 - El formulario revalida el número al cambiar de país; si no, el error del país anterior se
   queda visible.
+
+## Secciones aún no construidas
+El menú lateral muestra Soporte, Contrato, Facturación y Ajustes **deshabilitadas** con un
+tooltip de "Próximamente", en lugar de enlazar a 404. Para activar una: crea la ruta y
+añade su `href` en el arreglo `NAV` de `components/app/app-sidebar.tsx`.
+
+La tarjeta de soporte y la del catálogo están maquetadas dentro de `ComingSoonCard`: se ven
+pero no son interactivas. La de soporte **no lleva foto de persona** a propósito — una imagen
+de stock presentada como "nuestro equipo" afirmaría algo falso.
 
 ## Comandos de verificación
 ```bash
