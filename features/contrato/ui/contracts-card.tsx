@@ -1,6 +1,6 @@
 import { FileTextIcon } from "lucide-react";
 
-import type { ContractSummary } from "@/lib/data/contracts";
+import type { ContractSummary } from "../data/contracts";
 
 const CURRENCY = new Intl.NumberFormat("es-CO", {
   style: "currency",
