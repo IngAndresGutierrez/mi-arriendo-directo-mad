@@ -42,7 +42,16 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["**/data/**", "**/actions/**", "app/api/**", "shared/auth/**"],
+    // `actions.ts` suelto tambien cuenta: es la convencion de Next para las
+    // Server Actions de una ruta, y ese archivo ES la capa de mutacion.
+    files: [
+      "**/data/**",
+      "**/data.ts",
+      "**/actions/**",
+      "**/actions.ts",
+      "app/api/**",
+      "shared/auth/**",
+    ],
     rules: {
       "no-restricted-imports": ["error", { patterns: [CROSS_FEATURE] }],
     },

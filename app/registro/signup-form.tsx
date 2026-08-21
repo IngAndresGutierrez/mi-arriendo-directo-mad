@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
-import { signInWithGoogle, signUpWithEmail } from "@/lib/auth/client";
-import { authErrorMessage, isUserCancellation } from "@/lib/auth/errors";
+import { signInWithGoogle, signUpWithEmail } from "@/shared/auth/client";
+import { authErrorMessage, isUserCancellation } from "@/shared/auth/errors";
 
 import { EmailStep } from "./email-step";
 import { PasswordStep } from "./password-step";

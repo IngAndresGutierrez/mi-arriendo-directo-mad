@@ -2,7 +2,7 @@ import "server-only";
 
 import { cache } from "react";
 
-import { adminDb } from "@/lib/firebase/admin";
+import { adminDb } from "@/shared/firebase/admin";
 
 export type ContractSummary = {
   readonly id: string;

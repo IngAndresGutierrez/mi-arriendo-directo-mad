@@ -11,7 +11,7 @@ import {
   type UserCredential,
 } from "firebase/auth";
 
-import { auth } from "@/lib/firebase/auth";
+import { auth } from "@/shared/firebase/auth";
 
 /**
  * Canjea el idToken recién emitido por una session cookie httpOnly.

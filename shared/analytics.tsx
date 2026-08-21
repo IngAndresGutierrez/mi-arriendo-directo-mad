@@ -13,7 +13,7 @@ export function Analytics() {
   useEffect(() => {
     let cancelled = false;
 
-    void import("@/lib/firebase/analytics").then(({ getAnalyticsInstance }) => {
+    void import("@/shared/firebase/analytics").then(({ getAnalyticsInstance }) => {
       if (!cancelled) void getAnalyticsInstance();
     });
 

@@ -14,14 +14,14 @@ import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select-field";
 import { TextField } from "@/components/ui/text-field";
 import { DEPARTMENTS, GENDER_OPTIONS, MIN_AGE } from "@/lib/domain/colombia";
-import { DEFAULT_COUNTRY_ISO } from "@/lib/domain/countries";
+import { DEFAULT_COUNTRY_ISO } from "@/shared/phone/countries";
 import {
   completeProfileSchema,
   type CompleteProfileFormValues,
   type CompleteProfileInput,
 } from "@/lib/validations/profile";
 
-import { refreshServerSession } from "@/lib/auth/client";
+import { refreshServerSession } from "@/shared/auth/client";
 
 import { completeProfile } from "./actions";
 

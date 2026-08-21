@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 
 /**
  * Envoltorio para tarjetas maquetadas cuya función todavía no existe.

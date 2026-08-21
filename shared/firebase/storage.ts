@@ -5,7 +5,7 @@
  */
 import { connectStorageEmulator, getStorage } from "firebase/storage";
 
-import { firebaseApp, useEmulator } from "@/lib/firebase/app";
+import { firebaseApp, useEmulator } from "@/shared/firebase/app";
 
 export const storage = getStorage(firebaseApp);
 

@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { COUNTRIES, findCountry, phoneRuleFor } from "@/lib/domain/countries";
+import { COUNTRIES, findCountry, phoneRuleFor } from "@/shared/phone/countries";
 
 type PhoneFieldProps = {
   label: string;
