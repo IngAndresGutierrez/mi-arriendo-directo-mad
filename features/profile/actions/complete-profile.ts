@@ -59,7 +59,7 @@ export async function completeProfile(formData: FormData): Promise<CompleteProfi
     return { ok: false, fieldErrors: { phone: ["Selecciona un país válido"] } };
   }
 
-  const profileRef = adminDb.collection("usuarios").doc(user.uid);
+  const profileRef = adminDb.collection("users").doc(user.uid);
 
   const existing = await profileRef.get();
   if (existing.exists) {
@@ -67,28 +67,28 @@ export async function completeProfile(formData: FormData): Promise<CompleteProfi
   }
 
   await profileRef.set({
-    nombre: parsed.data.fullName,
+    fullName: parsed.data.fullName,
     // El correo sale de la sesión verificada, no del formulario.
     email: user.email,
-    telefono: e164,
-    telefonoPais: parsed.data.phone.country,
-    genero: parsed.data.gender,
-    direccion: {
-      linea: parsed.data.address.line,
-      ciudad: parsed.data.address.city,
-      departamento: parsed.data.address.department,
+    phone: e164,
+    phoneCountry: parsed.data.phone.country,
+    gender: parsed.data.gender,
+    address: {
+      line: parsed.data.address.line,
+      city: parsed.data.address.city,
+      department: parsed.data.address.department,
     },
-    fechaNacimiento: parsed.data.birthDate,
+    birthDate: parsed.data.birthDate,
     // El onboarding ya no pregunta el rol: toda cuenta nace con el menos privilegiado.
-    rol: DEFAULT_USER_ROLE,
+    role: DEFAULT_USER_ROLE,
     // Registro del consentimiento (Ley 1581): cuándo lo otorgó.
-    aceptoTerminosEn: FieldValue.serverTimestamp(),
+    termsAcceptedAt: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),
   });
 
   // El rol vive en custom claims: las Security Rules lo leen de ahí y el cliente no lo
   // puede falsificar. El token del navegador conserva el claim viejo hasta que se refresque.
-  await adminAuth.setCustomUserClaims(user.uid, { rol: DEFAULT_USER_ROLE });
+  await adminAuth.setCustomUserClaims(user.uid, { role: DEFAULT_USER_ROLE });
 
   return { ok: true };
 }

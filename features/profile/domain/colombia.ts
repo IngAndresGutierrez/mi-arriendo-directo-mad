@@ -4,7 +4,7 @@
  * La división territorial es departamento + ciudad: no hay "estado/provincia" ni código
  * postal, que en Colombia apenas se usa.
  *
- * Los indicativos telefónicos y las reglas por país viven en `lib/domain/countries.ts`.
+ * Los indicativos telefónicos y las reglas por país viven en `shared/phone/countries.ts`.
  */
 
 /** 32 departamentos más el Distrito Capital, en orden alfabético. */
@@ -52,15 +52,16 @@ export type Department = (typeof DEPARTMENTS)[number];
  * Es un dato sensible bajo la Ley 1581 de 2012, así que "Prefiero no decirlo" es una opción
  * de primera clase, no una omisión.
  */
-export const GENDERS = ["femenino", "masculino", "no_binario", "prefiero_no_decir"] as const;
+export const GENDERS = ["female", "male", "non_binary", "prefer_not_to_say"] as const;
 
 export type Gender = (typeof GENDERS)[number];
 
+// Las etiquetas son copy: el producto le habla al usuario en es-CO.
 const GENDER_LABELS: Readonly<Record<Gender, string>> = {
-  femenino: "Femenino",
-  masculino: "Masculino",
-  no_binario: "No binario",
-  prefiero_no_decir: "Prefiero no decirlo",
+  female: "Femenino",
+  male: "Masculino",
+  non_binary: "No binario",
+  prefer_not_to_say: "Prefiero no decirlo",
 };
 
 /** Derivado de `GENDERS`: la lista y las etiquetas no pueden desincronizarse. */
@@ -76,7 +77,7 @@ export const GENDER_OPTIONS = GENDERS.map((value) => ({
  * inquilino no puede publicar inmuebles. Pasar a `propietario` requiere un flujo aparte
  * (el rol vive en custom claims y solo lo cambia el Admin SDK).
  */
-export const DEFAULT_USER_ROLE = "inquilino";
+export const DEFAULT_USER_ROLE = "tenant";
 
 /** Edad mínima para firmar un contrato de arrendamiento en Colombia. */
 export const MIN_AGE = 18;

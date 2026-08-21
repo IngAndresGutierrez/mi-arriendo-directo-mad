@@ -6,8 +6,8 @@ import { ComingSoonCard } from "@/shared/ui/coming-soon-card";
 import { SupportCard } from "@/shared/shell/support-card";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
-import { ContractsCard, getUserContracts } from "@/features/contrato";
-import { getProfile, requireCompleteProfile } from "@/features/perfil";
+import { ContractsCard, getUserContracts } from "@/features/contract";
+import { getProfile, requireCompleteProfile } from "@/features/profile";
 import { firstName, greetingForHour, hourInProductTimeZone } from "@/shared/format/greeting";
 
 export const metadata: Metadata = {

@@ -6,19 +6,19 @@ import { adminDb } from "@/shared/firebase/admin";
 
 export type ContractSummary = {
   readonly id: string;
-  readonly estado: string;
-  /** Canon en pesos, entero. */
-  readonly canon: number;
-  readonly inmuebleId: string;
+  readonly status: string;
+  /** Monthly rent in whole pesos. */
+  readonly rent: number;
+  readonly propertyId: string;
 };
 
 function toSummary(doc: { id: string; data: () => Record<string, unknown> }): ContractSummary {
   const data = doc.data();
   return {
     id: doc.id,
-    estado: typeof data.estado === "string" ? data.estado : "desconocido",
-    canon: typeof data.canon === "number" ? data.canon : 0,
-    inmuebleId: typeof data.inmuebleId === "string" ? data.inmuebleId : "",
+    status: typeof data.status === "string" ? data.status : "unknown",
+    rent: typeof data.rent === "number" ? data.rent : 0,
+    propertyId: typeof data.propertyId === "string" ? data.propertyId : "",
   };
 }
 
@@ -31,15 +31,15 @@ function toSummary(doc: { id: string; data: () => Record<string, unknown> }): Co
  * defensiva.
  */
 export const getUserContracts = cache(async (uid: string): Promise<readonly ContractSummary[]> => {
-  const contracts = adminDb.collection("contratos");
+  const contracts = adminDb.collection("contracts");
 
-  const [asTenant, asOwner] = await Promise.all([
-    contracts.where("inquilinoUid", "==", uid).limit(20).get(),
-    contracts.where("propietarioUid", "==", uid).limit(20).get(),
+  const [asTenant, asLandlord] = await Promise.all([
+    contracts.where("tenantUid", "==", uid).limit(20).get(),
+    contracts.where("landlordUid", "==", uid).limit(20).get(),
   ]);
 
   const byId = new Map<string, ContractSummary>();
-  for (const doc of [...asTenant.docs, ...asOwner.docs]) {
+  for (const doc of [...asTenant.docs, ...asLandlord.docs]) {
     byId.set(doc.id, toSummary(doc));
   }
 

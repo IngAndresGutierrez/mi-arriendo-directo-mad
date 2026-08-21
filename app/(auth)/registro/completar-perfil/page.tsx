@@ -4,9 +4,9 @@ import { redirect } from "next/navigation";
 import { AuthShell } from "@/shared/shell/auth-shell";
 import { safeRedirect } from "@/shared/auth/routes";
 import { requireUser } from "@/shared/auth/session";
-import { getProfile } from "@/features/perfil";
+import { getProfile } from "@/features/profile";
 
-import { CompleteProfileForm } from "@/features/perfil";
+import { CompleteProfileForm } from "@/features/profile";
 
 export const metadata: Metadata = {
   title: "Completa tu perfil",
