@@ -8,14 +8,14 @@ import { requireUser, type SessionUser } from "@/shared/auth/session";
 import { hasProfile } from "./profile";
 
 /**
- * Sesión **y** perfil completo. Úsalo en toda pantalla del producto.
+ * Session **and** a complete profile. Use this on every product screen.
  *
- * Quien acaba de registrarse tiene sesión pero no perfil: lo manda a completarlo. La
- * pantalla de onboarding usa `requireUser()`, no esta, o el redirect sería un bucle.
+ * Someone who just signed up has a session but no profile: send them to complete it. The
+ * onboarding screen uses `requireUser()`, not this one, or the redirect would loop.
  *
- * Vive en este módulo y no en `shared/auth`: "¿tiene perfil?" es una pregunta del dominio
- * de perfil, y tenerla allá obligaba a `shared/` a importar la lectura de Firestore de un
- * feature — un ciclo entre capas que el import diferido escondía sin resolver.
+ * It lives in this module and not in `shared/auth`: "do they have a profile?" is a question
+ * of the profile domain, and keeping it there forced `shared/` to import a feature's
+ * Firestore read — a cycle between layers that the deferred import hid without solving.
  */
 export async function requireCompleteProfile(): Promise<SessionUser> {
   const user = await requireUser();

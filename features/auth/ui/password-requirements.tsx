@@ -4,10 +4,10 @@ import { PASSWORD_REQUIREMENTS } from "../validations/auth";
 import { cn } from "@/shared/lib/utils";
 
 /**
- * Checklist en vivo de los requisitos de contraseña.
+ * Live checklist of the password requirements.
  *
- * Lee `PASSWORD_REQUIREMENTS`, la misma lista de la que se deriva `signupSchema`: la UI y la
- * validación no pueden desincronizarse.
+ * It reads `PASSWORD_REQUIREMENTS`, the same list `signupSchema` is derived from: the UI
+ * and the validation cannot drift apart.
  */
 export function PasswordRequirements({ value, id }: { value: string; id: string }) {
   return (
@@ -33,7 +33,7 @@ export function PasswordRequirements({ value, id }: { value: string; id: string 
               {isMet ? <CheckIcon className="size-3" /> : null}
             </span>
             {requirement.label}
-            {/* El color no puede ser el único indicador de estado. */}
+            {/* Color cannot be the only indicator of state. */}
             <span className="sr-only">{isMet ? "(cumplido)" : "(pendiente)"}</span>
           </li>
         );

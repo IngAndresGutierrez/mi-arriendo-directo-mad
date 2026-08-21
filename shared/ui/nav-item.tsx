@@ -10,7 +10,7 @@ import { cn } from "@/shared/lib/utils";
 export type NavEntry = {
   readonly label: string;
   readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
-  /** Ausente cuando la sección todavía no existe. */
+  /** Absent while the section does not exist yet. */
   readonly href?: string;
 };
 
@@ -18,11 +18,11 @@ const BASE =
   "flex flex-col items-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-medium transition-colors";
 
 /**
- * Ítem del menú lateral.
+ * Sidebar menu item.
  *
- * Sin `href` se renderiza deshabilitado con un tooltip de "Próximamente": es honesto sobre
- * lo que existe, y no lleva a un 404. Un `<span aria-disabled>` en vez de un enlace muerto,
- * para que el lector de pantalla no lo anuncie como navegable.
+ * Without an `href` it renders disabled with a "coming soon" tooltip: honest about what
+ * exists, and it does not lead to a 404. A `<span aria-disabled>` rather than a dead link,
+ * so screen readers do not announce it as navigable.
  */
 export function NavItem({ label, icon: Icon, href }: NavEntry) {
   const pathname = usePathname();

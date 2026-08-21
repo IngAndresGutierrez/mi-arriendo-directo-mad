@@ -18,10 +18,10 @@ export type CompleteProfileResult =
     };
 
 /**
- * Crea el perfil del usuario autenticado y fija su rol como custom claim.
+ * Creates the authenticated user's profile and sets their role as a custom claim.
  *
- * Una Server Action es un endpoint público: autentica, valida con Zod y toma el `uid` y el
- * correo **de la sesión**, nunca del formulario.
+ * A Server Action is a public endpoint: authenticate, validate with Zod, and take the `uid`
+ * and the email **from the session**, never from the form.
  */
 export async function completeProfile(formData: FormData): Promise<CompleteProfileResult> {
   const user = await requireUser();
@@ -43,17 +43,17 @@ export async function completeProfile(formData: FormData): Promise<CompleteProfi
   });
 
   if (!parsed.success) {
-    // No devuelvas el error crudo de Zod: incluye los valores enviados.
+    // Never return Zod's raw error: it includes the submitted values.
     return { ok: false, fieldErrors: z.flattenError(parsed.error).fieldErrors };
   }
 
-  // La edad se valida contra el reloj del servidor, no contra el del navegador.
+  // Age is validated against the server clock, not the browser's.
   const birthDate = validateBirthDate(parsed.data.birthDate, new Date());
   if (!birthDate.ok) {
     return { ok: false, fieldErrors: { birthDate: [birthDate.error] } };
   }
 
-  // El indicativo se resuelve en el servidor: el cliente manda el ISO, no el `+57`.
+  // The dial code is resolved on the server: the client sends the ISO, not the `+57`.
   const e164 = toE164(parsed.data.phone.country, parsed.data.phone.national);
   if (!e164) {
     return { ok: false, fieldErrors: { phone: ["Selecciona un país válido"] } };
@@ -68,7 +68,7 @@ export async function completeProfile(formData: FormData): Promise<CompleteProfi
 
   await profileRef.set({
     fullName: parsed.data.fullName,
-    // El correo sale de la sesión verificada, no del formulario.
+    // The email comes from the verified session, not from the form.
     email: user.email,
     phone: e164,
     phoneCountry: parsed.data.phone.country,
@@ -79,15 +79,15 @@ export async function completeProfile(formData: FormData): Promise<CompleteProfi
       department: parsed.data.address.department,
     },
     birthDate: parsed.data.birthDate,
-    // El onboarding ya no pregunta el rol: toda cuenta nace con el menos privilegiado.
+    // Onboarding no longer asks for the role: every account starts with the least privileged one.
     role: DEFAULT_USER_ROLE,
-    // Registro del consentimiento (Ley 1581): cuándo lo otorgó.
+    // Consent record (Law 1581): when it was granted.
     termsAcceptedAt: FieldValue.serverTimestamp(),
     createdAt: FieldValue.serverTimestamp(),
   });
 
-  // El rol vive en custom claims: las Security Rules lo leen de ahí y el cliente no lo
-  // puede falsificar. El token del navegador conserva el claim viejo hasta que se refresque.
+  // The role lives in custom claims: Security Rules read it from there and the client
+  // cannot forge it. The browser token keeps the old claim until it is refreshed.
   await adminAuth.setCustomUserClaims(user.uid, { role: DEFAULT_USER_ROLE });
 
   return { ok: true };

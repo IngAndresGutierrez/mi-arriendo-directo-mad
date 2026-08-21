@@ -1,8 +1,8 @@
 /**
- * Firestore — SOLO cliente (lecturas en tiempo real y escrituras del usuario).
+ * Firestore — CLIENT ONLY (realtime reads and user writes).
  *
- * Para leer en el servidor usa `lib/firebase/admin.ts`. Este módulo es pesado: impórtalo
- * solo en las pantallas que realmente consultan la base de datos.
+ * To read on the server use `shared/firebase/admin.ts`. This module is heavy: import it
+ * only in screens that actually query the database.
  */
 import {
   connectFirestoreEmulator,
@@ -14,8 +14,8 @@ import {
 import { firebaseApp, useEmulator } from "@/shared/firebase/app";
 
 /**
- * `persistentLocalCache` reemplaza al deprecado `enableIndexedDbPersistence()`.
- * `persistentMultipleTabManager` sincroniza pestañas.
+ * `persistentLocalCache` replaces the deprecated `enableIndexedDbPersistence()`.
+ * `persistentMultipleTabManager` keeps tabs in sync.
  */
 export const db = initializeFirestore(firebaseApp, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),

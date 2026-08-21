@@ -38,12 +38,12 @@ const FIELD_NAMES = [
 
 type FieldName = (typeof FIELD_NAMES)[number];
 
-/** Los errores del servidor llegan con clave `string`; solo aceptamos las conocidas. */
+/** Server errors arrive keyed by `string`; only the known keys are accepted. */
 function isFieldName(value: string): value is FieldName {
   return (FIELD_NAMES as readonly string[]).includes(value);
 }
 
-/** Tope del `<input type="date">`: hoy menos la edad mínima. */
+/** Upper bound for `<input type="date">`: today minus the minimum age. */
 function maxBirthDate(): string {
   const date = new Date();
   date.setFullYear(date.getFullYear() - MIN_AGE);
@@ -67,7 +67,7 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
     mode: "onBlur",
     defaultValues: {
       fullName: "",
-      // Colombia preseleccionada: es el mercado del producto.
+      // Colombia pre-selected: it is the product's market.
       phone: { country: DEFAULT_COUNTRY_ISO, national: "" },
       gender: undefined,
       address: { line: "", city: "", department: undefined },
@@ -76,7 +76,7 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
     },
   });
 
-  // El número ya escrito, para saber si vale la pena revalidar al cambiar de país.
+  // The number already typed, to decide whether revalidating on country change is worth it.
   const nationalPhone = useWatch({ control, name: "phone.national" });
 
   const isSaving = isSubmitting || isNavigating;
@@ -98,7 +98,7 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
     const result = await completeProfile(formData);
 
     if (!result.ok) {
-      // Los errores del servidor se pintan en su campo; el resto va a la alerta general.
+      // Server errors are painted on their field; anything else goes to the general alert.
       for (const [field, messages] of Object.entries(result.fieldErrors ?? {})) {
         const message = messages?.[0];
         if (message && isFieldName(field)) setError(field, { message });
@@ -108,8 +108,8 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
       return;
     }
 
-    // La acción acaba de fijar el claim del rol, pero la cookie se acuñó antes y todavía
-    // no lo tiene: sin refrescarla, el servidor leería el rol equivocado.
+    // The action just set the role claim, but the cookie was minted earlier and does not
+    // carry it yet: without refreshing it, the server would read the wrong role.
     try {
       await refreshServerSession();
     } catch {
@@ -148,8 +148,8 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
             country={field.value}
             onCountryChange={(iso) => {
               field.onChange(iso);
-              // La regla del número depende del país: sin revalidar, el error del país
-              // anterior se queda visible aunque el número ya sea válido en el nuevo.
+              // The number's rule depends on the country: without revalidating, the
+              // previous country's error stays visible even once the number is valid.
               if (nationalPhone) void trigger("phone");
             }}
             countryError={errors.phone?.country?.message}
@@ -191,9 +191,9 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
       </div>
 
       {/*
-        Sin `fieldset`: un grupo sin `legend` no tiene nombre accesible, y reponer la leyenda
-        rompía el objetivo de que la pantalla quepa sin scroll. Las tres etiquetas
-        (Dirección, Ciudad, Departamento) se explican solas y hay una sola dirección.
+        No `fieldset`: a group without a `legend` has no accessible name, and adding the
+        legend back broke the goal of fitting the screen without scrolling. The three labels
+        (Dirección, Ciudad, Departamento) speak for themselves and there is only one address.
       */}
       <div className="space-y-2.5">
         
@@ -255,8 +255,8 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
             )}
           />
           {/*
-            `block`: el Label de shadcn trae `flex`, y eso convierte el texto y los enlaces
-            en items de flex, que se apilan en lugar de fluir como párrafo.
+            `block`: shadcn's Label ships `flex`, which turns the text and the links into
+            flex items that stack instead of flowing as a paragraph.
           */}
           <Label htmlFor="acceptsTerms" className="block text-sm leading-relaxed font-normal">
             Autorizo el tratamiento de mis datos personales y acepto los{" "}

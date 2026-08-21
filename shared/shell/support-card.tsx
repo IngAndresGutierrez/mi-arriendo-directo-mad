@@ -3,11 +3,11 @@ import { HeadsetIcon, MessageCircleIcon } from "lucide-react";
 import { ComingSoonCard } from "@/shared/ui/coming-soon-card";
 
 /**
- * Tarjeta de soporte, maquetada.
+ * Support card, mocked up.
  *
- * Deliberadamente **sin foto de una persona**: presentar una imagen de stock como "nuestro
- * equipo" sería inventar a alguien que no existe. Un avatar neutro dice lo mismo sin
- * afirmar algo falso. Cuando haya canal de soporte real, esto pasa a ser interactivo.
+ * Deliberately **without a photo of a person**: presenting a stock image as "our team"
+ * would invent someone who does not exist. A neutral avatar says the same thing without
+ * claiming something false. Once there is a real support channel, this becomes interactive.
  */
 export function SupportCard({ firstName }: { firstName: string }) {
   return (

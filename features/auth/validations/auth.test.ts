@@ -1,30 +1,30 @@
 /**
- * Tests de los schemas de acceso.
+ * Tests for the access schemas.
  *
- * Ejemplar del nivel "unitario" que describe la skill `mad-feature`: cada regla no trivial
- * tiene su caso válido y su caso inválido.
+ * A model of the "unit" level the `mad-feature` skill describes: every non-trivial rule
+ * has a valid case and an invalid one.
  */
 import { describe, expect, it } from "vitest";
 
 import { emailSchema, loginSchema, PASSWORD_REQUIREMENTS, signupSchema } from "./auth";
 
 describe("loginSchema", () => {
-  it("normaliza el correo a minúsculas y sin espacios", () => {
+  it("normalizes the email to lowercase and trims it", () => {
     const r = loginSchema.parse({ email: "  Andres@Ejemplo.COM ", password: "ClaveSegura1" });
     expect(r.email).toBe("andres@ejemplo.com");
   });
 
-  it("rechaza un correo con formato inválido", () => {
+  it("rejects a malformed email", () => {
     const r = loginSchema.safeParse({ email: "no-es-correo", password: "ClaveSegura1" });
     expect(r.success).toBe(false);
     expect(r.error?.issues[0]?.message).toBe("Ingresa un correo válido");
   });
 
-  it("rechaza una contraseña de menos de 8 caracteres", () => {
+  it("rejects a password shorter than 8 characters", () => {
     expect(loginSchema.safeParse({ email: "a@b.com", password: "corta1" }).success).toBe(false);
   });
 
-  it("acepta credenciales válidas", () => {
+  it("accepts valid credentials", () => {
     expect(loginSchema.safeParse({ email: "a@b.com", password: "ClaveSegura1" }).success).toBe(
       true,
     );
@@ -33,22 +33,22 @@ describe("loginSchema", () => {
 
 describe("signupSchema", () => {
   it.each([
-    ["sin número", "solotexto"],
-    ["sin letra", "12345678"],
-    ["muy corta", "Abc1"],
-  ])("rechaza una contraseña %s", (_case, password) => {
+    ["with no digit", "solotexto"],
+    ["with no letter", "12345678"],
+    ["too short", "Abc1"],
+  ])("rejects a password %s", (_case, password) => {
     expect(signupSchema.safeParse({ password }).success).toBe(false);
   });
 
-  it("acepta una contraseña con letra, número y 8+ caracteres", () => {
+  it("accepts a password with a letter, a digit and 8+ characters", () => {
     expect(signupSchema.safeParse({ password: "ClaveSegura2026" }).success).toBe(true);
   });
 
-  it("acepta letras acentuadas y ñ como letra", () => {
+  it("counts accented letters and ñ as letters", () => {
     expect(signupSchema.safeParse({ password: "contraseña1" }).success).toBe(true);
   });
 
-  it("el checklist de la UI coincide con lo que valida el schema", () => {
+  it("the UI checklist matches what the schema validates", () => {
     for (const password of ["solotexto", "12345678", "Abc1", "ClaveSegura2026"]) {
       const allMet = PASSWORD_REQUIREMENTS.every((requirement) => requirement.isMet(password));
       expect(allMet).toBe(signupSchema.safeParse({ password }).success);
@@ -57,7 +57,7 @@ describe("signupSchema", () => {
 });
 
 describe("emailSchema", () => {
-  it("solo pide el correo", () => {
+  it("asks for the email only", () => {
     expect(emailSchema.safeParse({ email: "a@b.com" }).success).toBe(true);
     expect(emailSchema.safeParse({ email: "" }).success).toBe(false);
   });

@@ -1,9 +1,8 @@
 /**
- * Traduce los códigos de error de Firebase Auth a mensajes en español.
+ * Maps Firebase Auth error codes to user-facing messages (in es-CO, like all copy).
  *
- * Regla de seguridad: nunca reveles si un correo existe. Credenciales inválidas, usuario
- * inexistente y contraseña incorrecta comparten mensaje, para no convertir el formulario
- * en un enumerador de cuentas.
+ * Security rule: never reveal whether an email exists. Invalid credentials, unknown user
+ * and wrong password share one message, so the form cannot be used to enumerate accounts.
  */
 const MESSAGES: Readonly<Record<string, string>> = {
   "auth/invalid-credential": "Correo o contraseña incorrectos",
@@ -40,14 +39,14 @@ function errorCode(error: unknown): string | null {
   return typeof code === "string" ? code : null;
 }
 
-/** Mensaje presentable al usuario. Nunca expone el error crudo de Firebase. */
+/** Message safe to show the user. Never exposes the raw Firebase error. */
 export function authErrorMessage(error: unknown): string {
   const code = errorCode(error);
   if (!code) return FALLBACK;
   return MESSAGES[code] ?? FALLBACK;
 }
 
-/** El usuario cerró el popup: no es un fallo que valga la pena mostrar como error. */
+/** The user closed the popup: not a failure worth surfacing as an error. */
 export function isUserCancellation(error: unknown): boolean {
   const code = errorCode(error);
   return code !== null && CANCELLATION_CODES.has(code);

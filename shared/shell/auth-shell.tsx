@@ -4,14 +4,14 @@ import { Logo } from "@/shared/brand/logo";
 import { cn } from "@/shared/lib/utils";
 
 type AuthShellProps = {
-  /** Encabezado del panel de marca (columna derecha). */
+  /** Heading of the brand panel (right column). */
   title: ReactNode;
   description: string;
-  /** Fila superior de la columna izquierda, a la derecha del logo. */
+  /** Top row of the left column, to the right of the logo. */
   action?: ReactNode;
   /**
-   * Ancho de la columna de contenido. `"sm"` para login y registro (pocos campos);
-   * `"lg"` para formularios largos, donde permite dos columnas y evita el scroll.
+   * Width of the content column. `"sm"` for login and signup (few fields); `"lg"` for long
+   * forms, where it allows two columns and avoids scrolling.
    */
   contentWidth?: "sm" | "lg";
   children: ReactNode;
@@ -27,15 +27,15 @@ const VERTICAL_PADDING = {
   lg: "py-5",
 } as const;
 
-/** El formulario largo necesita cada píxel; el corto puede respirar. */
+/** The long form needs every pixel; the short one can breathe. */
 const LOGO_MARGIN = {
   sm: "mb-8",
   lg: "mb-5",
 } as const;
 
 /**
- * JSX puramente decorativo, elevado a nivel de módulo para no recrearlo en cada render.
- * No depende de props.
+ * Purely decorative JSX, hoisted to module level so it is not rebuilt on every render.
+ * It does not depend on props.
  */
 const GLOW_DECORATION = (
   <>
@@ -51,10 +51,10 @@ const GLOW_DECORATION = (
 );
 
 /**
- * Layout de dos columnas de las pantallas de acceso.
+ * Two-column layout for the access screens.
  *
- * El panel derecho usa el token `panel-marca` (púrpura en ambos temas) en lugar de
- * `bg-primary`, que en modo oscuro es cian.
+ * The right panel uses the `panel-marca` token (purple in both themes) instead of
+ * `bg-primary`, which is cyan in dark mode.
  */
 export function AuthShell({
   title,

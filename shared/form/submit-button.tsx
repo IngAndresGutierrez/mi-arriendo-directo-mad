@@ -7,13 +7,13 @@ import { Button } from "@/shared/ui/button";
 type SubmitButtonProps = {
   loading: boolean;
   disabled?: boolean;
-  /** Texto en reposo. */
+  /** Label at rest. */
   children: string;
-  /** Texto mientras se envía. Sin él se mantiene el de reposo. */
+  /** Label while submitting. Without it the resting label stays. */
   loadingLabel?: string;
 };
 
-/** CTA de envío con spinner y etiqueta de progreso. Cian de marca (`variant="accent"`). */
+/** Submit CTA with spinner and progress label. Brand cyan (`variant="accent"`). */
 export function SubmitButton({
   loading,
   disabled = false,

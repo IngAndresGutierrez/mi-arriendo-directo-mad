@@ -1,11 +1,11 @@
 /**
- * Firebase Admin SDK (v14) — SOLO servidor.
+ * Firebase Admin SDK (v14) — SERVER ONLY.
  *
- * `server-only` hace fallar el build si alguien importa este módulo desde un archivo
- * con "use client". Nunca prefijes estas credenciales con NEXT_PUBLIC_.
+ * `server-only` fails the build if anyone imports this module from a file marked
+ * "use client". Never prefix these credentials with NEXT_PUBLIC_.
  *
- * Este SDK IGNORA por completo las Security Rules: cada operación aquí tiene
- * privilegios totales. Autoriza explícitamente en cada Server Action / Route Handler.
+ * This SDK IGNORES Security Rules entirely: every operation here is fully privileged.
+ * Authorize explicitly in each Server Action / Route Handler.
  */
 import "server-only";
 
@@ -20,7 +20,7 @@ function createApp(): App {
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 
   if (!projectId || !clientEmail || !privateKey) {
-    // No incluyas los valores en el mensaje: este error termina en logs.
+    // Do not include the values in the message: this error ends up in logs.
     throw new Error(
       "Credenciales del Admin SDK incompletas. Requiere FIREBASE_PROJECT_ID, " +
         "FIREBASE_CLIENT_EMAIL y FIREBASE_PRIVATE_KEY.",
@@ -28,13 +28,13 @@ function createApp(): App {
   }
 
   return initializeApp({
-    // Las variables de entorno guardan los saltos de línea escapados.
+    // Environment variables store the newlines escaped.
     credential: cert({ projectId, clientEmail, privateKey: privateKey.replace(/\\n/g, "\n") }),
     storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
   });
 }
 
-/** Fluid Compute reutiliza instancias entre requests: inicializa una sola vez por proceso. */
+/** Fluid Compute reuses instances across requests: initialize once per process. */
 const [existingApp] = getApps();
 const adminApp: App = existingApp ?? createApp();
 
@@ -43,8 +43,8 @@ export const adminStorage = getStorage(adminApp);
 
 export const adminDb = getFirestore(adminApp);
 
-// `settings()` solo puede llamarse antes de la primera operación y una única vez;
-// el flag evita que un segundo bundle del servidor lo vuelva a invocar.
+// `settings()` may only be called before the first operation, and only once;
+// the flag keeps a second server bundle from invoking it again.
 const SETTINGS_FLAG = "__madFirestoreSettings";
 if (!(SETTINGS_FLAG in globalThis)) {
   Object.defineProperty(globalThis, SETTINGS_FLAG, { value: true });

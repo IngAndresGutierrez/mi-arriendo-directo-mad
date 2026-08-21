@@ -5,25 +5,25 @@ import { Label } from "@/shared/ui/label";
 import { cn } from "@/shared/lib/utils";
 
 type TextFieldProps = ComponentProps<"input"> & {
-  /** Requerido: sin él no hay `htmlFor` ni ids de error estables. */
+  /** Required: without it there is no `htmlFor` and no stable error ids. */
   id: string;
   label: string;
-  /** Mensaje de error ya resuelto (p. ej. `errors.email?.message`). */
+  /** Already resolved error message (e.g. `errors.email?.message`). */
   error?: string;
-  /** Contenido alineado a la derecha de la etiqueta, como "¿Olvidaste tu contraseña?". */
+  /** Content aligned to the right of the label, like "¿Olvidaste tu contraseña?". */
   labelAction?: ReactNode;
-  /** Texto de ayuda permanente bajo el campo. */
+  /** Permanent helper text below the field. */
   hint?: ReactNode;
 };
 
 /**
- * Campo de texto con etiqueta, error y ARIA cableado en un solo sitio.
+ * Text field with label, error and ARIA wired up in one place.
  *
- * Antes cada formulario repetía el `<Label>`, el `aria-invalid`, el `aria-describedby` y el
- * `<p>` de error, con el riesgo de que uno se quedara sin conectar.
+ * Every form used to repeat the `<Label>`, the `aria-invalid`, the `aria-describedby` and
+ * the error `<p>`, with the risk of leaving one of them unconnected.
  *
- * Acepta `{...register("campo")}` de react-hook-form directamente: en React 19 `ref` es una
- * prop normal y se reenvía al `<input>`.
+ * It takes react-hook-form's `{...register("field")}` directly: in React 19 `ref` is a
+ * regular prop and is forwarded to the `<input>`.
  */
 export function TextField({
   id,

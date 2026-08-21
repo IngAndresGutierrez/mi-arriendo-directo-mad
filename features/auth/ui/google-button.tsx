@@ -5,7 +5,7 @@ import { Loader2Icon } from "lucide-react";
 import { GoogleIcon } from "./google-icon";
 import { Button } from "@/shared/ui/button";
 
-/** SVG estático elevado a nivel de módulo: no hay que recrear el nodo en cada render. */
+/** Static SVG hoisted to module level: no need to rebuild the node on every render. */
 const GOOGLE_ICON = <GoogleIcon className="size-4" />;
 
 type GoogleButtonProps = {

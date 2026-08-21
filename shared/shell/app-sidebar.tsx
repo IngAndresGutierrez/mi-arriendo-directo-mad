@@ -1,8 +1,8 @@
 "use client";
 
-// Cliente, no servidor: pasa los iconos de lucide como *componentes* a `NavItem`, y una
-// función no puede cruzar la frontera Server → Client. Además el menú necesita
-// `usePathname` para marcar la sección activa, así que es interactivo de todos modos.
+// Client, not server: it passes lucide icons to `NavItem` as *components*, and a function
+// cannot cross the Server → Client boundary. The menu also needs `usePathname` to mark the
+// active section, so it is interactive anyway.
 import Image from "next/image";
 import {
   CreditCardIcon,
@@ -18,8 +18,8 @@ import { HOME_ROUTE } from "@/shared/auth/routes";
 import { SignOutButton } from "./sign-out-button";
 
 /**
- * Secciones del producto. Las que no tienen `href` todavía no existen: se muestran
- * deshabilitadas con un tooltip de "Próximamente", en lugar de enlazar a un 404.
+ * Product sections. The ones without an `href` do not exist yet: they render disabled with
+ * a "coming soon" tooltip instead of linking to a 404.
  */
 const NAV: readonly NavEntry[] = [
   { label: "Inicio", icon: HouseIcon, href: HOME_ROUTE },
@@ -36,9 +36,9 @@ export function AppSidebar() {
       className="flex w-20 shrink-0 flex-col items-center gap-1 bg-panel-marca px-2 py-4"
     >
       {/*
-        Isotipo: la marca completa no cabe en 80px. Va sobre un chip claro porque sus
-        trazos son púrpura y sobre el fondo púrpura del panel desaparecerían. Mientras no
-        exista una versión en reverso del logo, esta es la forma de que se lea.
+        Icon mark: the full logo does not fit in 80px. It sits on a light chip because its
+        strokes are purple and would vanish against the panel's purple background. Until a
+        reversed version of the logo exists, this is how it stays legible.
       */}
       <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-panel-marca-foreground">
         <Image

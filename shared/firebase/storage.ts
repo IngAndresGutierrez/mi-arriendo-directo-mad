@@ -1,7 +1,7 @@
 /**
- * Cloud Storage — SOLO cliente (subida de documentos de identidad y fotos).
+ * Cloud Storage — CLIENT ONLY (identity document and photo uploads).
  *
- * Impórtalo únicamente en las pantallas que suben o descargan archivos.
+ * Import it only in screens that upload or download files.
  */
 import { connectStorageEmulator, getStorage } from "firebase/storage";
 

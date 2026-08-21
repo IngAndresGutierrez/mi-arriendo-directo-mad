@@ -62,7 +62,7 @@ for (const u of users.users) {
   console.log(`claims ${u.email}: ${JSON.stringify(claims)} -> ${JSON.stringify(next)}`);
   if (apply) {
     await auth.setCustomUserClaims(u.uid, next);
-    // El token viejo sigue firmado con el claim anterior hasta que se refresque.
+    // The old token stays signed with the previous claim until it is refreshed.
     await auth.revokeRefreshTokens(u.uid);
     console.log("    claim actualizado y refresh tokens revocados");
   }

@@ -1,9 +1,9 @@
 /**
- * Firebase Auth — SOLO cliente.
+ * Firebase Auth — CLIENT ONLY.
  *
- * Módulo por servicio a propósito: importar Auth no debe traer Firestore ni Storage al
- * bundle. Un barrel que reexportara los tres devolvería el problema (≈630 KB de SDK en
- * una pantalla de login que solo autentica).
+ * One module per service on purpose: importing Auth must not pull Firestore or Storage
+ * into the bundle. A barrel re-exporting all three would bring the problem back (~630 KB
+ * of SDK on a login screen that only authenticates).
  */
 import { connectAuthEmulator, getAuth } from "firebase/auth";
 

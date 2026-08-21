@@ -26,10 +26,10 @@ type SelectFieldProps = {
 };
 
 /**
- * Select con etiqueta, error y ARIA cableado, igual que `TextField`.
+ * Select with label, error and ARIA wired up, just like `TextField`.
  *
- * El `Select` de Radix no emite un valor nativo de formulario, así que se controla desde
- * react-hook-form con `Controller` y el valor se añade al `FormData` al enviar.
+ * Radix's `Select` does not emit a native form value, so it is controlled from
+ * react-hook-form with `Controller` and the value is added to the `FormData` on submit.
  */
 export function SelectField({
   id,
@@ -53,8 +53,8 @@ export function SelectField({
       <Select value={value} onValueChange={onValueChange} disabled={disabled}>
         <SelectTrigger
           id={id}
-          // Ver nota en `phone-field.tsx`: `SelectTrigger` fija su alto con una clase
-          // con variante, así que hay que sobreescribir esa misma variante.
+          // See the note in `phone-field.tsx`: `SelectTrigger` sets its height with a
+          // variant class, so the override has to use that same variant.
           className="h-11 w-full data-[size=default]:h-11"
           aria-invalid={error ? true : undefined}
           aria-describedby={describedBy || undefined}

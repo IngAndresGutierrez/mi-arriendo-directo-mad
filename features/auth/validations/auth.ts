@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-/** Hoisted: crear el RegExp en cada llamada es trabajo repetido innecesario. */
+/** Hoisted: building the RegExp on every call is needless repeated work. */
 const HAS_LETTER = /\p{L}/u;
 const HAS_DIGIT = /\d/;
 
@@ -8,10 +8,10 @@ const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 
 /**
- * Correo normalizado.
+ * Normalized email.
  *
- * El orden importa: `z.email().trim()` valida ANTES de recortar, así que un correo pegado
- * con un espacio al final se rechazaría. Se normaliza primero y luego se valida.
+ * Order matters: `z.email().trim()` validates BEFORE trimming, so an email pasted with a
+ * trailing space would be rejected. Normalize first, then validate.
  */
 const normalizedEmail = z
   .string({ error: "Ingresa tu correo" })
@@ -20,11 +20,11 @@ const normalizedEmail = z
   .pipe(z.email({ error: "Ingresa un correo válido" }));
 
 /**
- * Requisitos de contraseña: **única fuente de verdad**.
+ * Password requirements: the **single source of truth**.
  *
- * `label` alimenta el checklist en vivo de la UI y `message` el mensaje de validación;
- * `signupSchema` se construye a partir de esta misma lista. Antes las reglas estaban
- * escritas dos veces y podían desincronizarse.
+ * `label` feeds the live checklist in the UI and `message` the validation error;
+ * `signupSchema` is built from this very list. The rules used to be written twice and
+ * could drift apart.
  */
 export const PASSWORD_REQUIREMENTS = [
   {
@@ -48,8 +48,8 @@ export const PASSWORD_REQUIREMENTS = [
 ] as const;
 
 /**
- * Schemas de autenticación. Se comparten entre el formulario (UX) y la Route Handler que
- * crea la sesión (seguridad): mismo módulo, misma regla, mismo mensaje.
+ * Authentication schemas. Shared between the form (UX) and the Route Handler that creates
+ * the session (security): same module, same rule, same message.
  */
 export const loginSchema = z.object({
   email: normalizedEmail,
@@ -63,12 +63,12 @@ export const loginSchema = z.object({
 
 export type LoginInput = z.output<typeof loginSchema>;
 
-/** Paso 1 del registro: solo el correo. */
+/** Signup step 1: the email only. */
 export const emailSchema = z.object({ email: normalizedEmail });
 
 export type EmailInput = z.output<typeof emailSchema>;
 
-/** Paso 2 del registro. Las reglas se derivan de PASSWORD_REQUIREMENTS, no se repiten. */
+/** Signup step 2. The rules are derived from PASSWORD_REQUIREMENTS, never repeated. */
 export const signupSchema = z.object({
   password: PASSWORD_REQUIREMENTS.reduce(
     (schema, requirement) => schema.refine(requirement.isMet, { error: requirement.message }),
@@ -80,7 +80,7 @@ export const signupSchema = z.object({
 
 export type SignupInput = z.output<typeof signupSchema>;
 
-/** Cuerpo que acepta `POST /api/session`. */
+/** Body accepted by `POST /api/session`. */
 export const createSessionSchema = z.object({
   idToken: z
     .string({ error: "Falta el token de identidad" })

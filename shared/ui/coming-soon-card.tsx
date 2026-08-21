@@ -6,11 +6,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
 
 /**
- * Envoltorio para tarjetas maquetadas cuya función todavía no existe.
+ * Wrapper for mocked-up cards whose function does not exist yet.
  *
- * Marca el bloque como no interactivo (`aria-disabled`, sin foco en su interior) y explica
- * por qué en un tooltip. Preferimos esto a un botón que no hace nada: el usuario entiende
- * que la sección está en camino en lugar de creer que la app está rota.
+ * It marks the block as non-interactive (`aria-disabled`, nothing focusable inside) and
+ * explains why in a tooltip. Better than a button that does nothing: the user understands
+ * the section is on its way instead of thinking the app is broken.
  */
 export function ComingSoonCard({
   children,
@@ -31,14 +31,14 @@ export function ComingSoonCard({
             "rounded-2xl border border-border bg-card p-5 text-left",
             "cursor-not-allowed opacity-75 transition-opacity hover:opacity-100",
             "focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
-            // Nada de aquí dentro debe ser enfocable ni clicable: es una maqueta.
+            // Nothing in here should be focusable or clickable: it is a mock-up.
             "[&_*]:pointer-events-none",
             className,
           )}
         >
           {/*
-            El badge va en el flujo, no en `absolute`: posicionado se montaba encima de los
-            títulos en pantallas angostas.
+            The badge stays in the flow rather than `absolute`: positioned, it overlapped
+            the headings on narrow screens.
           */}
           <p className="mb-3 flex justify-end">
             <span className="rounded-full bg-muted px-2 py-0.5 text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">

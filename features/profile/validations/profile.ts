@@ -3,16 +3,16 @@ import { z } from "zod";
 import { DEPARTMENTS, GENDERS, MAX_AGE, MIN_AGE } from "../domain/colombia";
 import { COUNTRY_ISO_CODES, phoneRuleFor } from "@/shared/phone/countries";
 
-/** Hoisted: crear el RegExp en cada llamada es trabajo repetido. */
+/** Hoisted: building the RegExp on every call is repeated work. */
 const NON_DIGITS = /\D/g;
-/** Al menos dos palabras: nombre y apellido. */
+/** At least two words: given name and surname. */
 const AT_LEAST_TWO_WORDS = /\S+\s+\S+/;
 
 /**
- * Edad en años cumplidos a una fecha de referencia.
+ * Age in completed years at a reference date.
  *
- * La referencia se inyecta para que la validación sea determinista y testeable; no leas el
- * reloj dentro del schema.
+ * The reference is injected so the validation stays deterministic and testable; never read
+ * the clock inside the schema.
  */
 export function ageInYears(birthDate: Date, reference: Date): number {
   let age = reference.getFullYear() - birthDate.getFullYear();
@@ -26,13 +26,14 @@ export function ageInYears(birthDate: Date, reference: Date): number {
 }
 
 /**
- * Teléfono: país + número nacional.
+ * Phone: country + national number.
  *
- * Se guarda en E.164 (`+573001234567`), que es el formato inequívoco; el ISO del país se
- * conserva aparte porque `+1` lo comparten varios países y no se puede deducir del número.
+ * Stored in E.164 (`+573001234567`), the unambiguous format; the country ISO is kept
+ * separately because `+1` is shared by several countries and cannot be derived from the
+ * number.
  *
- * El número se normaliza antes de validar: la gente escribe "300 123 4567", "(300) 1234567"
- * o pega el número con el indicativo. Quitamos todo lo que no sea dígito.
+ * The number is normalized before validating: people type "300 123 4567", "(300) 1234567",
+ * or paste it with the dial code. Everything that is not a digit is stripped.
  */
 const phone = z
   .object({
@@ -42,14 +43,14 @@ const phone = z
       .transform((value) => value.replace(NON_DIGITS, "")),
   })
   .superRefine((value, ctx) => {
-    // La regla depende del país, así que se valida a nivel de objeto, no de campo.
+    // The rule depends on the country, so it is validated at object level, not per field.
     const rule = phoneRuleFor(value.country);
     if (!rule.pattern.test(value.national)) {
       ctx.addIssue({ code: "custom", message: rule.message, path: ["national"] });
     }
   });
 
-/** Dirección colombiana: sin código postal ni "estado/provincia". */
+/** Colombian address: no postal code and no "state/province". */
 const colombianAddress = z.object({
   line: z
     .string({ error: "Ingresa tu dirección" })
@@ -65,10 +66,10 @@ const colombianAddress = z.object({
 });
 
 /**
- * Perfil que se completa después del primer acceso.
+ * The profile completed after the first sign-in.
  *
- * El correo no está aquí: sale de la sesión, no del formulario. Un `uid` o un correo que
- * venga del cliente no se puede confiar.
+ * The email is not here: it comes from the session, not from the form. A `uid` or an email
+ * coming from the client cannot be trusted.
  */
 export const completeProfileSchema = z.object({
   fullName: z
@@ -86,37 +87,37 @@ export const completeProfileSchema = z.object({
 
   address: colombianAddress,
 
-  /** `YYYY-MM-DD`, tal como lo entrega `<input type="date">`. */
+  /** `YYYY-MM-DD`, exactly as `<input type="date">` delivers it. */
   birthDate: z
     .string({ error: "Elige tu fecha de nacimiento" })
     .min(1, { error: "Elige tu fecha de nacimiento" }),
 
   /**
-   * Consentimiento obligatorio.
+   * Mandatory consent.
    *
-   * `z.boolean().refine(...)` y no `z.literal(true)`: el rechazo en runtime es idéntico,
-   * pero el tipo de **entrada** sigue siendo `boolean`, y el formulario necesita arrancar
-   * con `false`. Con `z.literal(true)` el valor por defecto no compilaría.
+   * `z.boolean().refine(...)` and not `z.literal(true)`: the runtime rejection is identical,
+   * but the **input** type stays `boolean`, and the form needs to start at `false`. With
+   * `z.literal(true)` the default value would not compile.
    */
   acceptsTerms: z.boolean().refine((value) => value === true, {
     error: "Debes aceptar los Términos y la Política de privacidad",
   }),
 });
 
-/** Lo que valida la Server Action (después de transformar). */
+/** What the Server Action validates (after transformation). */
 export type CompleteProfileInput = z.output<typeof completeProfileSchema>;
 
 /**
- * Lo que maneja el formulario (antes de transformar). Difiere de la salida: `mobile` se
- * normaliza y el consentimiento arranca en `false`.
+ * What the form handles (before transformation). It differs from the output: the number is
+ * normalized and consent starts at `false`.
  */
 export type CompleteProfileFormValues = z.input<typeof completeProfileSchema>;
 
 /**
- * Valida la fecha de nacimiento contra una referencia explícita.
+ * Validates the birth date against an explicit reference.
  *
- * Va aparte del schema porque depende del reloj: así el schema sigue siendo puro y el test
- * puede fijar la fecha de referencia.
+ * It sits outside the schema because it depends on the clock: that keeps the schema pure and
+ * lets the test pin the reference date.
  */
 export function validateBirthDate(
   value: string,

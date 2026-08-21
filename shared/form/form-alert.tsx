@@ -2,8 +2,8 @@ import type { ReactNode } from "react";
 import { TriangleAlertIcon } from "lucide-react";
 
 /**
- * Error a nivel de formulario. `role="alert"` para que los lectores de pantalla lo anuncien
- * sin que el usuario tenga que buscarlo.
+ * Form-level error. `role="alert"` so screen readers announce it without the user having
+ * to go looking for it.
  */
 export function FormAlert({ children }: { children: ReactNode }) {
   return (

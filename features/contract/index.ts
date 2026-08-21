@@ -1,5 +1,5 @@
 /**
- * API pública del módulo de contratos. Lo que no esté aquí es interno del feature.
+ * Public API of the contracts module. Anything not exported here is internal to the feature.
  */
 export { getUserContracts, type ContractSummary } from "./data/contracts";
 export { ContractsCard } from "./ui/contracts-card";
