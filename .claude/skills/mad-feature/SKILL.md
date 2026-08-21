@@ -49,6 +49,7 @@ código del área correspondiente:
 `firebase-modular` | SDK de cliente: auth, tiempo real, Storage |
 `firebase-admin-sdk` | servidor: sesión, claims, escrituras privilegiadas |
 `firestore-security-rules` | colección nueva, o "¿quién puede leer esto?" |
+**`mad-architecture`** | dónde va cada archivo, fronteras entre módulos, mover o renombrar carpetas |
 **`frontend-design`** | jerarquía visual, tipografía, composición, densidad, ritmo |
 **`vercel-react-best-practices`** | rendimiento: waterfalls, bundle, re-renders, RSC |
 
@@ -130,22 +131,15 @@ compile el JSX, validación duplicada, `any` para salir del paso. Trabaja al rev
 
 ### Dónde va cada archivo
 
-```
-app/<ruta>/page.tsx            Server Component: sesión, datos, composición
-app/<ruta>/<algo>-form.tsx     "use client": interactividad
-app/<ruta>/actions.ts          "use server": mutaciones
-app/api/<x>/route.ts           Route Handlers
-components/<dominio>/          composiciones del producto
-components/ui/                 primitivas shadcn — sin lógica de negocio
-lib/domain/                    tipos del dominio
-lib/validations/               schemas Zod
-lib/data/                      lecturas de servidor
-lib/auth/routes.ts            constantes de rutas — nunca strings literales
-tests/rules/                   tests de security rules
-tests/unit/                    tests de schemas y lógica pura
-```
+La estructura de carpetas y las fronteras entre módulos **las define `mad-architecture`**, no
+esta skill: es una sola fuente de verdad y la de ahí es la vigente. Cárgala antes de crear
+la primera carpeta de la feature. En corto: `app/` solo enruta, el dominio vive en
+`features/<dominio>/{domain,validations,data,actions,ui}` y se expone por su `index.ts`, y lo
+transversal en `shared/{ui,shell,auth,firebase,format,lib}`.
 
----
+Los dos errores que esa skill te evita en una feature nueva: poner en `features/x/ui/` un
+componente que otro dominio también va a usar (y forzarlo a importar internos ajenos), y
+nombrar el módulo por la pantalla en vez de por el dominio.
 
 ## 4. Convención de nombres
 
