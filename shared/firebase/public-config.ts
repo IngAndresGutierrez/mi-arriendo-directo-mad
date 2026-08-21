@@ -11,22 +11,23 @@
  * `process.env` produced a 500 on every route: "incomplete Firebase config" during SSR of the
  * login page.
  *
- * Each value still honours an environment override, so another Firebase project can be pointed
- * at without touching this file. The service account NEVER belongs here: see
- * `shared/firebase/admin.ts`.
+ * There is deliberately **no environment override**: an override that arrives empty or mangled
+ * wins over the literal (`"" ?? fallback` is `""`), and that is exactly how production ended up
+ * throwing `auth/invalid-api-key`. To point at another Firebase project, edit this file — one
+ * visible place. The service account NEVER belongs here: see `shared/firebase/admin.ts`.
  */
 import type { FirebaseOptions } from "firebase/app";
 
 export const FIREBASE_PUBLIC_CONFIG: FirebaseOptions = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "AIzaSyDNjhH1vSsSFT2ooB0bVXuxEQktu7ZKNFs",
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN ?? "mi-arriendo-directo-mad.firebaseapp.com",
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID ?? "mi-arriendo-directo-mad",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET ?? "mi-arriendo-directo-mad.firebasestorage.app",
+  apiKey: "AIzaSyDNjhH1vSsSFT2ooB0bVXuxEQktu7ZKNFs",
+  authDomain: "mi-arriendo-directo-mad.firebaseapp.com",
+  projectId: "mi-arriendo-directo-mad",
+  storageBucket: "mi-arriendo-directo-mad.firebasestorage.app",
   messagingSenderId:
-    process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID ?? "58684574578",
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID ?? "1:58684574578:web:4d1cb22edf2e0863a66beb",
+    "58684574578",
+  appId: "1:58684574578:web:4d1cb22edf2e0863a66beb",
   measurementId:
-    process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID ?? "G-T8BTMETF8D",
+    "G-T8BTMETF8D",
 };
 
 /** Emulators are opt-in and off unless the environment asks for them. */
