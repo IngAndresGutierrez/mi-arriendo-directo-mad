@@ -1,39 +1,39 @@
 rules_version = '2';
 
-// Documentos de identidad e ingresos: aislados por uid, nunca públicos.
+// Identity and income documents: isolated per uid, never public.
 service firebase.storage {
   match /b/{bucket}/o {
 
-    function tamanoValido() {
+    function validSize() {
       return request.resource.size > 0 && request.resource.size < 8 * 1024 * 1024;
     }
 
-    // cédulas, certificados laborales, extractos
-    match /postulantes/{userId}/{allPaths=**} {
+    // national id documents, employment letters, bank statements
+    match /applicants/{userId}/{allPaths=**} {
       allow read:  if request.auth != null && request.auth.uid == userId;
       allow write: if request.auth != null
                    && request.auth.uid == userId
-                   && tamanoValido()
+                   && validSize()
                    && request.resource.contentType
                         .matches('image/(jpeg|png|webp)|application/pdf');
-      allow delete: if false;                  // trazabilidad: solo el backend borra
+      allow delete: if false;                  // traceability: only the backend deletes
     }
 
-    // fotos del listado: lectura pública, escritura autenticada
-    match /inmuebles/{inmuebleId}/{allPaths=**} {
+    // listing photos: public read, authenticated write
+    match /properties/{propertyId}/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null
-                   && tamanoValido()
+                   && validSize()
                    && request.resource.contentType.matches('image/(jpeg|png|webp)');
     }
 
-    // contratos firmados: los genera y sirve el backend
-    match /contratos/{allPaths=**} {
+    // signed contracts: generated and served by the backend
+    match /contracts/{allPaths=**} {
       allow read, write: if false;
     }
 
     match /{allPaths=**} {
-      allow read, write: if false;             // cierre explícito
+      allow read, write: if false;             // explicit closure
     }
   }
 }

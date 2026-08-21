@@ -1,6 +1,6 @@
 /**
- * Tests de firestore.rules. Cada bloque prueba el caso permitido Y el denegado:
- * una regla sin caso negativo no demuestra nada.
+ * Tests for firestore.rules. Every block covers the allowed case AND the denied one:
+ * a rule without a negative case proves nothing.
  */
 import {
   assertFails,
@@ -26,14 +26,14 @@ import {
   anonymous,
   actingAs,
   createTestEnvironment,
-  CONTRATO_ID,
-  INMUEBLE_ID,
-  POSTULACION_ID,
+  CONTRACT_ID,
+  PROPERTY_ID,
+  APPLICATION_ID,
   seed,
   UID_ADMIN,
-  UID_INQUILINO,
-  UID_PROPIETARIO,
-  UID_TERCERO,
+  UID_TENANT,
+  UID_LANDLORD,
+  UID_THIRD_PARTY,
 } from "./helpers";
 
 let env: RulesTestEnvironment;
@@ -51,304 +51,312 @@ beforeEach(async () => {
   await seed(env);
 });
 
-describe("usuarios", () => {
-  it("el dueño lee su perfil", async () => {
-    const db = actingAs(env, UID_INQUILINO, "inquilino");
-    await assertSucceeds(getDoc(doc(db, `usuarios/${UID_INQUILINO}`)));
+describe("users", () => {
+  it("the owner reads their profile", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertSucceeds(getDoc(doc(db, `users/${UID_TENANT}`)));
   });
 
-  it("un tercero NO lee el perfil de otro", async () => {
-    const db = actingAs(env, UID_TERCERO, "inquilino");
-    await assertFails(getDoc(doc(db, `usuarios/${UID_INQUILINO}`)));
+  it("a third party does NOT read someone else's profile", async () => {
+    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
+    await assertFails(getDoc(doc(db, `users/${UID_TENANT}`)));
   });
 
-  it("nadie enumera usuarios (solo admin)", async () => {
-    const db = actingAs(env, UID_INQUILINO, "inquilino");
-    await assertFails(getDocs(collection(db, "usuarios")));
-    await assertSucceeds(getDocs(collection(actingAs(env, UID_ADMIN, "admin"), "usuarios")));
+  it("nobody enumerates users (admin only)", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertFails(getDocs(collection(db, "users")));
+    await assertSucceeds(getDocs(collection(actingAs(env, UID_ADMIN, "admin"), "users")));
   });
 
-  it("el usuario NO puede escalar su propio rol", async () => {
-    const db = actingAs(env, UID_INQUILINO, "inquilino");
-    await assertFails(updateDoc(doc(db, `usuarios/${UID_INQUILINO}`), { rol: "admin" }));
+  it("the user CANNOT escalate their own role", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertFails(updateDoc(doc(db, `users/${UID_TENANT}`), { role: "admin" }));
+    await assertSucceeds(updateDoc(doc(db, `users/${UID_TENANT}`), { phone: "+573009999999" }));
+  });
+
+  it("identity documents are private to the owner", async () => {
     await assertSucceeds(
-      updateDoc(doc(db, `usuarios/${UID_INQUILINO}`), { telefono: "+573009999999" }),
+      getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `users/${UID_TENANT}/documents/id-front`)),
+    );
+    // neither a third party nor the property's landlord sees the national id
+    await assertFails(
+      getDoc(
+        doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `users/${UID_TENANT}/documents/id-front`),
+      ),
+    );
+    await assertFails(
+      getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `users/${UID_TENANT}/documents/id-front`)),
     );
   });
 
-  it("los documentos de identidad son privados del dueño", async () => {
-    await assertSucceeds(
-      getDoc(doc(actingAs(env, UID_INQUILINO, "inquilino"), `usuarios/${UID_INQUILINO}/documentos/cedula`)),
-    );
-    // ni un tercero ni el propietario del inmueble ven la cédula
+  it("an identity document CANNOT point at another user's storage", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
     await assertFails(
-      getDoc(doc(actingAs(env, UID_TERCERO, "inquilino"), `usuarios/${UID_INQUILINO}/documentos/cedula`)),
-    );
-    await assertFails(
-      getDoc(doc(actingAs(env, UID_PROPIETARIO, "propietario"), `usuarios/${UID_INQUILINO}/documentos/cedula`)),
-    );
-  });
-
-  it("un documento de identidad NO puede apuntar al storage de otro usuario", async () => {
-    const db = actingAs(env, UID_INQUILINO, "inquilino");
-    await assertFails(
-      setDoc(doc(db, `usuarios/${UID_INQUILINO}/documentos/falso`), {
-        tipo: "cedula_frente",
-        storagePath: `postulantes/${UID_TERCERO}/cedula-frente.jpg`,
-        subidoEn: new Date(),
+      setDoc(doc(db, `users/${UID_TENANT}/documents/forged`), {
+        type: "id_front",
+        storagePath: `applicants/${UID_THIRD_PARTY}/id-front.jpg`,
+        uploadedAt: new Date(),
       }),
     );
   });
 
-  it("los documentos de identidad son append-only para el dueño", async () => {
-    const db = actingAs(env, UID_INQUILINO, "inquilino");
-    await assertFails(deleteDoc(doc(db, `usuarios/${UID_INQUILINO}/documentos/cedula`)));
+  it("identity documents are append-only for the owner", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertFails(deleteDoc(doc(db, `users/${UID_TENANT}/documents/id-front`)));
   });
 });
 
-describe("inmuebles", () => {
-  it("el catálogo publicado es visible sin autenticar", async () => {
-    await assertSucceeds(getDoc(doc(anonymous(env), `inmuebles/${INMUEBLE_ID}`)));
+describe("properties", () => {
+  it("the published catalog is visible without signing in", async () => {
+    await assertSucceeds(getDoc(doc(anonymous(env), `properties/${PROPERTY_ID}`)));
   });
 
-  it("un borrador NO es visible para terceros, sí para su dueño", async () => {
-    await assertFails(getDoc(doc(anonymous(env), "inmuebles/inmueble-borrador")));
+  it("a draft is NOT visible to third parties, but is to its owner", async () => {
+    await assertFails(getDoc(doc(anonymous(env), "properties/property-draft")));
     await assertFails(
-      getDoc(doc(actingAs(env, UID_TERCERO, "inquilino"), "inmuebles/inmueble-borrador")),
+      getDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), "properties/property-draft")),
     );
     await assertSucceeds(
-      getDoc(doc(actingAs(env, UID_PROPIETARIO, "propietario"), "inmuebles/inmueble-borrador")),
+      getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), "properties/property-draft")),
     );
   });
 
-  it("un inquilino NO puede crear inmuebles", async () => {
-    const db = actingAs(env, UID_INQUILINO, "inquilino");
+  it("a tenant CANNOT create properties", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
     await assertFails(
-      addDoc(collection(db, "inmuebles"), {
-        propietarioUid: UID_INQUILINO,
-        titulo: "Intento de publicación",
-        tipo: "apartamento",
-        estado: "disponible",
-        canon: 1_000_000,
-        direccion: { ciudad: "Cali", barrio: "Granada", linea: "Cra 1" },
+      addDoc(collection(db, "properties"), {
+        landlordUid: UID_TENANT,
+        title: "Intento de publicación",
+        type: "apartment",
+        status: "available",
+        rent: 1_000_000,
+        address: { city: "Cali", neighborhood: "Granada", line: "Cra 1" },
         areaM2: 50,
-        habitaciones: 1,
-        banos: 1,
+        bedrooms: 1,
+        bathrooms: 1,
       }),
     );
   });
 
-  it("un propietario NO puede publicar a nombre de otro", async () => {
-    const db = actingAs(env, UID_PROPIETARIO, "propietario");
+  it("a landlord CANNOT publish on someone else's behalf", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(
-      addDoc(collection(db, "inmuebles"), {
-        propietarioUid: UID_TERCERO, // suplantación
-        titulo: "Inmueble ajeno",
-        tipo: "casa",
-        estado: "disponible",
-        canon: 1_000_000,
-        direccion: { ciudad: "Cali", barrio: "Granada", linea: "Cra 1" },
+      addDoc(collection(db, "properties"), {
+        landlordUid: UID_THIRD_PARTY, // impersonation
+        title: "Inmueble ajeno",
+        type: "house",
+        status: "available",
+        rent: 1_000_000,
+        address: { city: "Cali", neighborhood: "Granada", line: "Cra 1" },
         areaM2: 50,
-        habitaciones: 1,
-        banos: 1,
+        bedrooms: 1,
+        bathrooms: 1,
       }),
     );
   });
 
-  it("rechaza un canon inválido (negativo o float)", async () => {
-    const db = actingAs(env, UID_PROPIETARIO, "propietario");
-    await assertFails(updateDoc(doc(db, `inmuebles/${INMUEBLE_ID}`), { canon: -1 }));
-    await assertFails(updateDoc(doc(db, `inmuebles/${INMUEBLE_ID}`), { canon: 1800000.5 }));
-    await assertSucceeds(updateDoc(doc(db, `inmuebles/${INMUEBLE_ID}`), { canon: 1_900_000 }));
+  it("rejects an invalid rent (negative or float)", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertFails(updateDoc(doc(db, `properties/${PROPERTY_ID}`), { rent: -1 }));
+    await assertFails(updateDoc(doc(db, `properties/${PROPERTY_ID}`), { rent: 1800000.5 }));
+    await assertSucceeds(updateDoc(doc(db, `properties/${PROPERTY_ID}`), { rent: 1_900_000 }));
   });
 
-  it("el propietario NO puede transferir el inmueble cambiando propietarioUid", async () => {
-    const db = actingAs(env, UID_PROPIETARIO, "propietario");
+  it("the landlord CANNOT transfer the property by changing landlordUid", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(
-      updateDoc(doc(db, `inmuebles/${INMUEBLE_ID}`), { propietarioUid: UID_TERCERO }),
+      updateDoc(doc(db, `properties/${PROPERTY_ID}`), { landlordUid: UID_THIRD_PARTY }),
     );
   });
 });
 
-describe("postulaciones", () => {
-  it("el inquilino y el propietario la leen; un tercero NO", async () => {
+describe("applications", () => {
+  it("the tenant and the landlord read it; a third party does NOT", async () => {
     await assertSucceeds(
-      getDoc(doc(actingAs(env, UID_INQUILINO, "inquilino"), `postulaciones/${POSTULACION_ID}`)),
+      getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `applications/${APPLICATION_ID}`)),
     );
     await assertSucceeds(
-      getDoc(doc(actingAs(env, UID_PROPIETARIO, "propietario"), `postulaciones/${POSTULACION_ID}`)),
+      getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `applications/${APPLICATION_ID}`)),
     );
     await assertFails(
-      getDoc(doc(actingAs(env, UID_TERCERO, "inquilino"), `postulaciones/${POSTULACION_ID}`)),
+      getDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `applications/${APPLICATION_ID}`)),
     );
-    await assertFails(getDoc(doc(anonymous(env), `postulaciones/${POSTULACION_ID}`)));
+    await assertFails(getDoc(doc(anonymous(env), `applications/${APPLICATION_ID}`)));
   });
 
-  it("nadie puede barrer la colección completa", async () => {
-    const db = actingAs(env, UID_TERCERO, "inquilino");
-    await assertFails(getDocs(collection(db, "postulaciones")));
-    await assertFails(getDocs(query(collection(db, "postulaciones"), limit(1000))));
+  it("nobody can sweep the whole collection", async () => {
+    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
+    await assertFails(getDocs(collection(db, "applications")));
+    await assertFails(getDocs(query(collection(db, "applications"), limit(1000))));
   });
 
-  it("el inquilino lista solo las propias", async () => {
-    const db = actingAs(env, UID_INQUILINO, "inquilino");
+  it("the tenant lists only their own", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
     await assertSucceeds(
       getDocs(
-        query(
-          collection(db, "postulaciones"),
-          where("inquilinoUid", "==", UID_INQUILINO),
-          limit(20),
+        query(collection(db, "applications"), where("tenantUid", "==", UID_TENANT), limit(20)),
+      ),
+    );
+    // ...and not another tenant's
+    await assertFails(
+      getDocs(
+        query(collection(db, "applications"), where("tenantUid", "==", UID_THIRD_PARTY), limit(20)),
+      ),
+    );
+  });
+
+  it("an application is born 'pending': nobody self-approves on create", async () => {
+    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
+    const base = {
+      propertyId: PROPERTY_ID,
+      tenantUid: UID_THIRD_PARTY,
+      landlordUid: UID_LANDLORD,
+      createdAt: new Date(),
+    };
+    await assertFails(addDoc(collection(db, "applications"), { ...base, status: "approved" }));
+    await assertSucceeds(addDoc(collection(db, "applications"), { ...base, status: "pending" }));
+  });
+
+  it("cannot apply on someone else's behalf", async () => {
+    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
+    await assertFails(
+      addDoc(collection(db, "applications"), {
+        propertyId: PROPERTY_ID,
+        tenantUid: UID_TENANT, // impersonation
+        landlordUid: UID_LANDLORD,
+        status: "pending",
+        createdAt: new Date(),
+      }),
+    );
+  });
+
+  it("cannot apply to a property that does not exist", async () => {
+    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
+    await assertFails(
+      addDoc(collection(db, "applications"), {
+        propertyId: "does-not-exist",
+        tenantUid: UID_THIRD_PARTY,
+        landlordUid: UID_LANDLORD,
+        status: "pending",
+        createdAt: new Date(),
+      }),
+    );
+  });
+
+  it("the denormalized landlordUid cannot be forged", async () => {
+    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
+    await assertFails(
+      addDoc(collection(db, "applications"), {
+        propertyId: PROPERTY_ID,
+        tenantUid: UID_THIRD_PARTY,
+        landlordUid: UID_THIRD_PARTY, // claims to own someone else's property
+        status: "pending",
+        createdAt: new Date(),
+      }),
+    );
+  });
+
+  it("the tenant can only withdraw, NOT approve", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertFails(
+      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "approved" }),
+    );
+    await assertSucceeds(
+      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "withdrawn" }),
+    );
+  });
+
+  it("the landlord approves or rejects; a third party does not", async () => {
+    await assertSucceeds(
+      updateDoc(
+        doc(actingAs(env, UID_LANDLORD, "landlord"), `applications/${APPLICATION_ID}`),
+        { status: "approved" },
+      ),
+    );
+    await assertFails(
+      updateDoc(
+        doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `applications/${APPLICATION_ID}`),
+        { status: "approved" },
+      ),
+    );
+  });
+
+  it("an already resolved application cannot be reopened", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertSucceeds(
+      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "rejected" }),
+    );
+    await assertFails(
+      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "approved" }),
+    );
+  });
+
+  it("the landlord CANNOT touch fields other than status/notes", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertFails(
+      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { tenantUid: UID_THIRD_PARTY }),
+    );
+  });
+
+  it("nobody deletes applications except admin", async () => {
+    await assertFails(
+      deleteDoc(doc(actingAs(env, UID_TENANT, "tenant"), `applications/${APPLICATION_ID}`)),
+    );
+    await assertSucceeds(
+      deleteDoc(doc(actingAs(env, UID_ADMIN, "admin"), `applications/${APPLICATION_ID}`)),
+    );
+  });
+});
+
+describe("contracts and payments", () => {
+  it("only the parties read the contract", async () => {
+    await assertSucceeds(
+      getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `contracts/${CONTRACT_ID}`)),
+    );
+    await assertSucceeds(
+      getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `contracts/${CONTRACT_ID}`)),
+    );
+    await assertFails(
+      getDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `contracts/${CONTRACT_ID}`)),
+    );
+  });
+
+  it("contracts are NOT listable from the client", async () => {
+    await assertFails(getDocs(collection(actingAs(env, UID_TENANT, "tenant"), "contracts")));
+  });
+
+  it("the client does NOT write contracts or payments (backend only)", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertFails(updateDoc(doc(db, `contracts/${CONTRACT_ID}`), { rent: 1 }));
+    await assertFails(
+      setDoc(doc(db, `contracts/${CONTRACT_ID}/payments/made-up`), {
+        amount: 0,
+        status: "current",
+      }),
+    );
+  });
+
+  it("the parties read the payments; a third party does NOT", async () => {
+    await assertSucceeds(
+      getDoc(
+        doc(actingAs(env, UID_TENANT, "tenant"), `contracts/${CONTRACT_ID}/payments/payment-1`),
+      ),
+    );
+    await assertFails(
+      getDoc(
+        doc(
+          actingAs(env, UID_THIRD_PARTY, "tenant"),
+          `contracts/${CONTRACT_ID}/payments/payment-1`,
         ),
       ),
     );
-    // ...y no las de otro inquilino
-    await assertFails(
-      getDocs(
-        query(collection(db, "postulaciones"), where("inquilinoUid", "==", UID_TERCERO), limit(20)),
-      ),
-    );
-  });
-
-  it("una postulación nace 'pendiente': nadie se auto-aprueba al crear", async () => {
-    const db = actingAs(env, UID_TERCERO, "inquilino");
-    const base = {
-      inmuebleId: INMUEBLE_ID,
-      inquilinoUid: UID_TERCERO,
-      propietarioUid: UID_PROPIETARIO,
-      createdAt: new Date(),
-    };
-    await assertFails(addDoc(collection(db, "postulaciones"), { ...base, estado: "aprobada" }));
-    await assertSucceeds(addDoc(collection(db, "postulaciones"), { ...base, estado: "pendiente" }));
-  });
-
-  it("no se puede postular en nombre de otro", async () => {
-    const db = actingAs(env, UID_TERCERO, "inquilino");
-    await assertFails(
-      addDoc(collection(db, "postulaciones"), {
-        inmuebleId: INMUEBLE_ID,
-        inquilinoUid: UID_INQUILINO, // suplantación
-        propietarioUid: UID_PROPIETARIO,
-        estado: "pendiente",
-        createdAt: new Date(),
-      }),
-    );
-  });
-
-  it("no se puede postular a un inmueble inexistente", async () => {
-    const db = actingAs(env, UID_TERCERO, "inquilino");
-    await assertFails(
-      addDoc(collection(db, "postulaciones"), {
-        inmuebleId: "no-existe",
-        inquilinoUid: UID_TERCERO,
-        propietarioUid: UID_PROPIETARIO,
-        estado: "pendiente",
-        createdAt: new Date(),
-      }),
-    );
-  });
-
-  it("el propietarioUid desnormalizado no se puede falsificar", async () => {
-    const db = actingAs(env, UID_TERCERO, "inquilino");
-    await assertFails(
-      addDoc(collection(db, "postulaciones"), {
-        inmuebleId: INMUEBLE_ID,
-        inquilinoUid: UID_TERCERO,
-        propietarioUid: UID_TERCERO, // se pone como dueño del inmueble ajeno
-        estado: "pendiente",
-        createdAt: new Date(),
-      }),
-    );
-  });
-
-  it("el inquilino solo puede retirar, NO aprobar", async () => {
-    const db = actingAs(env, UID_INQUILINO, "inquilino");
-    await assertFails(
-      updateDoc(doc(db, `postulaciones/${POSTULACION_ID}`), { estado: "aprobada" }),
-    );
-    await assertSucceeds(
-      updateDoc(doc(db, `postulaciones/${POSTULACION_ID}`), { estado: "retirada" }),
-    );
-  });
-
-  it("el propietario aprueba o rechaza; un tercero no", async () => {
-    await assertSucceeds(
-      updateDoc(doc(actingAs(env, UID_PROPIETARIO, "propietario"), `postulaciones/${POSTULACION_ID}`), {
-        estado: "aprobada",
-      }),
-    );
-    await assertFails(
-      updateDoc(doc(actingAs(env, UID_TERCERO, "inquilino"), `postulaciones/${POSTULACION_ID}`), {
-        estado: "aprobada",
-      }),
-    );
-  });
-
-  it("una postulación ya resuelta no se puede reabrir", async () => {
-    const db = actingAs(env, UID_PROPIETARIO, "propietario");
-    await assertSucceeds(
-      updateDoc(doc(db, `postulaciones/${POSTULACION_ID}`), { estado: "rechazada" }),
-    );
-    await assertFails(
-      updateDoc(doc(db, `postulaciones/${POSTULACION_ID}`), { estado: "aprobada" }),
-    );
-  });
-
-  it("el propietario NO puede tocar campos fuera de estado/notas", async () => {
-    const db = actingAs(env, UID_PROPIETARIO, "propietario");
-    await assertFails(
-      updateDoc(doc(db, `postulaciones/${POSTULACION_ID}`), { inquilinoUid: UID_TERCERO }),
-    );
-  });
-
-  it("nadie borra postulaciones salvo admin", async () => {
-    await assertFails(
-      deleteDoc(doc(actingAs(env, UID_INQUILINO, "inquilino"), `postulaciones/${POSTULACION_ID}`)),
-    );
-    await assertSucceeds(
-      deleteDoc(doc(actingAs(env, UID_ADMIN, "admin"), `postulaciones/${POSTULACION_ID}`)),
-    );
   });
 });
 
-describe("contratos y pagos", () => {
-  it("solo las partes leen el contrato", async () => {
-    await assertSucceeds(
-      getDoc(doc(actingAs(env, UID_INQUILINO, "inquilino"), `contratos/${CONTRATO_ID}`)),
-    );
-    await assertSucceeds(
-      getDoc(doc(actingAs(env, UID_PROPIETARIO, "propietario"), `contratos/${CONTRATO_ID}`)),
-    );
-    await assertFails(
-      getDoc(doc(actingAs(env, UID_TERCERO, "inquilino"), `contratos/${CONTRATO_ID}`)),
-    );
-  });
-
-  it("los contratos NO se listan desde el cliente", async () => {
-    await assertFails(getDocs(collection(actingAs(env, UID_INQUILINO, "inquilino"), "contratos")));
-  });
-
-  it("el cliente NO escribe contratos ni pagos (solo el backend)", async () => {
-    const db = actingAs(env, UID_PROPIETARIO, "propietario");
-    await assertFails(updateDoc(doc(db, `contratos/${CONTRATO_ID}`), { canon: 1 }));
-    await assertFails(
-      setDoc(doc(db, `contratos/${CONTRATO_ID}/pagos/inventado`), { monto: 0, estado: "al_dia" }),
-    );
-  });
-
-  it("las partes leen los pagos; un tercero NO", async () => {
-    await assertSucceeds(
-      getDoc(doc(actingAs(env, UID_INQUILINO, "inquilino"), `contratos/${CONTRATO_ID}/pagos/pago-1`)),
-    );
-    await assertFails(
-      getDoc(doc(actingAs(env, UID_TERCERO, "inquilino"), `contratos/${CONTRATO_ID}/pagos/pago-1`)),
-    );
-  });
-});
-
-describe("cierre por defecto", () => {
-  it("una colección no declarada está denegada", async () => {
+describe("default closure", () => {
+  it("an undeclared collection is denied", async () => {
     const db = actingAs(env, UID_ADMIN, "admin");
-    await assertFails(getDoc(doc(db, "coleccion_inventada/x")));
-    await assertFails(setDoc(doc(db, "coleccion_inventada/x"), { a: 1 }));
+    await assertFails(getDoc(doc(db, "made_up_collection/x")));
+    await assertFails(setDoc(doc(db, "made_up_collection/x"), { a: 1 }));
   });
 });

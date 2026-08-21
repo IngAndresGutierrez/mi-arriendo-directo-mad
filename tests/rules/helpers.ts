@@ -1,8 +1,8 @@
 /**
- * Utilidades para probar firestore.rules contra el emulador.
+ * Helpers for testing firestore.rules against the emulator.
  *
- * `withSecurityRulesDisabled` siembra datos saltándose las reglas (equivalente al
- * Admin SDK); todo lo demás corre con las reglas activas.
+ * `withSecurityRulesDisabled` seeds data bypassing the rules (the equivalent of the
+ * Admin SDK); everything else runs with the rules enforced.
  */
 import { readFileSync } from "node:fs";
 
@@ -14,14 +14,14 @@ import type { Firestore } from "firebase/firestore";
 
 export const PROJECT_ID = "demo-mad-rules";
 
-export const UID_INQUILINO = "uid-inquilino";
-export const UID_PROPIETARIO = "uid-propietario";
-export const UID_TERCERO = "uid-tercero";
+export const UID_TENANT = "uid-tenant";
+export const UID_LANDLORD = "uid-landlord";
+export const UID_THIRD_PARTY = "uid-third-party";
 export const UID_ADMIN = "uid-admin";
 
-export const INMUEBLE_ID = "inmueble-1";
-export const POSTULACION_ID = "postulacion-1";
-export const CONTRATO_ID = "contrato-1";
+export const PROPERTY_ID = "property-1";
+export const APPLICATION_ID = "application-1";
+export const CONTRACT_ID = "contract-1";
 
 export async function createTestEnvironment(): Promise<RulesTestEnvironment> {
   return initializeTestEnvironment({
@@ -30,21 +30,15 @@ export async function createTestEnvironment(): Promise<RulesTestEnvironment> {
   });
 }
 
-/**
- * Cliente autenticado con el rol en custom claims, tal como lo pondría el Admin SDK.
- *
- * Los términos del dominio (`inquilino`, `propietario`, `inmueble`, `postulacion`) se
- * mantienen en español: son los nombres reales de las colecciones y de los claims en
- * Firestore, y cambiarlos aquí desalinearía el test de las rules desplegadas.
- */
+/** Client authenticated with the role in custom claims, just like the Admin SDK sets it. */
 export function actingAs(
   env: RulesTestEnvironment,
   uid: string,
-  rol?: "inquilino" | "propietario" | "admin",
+  role?: "tenant" | "landlord" | "admin",
   email?: string,
 ): Firestore {
   return env
-    .authenticatedContext(uid, { ...(rol ? { rol } : {}), ...(email ? { email } : {}) })
+    .authenticatedContext(uid, { ...(role ? { role } : {}), ...(email ? { email } : {}) })
     .firestore() as unknown as Firestore;
 }
 
@@ -53,87 +47,87 @@ export function anonymous(env: RulesTestEnvironment): Firestore {
 }
 
 /**
- * Perfil con la forma que exigen las rules tras `/registro/completar-perfil`.
- * Los tests lo mutan campo a campo para comprobar cada validación.
+ * A profile with the shape the rules require after `/registro/completar-perfil`.
+ * Tests mutate it field by field to exercise each validation.
  */
-export function perfilCompleto(rol: "inquilino" | "propietario" = "inquilino") {
+export function completeProfileDoc(role: "tenant" | "landlord" = "tenant") {
   return {
-    nombre: "Inquilino Uno Pérez",
-    email: "inquilino@example.com",
-    telefono: "+573001234567",
-    telefonoPais: "CO",
-    genero: "prefiero_no_decir",
-    direccion: {
-      linea: "Calle 60 #10-20",
-      ciudad: "Bogotá",
-      departamento: "Bogotá D.C.",
+    fullName: "Ana Uno Pérez",
+    email: "tenant@example.com",
+    phone: "+573001234567",
+    phoneCountry: "CO",
+    gender: "prefer_not_to_say",
+    address: {
+      line: "Calle 60 #10-20",
+      city: "Bogotá",
+      department: "Bogotá D.C.",
     },
-    fechaNacimiento: "1995-04-12",
-    aceptoTerminosEn: new Date(),
-    rol,
+    birthDate: "1995-04-12",
+    termsAcceptedAt: new Date(),
+    role,
     createdAt: new Date(),
   };
 }
 
-/** Datos base: un inmueble publicado y una postulación pendiente sobre él. */
+/** Baseline data: one published property and one pending application on it. */
 export async function seed(env: RulesTestEnvironment): Promise<void> {
   await env.withSecurityRulesDisabled(async (ctx) => {
     const db = ctx.firestore();
 
-    await db.doc(`usuarios/${UID_INQUILINO}`).set(perfilCompleto("inquilino"));
+    await db.doc(`users/${UID_TENANT}`).set(completeProfileDoc("tenant"));
 
-    await db.doc(`usuarios/${UID_INQUILINO}/documentos/cedula`).set({
-      tipo: "cedula_frente",
-      storagePath: `postulantes/${UID_INQUILINO}/cedula-frente.jpg`,
-      subidoEn: new Date(),
+    await db.doc(`users/${UID_TENANT}/documents/id-front`).set({
+      type: "id_front",
+      storagePath: `applicants/${UID_TENANT}/id-front.jpg`,
+      uploadedAt: new Date(),
     });
 
-    await db.doc(`inmuebles/${INMUEBLE_ID}`).set({
-      propietarioUid: UID_PROPIETARIO,
-      titulo: "Apartamento en Chapinero",
-      tipo: "apartamento",
-      estado: "disponible",
-      canon: 1_800_000,
-      direccion: { ciudad: "Bogotá", barrio: "Chapinero", linea: "Calle 60 #10-20" },
+    await db.doc(`properties/${PROPERTY_ID}`).set({
+      landlordUid: UID_LANDLORD,
+      title: "Apartamento en Chapinero",
+      type: "apartment",
+      status: "available",
+      rent: 1_800_000,
+      address: { city: "Bogotá", neighborhood: "Chapinero", line: "Calle 60 #10-20" },
       areaM2: 65,
-      habitaciones: 2,
-      banos: 2,
+      bedrooms: 2,
+      bathrooms: 2,
       createdAt: new Date(),
     });
 
-    await db.doc(`inmuebles/inmueble-borrador`).set({
-      propietarioUid: UID_PROPIETARIO,
-      titulo: "Casa sin publicar",
-      tipo: "casa",
-      estado: "borrador",
-      canon: 3_000_000,
-      direccion: { ciudad: "Medellín", barrio: "Laureles", linea: "Cra 70 #1-2" },
+    await db.doc(`properties/property-draft`).set({
+      landlordUid: UID_LANDLORD,
+      title: "Casa sin publicar",
+      type: "house",
+      status: "draft",
+      rent: 3_000_000,
+      address: { city: "Medellín", neighborhood: "Laureles", line: "Cra 70 #1-2" },
       areaM2: 120,
-      habitaciones: 3,
-      banos: 2,
+      bedrooms: 3,
+      bathrooms: 2,
       createdAt: new Date(),
     });
 
-    await db.doc(`postulaciones/${POSTULACION_ID}`).set({
-      inmuebleId: INMUEBLE_ID,
-      inquilinoUid: UID_INQUILINO,
-      propietarioUid: UID_PROPIETARIO,
-      estado: "pendiente",
+    await db.doc(`applications/${APPLICATION_ID}`).set({
+      propertyId: PROPERTY_ID,
+      tenantUid: UID_TENANT,
+      landlordUid: UID_LANDLORD,
+      status: "pending",
       createdAt: new Date(),
     });
 
-    await db.doc(`contratos/${CONTRATO_ID}`).set({
-      inmuebleId: INMUEBLE_ID,
-      inquilinoUid: UID_INQUILINO,
-      propietarioUid: UID_PROPIETARIO,
-      canon: 1_800_000,
-      estado: "vigente",
+    await db.doc(`contracts/${CONTRACT_ID}`).set({
+      propertyId: PROPERTY_ID,
+      tenantUid: UID_TENANT,
+      landlordUid: UID_LANDLORD,
+      rent: 1_800_000,
+      status: "active",
     });
 
-    await db.doc(`contratos/${CONTRATO_ID}/pagos/pago-1`).set({
-      monto: 1_800_000,
-      estado: "al_dia",
-      periodo: "2026-08",
+    await db.doc(`contracts/${CONTRACT_ID}/payments/payment-1`).set({
+      amount: 1_800_000,
+      status: "current",
+      period: "2026-08",
     });
   });
 }
