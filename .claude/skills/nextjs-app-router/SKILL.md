@@ -1,117 +1,118 @@
 ---
 name: nextjs-app-router
-description: Patrones correctos de Next.js 16 App Router - Server/Client Components, Server Actions, params y cookies asíncronos, proxy.ts, caching (use cache, revalidateTag, updateTag), streaming y route handlers. Úsala antes de crear o modificar cualquier archivo en app/, next.config.ts o proxy.ts.
+description: Correct Next.js 16 App Router patterns - Server/Client Components, Server Actions, async params and cookies, proxy.ts, caching (use cache, revalidateTag, updateTag), streaming and route handlers. Use it before creating or modifying any file in app/, next.config.ts or proxy.ts.
 ---
 
 # Next.js 16 App Router
 
-La versión instalada es **Next.js 16.3.2** con React 19.2 y **Turbopack por defecto**. Muchas
-APIs cambiaron respecto a v14/v15: lo que "recuerdas" probablemente está desactualizado.
+The installed version is **Next.js 16.3.2** with React 19.2 and **Turbopack by default**. Many
+APIs changed from v14/v15: what you "remember" is probably out of date.
 
-**Antes de escribir código**, consulta la doc versionada del paquete:
-`node_modules/next/dist/docs/01-app/` (por ejemplo `01-getting-started/07-mutating-data.md`,
+**Before writing code**, check the package's versioned docs:
+`node_modules/next/dist/docs/01-app/` (for instance `01-getting-started/07-mutating-data.md`,
 `03-api-reference/03-file-conventions/`, `02-guides/upgrading/version-16.md`).
 
-## Breaking changes de v16 que más se equivocan
+## The v16 breaking changes people get wrong most
 
-| Antes (v14/v15) | Ahora (v16) |
+| Before (v14/v15) | Now (v16) |
 | --- | --- |
-| `cookies()`, `headers()`, `draftMode()` sincrónicos | **siempre `await`** |
-| `params` / `searchParams` como objeto | **Promesas**: `await props.params` |
-| `middleware.ts` + `export function middleware` | **`proxy.ts`** + `export function proxy` (runtime nodejs, sin edge) |
+| synchronous `cookies()`, `headers()`, `draftMode()` | **always `await`** |
+| `params` / `searchParams` as objects | **Promises**: `await props.params` |
+| `middleware.ts` + `export function middleware` | **`proxy.ts`** + `export function proxy` (nodejs runtime, no edge) |
 | `skipMiddlewareUrlNormalize` | `skipProxyUrlNormalize` |
-| `revalidateTag('x')` | `revalidateTag('x', 'max')` — el 2º argumento (perfil de `cacheLife`) es obligatorio |
-| `experimental.ppr` / `experimental_ppr` | `cacheComponents: true` en `next.config.ts` |
-| `unstable_cacheLife` / `unstable_cacheTag` | `cacheLife` / `cacheTag` (estables, sin prefijo) |
+| `revalidateTag('x')` | `revalidateTag('x', 'max')` — the 2nd argument (a `cacheLife` profile) is required |
+| `experimental.ppr` / `experimental_ppr` | `cacheComponents: true` in `next.config.ts` |
+| `unstable_cacheLife` / `unstable_cacheTag` | `cacheLife` / `cacheTag` (stable, no prefix) |
 | `unstable_cache` | `"use cache"` |
-| `next lint` | ESLint flat config (`eslint.config.mjs`) + `eslint` directo |
+| `next lint` | ESLint flat config (`eslint.config.mjs`) + `eslint` directly |
 | `images.domains` | `images.remotePatterns` |
 
 ```tsx
 // ✅ v16
 export default async function Page(props: PageProps<'/inmuebles/[id]'>) {
   const { id } = await props.params;
-  const { pagina } = await props.searchParams;
+  const { page } = await props.searchParams;
   const jar = await cookies();
   // ...
 }
 ```
 
-`PageProps`, `LayoutProps` y `RouteContext` son **tipos globales generados**: no los importes,
-y si faltan corre `pnpm exec next typegen`. `app/layout.tsx` de este repo ya usa
+`PageProps`, `LayoutProps` and `RouteContext` are **generated global types**: do not import
+them, and if they are missing run `pnpm typegen`. This repo's `app/layout.tsx` already uses
 `LayoutProps<"/">`.
 
-## Server Components por defecto
+## Server Components by default
 
-- Un componente es Server Component salvo que el archivo tenga `"use client"`.
-- Pon `"use client"` **lo más abajo posible** del árbol: en el input interactivo, no en la
-  página. Un `"use client"` en un layout convierte todo el subárbol en cliente.
-- Nunca uses `"use client"` para "arreglar" un error de hidratación o de import: revisa qué
-  API del navegador se está tocando.
-- Datos de Firestore: leer en Server Components con **Admin SDK**; `onSnapshot` y formularios
-  interactivos en Client Components con el **SDK modular** (skills `firebase-admin-sdk` y
-  `firebase-modular`).
-- Props de Server → Client Component deben ser serializables: no pases `Timestamp`,
-  `DocumentReference` ni funciones. Convierte a `string`/`number` antes.
+- A component is a Server Component unless the file carries `"use client"`.
+- Put `"use client"` **as low as possible** in the tree: on the interactive input, not on the
+  page. A `"use client"` in a layout turns the whole subtree into client code.
+- Never use `"use client"` to "fix" a hydration or import error: find out which browser API is
+  being touched.
+- Firestore data: read in Server Components with the **Admin SDK**; `onSnapshot` and interactive
+  forms in Client Components with the **modular SDK** (the `firebase-admin-sdk` and
+  `firebase-modular` skills).
+- Props crossing Server → Client Component must be serializable: never pass a `Timestamp`, a
+  `DocumentReference` or a function. Convert to `string`/`number` first. A lucide icon is a
+  function too: pass the already-created JSX element instead.
 
 ```tsx
-// app/(dashboard)/postulaciones/page.tsx  — Server Component
+// app/(app)/postulaciones/page.tsx  — Server Component
 import { Suspense } from "react";
-import { requireUser } from "@/lib/auth/session";
-import { listarPostulaciones } from "@/lib/data/postulaciones";
-import { TablaPostulaciones } from "./tabla-postulaciones";   // "use client" adentro
+import { requireCompleteProfile } from "@/features/profile";
+import { listApplications } from "@/features/application";
+import { ApplicationsTable } from "@/features/application"; // "use client" inside
 
 export default async function Page() {
-  const user = await requireUser();
+  const user = await requireCompleteProfile();
   return (
-    <Suspense fallback={<TablaSkeleton />}>
-      <Contenido uid={user.uid} />
+    <Suspense fallback={<TableSkeleton />}>
+      <Content uid={user.uid} />
     </Suspense>
   );
 }
 
-async function Contenido({ uid }: { uid: string }) {
-  const postulaciones = await listarPostulaciones(uid);   // POJOs serializados
-  return <TablaPostulaciones items={postulaciones} />;
+async function Content({ uid }: { uid: string }) {
+  const applications = await listApplications(uid);   // serialized POJOs
+  return <ApplicationsTable items={applications} />;
 }
 ```
 
-## Mutaciones: Server Actions
+## Mutations: Server Actions
 
 ```tsx
-// app/(dashboard)/inmuebles/actions.ts
+// features/property/actions/create-property.ts
 "use server";
 
 import { revalidateTag, updateTag } from "next/cache";
-import { requireUser } from "@/lib/auth/session";
+import { requireUser } from "@/shared/auth/session";
 
 export type ActionState = { ok: boolean; message?: string; errors?: Record<string, string[]> };
 
-export async function crearInmueble(_prev: ActionState, formData: FormData): Promise<ActionState> {
-  const user = await requireUser();                 // 1. auth SIEMPRE dentro de la action
-  const parsed = inmuebleSchema.safeParse(Object.fromEntries(formData));
+export async function createProperty(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireUser();                 // 1. auth ALWAYS inside the action
+  const parsed = propertySchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) {
     return { ok: false, errors: z.flattenError(parsed.error).fieldErrors };
   }
-  await adminDb.collection("inmuebles").add({ ...parsed.data, propietarioUid: user.uid });
-  updateTag(`inmuebles-${user.uid}`);               // el dueño ve su cambio de inmediato
-  revalidateTag("catalogo-inmuebles", "max");       // el catálogo público se refresca en background
+  await adminDb.collection("properties").add({ ...parsed.data, landlordUid: user.uid });
+  updateTag(`properties-${user.uid}`);              // the owner sees their change immediately
+  revalidateTag("property-catalog", "max");         // the public catalog refreshes in the background
   return { ok: true };
 }
 ```
 
-Reglas:
-- Una Server Action es un **endpoint público**. Autentica, valida con Zod y autoriza dentro de
-  la action, siempre. No confíes en ningún id que venga del `FormData`.
-- Nunca retornes datos sensibles ni objetos del Admin SDK; retorna un `ActionState` plano.
-- En el cliente úsalas con `useActionState` (React 19) y `useFormStatus` para el pending:
+Rules:
+- A Server Action is a **public endpoint**. Authenticate, validate with Zod and authorize inside
+  the action, always. Never trust an id that arrives in the `FormData`.
+- Never return sensitive data or Admin SDK objects; return a flat `ActionState`.
+- On the client use them with `useActionState` (React 19) and `useFormStatus` for pending state:
 
 ```tsx
 "use client";
 import { useActionState } from "react";
 
-export function FormularioInmueble() {
-  const [state, action, pending] = useActionState(crearInmueble, { ok: false });
+export function PropertyForm() {
+  const [state, action, pending] = useActionState(createProperty, { ok: false });
   return (
     <form action={action}>
       {/* ... */}
@@ -121,12 +122,12 @@ export function FormularioInmueble() {
 }
 ```
 
-- `redirect()` dentro de una action lanza una excepción de control: **llámalo fuera de
-  try/catch** o el catch se la come.
+- `redirect()` inside an action throws a control-flow exception: **call it outside try/catch**
+  or the catch swallows it.
 
 ## Caching (Cache Components)
 
-Para habilitar `"use cache"` y PPR:
+To enable `"use cache"` and PPR:
 
 ```ts
 // next.config.ts
@@ -136,73 +137,72 @@ export default nextConfig;
 ```
 
 ```ts
-// lib/data/inmuebles.ts
+// features/property/data/catalog.ts
 import { cacheLife, cacheTag } from "next/cache";
 
-export async function catalogoPublico(ciudad: string) {
-  "use cache";                          // la función debe ser async
-  cacheTag("catalogo-inmuebles");
+export async function publicCatalog(city: string) {
+  "use cache";                          // the function must be async
+  cacheTag("property-catalog");
   cacheLife("hours");
-  return await adminDb.collection("inmuebles").where("ciudad", "==", ciudad).get();
+  return await adminDb.collection("properties").where("address.city", "==", city).get();
 }
 ```
 
-- Dentro de un scope `"use cache"` **no puedes** leer `cookies()`, `headers()` ni
-  `searchParams`: léelos afuera y pásalos como argumentos. (Si no hay alternativa existe
-  `"use cache: private"`, que solo cachea en el navegador.)
-- **Nunca** caches datos por usuario en un `"use cache"` compartido: filtraría datos entre
-  inquilinos. Datos personales → sin cache o con tag por uid.
-- `updateTag(tag)` (solo en Server Actions) = expira y refresca ya mismo → read-your-writes.
-  `revalidateTag(tag, 'max')` = stale-while-revalidate para contenido público.
-  `refresh()` = refresca el router del cliente.
+- Inside a `"use cache"` scope you **cannot** read `cookies()`, `headers()` or `searchParams`:
+  read them outside and pass them as arguments. (If there is no alternative, `"use cache: private"`
+  exists, which only caches in the browser.)
+- **Never** cache per-user data in a shared `"use cache"`: it would leak data between tenants.
+  Personal data → no cache, or a tag per uid.
+- `updateTag(tag)` (Server Actions only) = expire and refresh right now → read-your-writes.
+  `revalidateTag(tag, 'max')` = stale-while-revalidate for public content.
+  `refresh()` = refreshes the client router.
 
 ## Route Handlers
 
 ```ts
-// app/api/webhooks/pagos/route.ts
+// app/api/webhooks/payments/route.ts
 export async function POST(request: Request) {
-  const raw = await request.text();                 // verifica firma sobre el cuerpo crudo
+  const raw = await request.text();                 // verify the signature over the raw body
   // ...
   return Response.json({ ok: true });
 }
 ```
 
-- `export const dynamic`, `revalidate`, etc. siguen existiendo como segment config.
-- Handler con `params`: `async function GET(req: Request, ctx: RouteContext<'/api/x/[id]'>)`
-  y `const { id } = await ctx.params`.
-- No pongas `runtime = "edge"`: el default (Node/Fluid Compute) soporta streaming, SSE y
-  `firebase-admin`. Edge no.
+- `export const dynamic`, `revalidate`, etc. still exist as segment config.
+- A handler with `params`: `async function GET(req: Request, ctx: RouteContext<'/api/x/[id]'>)`
+  and `const { id } = await ctx.params`.
+- Do not set `runtime = "edge"`: the default (Node / Fluid Compute) supports streaming, SSE and
+  `firebase-admin`. Edge does not.
 
-## proxy.ts (antes middleware)
+## proxy.ts (formerly middleware)
 
 ```ts
 // proxy.ts
 import { NextResponse, type NextRequest } from "next/server";
 
 export function proxy(request: NextRequest) {
-  const tieneSesion = request.cookies.has("session");
-  if (!tieneSesion && request.nextUrl.pathname.startsWith("/dashboard")) {
-    return NextResponse.redirect(new URL("/login", request.url));
+  const hasSession = request.cookies.has("session");
+  if (!hasSession && request.nextUrl.pathname.startsWith("/inicio")) {
+    return NextResponse.redirect(new URL("/", request.url));
   }
   return NextResponse.next();
 }
 
-export const config = { matcher: ["/dashboard/:path*", "/postular/:path*"] };
+export const config = { matcher: ["/inicio/:path*", "/postular/:path*"] };
 ```
 
-Solo chequeo de **presencia** de cookie (optimización de UX). La verificación criptográfica y
-la autorización real van en la página/Server Action. Nunca hagas de proxy.ts tu única capa de
-seguridad.
+Only a **presence** check on the cookie (a UX optimization). The cryptographic verification and
+the real authorization belong in the page / Server Action. Never make `proxy.ts` your only
+security layer.
 
-## Otros detalles de v16
+## Other v16 details
 
-- **Imágenes**: `next/image` con `remotePatterns`; los defaults de `qualities`,
-  `imageSizes` y `minimumCacheTTL` cambiaron. `next/legacy/image` está deprecado.
-- **Parallel routes**: `default.js` ahora es **obligatorio** en cada slot.
-- **Errores**: `error.tsx` (Client Component) por segmento, `not-found.tsx`, `loading.tsx`
-  para el fallback de streaming. `forbidden.tsx` / `unauthorized.tsx` requieren
-  `authInterrupts`.
-- **Metadata**: `export const metadata` o `generateMetadata`; los props de
-  `opengraph-image`/`icon` ahora son Promesas.
-- `AGENTS.md` de este repo es regenerado por `next dev`: si aparece en el diff, commítealo
-  junto al cambio en vez de revertirlo.
+- **Images**: `next/image` with `remotePatterns`; the defaults for `qualities`, `imageSizes` and
+  `minimumCacheTTL` changed. `next/legacy/image` is deprecated.
+- **Parallel routes**: `default.js` is now **required** in every slot.
+- **Errors**: `error.tsx` (a Client Component) per segment, `not-found.tsx`, `loading.tsx` for
+  the streaming fallback. `forbidden.tsx` / `unauthorized.tsx` need `authInterrupts`.
+- **Metadata**: `export const metadata` or `generateMetadata`; the props of
+  `opengraph-image`/`icon` are Promises now.
+- This repo's `AGENTS.md` is regenerated by `next dev`: if it shows up in the diff, commit it
+  along with your change instead of reverting it.

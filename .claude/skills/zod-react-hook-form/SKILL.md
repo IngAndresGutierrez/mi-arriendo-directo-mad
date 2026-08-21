@@ -1,18 +1,22 @@
 ---
 name: zod-react-hook-form
-description: Validación de formularios con Zod v4 + React Hook Form + shadcn Form, y validación en Server Actions. Úsala al construir postulaciones, carga de documentos de identidad, información de ingresos, registro/login o cualquier formulario, y al definir un schema de validación.
+description: Form validation with Zod v4 + React Hook Form, and validation inside Server Actions. Use it when building applications, identity document uploads, income information, signup/login or any form, and when defining a validation schema.
 ---
 
 # Zod v4 + React Hook Form
 
-Versiones objetivo: `zod` **v4**, `react-hook-form` **v7**, `@hookform/resolvers` **v5**.
+Target versions: `zod` **v4**, `react-hook-form` **v7**, `@hookform/resolvers` **v5**.
 
 ```bash
 pnpm add zod react-hook-form @hookform/resolvers
-pnpm dlx shadcn@latest add form input select textarea checkbox
 ```
 
-## Zod v4: la API cambió respecto a v3
+⚠️ The `radix-nova` registry this project uses **does not expose `form`**: `shadcn add form`
+does nothing. Build forms with `Label` + `Input` + react-hook-form, and reuse the project's
+pre-wired fields (`shared/form/text-field.tsx`, `select-field.tsx`, `phone-field.tsx`), which
+already carry the label, the error and the ARIA attributes.
+
+## Zod v4: the API changed from v3
 
 ```ts
 import { z } from "zod";
@@ -27,139 +31,139 @@ z.record(z.string())                        z.record(z.string(), z.unknown())  /
 error.format() / error.flatten()            z.treeifyError(error) / z.flattenError(error)
 ```
 
-Otras notas de v4: `.default()` aplica a la salida, `z.coerce.*` sigue existiendo,
-`z.output<typeof s>` vs `z.input<typeof s>` importan cuando hay `transform`/`coerce`.
+Other v4 notes: `.default()` applies to the output, `z.coerce.*` still exists, and
+`z.output<typeof s>` vs `z.input<typeof s>` matters as soon as there is a `transform`/`coerce`.
 
-### Trampa: el orden de validación y normalización
+### Trap: the order of validation and normalization
 
-`.trim()` y `.toLowerCase()` son **transformaciones que corren después de validar**. Por eso
-`z.email().trim()` rechaza `"  a@b.com "`: valida con los espacios y recorta después. Es un
-bug real y silencioso — en móvil el autocompletado y el pegado añaden espacios constantemente.
+`.trim()` and `.toLowerCase()` are **transformations that run after validation**. That is why
+`z.email().trim()` rejects `"  a@b.com "`: it validates with the spaces and trims afterwards. It
+is a real and silent bug — on mobile, autocomplete and pasting add spaces constantly.
 
 ```ts
-// ❌ rechaza correos con espacios al pegar
+// ❌ rejects pasted emails with spaces
 z.email({ error: "Correo inválido" }).trim().toLowerCase()
 
-// ✅ normaliza primero, valida después
-const emailNormalizado = z
+// ✅ normalize first, validate after
+const normalizedEmail = z
   .string({ error: "Ingresa tu correo" })
   .trim()
   .toLowerCase()
   .pipe(z.email({ error: "Correo inválido" }));
 ```
 
-Extrae el campo a una constante reutilizable como esa en vez de repetir la cadena en cada
-schema: así el arreglo se hace una vez. En el repo está en `lib/validations/auth.ts`.
+Extract the field into a reusable constant like that instead of repeating the chain in every
+schema: the fix happens once. In this repo it lives in `features/auth/validations/auth.ts`.
 
-## Un schema por caso de uso, en `lib/schemas/`
+## One schema per use case, in `features/<domain>/validations/`
 
-Los schemas son la **frontera única** de datos externos. Se comparten entre cliente y
-servidor: mismo archivo, mismo mensaje de error.
+Schemas are the **single boundary** for external data. They are shared between client and
+server: same file, same error message.
 
 ```ts
-// lib/schemas/postulacion.ts
+// features/application/validations/application.ts
 import { z } from "zod";
 
-const CEDULA = /^\d{6,10}$/;
-const CELULAR_CO = /^3\d{9}$/;
-const MAX_ARCHIVO = 8 * 1024 * 1024;
-const TIPOS_DOC = ["image/jpeg", "image/png", "image/webp", "application/pdf"] as const;
+const NATIONAL_ID = /^\d{6,10}$/;
+const MOBILE_CO = /^3\d{9}$/;
+const MAX_FILE = 8 * 1024 * 1024;
+const DOC_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"] as const;
 
-const archivo = z
+const file = z
   .instanceof(File, { error: "Adjunta un archivo" })
   .refine((f) => f.size > 0, { error: "El archivo está vacío" })
-  .refine((f) => f.size <= MAX_ARCHIVO, { error: "Máximo 8 MB" })
-  .refine((f) => (TIPOS_DOC as readonly string[]).includes(f.type), {
+  .refine((f) => f.size <= MAX_FILE, { error: "Máximo 8 MB" })
+  .refine((f) => (DOC_TYPES as readonly string[]).includes(f.type), {
     error: "Solo JPG, PNG, WEBP o PDF",
   });
 
-export const postulacionSchema = z
+export const applicationSchema = z
   .object({
-    inmuebleId: z.string().min(1),
+    propertyId: z.string().min(1),
 
-    // identidad
-    nombreCompleto: z.string().trim().min(3, { error: "Ingresa tu nombre completo" }).max(120),
-    tipoDocumento: z.enum(["CC", "CE", "PASAPORTE", "PEP"], { error: "Selecciona el tipo" }),
-    numeroDocumento: z.string().trim().regex(CEDULA, { error: "Número de documento inválido" }),
+    // identity
+    fullName: z.string().trim().min(3, { error: "Ingresa tu nombre completo" }).max(120),
+    idType: z.enum(["CC", "CE", "PASAPORTE", "PEP"], { error: "Selecciona el tipo" }),
+    idNumber: z.string().trim().regex(NATIONAL_ID, { error: "Número de documento inválido" }),
     email: z.email({ error: "Correo inválido" }).toLowerCase(),
-    celular: z.string().trim().regex(CELULAR_CO, { error: "Celular colombiano de 10 dígitos" }),
+    mobile: z.string().trim().regex(MOBILE_CO, { error: "Celular colombiano de 10 dígitos" }),
 
-    // ingresos (enteros en COP)
-    ingresoMensual: z.coerce
+    // income (integers in COP)
+    monthlyIncome: z.coerce
       .number({ error: "Ingresa tu ingreso mensual" })
       .int({ error: "Sin decimales" })
       .positive({ error: "Debe ser mayor a cero" })
       .max(1_000_000_000),
-    tipoContratoLaboral: z.enum(["indefinido", "fijo", "prestacion", "independiente", "pensionado"]),
-    tieneCodeudor: z.boolean().default(false),
-    codeudorDocumento: z.string().trim().regex(CEDULA).optional(),
+    employmentType: z.enum(["permanent", "fixed_term", "contractor", "self_employed", "retired"]),
+    hasCosigner: z.boolean().default(false),
+    cosignerIdNumber: z.string().trim().regex(NATIONAL_ID).optional(),
 
-    // documentos
-    cedulaFrente: archivo,
-    cedulaReverso: archivo,
-    certificadoLaboral: archivo,
+    // documents
+    idFront: file,
+    idBack: file,
+    employmentLetter: file,
 
-    aceptaTratamientoDatos: z.literal(true, {
+    acceptsDataProcessing: z.boolean().refine((v) => v === true, {
       error: "Debes autorizar el tratamiento de datos personales",
     }),
   })
-  // validación cruzada: siempre al final, después del object
-  .refine((d) => !d.tieneCodeudor || Boolean(d.codeudorDocumento), {
+  // cross-field validation: always last, after the object
+  .refine((d) => !d.hasCosigner || Boolean(d.cosignerIdNumber), {
     error: "Ingresa el documento del codeudor",
-    path: ["codeudorDocumento"],
+    path: ["cosignerIdNumber"],
   });
 
-export type PostulacionInput = z.output<typeof postulacionSchema>;
+export type ApplicationInput = z.output<typeof applicationSchema>;
 ```
 
-Reglas:
-- **Nunca** valides solo en el cliente. El schema del cliente es UX; el del servidor es
-  seguridad. Es el mismo módulo, ejecutado dos veces.
-- Datos sensibles (documento, ingresos) **no** se guardan en `localStorage` ni en la URL como
+Rules:
+- **Never** validate on the client only. The client schema is UX; the server one is security.
+  It is the same module, executed twice.
+- Sensitive data (id number, income) is **not** stored in `localStorage` or in the URL as
   `searchParams`.
-- El schema de servidor puede ser más estricto (p. ej. `.strict()` para rechazar campos
-  extra); nunca menos.
-- Un `z.literal(true)` es la forma correcta de exigir un checkbox de consentimiento — un
-  `z.boolean()` acepta `false`.
+- The server schema may be stricter (e.g. `.strict()` to reject extra fields); never looser.
+- Consent uses `z.boolean().refine((v) => v === true)`, **not** `z.literal(true)`: with the
+  literal, the input type is `true` and a checkbox that starts at `false` will not typecheck.
+  (Error messages here are user-facing copy, so they stay in es-CO.)
 
-## Formulario con RHF + shadcn
+## The form with RHF and the project's fields
 
 ```tsx
 "use client";
 
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { postulacionSchema, type PostulacionInput } from "@/lib/schemas/postulacion";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { enviarPostulacion } from "./actions";
+import { TextField } from "@/shared/form/text-field";
+import { SubmitButton } from "@/shared/form/submit-button";
+import { FormAlert } from "@/shared/form/form-alert";
+import { applicationSchema, type ApplicationInput } from "../validations/application";
+import { submitApplication } from "../actions/submit-application";
 
-export function FormularioPostulacion({ inmuebleId }: { inmuebleId: string }) {
-  const form = useForm<PostulacionInput>({
-    resolver: zodResolver(postulacionSchema),
-    mode: "onBlur",                       // valida al salir del campo, no en cada tecla
-    defaultValues: {                      // SIEMPRE define defaults: evita inputs uncontrolled
-      inmuebleId,
-      nombreCompleto: "",
-      numeroDocumento: "",
+export function ApplicationForm({ propertyId }: { propertyId: string }) {
+  const form = useForm<ApplicationInput>({
+    resolver: zodResolver(applicationSchema),
+    mode: "onBlur",                       // validate on blur, not on every keystroke
+    defaultValues: {                      // ALWAYS define defaults: avoids uncontrolled inputs
+      propertyId,
+      fullName: "",
+      idNumber: "",
       email: "",
-      celular: "",
-      tieneCodeudor: false,
+      mobile: "",
+      hasCosigner: false,
     },
   });
 
-  async function onSubmit(values: PostulacionInput) {
+  async function onSubmit(values: ApplicationInput) {
     const fd = new FormData();
     for (const [k, v] of Object.entries(values)) {
       if (v instanceof File) fd.append(k, v);
       else if (v !== undefined) fd.append(k, String(v));
     }
-    const res = await enviarPostulacion(fd);
+    const res = await submitApplication(fd);
     if (!res.ok) {
-      // mapea errores del servidor a los campos
-      for (const [campo, mensajes] of Object.entries(res.errors ?? {})) {
-        form.setError(campo as keyof PostulacionInput, { message: mensajes?.[0] });
+      // map server errors onto the fields
+      for (const [field, messages] of Object.entries(res.errors ?? {})) {
+        form.setError(field as keyof ApplicationInput, { message: messages?.[0] });
       }
       if (res.message) form.setError("root", { message: res.message });
       return;
@@ -168,78 +172,76 @@ export function FormularioPostulacion({ inmuebleId }: { inmuebleId: string }) {
   }
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        <FormField
-          control={form.control}
-          name="numeroDocumento"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Número de documento</FormLabel>
-              <FormControl>
-                <Input inputMode="numeric" autoComplete="off" {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
+    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" noValidate>
+      <FormAlert message={form.formState.errors.root?.message ?? null} />
 
-        <Button type="submit" disabled={form.formState.isSubmitting}>
-          {form.formState.isSubmitting ? "Enviando…" : "Enviar postulación"}
-        </Button>
-      </form>
-    </Form>
+      <TextField
+        id="idNumber"
+        label="Número de documento"
+        inputMode="numeric"
+        autoComplete="off"
+        error={form.formState.errors.idNumber?.message}
+        {...form.register("idNumber")}
+      />
+
+      <SubmitButton loading={form.formState.isSubmitting} loadingLabel="Enviando…">
+        Enviar postulación
+      </SubmitButton>
+    </form>
   );
 }
 ```
 
-Puntos que se rompen si los ignoras:
-- `defaultValues` completo para cada campo, o RHF alterna controlled/uncontrolled y React
-  advierte.
-- Inputs de archivo **no** se registran con `{...field}`: usa
-  `onChange={(e) => field.onChange(e.target.files?.[0])}` y no pases `value`.
-- `form.formState.isSubmitting` para el estado pending, no un `useState` propio.
-- No dupliques la regla de validación en JSX (`required`, `maxLength`): la fuente de verdad es
-  el schema.
-- Autocomplete correcto en cada campo (`email`, `tel`, `name`) — mejora conversión y a11y.
+Things that break if you ignore them:
+- A complete `defaultValues` for every field, or RHF flips between controlled and uncontrolled
+  and React warns.
+- File inputs are **not** registered with `{...field}`: use
+  `onChange={(e) => field.onChange(e.target.files?.[0])}` and do not pass `value`.
+- Use `form.formState.isSubmitting` for the pending state, not your own `useState`.
+- Do not duplicate the validation rule in JSX (`required`, `maxLength`): the schema is the
+  source of truth.
+- Use `useWatch`, never `watch()`: the latter trips `react-hooks/incompatible-library`.
+- When the schema transforms, type the hook with input and output:
+  `useForm<z.input<S>, unknown, z.output<S>>`, or `handleSubmit` will not fit.
+- Correct autocomplete on every field (`email`, `tel`, `name`) — it helps conversion and a11y.
 
-## Validación en la Server Action (obligatoria)
+## Validation in the Server Action (mandatory)
 
 ```ts
 "use server";
 import { z } from "zod";
-import { postulacionSchema } from "@/lib/schemas/postulacion";
-import { requireUser } from "@/lib/auth/session";
+import { requireUser } from "@/shared/auth/session";
+import { applicationSchema } from "../validations/application";
 
 export type ActionState = { ok: boolean; message?: string; errors?: Record<string, string[]> };
 
-export async function enviarPostulacion(formData: FormData): Promise<ActionState> {
+export async function submitApplication(formData: FormData): Promise<ActionState> {
   const user = await requireUser();
 
-  const parsed = postulacionSchema.safeParse({
+  const parsed = applicationSchema.safeParse({
     ...Object.fromEntries(formData),
-    tieneCodeudor: formData.get("tieneCodeudor") === "true",
-    aceptaTratamientoDatos: formData.get("aceptaTratamientoDatos") === "true",
-    cedulaFrente: formData.get("cedulaFrente"),
-    cedulaReverso: formData.get("cedulaReverso"),
-    certificadoLaboral: formData.get("certificadoLaboral"),
+    hasCosigner: formData.get("hasCosigner") === "true",
+    acceptsDataProcessing: formData.get("acceptsDataProcessing") === "true",
+    idFront: formData.get("idFront"),
+    idBack: formData.get("idBack"),
+    employmentLetter: formData.get("employmentLetter"),
   });
 
   if (!parsed.success) {
-    // no filtres el error crudo de Zod al cliente: puede contener los valores enviados
+    // do not leak Zod's raw error to the client: it can contain the submitted values
     return { ok: false, errors: z.flattenError(parsed.error).fieldErrors };
   }
 
-  // ...persistir con Admin SDK usando parsed.data (nunca el FormData crudo)
+  // ...persist with the Admin SDK using parsed.data (never the raw FormData)
   return { ok: true };
 }
 ```
 
-Nunca:
-- Persistir `Object.fromEntries(formData)` directo (mass assignment: el cliente puede mandar
-  `estado: "aprobada"`).
-- Devolver `parsed.error` completo al cliente, ni loggear los valores de documentos/ingresos.
-- Confiar en un `uid` o `propietarioUid` que venga del formulario: sale de la sesión.
+Never:
+- Persist `Object.fromEntries(formData)` directly (mass assignment: the client can send
+  `status: "approved"`).
+- Return the full `parsed.error` to the client, or log the id document / income values.
+- Trust a `uid` or a `landlordUid` that arrives in the form: it comes from the session.
 
-Combina siempre con las skills `firebase-admin-sdk` (autorización + escritura) y
-`firestore-security-rules` (la validación equivalente del lado de la base de datos).
+Always combine this with the `firebase-admin-sdk` skill (authorization + writing) and
+`firestore-security-rules` (the equivalent validation on the database side).

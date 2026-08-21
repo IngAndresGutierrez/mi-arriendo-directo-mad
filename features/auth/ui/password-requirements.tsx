@@ -20,14 +20,14 @@ export function PasswordRequirements({ value, id }: { value: string; id: string 
             key={requirement.id}
             className={cn(
               "flex items-center gap-2 text-sm",
-              isMet ? "text-estado-aprobada" : "text-muted-foreground",
+              isMet ? "text-status-approved" : "text-muted-foreground",
             )}
           >
             <span
               aria-hidden="true"
               className={cn(
                 "flex size-4 items-center justify-center rounded-full",
-                isMet ? "bg-estado-aprobada/15" : "border border-current opacity-50",
+                isMet ? "bg-status-approved/15" : "border border-current opacity-50",
               )}
             >
               {isMet ? <CheckIcon className="size-3" /> : null}

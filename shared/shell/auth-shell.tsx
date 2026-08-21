@@ -53,7 +53,7 @@ const GLOW_DECORATION = (
 /**
  * Two-column layout for the access screens.
  *
- * The right panel uses the `panel-marca` token (purple in both themes) instead of
+ * The right panel uses the `brand-panel` token (purple in both themes) instead of
  * `bg-primary`, which is cyan in dark mode.
  */
 export function AuthShell({
@@ -86,14 +86,14 @@ export function AuthShell({
         </div>
       </div>
 
-      <aside className="relative hidden items-center justify-center overflow-hidden bg-panel-marca px-12 lg:flex">
+      <aside className="relative hidden items-center justify-center overflow-hidden bg-brand-panel px-12 lg:flex">
         {GLOW_DECORATION}
 
         <div className="relative max-w-md text-center">
-          <h2 className="text-4xl font-semibold tracking-tight text-panel-marca-foreground text-balance">
+          <h2 className="text-4xl font-semibold tracking-tight text-brand-panel-foreground text-balance">
             {title}
           </h2>
-          <p className="mt-5 text-lg leading-relaxed text-panel-marca-muted text-pretty">
+          <p className="mt-5 text-lg leading-relaxed text-brand-panel-muted text-pretty">
             {description}
           </p>
         </div>
