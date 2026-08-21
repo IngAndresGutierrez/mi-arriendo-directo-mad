@@ -1,7 +1,7 @@
 import { CheckIcon } from "lucide-react";
 
 import { PASSWORD_REQUIREMENTS } from "@/lib/validations/auth";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 
 /**
  * Checklist en vivo de los requisitos de contraseña.

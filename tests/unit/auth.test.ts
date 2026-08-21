@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { HOME_ROUTE, safeRedirect } from "@/lib/auth/routes";
+import { HOME_ROUTE, safeRedirect } from "@/shared/auth/routes";
 import {
   emailSchema,
   loginSchema,

@@ -12,8 +12,8 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-import { COMPLETE_PROFILE_ROUTE, HOME_ROUTE, LOGIN_ROUTE } from "@/lib/auth/routes";
-import { adminAuth } from "@/lib/firebase/admin";
+import { COMPLETE_PROFILE_ROUTE, HOME_ROUTE, LOGIN_ROUTE } from "@/shared/auth/routes";
+import { adminAuth } from "@/shared/firebase/admin";
 
 export const SESSION_COOKIE = "session";
 /** 5 días, el máximo razonable para una session cookie de Firebase. */

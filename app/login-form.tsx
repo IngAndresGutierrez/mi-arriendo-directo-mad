@@ -11,9 +11,9 @@ import { GoogleButton } from "@/components/auth/google-button";
 import { OrDivider } from "@/components/auth/or-divider";
 import { SubmitButton } from "@/components/auth/submit-button";
 import { TextField } from "@/components/ui/text-field";
-import { signInWithEmail, signInWithGoogle } from "@/lib/auth/client";
-import { authErrorMessage, isUserCancellation } from "@/lib/auth/errors";
-import { PASSWORD_RESET_ROUTE, SIGNUP_ROUTE } from "@/lib/auth/routes";
+import { signInWithEmail, signInWithGoogle } from "@/shared/auth/client";
+import { authErrorMessage, isUserCancellation } from "@/shared/auth/errors";
+import { PASSWORD_RESET_ROUTE, SIGNUP_ROUTE } from "@/shared/auth/routes";
 import { loginSchema, type LoginInput } from "@/lib/validations/auth";
 
 export function LoginForm({ redirectTo }: { redirectTo: string }) {

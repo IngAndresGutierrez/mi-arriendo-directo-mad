@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { firstName, greetingForHour, hourInProductTimeZone } from "@/lib/domain/greeting";
+import { firstName, greetingForHour, hourInProductTimeZone } from "@/shared/format/greeting";
 
 describe("greetingForHour", () => {
   it.each([

@@ -11,7 +11,7 @@ import {
   persistentMultipleTabManager,
 } from "firebase/firestore";
 
-import { firebaseApp, useEmulator } from "@/lib/firebase/app";
+import { firebaseApp, useEmulator } from "@/shared/firebase/app";
 
 /**
  * `persistentLocalCache` reemplaza al deprecado `enableIndexedDbPersistence()`.

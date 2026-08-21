@@ -4,8 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOutIcon } from "lucide-react";
 
-import { signOutUser } from "@/lib/auth/client";
-import { LOGIN_ROUTE } from "@/lib/auth/routes";
+import { signOutUser } from "@/shared/auth/client";
+import { LOGIN_ROUTE } from "@/shared/auth/routes";
 
 export function SignOutButton() {
   const router = useRouter();

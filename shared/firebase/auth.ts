@@ -7,7 +7,7 @@
  */
 import { connectAuthEmulator, getAuth } from "firebase/auth";
 
-import { firebaseApp, useEmulator } from "@/lib/firebase/app";
+import { firebaseApp, useEmulator } from "@/shared/firebase/app";
 
 export const auth = getAuth(firebaseApp);
 

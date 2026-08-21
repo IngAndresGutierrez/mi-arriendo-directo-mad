@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
 import { Logo } from "@/components/brand/logo";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 
 type AuthShellProps = {
   /** Encabezado del panel de marca (columna derecha). */

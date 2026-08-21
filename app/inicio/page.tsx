@@ -6,10 +6,10 @@ import { ComingSoonCard } from "@/components/app/coming-soon-card";
 import { ContractsCard } from "@/components/app/contracts-card";
 import { SupportCard } from "@/components/app/support-card";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { requireCompleteProfile } from "@/lib/auth/session";
+import { requireCompleteProfile } from "@/shared/auth/session";
 import { getUserContracts } from "@/lib/data/contracts";
 import { getProfile } from "@/lib/data/profile";
-import { firstName, greetingForHour, hourInProductTimeZone } from "@/lib/domain/greeting";
+import { firstName, greetingForHour, hourInProductTimeZone } from "@/shared/format/greeting";
 
 export const metadata: Metadata = {
   title: "Inicio",

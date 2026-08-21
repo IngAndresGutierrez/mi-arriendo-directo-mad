@@ -11,7 +11,7 @@
  */
 import { getAnalytics, isSupported, logEvent, type Analytics } from "firebase/analytics";
 
-import { firebaseApp } from "@/lib/firebase/app";
+import { firebaseApp } from "@/shared/firebase/app";
 
 let instance: Analytics | null = null;
 

@@ -2,7 +2,7 @@ import type { ComponentProps, ReactNode } from "react";
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { cn } from "@/lib/utils";
+import { cn } from "@/shared/lib/utils";
 
 type TextFieldProps = ComponentProps<"input"> & {
   /** Requerido: sin él no hay `htmlFor` ni ids de error estables. */

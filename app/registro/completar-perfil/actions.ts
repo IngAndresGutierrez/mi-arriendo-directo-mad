@@ -3,10 +3,10 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
-import { requireUser } from "@/lib/auth/session";
-import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { requireUser } from "@/shared/auth/session";
+import { adminAuth, adminDb } from "@/shared/firebase/admin";
 import { DEFAULT_USER_ROLE } from "@/lib/domain/colombia";
-import { toE164 } from "@/lib/domain/countries";
+import { toE164 } from "@/shared/phone/countries";
 import { completeProfileSchema, validateBirthDate } from "@/lib/validations/profile";
 
 export type CompleteProfileResult =

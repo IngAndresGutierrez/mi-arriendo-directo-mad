@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 
 import { NavItem, type NavEntry } from "@/components/app/nav-item";
-import { HOME_ROUTE } from "@/lib/auth/routes";
+import { HOME_ROUTE } from "@/shared/auth/routes";
 
 import { SignOutButton } from "./sign-out-button";
 
