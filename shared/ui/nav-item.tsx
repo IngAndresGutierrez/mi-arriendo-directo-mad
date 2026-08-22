@@ -13,6 +13,13 @@ export type NavEntry = {
   /** Absent while the section does not exist yet. */
   readonly href?: string;
   /**
+   * What the narrow rail shows instead of `label`.
+   *
+   * There the label sits under the icon in a 96px column: two words wrap to two lines and read
+   * fine, three turn the entry into a paragraph and push the menu out of shape.
+   */
+  readonly shortLabel?: string;
+  /**
    * Extra routes that belong to this section but do not hang off its path. Publishing lives
    * at `/inmuebles/publicar`, yet it is something you do inside "Mis inmuebles": without this
    * the menu claims you are nowhere while you fill the form.
@@ -40,9 +47,18 @@ const STACK =
  * falls back to the tooltip. A hover-only explanation is a poor one, which is why it is the
  * fallback and not the rule.
  */
-export function NavItem({ label, icon: Icon, href, activeOn, collapsed, onNavigate }: NavItemProps) {
+export function NavItem({
+  label,
+  shortLabel,
+  icon: Icon,
+  href,
+  activeOn,
+  collapsed,
+  onNavigate,
+}: NavItemProps) {
   const pathname = usePathname();
   const base = collapsed ? STACK : ROW;
+  const shown = collapsed && shortLabel ? shortLabel : label;
   const focus = "focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none";
 
   if (!href) {
@@ -57,7 +73,7 @@ export function NavItem({ label, icon: Icon, href, activeOn, collapsed, onNaviga
         )}
       >
         <Icon className="size-5 shrink-0" aria-hidden="true" />
-        <span className={collapsed ? undefined : "flex-1 text-left"}>{label}</span>
+        <span className={collapsed ? undefined : "flex-1 text-left"}>{shown}</span>
         {!collapsed && (
           <span className="rounded-full bg-white/10 px-2 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase">
             Pronto
@@ -96,7 +112,7 @@ export function NavItem({ label, icon: Icon, href, activeOn, collapsed, onNaviga
       )}
     >
       <Icon className="size-5 shrink-0" aria-hidden="true" />
-      {label}
+      {shown}
     </Link>
   );
 }

@@ -7,6 +7,7 @@ import {
   CreditCardIcon,
   FileTextIcon,
   HouseIcon,
+  IdCardIcon,
   LifeBuoyIcon,
   SettingsIcon,
 } from "lucide-react";
@@ -16,6 +17,7 @@ import {
   HOME_ROUTE,
   MY_PROPERTIES_ROUTE,
   PUBLISH_PROPERTY_ROUTE,
+  TENANT_PROFILE_ROUTE,
 } from "@/shared/auth/routes";
 import { NavItem, type NavEntry } from "@/shared/ui/nav-item";
 import { cn } from "@/shared/lib/utils";
@@ -38,8 +40,15 @@ const NAV: readonly NavEntry[] = [
     href: MY_PROPERTIES_ROUTE,
     activeOn: [PUBLISH_PROPERTY_ROUTE],
   },
-  { label: "Soporte", icon: LifeBuoyIcon },
   { label: "Contrato", icon: FileTextIcon, href: CONTRACT_ROUTE },
+  {
+    label: "Perfil de inquilino",
+    // Two words fit under an icon in the narrow rail; three do not.
+    shortLabel: "Mi perfil",
+    icon: IdCardIcon,
+    href: TENANT_PROFILE_ROUTE,
+  },
+  { label: "Soporte", icon: LifeBuoyIcon },
   { label: "Facturación", icon: CreditCardIcon },
   { label: "Ajustes", icon: SettingsIcon },
 ];
