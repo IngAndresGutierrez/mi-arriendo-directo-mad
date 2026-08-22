@@ -104,7 +104,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Saving returns here to the list**, not to the listing: the change was a correction, not something new to go and admire. Publishing, which is, ends on the listing. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
-| `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog. `?city=<municipality>` filters it; anything the municipality catalog does not recognise is ignored rather than queried. |
+| `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
 
 - `POST /api/session` exchanges the idToken for an httpOnly session cookie (and requires a
   recent sign-in); **`PATCH` re-mints it** with the current claims after a role change;
@@ -129,11 +129,22 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 
 Links with no route yet (they 404): `/recuperar`, `/terminos`, `/privacidad`.
 
-The catalog has **no pagination**: it shows the `CATALOG_PAGE_SIZE` most recent and says so in
-the count when the page is full, rather than looking complete. Its city filter offers only the
-cities that have something published — all 1,122 municipalities would be a list of dead ends —
-which is a read of one field across the published documents; at a larger size that wants a
-counter per city, not a bigger read.
+**The catalog filters, counts, sorts and paginates in memory**, over one query capped by
+`CATALOG_MAX_SCAN`. That is deliberate: faceted search needs a count per option computed against
+the *other* filters, and Firestore cannot answer that without one composite index per
+combination of facets — an unbounded set. It stops being the right shape somewhere in the low
+thousands; what it wants then is a search index or a maintained counter per facet, not a bigger
+cap. `features/property/domain/catalog.ts` holds all of it, pure and unit-tested.
+
+Two rules that are easy to break there. A facet is **never counted against itself**: with
+"Apartamento" selected, the number beside "Casa" is what you would get by switching, or every
+unselected option reads zero and the filter looks broken. And an option that is **selected is
+never hidden**, even at zero — two filters can contradict each other, and hiding the checkbox
+would leave a filter applied with no way to switch it off.
+
+The URL is the catalog's only state, so `parseCatalogFilters` and `catalogQuery` are inverses of
+each other and a shared link always reproduces what was on screen. Only the city is canonical
+for search engines: the facets and the page number are ways of looking at the same catalog.
 The `users/{uid}` document and the `role` claim are created during onboarding, not at signup:
 the rules require `fullName` and the signup design does not ask for it.
 
