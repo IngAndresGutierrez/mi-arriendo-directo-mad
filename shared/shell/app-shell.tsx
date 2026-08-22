@@ -1,8 +1,11 @@
 import type { ReactNode } from "react";
+import { cookies } from "next/headers";
 
 import { AppDrawer } from "@/shared/shell/app-drawer";
 import { AppSidebar } from "@/shared/shell/app-sidebar";
 import { TooltipProvider } from "@/shared/ui/tooltip";
+
+import { isSidebarCollapsed, SIDEBAR_COOKIE } from "./sidebar-state";
 
 /**
  * The frame every product screen sits in: the menu — fixed from `lg`, a drawer below it — and
@@ -11,12 +14,17 @@ import { TooltipProvider } from "@/shared/ui/tooltip";
  * It exists so the four screens stop repeating the same layout; one of them had already
  * drifted a container width apart from the others. Pages bring only what is theirs: their
  * heading and their content, inside whatever max-width they need.
+ *
+ * The menu's width is read here, on the server, so it renders correct on the first paint.
+ * These routes are already dynamic — they all read the session cookie — so this costs nothing.
  */
-export function AppShell({ children }: { readonly children: ReactNode }) {
+export async function AppShell({ children }: { readonly children: ReactNode }) {
+  const collapsed = isSidebarCollapsed((await cookies()).get(SIDEBAR_COOKIE)?.value);
+
   return (
     <TooltipProvider>
       <div className="flex min-h-svh bg-background">
-        <AppSidebar />
+        <AppSidebar defaultCollapsed={collapsed} />
 
         <div className="flex min-w-0 flex-1 flex-col">
           <AppDrawer />

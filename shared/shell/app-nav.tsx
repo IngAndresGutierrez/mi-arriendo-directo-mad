@@ -13,6 +13,7 @@ import {
 
 import { HOME_ROUTE, MY_PROPERTIES_ROUTE, PUBLISH_PROPERTY_ROUTE } from "@/shared/auth/routes";
 import { NavItem, type NavEntry } from "@/shared/ui/nav-item";
+import { cn } from "@/shared/lib/utils";
 
 import { SignOutButton } from "./sign-out-button";
 
@@ -43,19 +44,28 @@ const NAV: readonly NavEntry[] = [
  * screen and the drawer on a narrow one. One list, so the two can never disagree about what
  * the product contains.
  */
-export function AppNav({ onNavigate }: { readonly onNavigate?: () => void }) {
+export function AppNav({
+  collapsed = false,
+  onNavigate,
+}: {
+  readonly collapsed?: boolean;
+  readonly onNavigate?: () => void;
+}) {
   return (
-    <nav aria-label="Navegación principal" className="flex min-h-0 flex-1 flex-col px-3 py-2">
-      <ul className="flex flex-col gap-1">
+    <nav
+      aria-label="Navegación principal"
+      className={cn("flex min-h-0 flex-1 flex-col py-2", collapsed ? "px-2" : "px-3")}
+    >
+      <ul className={cn("flex flex-col", collapsed ? "gap-2" : "gap-1")}>
         {NAV.map((entry) => (
           <li key={entry.label}>
-            <NavItem {...entry} onNavigate={onNavigate} />
+            <NavItem {...entry} collapsed={collapsed} onNavigate={onNavigate} />
           </li>
         ))}
       </ul>
 
       <div className="mt-auto pt-4 pb-2">
-        <SignOutButton variant="drawer" />
+        <SignOutButton variant="drawer" collapsed={collapsed} />
       </div>
     </nav>
   );

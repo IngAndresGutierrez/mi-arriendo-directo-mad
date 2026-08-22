@@ -101,6 +101,8 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/inicio` | `HOME_ROUTE` | User portal: greeting, contracts and shortcuts. Destination after signing in. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
 | `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
+| `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
+| `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Saving returns here to the list**, not to the listing: the change was a correction, not something new to go and admire. Publishing, which is, ends on the listing. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
 | `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog. **Not built yet** (404). |
 
@@ -174,7 +176,8 @@ risk of leaving a field unconnected.
 | `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. |
 | `shared/shell/app-shell.tsx` | `AppShell`: the frame of every product screen — menu and content. A page brings only its heading and its body. |
 | `shared/shell/app-nav.tsx` | `AppNav`: the `NAV` list itself, shared by the two surfaces that show it. **It is a Client Component**: it passes icon components to `NavItem`. |
-| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the menu always visible from `lg` up. |
+| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the menu always visible from `lg` up, narrow by default, widened with the arrow. |
+| `shared/shell/sidebar-state.ts` | The cookie that remembers that width. Read on the server so the first paint is already right. |
 | `shared/shell/app-drawer.tsx` | `AppDrawer`: below `lg`, the bar with the hamburger plus the same menu in a drawer. Owns the open state. |
 | `shared/ui/nav-item.tsx` | `NavItem`: a drawer row. Without `href` it renders disabled with a "Pronto" badge. `activeOn` marks the section on routes that do not hang off its path. |
 | `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: wraps mocked-up UI whose function does not exist yet. |
@@ -196,10 +199,17 @@ badge, instead of linking to a 404. To activate one: create the route and add it
 the `NAV` array in `shared/shell/app-nav.tsx` — the one list both surfaces render, so the
 sidebar and the drawer cannot disagree about what the product contains.
 
-**The menu has two shapes and one content.** From `lg` up it is a fixed 16rem sidebar: a wide
-screen has the room, and hiding the sections behind a click there costs one on every
-navigation and buys nothing. Below `lg` it is a drawer behind the hamburger, because 16rem of
-permanent menu on a phone would leave nothing for the property form.
+**The menu has two shapes and one content.** From `lg` up it is a fixed sidebar, always
+visible: a wide screen has the room, and hiding the sections behind a click there costs one on
+every navigation and buys nothing. It starts narrow (icon over label) and the arrow widens it
+to the full labels; the choice is remembered in the `sidebar` cookie, **read on the server** in
+`AppShell` so the width is right on the first paint instead of jumping open after hydration.
+Below `lg` it is a drawer behind the hamburger, always expanded, because a permanent menu on a
+phone would leave nothing for the property form.
+
+Collapsed there is no room for the "Pronto" badge, so a disabled entry falls back to the
+tooltip. A hover-only explanation is a poor one — that is why it is the fallback and not the
+rule.
 
 There is **no "Publicar" entry in the menu**: publishing is something you do to your
 properties, not a separate place. The action lives on `/mis-inmuebles`, next to the list it

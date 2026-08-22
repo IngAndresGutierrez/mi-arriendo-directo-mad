@@ -6,7 +6,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { refreshServerSession } from "@/shared/auth/client";
-import { propertyDetailRoute } from "@/shared/auth/routes";
+import { MY_PROPERTIES_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { DEPARTMENTS, type Department } from "@/shared/geo/colombia";
 import { municipalitiesOf } from "@/shared/geo/municipalities";
 import { AmountField } from "@/shared/form/amount-field";
@@ -194,7 +194,10 @@ export function PropertyForm({ property, addressLine }: PropertyFormProps) {
     // the claim existed: without re-minting it the server keeps reading the old role.
     if ("rolePromoted" in result && result.rolePromoted) await refreshServerSession();
 
-    router.push(propertyDetailRoute(result.slug));
+    // Publishing ends on the listing — the landlord wants to see what they just put out, and
+    // that is the page they will copy the link from. Editing ends back on the list: the change
+    // was a correction, not a new thing to go admire, and the list is where the next one is.
+    router.push(property ? MY_PROPERTIES_ROUTE : propertyDetailRoute(result.slug));
     router.refresh();
   }
 

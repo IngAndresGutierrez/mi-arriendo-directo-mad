@@ -4,6 +4,7 @@ import type { ComponentType, SVGProps } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
 
 export type NavEntry = {
@@ -14,45 +15,64 @@ export type NavEntry = {
   /**
    * Extra routes that belong to this section but do not hang off its path. Publishing lives
    * at `/inmuebles/publicar`, yet it is something you do inside "Mis inmuebles": without this
-   * the drawer claims you are nowhere while you fill the form.
+   * the menu claims you are nowhere while you fill the form.
    */
   readonly activeOn?: readonly string[];
 };
 
 type NavItemProps = NavEntry & {
+  /** Icon over label, in a narrow rail. */
+  readonly collapsed?: boolean;
   /** Closes the drawer once the user has chosen where to go. */
   readonly onNavigate?: () => void;
 };
 
-const BASE =
-  "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors";
+const ROW = "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium";
+const STACK =
+  "flex w-full flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-center text-xs font-medium";
 
 /**
- * One row of the navigation drawer: icon, label, and — while the section does not exist —
- * a "Pronto" badge.
+ * One entry of the menu, in whichever of its two shapes the surface asked for: a row with the
+ * label beside the icon, or the icon with the label underneath.
  *
- * The badge replaced a hover tooltip. In the old 80px rail there was no room for words, so
- * the explanation had to hide behind a hover that a touch screen never fires; with the label
- * already spelled out there is room to simply say it, and it is now readable on a phone.
- *
- * A disabled entry is a `<span aria-disabled>`, never a dead link: a screen reader should not
- * announce as navigable something that goes nowhere.
+ * How "this section does not exist yet" is said depends on the room available. Expanded there
+ * is space for a "Pronto" badge, which a touch screen can read; collapsed there is not, so it
+ * falls back to the tooltip. A hover-only explanation is a poor one, which is why it is the
+ * fallback and not the rule.
  */
-export function NavItem({ label, icon: Icon, href, activeOn, onNavigate }: NavItemProps) {
+export function NavItem({ label, icon: Icon, href, activeOn, collapsed, onNavigate }: NavItemProps) {
   const pathname = usePathname();
+  const base = collapsed ? STACK : ROW;
+  const focus = "focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none";
 
   if (!href) {
-    return (
+    const disabled = (
       <span
         aria-disabled="true"
-        className={cn(BASE, "cursor-not-allowed text-brand-panel-muted/60")}
+        tabIndex={collapsed ? 0 : undefined}
+        className={cn(
+          base,
+          "cursor-not-allowed text-brand-panel-muted/60",
+          collapsed && focus,
+        )}
       >
         <Icon className="size-5 shrink-0" aria-hidden="true" />
-        <span className="flex-1 text-left">{label}</span>
-        <span className="rounded-full bg-white/10 px-2 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase">
-          Pronto
-        </span>
+        <span className={collapsed ? undefined : "flex-1 text-left"}>{label}</span>
+        {!collapsed && (
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase">
+            Pronto
+          </span>
+        )}
       </span>
+    );
+
+    if (!collapsed) return disabled;
+
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>{disabled}</TooltipTrigger>
+        <TooltipContent side="right">Próximamente</TooltipContent>
+      </Tooltip>
     );
   }
 
@@ -67,8 +87,9 @@ export function NavItem({ label, icon: Icon, href, activeOn, onNavigate }: NavIt
       onClick={onNavigate}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        BASE,
-        "focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none",
+        base,
+        focus,
+        "transition-colors",
         isActive
           ? "bg-accent/15 text-accent"
           : "text-brand-panel-muted hover:bg-white/5 hover:text-brand-panel-foreground",

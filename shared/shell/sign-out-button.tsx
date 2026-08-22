@@ -7,6 +7,7 @@ import { LogOutIcon } from "lucide-react";
 import { signOutUser } from "@/shared/auth/client";
 import { LOGIN_ROUTE } from "@/shared/auth/routes";
 import { Button } from "@/shared/ui/button";
+import { cn } from "@/shared/lib/utils";
 
 type SignOutButtonProps = {
   /**
@@ -14,6 +15,8 @@ type SignOutButtonProps = {
    * header row of the auth shell.
    */
   readonly variant?: "drawer" | "inline";
+  /** `"drawer"` only: icon over label, for the collapsed rail. */
+  readonly collapsed?: boolean;
 };
 
 /**
@@ -22,7 +25,7 @@ type SignOutButtonProps = {
  * One component for both surfaces on purpose: the sign-out sequence (revoke, replace, refresh)
  * must not be duplicated, only its presentation changes.
  */
-export function SignOutButton({ variant = "drawer" }: SignOutButtonProps) {
+export function SignOutButton({ variant = "drawer", collapsed = false }: SignOutButtonProps) {
   const router = useRouter();
   const [isSigningOut, setSigningOut] = useState(false);
 
@@ -57,7 +60,12 @@ export function SignOutButton({ variant = "drawer" }: SignOutButtonProps) {
       type="button"
       onClick={onClick}
       disabled={isSigningOut}
-      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-brand-panel-muted transition-colors hover:bg-white/5 hover:text-brand-panel-foreground focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none disabled:opacity-50"
+      className={cn(
+        "flex w-full rounded-xl font-medium text-brand-panel-muted transition-colors hover:bg-white/5 hover:text-brand-panel-foreground focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none disabled:opacity-50",
+        collapsed
+          ? "flex-col items-center gap-1.5 px-1 py-2.5 text-center text-xs"
+          : "items-center gap-3 px-3 py-2.5 text-sm",
+      )}
     >
       <LogOutIcon className="size-5" aria-hidden="true" />
       {label}
