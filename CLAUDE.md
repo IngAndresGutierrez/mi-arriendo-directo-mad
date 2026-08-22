@@ -172,8 +172,10 @@ risk of leaving a field unconnected.
 | `shared/brand/logo.tsx` | `Logo`: the only place with the PNG's dimensions. |
 | `shared/form/select-field.tsx` | `SelectField`: select with label, error and ARIA. Controlled with `Controller`. |
 | `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. |
-| `shared/shell/app-shell.tsx` | `AppShell`: the frame of every product screen — navigation bar, drawer and content. A page brings only its heading and its body. |
-| `shared/shell/app-drawer.tsx` | `AppDrawer`: the bar with the hamburger and the navigation drawer, the same at every width. **It is a Client Component**: it passes icon components to `NavItem` and owns the open state. |
+| `shared/shell/app-shell.tsx` | `AppShell`: the frame of every product screen — menu and content. A page brings only its heading and its body. |
+| `shared/shell/app-nav.tsx` | `AppNav`: the `NAV` list itself, shared by the two surfaces that show it. **It is a Client Component**: it passes icon components to `NavItem`. |
+| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the menu always visible from `lg` up. |
+| `shared/shell/app-drawer.tsx` | `AppDrawer`: below `lg`, the bar with the hamburger plus the same menu in a drawer. Owns the open state. |
 | `shared/ui/nav-item.tsx` | `NavItem`: a drawer row. Without `href` it renders disabled with a "Pronto" badge. `activeOn` marks the section on routes that do not hang off its path. |
 | `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: wraps mocked-up UI whose function does not exist yet. |
 
@@ -189,9 +191,15 @@ risk of leaving a field unconnected.
   country's error stays on screen.
 
 ## Sections not built yet
-The drawer shows Soporte, Contrato, Facturación and Ajustes **disabled**, with a "Pronto"
+The menu shows Soporte, Contrato, Facturación and Ajustes **disabled**, with a "Pronto"
 badge, instead of linking to a 404. To activate one: create the route and add its `href` to
-the `NAV` array in `shared/shell/app-drawer.tsx`.
+the `NAV` array in `shared/shell/app-nav.tsx` — the one list both surfaces render, so the
+sidebar and the drawer cannot disagree about what the product contains.
+
+**The menu has two shapes and one content.** From `lg` up it is a fixed 16rem sidebar: a wide
+screen has the room, and hiding the sections behind a click there costs one on every
+navigation and buys nothing. Below `lg` it is a drawer behind the hamburger, because 16rem of
+permanent menu on a phone would leave nothing for the property form.
 
 There is **no "Publicar" entry in the menu**: publishing is something you do to your
 properties, not a separate place. The action lives on `/mis-inmuebles`, next to the list it
