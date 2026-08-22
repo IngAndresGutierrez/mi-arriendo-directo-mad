@@ -6,7 +6,7 @@ import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { refreshServerSession } from "@/shared/auth/client";
-import { MY_PROPERTIES_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
+import { MY_PROPERTIES_ROUTE } from "@/shared/auth/routes";
 import { DEPARTMENTS, type Department } from "@/shared/geo/colombia";
 import { municipalitiesOf } from "@/shared/geo/municipalities";
 import { AmountField } from "@/shared/form/amount-field";
@@ -194,10 +194,10 @@ export function PropertyForm({ property, addressLine }: PropertyFormProps) {
     // the claim existed: without re-minting it the server keeps reading the old role.
     if ("rolePromoted" in result && result.rolePromoted) await refreshServerSession();
 
-    // Publishing ends on the listing — the landlord wants to see what they just put out, and
-    // that is the page they will copy the link from. Editing ends back on the list: the change
-    // was a correction, not a new thing to go admire, and the list is where the next one is.
-    router.push(property ? MY_PROPERTIES_ROUTE : propertyDetailRoute(result.slug));
+    // Both ways out end on the list. Publishing something is not finishing with it: the next
+    // thing a landlord does is copy its link, publish another, or look at what they already
+    // have — and all three are there. Editing ends there for the same reason it always did.
+    router.push(MY_PROPERTIES_ROUTE);
     router.refresh();
   }
 

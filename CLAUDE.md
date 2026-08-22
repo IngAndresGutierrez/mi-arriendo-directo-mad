@@ -106,7 +106,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/contrato` | `CONTRACT_ROUTE` | Every rental process the user is part of, on either side. |
 | `/contrato/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | The tenant's reusable dossier. |
-| `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Saving returns here to the list**, not to the listing: the change was a correction, not something new to go and admire. Publishing, which is, ends on the listing. |
+| `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
 | `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
 
