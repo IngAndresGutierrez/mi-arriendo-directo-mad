@@ -187,22 +187,41 @@ export function BackgroundCheckPanel({
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <a
-                    href={source.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                  >
-                    <span className="min-w-0">
-                      <span className="flex items-center gap-1.5 font-medium text-foreground">
-                        {source.name}
-                        <ExternalLinkIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                  {/*
+                    The link is the landlord's tool, not the tenant's. Handing somebody a shortcut
+                    to look up their own record turns a page about their application into an
+                    invitation to go and check themselves — and it is the landlord who has the
+                    authorisation to run the search, not whoever happens to be reading. The tenant
+                    gets the name, what it covers, and the result, which is what concerns them.
+                  */}
+                  {isLandlord ? (
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    >
+                      <span className="min-w-0">
+                        <span className="flex items-center gap-1.5 font-medium text-foreground">
+                          {source.name}
+                          <ExternalLinkIcon
+                            className="size-3.5 text-muted-foreground"
+                            aria-hidden="true"
+                          />
+                        </span>
+                        <span className="block truncate text-xs text-muted-foreground">
+                          {source.what}
+                        </span>
                       </span>
+                    </a>
+                  ) : (
+                    <span className="min-w-0 flex-1">
+                      <span className="block font-medium text-foreground">{source.name}</span>
                       <span className="block truncate text-xs text-muted-foreground">
                         {source.what}
                       </span>
                     </span>
-                  </a>
+                  )}
 
                   <span
                     className={cn(

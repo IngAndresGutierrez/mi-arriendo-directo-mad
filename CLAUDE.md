@@ -240,6 +240,13 @@ it does the honest half: it lists the four sources a Colombian landlord checks, 
 each, and **keeps what was found**. The landlord marks every one "sin hallazgos" or "con
 hallazgos" with a note, and the tenant reads the same list, which is the point of writing it down.
 
+**The portal links are the landlord's**, and only theirs. The tenant sees each source, what it
+covers and its result; handing them a shortcut to look up their own record turns a page about
+their application into an invitation to go and check themselves, and it is the landlord who holds
+the authorisation to run the search. The addresses are the ones the entities serve the query
+from, not the page a search engine offers — the Policía's is `srvcnpc`, and SIMIT needs
+`#/estado-cuenta` or it opens on its home screen.
+
 Two rules there. Nothing may be recorded without the tenant's **express authorisation** (Ley
 1581, dated, given per application) — enforced in the action, not only in the interface. And **a
 finding never blocks the process**: somebody with an unpaid speeding ticket is not somebody who

@@ -8,31 +8,36 @@
  *
  * The result is written down because the alternative is a landlord remembering four searches
  * across several days, and a tenant with no way of knowing where they stand.
+ *
+ * The addresses are the ones the entities actually serve the query from, which is not always the
+ * page a search engine offers: the Policía's is `srvcnpc`, not the landing page, and SIMIT needs
+ * the `#/estado-cuenta` route or it opens on the home screen. A link that lands one click short
+ * is a link somebody has to finish finding.
  */
 export const CHECK_SOURCES = [
   {
     id: "simit",
     name: "SIMIT",
     what: "Multas y comparendos de tránsito",
-    url: "https://www.fcm.org.co/simit/",
+    url: "https://www.fcm.org.co/simit/#/estado-cuenta",
   },
   {
     id: "police",
     name: "Policía Nacional",
     what: "Antecedentes judiciales",
-    url: "https://antecedentes.policia.gov.co/",
+    url: "https://srvcnpc.policia.gov.co/PSC/frm_cnp_consulta.aspx",
   },
   {
     id: "procuraduria",
     name: "Procuraduría",
     what: "Antecedentes disciplinarios",
-    url: "https://www.procuraduria.gov.co/CertWEB/Certificado.aspx",
+    url: "https://www.procuraduria.gov.co/Pages/Consulta-de-Antecedentes.aspx",
   },
   {
     id: "contraloria",
     name: "Contraloría",
     what: "Responsabilidad fiscal",
-    url: "https://www.contraloria.gov.co/web/guest/atencion-al-ciudadano/tramites-servicios/certificado-de-antecedentes-fiscales",
+    url: "https://www.contraloria.gov.co/web/guest/persona-natural",
   },
 ] as const;
 
