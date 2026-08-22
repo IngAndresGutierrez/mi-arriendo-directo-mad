@@ -36,8 +36,8 @@ Three exceptions, and only these:
 Keys are English, labels are Spanish — `GENDER_LABELS` and `STATUS_LABEL` are the pattern:
 `{ female: "Femenino" }`, `{ active: "Vigente" }`.
 
-Domain glossary (the deployed names): `users`, `properties`, `applications`, `contracts`,
-`payments`; `role` with values `tenant` / `landlord` / `admin`; `rent` for the monthly amount,
+Domain glossary (the deployed names): `users`, `properties`, `applications`, `tenantProfiles`,
+`contracts`, `payments`, `notifications`; `role` with values `tenant` / `landlord` / `admin`; `rent` for the monthly amount,
 `status` for state. `scripts/migrate-i18n-domain.mjs` records the rename from the Spanish
 names this project started with.
 
@@ -56,7 +56,11 @@ names this project started with.
   httpOnly `session` cookie.
 - `firestore.rules` / `storage.rules` / `firestore.indexes.json` / `firebase.json`.
 - `app/globals.css` — MAD UI tokens (light + dark, sidebar, charts, domain states).
-- `components.json` — shadcn `radix-nova`. Use `shadcn add`, **never** `shadcn init` again.
+- `components.json` — shadcn `radix-nova`. Use `shadcn add`, **never** `shadcn init` again, and
+  **never pass `--overwrite`**: `add` also rewrites the component's dependencies. Installing the
+  dialog with it rewrote `shared/ui/button.tsx` and silently dropped the `accent` variant and the
+  `xl` size — the brand CTA every form submits with. After any `shadcn add`, read `git diff` and
+  look for files you did not expect; recover one with `git checkout shared/ui/<file>.tsx`.
 - `.env.example` — template; copy to `.env.local` (already created with the public keys).
 - `shared/firebase/public-config.ts` — the Firebase **web** config, hardcoded. Public by
   design: Next inlines every `NEXT_PUBLIC_*` into the browser bundle, so these values ship to
@@ -96,11 +100,34 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: there is a session but no profile yet. |
 | `/inicio` | `HOME_ROUTE` | User portal: greeting, contracts and shortcuts. Destination after signing in. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
+| `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
+| — | — | Publishing requires the **matrícula inmobiliaria**, and it is stored beside the street in `properties/{id}/private/location`, never in the public document: with that number anyone can pull the certificate and read the address off it, so publishing it would publish the address by the back door. Validated loosely — the circle is two or three digits and the separator is written every way — because the only real check is against the registry, which this product does not do. |
+| `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
+| `/postularme/<slug>` | `applyToPropertyRoute(slug)` | Where a tenant applies. Needs a complete profile; redirects to the process if one is already open. |
+| `/arriendos` | `RENTALS_ROUTE` | Every rental the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. It is called "Arriendos" in the menu and titled "Gestión de arriendos". **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
+| `/arriendos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
+| `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
+| `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
+| `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
+| `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
+| `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
 
 - `POST /api/session` exchanges the idToken for an httpOnly session cookie (and requires a
   recent sign-in); **`PATCH` re-mints it** with the current claims after a role change;
   `DELETE` signs out and revokes the refresh tokens.
 - `requireUser()` redirects to `LOGIN_ROUTE`; `requireRole()` to `HOME_ROUTE`.
+- **There are two sessions, not one**, and this is the trap behind "tu sesión expiró" appearing
+  to someone perfectly signed in. The httpOnly cookie (7 days, `SESSION_MAX_AGE_MS`) is what the
+  server reads; the **web SDK keeps its own** in IndexedDB, and that is the one Cloud Storage and
+  the Security Rules check when the browser uploads a photo straight to the bucket. They have
+  different storage and different failure modes — cleared site data, a private window, storage
+  the browser reclaimed — and `auth.currentUser` is also `null` for the first moments after any
+  page load, so reading it directly answers "signed out" to anyone quick enough to click.
+  **Never read `auth.currentUser` to decide whether someone is signed in**: call
+  `ensureClientSession()` (`shared/auth/client.ts`), which waits for the first definite answer
+  and, if it is nobody, rebuilds the client session from the cookie through
+  `POST /api/session/token`. That endpoint mints a custom token for the uid its own cookie
+  names, so it grants nothing the cookie holder did not already have.
 - **`requireCompleteProfile()` is the guard for every product screen**: it requires a session
   and a profile. It lives in `features/profile` (import it from `@/features/profile`), not in
   `shared/auth`: "does this user have a profile?" is a question of the profile domain. The
@@ -111,8 +138,39 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 - The login and signup layout is `shared/shell/auth-shell.tsx`. Its side panel uses the
   `panel-marca` token (purple in both themes), never `bg-primary`.
 - The email from signup step 1 lives in component state, **never in the URL**.
+- **A property's URL is its slug alone** — `/inmuebles/apartaestudio-en-los-alcazares-manizales`,
+  with no id appended: these links get pasted into WhatsApp and Facebook groups, where a random
+  code at the end reads as unsafe to click. Uniqueness comes from `propertySlugs/{slug}`, whose
+  document id *is* the slug, so a page resolves with one `get` and two landlords cannot claim the
+  same URL. Older shapes (`<slug>-<id>` and a bare `<id>`) are permanently redirected, so links
+  already shared keep working.
 
 Links with no route yet (they 404): `/recuperar`, `/terminos`, `/privacidad`.
+
+**On a wide screen the catalog is a fixed frame and only the list scrolls.** From `lg` the public
+chrome is `fixed inset-0` and `main` owns the overflow; the results column keeps its own
+`overflow-y-auto` so the heading, the facets and the pager stay put — a filter you cannot see is
+a filter you forget you applied. `h-svh` alone was not enough: the document still scrolled the
+header out of view by its own height. Below `lg` the page scrolls as a page, because an inner
+scroller on a phone fights the address bar and pull-to-refresh, and there the facets are behind a
+button anyway. `CATALOG_PAGE_SIZE` is **6**.
+
+**The catalog filters, counts, sorts and paginates in memory**, over one query capped by
+`CATALOG_MAX_SCAN`. That is deliberate: faceted search needs a count per option computed against
+the *other* filters, and Firestore cannot answer that without one composite index per
+combination of facets — an unbounded set. It stops being the right shape somewhere in the low
+thousands; what it wants then is a search index or a maintained counter per facet, not a bigger
+cap. `features/property/domain/catalog.ts` holds all of it, pure and unit-tested.
+
+Two rules that are easy to break there. A facet is **never counted against itself**: with
+"Apartamento" selected, the number beside "Casa" is what you would get by switching, or every
+unselected option reads zero and the filter looks broken. And an option that is **selected is
+never hidden**, even at zero — two filters can contradict each other, and hiding the checkbox
+would leave a filter applied with no way to switch it off.
+
+The URL is the catalog's only state, so `parseCatalogFilters` and `catalogQuery` are inverses of
+each other and a shared link always reproduces what was on screen. Only the city is canonical
+for search engines: the facets and the page number are ways of looking at the same catalog.
 The `users/{uid}` document and the `role` claim are created during onboarding, not at signup:
 the rules require `fullName` and the signup design does not ask for it.
 
@@ -149,7 +207,9 @@ risk of leaving a field unconnected.
 
 | Component | For |
 | --- | --- |
-| `shared/form/text-field.tsx` | `TextField`: label + input + error + `aria-invalid`/`aria-describedby`. Takes `{...register("field")}` directly. |
+| `shared/form/text-field.tsx` | `TextField`: label + input + error + `aria-invalid`/`aria-describedby`. Takes `{...register("field")}` directly. `hint` is permanent text below the field; `hintTooltip` is the same sentence behind an icon beside the label — for what a field *is* rather than what it needs. |
+| `shared/form/field-hint.tsx` | `FieldHint`: that icon. Opens on hover, on focus **and on click** (Radix tooltips do not open on touch), closes on a tap outside, and renders the sentence `sr-only` as well so the field stays described for a screen reader. |
+| `shared/shell/account-menu.tsx` | `AccountMenu`: on the public header, who you are signed in as. It shows the initial of the **email** (the session cookie carries it; reading the profile would add a Firestore round trip to the catalog) and holds "Mi portal", "Mi perfil" and "Cerrar sesión". Without a session the header offers "Iniciar sesión" instead — showing that to somebody already signed in read as a session that had expired. |
 | `shared/form/form-alert.tsx` | `FormAlert`: form-level error with `role="alert"`. |
 | `features/auth/ui/google-button.tsx` | `GoogleButton`: Google sign-in, with spinner. |
 | `features/auth/ui/or-divider.tsx` | `OrDivider`: the "or" divider. |
@@ -158,10 +218,21 @@ risk of leaving a field unconnected.
 | `shared/shell/auth-shell.tsx` | `AuthShell`: two-column layout for login and signup. |
 | `shared/brand/logo.tsx` | `Logo`: the only place with the PNG's dimensions. |
 | `shared/form/select-field.tsx` | `SelectField`: select with label, error and ARIA. Controlled with `Controller`. |
-| `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. |
-| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the product's sidebar. **It is a Client Component**: it passes icon components to `NavItem` and uses `usePathname`. |
-| `shared/ui/nav-item.tsx` | `NavItem`: without `href` it renders disabled with a "coming soon" tooltip. |
+| `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. Its ids are generated: two can share a page (yours and your reference's), and with fixed ids `label for=` resolves to the first, so typing in one filled the other. |
+| `shared/shell/app-shell.tsx` | `AppShell`: the frame of every product screen — menu and content. A page brings only its heading and its body. |
+| `shared/shell/app-nav.tsx` | `AppNav`: the `NAV` list itself, shared by the two surfaces that show it. **It is a Client Component**: it passes icon components to `NavItem`. |
+| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the menu always visible from `lg` up, narrow by default, widened with the arrow. |
+| `shared/shell/sidebar-state.ts` | The cookie that remembers that width. Read on the server so the first paint is already right. |
+| `shared/shell/app-drawer.tsx` | `AppDrawer`: below `lg`, the bar with the hamburger plus the same menu in a drawer. Owns the open state. |
+| `shared/ui/nav-item.tsx` | `NavItem`: a menu entry. Without `href` it renders disabled with a "Pronto" badge. `activeOn` marks the section on routes that do not hang off its path; `shortLabel` is what the narrow rail shows instead of a name too long to sit under an icon. |
 | `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: wraps mocked-up UI whose function does not exist yet. |
+
+## Where someone lives
+The **city depends on its department**, in the profile as in the property form: two selects, the
+second offering the municipalities of the first (`shared/geo/municipalities.ts` — the 1.122 from
+DANE, generated, so no small town is missing) and cleared when the department changes. The pair is
+validated together (`superRefine` on the address), because free text let "Manizales, Antioquia"
+through: a pair that does not exist.
 
 ## Phone numbers
 - Stored in **E.164** (`phone: "+573001234567"`) plus the country ISO (`phoneCountry: "CO"`).
@@ -174,14 +245,240 @@ risk of leaving a field unconnected.
 - The form revalidates the number when the country changes; without that, the previous
   country's error stays on screen.
 
-## Sections not built yet
-The sidebar shows Soporte, Contrato, Facturación and Ajustes **disabled**, with a "coming
-soon" tooltip, instead of linking to a 404. To activate one: create the route and add its
-`href` to the `NAV` array in `shared/shell/app-sidebar.tsx`.
+## The rental process (`features/application`)
 
-The support card and the catalog card are mocked up inside `ComingSoonCard`: they are visible
-but not interactive. The support card deliberately **carries no photo of a person** — a stock
+Nine stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
+nothing advances by itself, because each of these is a decision someone makes off the platform
+and then records here. `submitted → tenant_data → background_check → interview → guarantee → approved →
+contract_signature → first_payment → active`.
+
+There is no separate "revisión de documentos" stage: reviewing them **is** stage two, where each
+one is approved or rejected. A stage repeating what the previous one settled is a stage everybody
+clicks through without reading.
+
+**`tenant_data` is built.** The tenant uploads the documents their occupation calls for and both
+sides see them previewed; the landlord approves or rejects each one, with a reason on a
+rejection. `background_check` cannot query anything — SIMIT, the RUNT and the Policía have no open API — so
+it does the honest half: it lists the four sources a Colombian landlord checks, links straight to
+each, and **keeps what was found**. The landlord marks every one "sin hallazgos" or "con
+hallazgos" with a note, and the tenant reads the same list, which is the point of writing it down.
+
+**The portal links are the landlord's**, and only theirs. The tenant sees each source, what it
+covers and its result; handing them a shortcut to look up their own record turns a page about
+their application into an invitation to go and check themselves, and it is the landlord who holds
+the authorisation to run the search. The addresses are the ones the entities serve the query
+from, not the page a search engine offers — the Policía's is `srvcnpc`, and SIMIT needs
+`#/estado-cuenta` or it opens on its home screen.
+
+Two rules there. Nothing may be recorded without the tenant's **express authorisation** (Ley
+1581, dated, given per application) — enforced in the action, not only in the interface. And **a
+finding never blocks the process**: somebody with an unpaid speeding ticket is not somebody who
+will not pay rent, and that decision is the landlord's. What blocks is not having looked. A
+finding *is* notified, with its note; a clean result is not — four "no encontré nada" would make
+the bell useless on the day it matters.
+
+**A finished stage keeps its panel**, folded shut and without its buttons. Looking up what was
+uploaded three stages ago is a normal thing to want, and a process that hides what was agreed the
+moment it moves on is a record nobody can audit. The buttons go because a control that no longer
+changes anything is the same lie as a "Continuar" that does not continue — `readOnly` on each
+panel, decided by the page, which is the only place that knows which stage the process is on.
+
+**Every panel starts folded, and a change of stage folds them all.** The header carries the
+state — "5 de 5 subidos", "2 de 4 consultadas" — so what a click reveals is the controls, not the
+news; nine stages each unfolding on their own would be a page nobody can see the shape of.
+`resetOn` carries the current stage, so moving forward leaves the timeline collapsed instead of
+growing a section at a time.
+
+**A stage's work lives inside the stage.** `StageTimeline` takes a `work` map and folds each
+entry into its own card as a `StagePanel` — a chevron that rotates, open by default because the
+panel only renders on the stage being worked on and hiding the one thing there is to do behind a
+click is a click for nothing. It is passed in rather than imported: the documents belong to the
+tenant profile module and the timeline should not have to know that. Before this the panel sat in
+a section of its own above the timeline, which is why it needed a link pointing at it — and why
+the page rendered its heading twice, once from each side.
+
+**The advance button is gated at `tenant_data`.** `documentsBlocker()` answers *why* in one of
+three ways — something missing, something rejected, something unreviewed — and the button says
+it: `aria-disabled` (so the tooltip stays reachable, unlike `disabled`, which drops out of the
+tab order and stops firing hover), the sentence in the page, and a **"Ver qué falta"** button
+that scrolls to the stage's card and outlines it for three seconds. The blocked button itself does
+nothing on click: a control announced as unavailable that turns out to act is its own kind of
+lie, and Playwright refuses to click it for the same reason a screen reader would not offer it.
+
+Two details worth keeping: the identity document is accepted **either as one file with both
+faces or as two photos** — a scanner gives you the first, a phone the second, and demanding the
+second from someone holding the first is asking them to split a PDF. And the landlord's verdicts
+live **on the application**, never on the document: a payslip approved by one landlord is not
+approved for the next, and a verdict written onto the tenant's profile would follow them
+everywhere.
+
+**There is no deposit stage, and there must never be one.** Ley 820 de 2003 forbids cash
+deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
+is what stands in for it, and a test asserts the word never comes back.
+
+Six of the nine are `UNBUILT_STAGES`: visible, described, with no interface of their own yet.
+They are shown rather than hidden because a tenant needs to know what is coming, and the screen
+says out loud that those happen off the platform for now.
+
+- **Both sides read the same screen**, so the stage copy exists twice: `STAGE_DESCRIPTIONS` for
+  the tenant, `STAGE_DESCRIPTIONS_LANDLORD` for the landlord. The sentence that tells the tenant
+  to wait for a call is the sentence that tells the landlord to make it.
+- **A rejection is final; a withdrawal is not.** Once a landlord says no, the listing stops
+  offering the form — the first version offered it and refused on submit, which read like a
+  broken button. Someone who withdrew *can* apply again: they stopped it themselves, and locking
+  them out for changing their mind would punish them for using the button we gave them.
+- **Closing keeps the stage.** "Rechazada en la entrevista" and "rechazada al recibirla" are
+  different things to have happened. The landlord may reject at any stage with an optional
+  reason the tenant reads; the tenant may withdraw. Neither can do the other's action.
+- **The client never writes an application.** The stage machine cannot be expressed in
+  `firestore.rules`, so every mutation is a Server Action and the rules deny all writes.
+- **What signup asked for is shown here.** Filling in a name at signup and never seeing it
+  again reads as data that got lost — the data was being used all along (the greeting, the
+  applicant's name, every email) and simply had no screen. `AccountFields` is the same block on
+  both forms, so the two cannot drift; `updateProfile` never touches the email (it comes from
+  the verified session), the role (a custom claim) or `termsAcceptedAt` (which would become a
+  lie if it moved every time a name is corrected).
+- **The dossier is stored twice on purpose**: in `tenantProfiles/{uid}`, so the next application
+  starts filled in, and as a **snapshot inside the application**, so the landlord sees what was
+  declared to them and a later edit cannot rewrite it. `tenantProfiles` is readable by its owner
+  alone — not by a landlord with an open application — and is never listable.
+
+## Notifications and email (`features/notification`)
+
+Every movement of a process tells the person who did **not** cause it, twice: the bell in the
+top bar, and an email. Both use the same copy, derived from the notification's `type` rather
+than stored with it, so fixing a confusing sentence fixes the ones already sent.
+
+The email carries what the bell cannot: an **absolute link straight to the stage**,
+`/arriendos/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
+the step it is about instead of at the top of a page with nine of them.
+
+**Email goes out through Resend**, over its REST API — no SDK, because sending is a `POST` with
+five fields. `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN` come from the Vercel integration; the
+`from` domain is derived from the second one rather than written by hand, because Resend answers
+**403** when it does not match a verified domain and nothing errors until a real email fails to
+leave. Without a key nothing breaks: the email is logged and the action carries on, which is
+what lets the flow be exercised locally without mailing anyone.
+
+The links are absolute and built from **the request's own origin** (`shared/lib/site-url.ts`),
+so an email produced on localhost links to localhost and one produced in production links to
+production, without anyone remembering to set a variable — a preview links to itself. The `Host`
+header is written by the caller, so it is checked against the hosts this product answers on:
+without that, anyone reaching the server could have it email *its own users* a button pointing
+at a domain they chose, from the domain those users trust. `NEXT_PUBLIC_SITE_URL` overrides it
+all when something outside the request needs to decide, like a tunnel.
+
+It is sent inside **`after()`**, so the person who clicked is not waiting on three network calls
+for somebody else to find out. Only a **429** is retried: it is the one response that refused the
+request without sending anything, so repeating it cannot duplicate an email — which is also why
+no idempotency key is needed.
+
+- **A rejected file occupies no slot.** `acceptable()` drops it before counting, because three
+payslips with one rejected read as "Completo" with the upload disabled — so replacing it, the
+only thing left to do, became the one thing the screen would not allow. On the tenant's side the
+whole line turns red and says what to do; the verdict beside the thumbnail is just the word.
+
+**Each row owns its own pending state**, in the review panel as in the uploader. One boolean
+from `useTransition` froze every button in the panel while a single verdict saved, which for five
+documents is five waits with the list unusable.
+
+**A rejected document is told; an approved one is not.** The tenant has to act on a rejection
+  and the reason is the only thing that says how; one approval out of five is a status change
+  nobody needs interrupting for, and the last one moves the stage, which announces itself.
+- **`notify()` never throws.** It runs after the work that matters is already written, and a
+  failed notification must not undo an application or show an error about work that succeeded.
+- **`listNotifications()` never throws either.** It is read by the layout that wraps every
+  screen behind a session — the first version took the whole product down when its composite
+  index was still building.
+- `notifications` are readable only by their recipient, and a `list` is denied unless it is
+  bounded *and* filtered: rules evaluate `list` per candidate document, and `request.query`
+  exposes only `limit`, `offset` and `orderBy` — there is no way to inspect a query's filters.
+- Marking as read is a Server Action scoped to the session's uid. `readAt` is the one field a
+  client could plausibly own, and it still does not.
+
+`miarriendodirecto.com` is already verified in that Resend account (SPF/DKIM), and it is the
+same domain the links point at — a message about a rental arriving from another domain reads as
+phishing, correctly.
+
+## Live updates
+
+Both sides of a process are often on the same screen at once — one uploading, the other
+approving — so the screen updates itself. `shared/lib/use-live-refresh.ts` subscribes to one
+document with the web SDK and, when it changes, calls `router.refresh()`.
+
+**The snapshot is a signal, not the data.** What is on screen comes from the server, and some of
+it only the server can produce: a signed URL for a private file, a document collection the reader
+is not allowed to query, an email address. Rendering from the snapshot would mean weakening those
+rules or keeping two versions of every screen, so the subscription reads one field —
+`updatedAt` — and the server render stays the single source of truth.
+
+- The **process page** watches its application document, which is the one thing both parties may
+  read and which every action here touches.
+- The **bell** watches the caller's own notifications, which the rules already allow, and ignores
+  its own first callback and its own pending writes.
+- A tenant's documents live where a landlord cannot read them, so uploading calls
+  `touchApplicationDocuments()` — one timestamp on the application — and that is what turns "a
+  file arrived" into a live update on the other screen.
+- Both hooks fail quietly: a denied or dropped subscription logs and stops updating. No live
+  updates is a lesser problem than a broken screen.
+- **`networkidle` no longer happens.** A Firestore subscription keeps a connection open, so any
+  test or script waiting for the network to go quiet waits forever. Wait for `domcontentloaded`
+  and then for the thing you actually mean.
+
+## Client-safe module entries
+
+A feature's `index.ts` re-exports its data layer, which is `server-only`. A Client Component
+that imports it fails the build — the guard working as intended — so a module whose UI needs its
+own domain also exposes **`client.ts`**: the pure half. `@/features/<domain>/client` is a public
+entry, allowed by eslint and dependency-cruiser alongside the index; anything deeper is still a
+violation.
+
+## Sections not built yet
+The menu shows Facturación and Ajustes **disabled**, with a "Pronto"
+badge, instead of linking to a 404. To activate one: create the route and add its `href` to
+the `NAV` array in `shared/shell/app-nav.tsx` — the one list both surfaces render, so the
+sidebar and the drawer cannot disagree about what the product contains.
+
+**The menu has two shapes and one content.** From `lg` up it is a fixed sidebar, always
+visible: a wide screen has the room, and hiding the sections behind a click there costs one on
+every navigation and buys nothing. It starts narrow (icon over label) and the arrow widens it
+to the full labels; the choice is remembered in the `sidebar` cookie, **read on the server** in
+`AppShell` so the width is right on the first paint instead of jumping open after hydration.
+Below `lg` it is a drawer behind the hamburger, always expanded, because a permanent menu on a
+phone would leave nothing for the property form.
+
+Collapsed there is no room for the "Pronto" badge, so a disabled entry falls back to the
+tooltip. A hover-only explanation is a poor one — that is why it is the fallback and not the
+rule.
+
+There is **no "Publicar" entry in the menu**: publishing is something you do to your
+properties, not a separate place. The action lives on `/mis-inmuebles`, next to the list it
+adds to, and the drawer keeps "Mis inmuebles" marked as the current section while the form is
+open (`activeOn`).
+
+The support card is real: WhatsApp and email, from `shared/lib/support-contact.ts`
+(`SUPPORT_WHATSAPP_E164`, `SUPPORT_EMAIL`) so the number and the address change in one place.
+WhatsApp goes first because it is where this conversation actually happens here; the `wa.me`
+draft is short enough to send unedited, and both the draft and the mail subject are
+percent-encoded or the first accent truncates the parameter. The catalog
+card is a real link now that `/inmuebles` exists. The support card deliberately **carries no photo of a person** — a stock
 image presented as "our team" would claim something false.
+
+**The email action is not the same action on every device**, and the deciding question is the
+pointer, not the width. `mailto:` only opens something when the operating system has a mail
+client registered, and somebody who reads their mail on gmail.com in a browser has never
+registered one — the click opens nothing and reads as a broken button. So `pointer: coarse` (a
+finger) gets "Enviar un correo" with `mailto:`, and `pointer: fine` (a mouse) gets "Copiar
+correo", which works on every desktop there is. A width breakpoint would get a phone held in
+landscape wrong. Both buttons are rendered and one is hidden in **CSS**, not chosen in
+JavaScript: the media query is answered before hydration, so nothing flashes, and `display:
+none` also drops the hidden one out of the accessibility tree — a screen reader is offered
+exactly one email action. The clipboard can still refuse (insecure origin, withheld
+permission), and then the address itself appears under the button instead of a silent failure.
+
+The buttons live in `shared/shell/support-actions.tsx` and are rendered by **both** the card on
+`/inicio` and the `/soporte` page, so the two surfaces cannot drift. Only the copy button is a
+Client Component; everything else there is a plain link.
 
 ## Verification commands
 ```bash
@@ -226,5 +523,10 @@ collection, add its access-denied test too.
    payments are not listable by the client.
 5. **Sensitive data is never cached in a shared scope** (`"use cache"` without a per-uid tag),
    never stored in `localStorage`, never carried in `searchParams`, never logged.
+   **Every `<form>` carries `method="post"`**, even the ones JavaScript submits: before the page
+   hydrates there is no handler to prevent the default, and a form with no method is sent as a
+   GET — the password in the URL, and from there in the browser history and the server logs.
+   Next serves a POST to a page route as a normal render, so the fallback is the form again,
+   empty, with nothing leaked.
 6. **Any rules change is tested against the emulator** (`firebase emulators:exec`), negative
    case included, before `firebase deploy`.

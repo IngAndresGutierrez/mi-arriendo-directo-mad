@@ -74,7 +74,18 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
       <OrDivider />
 
-      <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4">
+      {/*
+        `method="post"` even though JavaScript handles the submit. Until the page hydrates
+        there is no handler to prevent the default, and a form with no method is submitted as
+        a GET: the password ends up in the URL, and from there in the browser history and the
+        server logs. A POST cannot put it there.
+      */}
+      <form
+        method="post"
+        onSubmit={handleSubmit(onSubmit)}
+        noValidate
+        className="space-y-4"
+      >
         {formError ? <FormAlert>{formError}</FormAlert> : null}
 
         <TextField

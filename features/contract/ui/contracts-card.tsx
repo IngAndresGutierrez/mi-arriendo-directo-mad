@@ -1,12 +1,8 @@
 import { FileTextIcon } from "lucide-react";
 
-import type { ContractSummary } from "../data/contracts";
+import { formatCOP } from "@/shared/format/money";
 
-const CURRENCY = new Intl.NumberFormat("es-CO", {
-  style: "currency",
-  currency: "COP",
-  maximumFractionDigits: 0,
-});
+import type { ContractSummary } from "../data/contracts";
 
 // Keys in English (they are stored values); labels in es-CO (they are copy).
 const STATUS_LABEL: Readonly<Record<string, string>> = {
@@ -52,7 +48,7 @@ export function ContractsCard({ contracts }: { contracts: readonly ContractSumma
                 {STATUS_LABEL[contract.status] ?? contract.status}
               </p>
               <p className="text-sm text-muted-foreground">
-                Canon {CURRENCY.format(contract.rent)}
+                Canon {formatCOP(contract.rent)}
               </p>
             </div>
           </li>

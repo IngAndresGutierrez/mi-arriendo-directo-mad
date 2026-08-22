@@ -1,68 +1,98 @@
 "use client";
 
-// Client, not server: it passes lucide icons to `NavItem` as *components*, and a function
-// cannot cross the Server → Client boundary. The menu also needs `usePathname` to mark the
-// active section, so it is interactive anyway.
+import { useState } from "react";
 import Image from "next/image";
-import {
-  CreditCardIcon,
-  FileTextIcon,
-  HouseIcon,
-  LifeBuoyIcon,
-  SettingsIcon,
-} from "lucide-react";
+import Link from "next/link";
+import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 
-import { NavItem, type NavEntry } from "@/shared/ui/nav-item";
 import { HOME_ROUTE } from "@/shared/auth/routes";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
+import { cn } from "@/shared/lib/utils";
 
-import { SignOutButton } from "./sign-out-button";
+import { AppNav } from "./app-nav";
+import {
+  SIDEBAR_COOKIE,
+  SIDEBAR_COOKIE_MAX_AGE,
+  sidebarCookieValue,
+} from "./sidebar-state";
 
 /**
- * Product sections. The ones without an `href` do not exist yet: they render disabled with
- * a "coming soon" tooltip instead of linking to a 404.
+ * The menu, always visible from `lg` up, in one of two widths.
+ *
+ * It starts narrow — icon over label, which is enough to navigate by — and opens to the full
+ * labels when asked. The choice sticks, because a menu that reverts to something you did not
+ * pick is a menu you have to fix on every visit. It is stored in a cookie so the server sends
+ * the width it already knows about instead of the page jumping open after hydration.
+ *
+ * Below `lg` this is not rendered and `AppDrawer` takes over.
  */
-const NAV: readonly NavEntry[] = [
-  { label: "Inicio", icon: HouseIcon, href: HOME_ROUTE },
-  { label: "Soporte", icon: LifeBuoyIcon },
-  { label: "Contrato", icon: FileTextIcon },
-  { label: "Facturación", icon: CreditCardIcon },
-  { label: "Ajustes", icon: SettingsIcon },
-];
+export function AppSidebar({ defaultCollapsed }: { readonly defaultCollapsed: boolean }) {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
-export function AppSidebar() {
+  function toggle() {
+    const next = !collapsed;
+    setCollapsed(next);
+    document.cookie = `${SIDEBAR_COOKIE}=${sidebarCookieValue(next)}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}; samesite=lax`;
+  }
+
+  const Icon = collapsed ? PanelLeftOpenIcon : PanelLeftCloseIcon;
+  const label = collapsed ? "Expandir menú" : "Contraer menú";
+
   return (
-    <nav
-      aria-label="Navegación principal"
-      className="flex w-20 shrink-0 flex-col items-center gap-1 bg-brand-panel px-2 py-4"
+    <div
+      data-slot="app-sidebar"
+      data-state={collapsed ? "collapsed" : "expanded"}
+      className={cn(
+        "sticky top-0 hidden h-svh shrink-0 flex-col bg-brand-panel text-brand-panel-foreground transition-[width] duration-200 lg:flex",
+        collapsed ? "w-24" : "w-64",
+      )}
     >
-      {/*
-        Icon mark: the full logo does not fit in 80px. It sits on a light chip because its
-        strokes are purple and would vanish against the panel's purple background. Until a
-        reversed version of the logo exists, this is how it stays legible.
-      */}
-      <span className="mb-4 flex size-11 items-center justify-center rounded-xl bg-brand-panel-foreground">
-        <Image
-          src="/isotipo.png"
-          alt="miarriendoDIRECTO.com"
-          width={1254}
-          height={1254}
-          priority
-          sizes="32px"
-          className="h-auto w-8"
-        />
-      </span>
+      <div
+        className={cn(
+          "flex items-center gap-2 px-3 py-4",
+          collapsed ? "flex-col" : "justify-between",
+        )}
+      >
+        <Link
+          href={HOME_ROUTE}
+          aria-label="Ir al inicio"
+          className="flex shrink-0 items-center rounded-xl focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
+        >
+          {/*
+            The wordmark is purple on transparent and would vanish against the panel, so on
+            this surface the brand is the icon mark on a light chip. Until a reversed logo
+            exists, this is how it stays legible.
+          */}
+          <span className="flex size-11 items-center justify-center rounded-xl bg-brand-panel-foreground">
+            <Image
+              src="/isotipo.png"
+              alt="miarriendoDIRECTO.com"
+              width={1254}
+              height={1254}
+              preload
+              sizes="32px"
+              className="h-auto w-8"
+            />
+          </span>
+        </Link>
 
-      <ul className="flex w-full flex-col gap-1">
-        {NAV.map((entry) => (
-          <li key={entry.label}>
-            <NavItem {...entry} />
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-auto w-full pt-4">
-        <SignOutButton />
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={toggle}
+              aria-label={label}
+              aria-expanded={!collapsed}
+              className="rounded-lg p-2 text-brand-panel-muted transition-colors hover:bg-white/5 hover:text-brand-panel-foreground focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
+            >
+              <Icon className="size-5" aria-hidden="true" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right">{label}</TooltipContent>
+        </Tooltip>
       </div>
-    </nav>
+
+      <AppNav collapsed={collapsed} />
+    </div>
   );
 }

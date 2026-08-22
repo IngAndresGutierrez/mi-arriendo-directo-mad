@@ -16,8 +16,17 @@ import { HOME_ROUTE, LOGIN_ROUTE } from "@/shared/auth/routes";
 import { adminAuth } from "@/shared/firebase/admin";
 
 export const SESSION_COOKIE = "session";
-/** 5 days, the sensible maximum for a Firebase session cookie. */
-export const SESSION_MAX_AGE_MS = 60 * 60 * 24 * 5 * 1000;
+/**
+ * Seven days. Firebase allows up to fourteen for a session cookie; seven is a week, which is
+ * the unit a person actually thinks in — signing in on Monday and still being signed in the
+ * following Monday morning.
+ *
+ * It is not the whole story of "am I still signed in", and that is worth knowing before
+ * changing it: the web SDK keeps a session of its own, with its own storage and its own
+ * lifetime, and that is the one Cloud Storage checks when the browser uploads a photo. When
+ * they disagree, `ensureClientSession()` rebuilds the client's from this one.
+ */
+export const SESSION_MAX_AGE_MS = 60 * 60 * 24 * 7 * 1000;
 
 export type UserRole = "tenant" | "landlord" | "admin";
 

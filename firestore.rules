@@ -116,16 +116,17 @@ service cloud.firestore {
     match /properties/{propertyId} {
       // Public catalog: published listings only; the owner and admins see all of theirs.
       //
-      // CAREFUL: an unfiltered `list` is ALWAYS denied (even on an empty collection),
-      // because the rule must be verifiable from the query itself. The public catalog
-      // MUST always query with where("status", "==", "available").
+      // CAREFUL: an unfiltered `list` is ALWAYS denied (even on an empty collection), because
+      // the rule must be verifiable from the query itself. The public catalog MUST always
+      // query with where("status", "==", "available").
       allow get, list: if current().status == 'available'
                        || isPropertyOwner()
                        || isAdmin();
 
       allow create: if isLandlord()
                     && incoming().landlordUid == uid()
-                    && validProperty();
+                    && validProperty()
+                    && incoming().status in ['draft', 'available'];
       allow update: if (isPropertyOwner() && validProperty()
                         && unchanged(['landlordUid', 'createdAt']))
                     || isAdmin();
@@ -136,61 +137,146 @@ service cloud.firestore {
       }
       function validProperty() {
         return incoming().title is string
-            && incoming().title.size() >= 5
+            && incoming().title.size() >= 10
             && incoming().title.size() <= 140
+            && incoming().description is string
+            && incoming().description.size() <= 2000
             && incoming().type in ['apartment', 'house', 'studio', 'retail', 'office']
             && incoming().status in ['draft', 'available', 'rented', 'inactive']
             // money: integer pesos, never a float
             && incoming().rent is int
             && incoming().rent > 0
-            && incoming().rent <= 1000000000
-            && incoming().address.city is string
-            && incoming().address.city.size() <= 80
-            && incoming().areaM2 is number
+            && incoming().rent <= 100000000
+            && incoming().adminFee is int
+            && incoming().adminFee >= 0
+            && incoming().minLeaseMonths in [6, 12]
+            && incoming().stratum is int
+            && incoming().stratum >= 1
+            && incoming().stratum <= 6
+            && incoming().areaM2 is int
             && incoming().areaM2 > 0
             && incoming().bedrooms is int
-            && incoming().bathrooms is int;
+            && incoming().bathrooms is int
+            && incoming().bathrooms >= 1
+            && incoming().parking in ['private', 'communal', 'none']
+            && incoming().furnished is bool
+            && incoming().petsAllowed is bool
+            // the public document carries the neighbourhood, NEVER the street
+            && incoming().area.neighborhood is string
+            && incoming().area.neighborhood.size() <= 80
+            && incoming().area.city is string
+            && incoming().area.city.size() <= 80
+            && incoming().area.department is string
+            && incoming().area.department.size() <= 40
+            && !('line' in incoming().area)
+            && !('address' in incoming())
+            && incoming().slug is string
+            && incoming().slug.size() > 0
+            && incoming().slug.size() <= 80
+            && incoming().photos is list
+            && incoming().photos.size() >= 1
+            && incoming().photos.size() <= 20;
+      }
+
+      // The exact street address. It lives apart because Security Rules cannot hide a field:
+      // granting `get` on the property hands over every key in it, and the catalog is public.
+      // Only the owner and admins read it; the backend writes it with the Admin SDK.
+      match /private/{documentId} {
+        // `isPropertyOwner()` cannot be reused here: inside this match `resource` is the
+        // private document, which has no landlordUid. The owner has to be read from the
+        // parent. Parentheses are not optional: `&&` binds tighter than `||`.
+        allow get, list: if isAdmin()
+                         || (isSignedIn()
+                             && get(/databases/$(database)/documents/properties/$(propertyId))
+                                  .data.landlordUid == uid());
+        allow create, update, delete: if false;
       }
     }
 
+    // ------------------------------ slug index ------------------------------
+    // `propertySlugs/{slug}` maps a URL to a property id. The document id is the slug, so
+    // uniqueness is existence and a page resolves with one `get`. Only the backend touches it:
+    // letting a client write here would let anyone squat or hijack another listing's URL, and
+    // letting one read it would hand over a full list of every slug in the product.
+    match /propertySlugs/{slug} {
+      allow read, write: if false;
+    }
+
     // ----------------------------- applications -----------------------------
-    // Visible ONLY to the tenant who created it and to the property's landlord.
+    // A rental process: nine stages the landlord moves it through. Visible ONLY to the tenant
+    // who created it and to the property's landlord.
+    //
+    // Every write goes through a Server Action with the Admin SDK, which bypasses these rules,
+    // so the client cannot write here at all. That is not belt-and-braces: the stage machine
+    // has rules a `firestore.rules` file cannot express — only one stage forward, only while
+    // open, only by the landlord — and a rule that half-enforces them would be a rule someone
+    // trusts.
     match /applications/{applicationId} {
       allow get:  if isApplicationTenant() || isApplicationLandlord() || isAdmin();
-      // Bounded `list`: the client cannot sweep the whole collection
+      // Bounded `list`: the client cannot sweep the whole collection.
       allow list: if isAdmin()
                   || (isSignedIn()
                       && request.query.limit <= 50
                       && (isApplicationTenant() || isApplicationLandlord()));
 
-      allow create: if isSignedIn()
-                    && incoming().tenantUid == uid()
-                    && incoming().status == 'pending'   // nobody approves their own
-                    && incoming().propertyId is string
-                    && exists(/databases/$(database)/documents/properties/$(incoming().propertyId))
-                    // the owner is denormalized to avoid spending a get() in every rule
-                    && incoming().landlordUid ==
-                       get(/databases/$(database)/documents/properties/$(incoming().propertyId))
-                         .data.landlordUid;
-
-      // the tenant may only withdraw; approving/rejecting belongs to the landlord
-      allow update: if (isApplicationTenant()
-                        && onlyChanged(['status', 'updatedAt'])
-                        && incoming().status == 'withdrawn'
-                        && current().status == 'pending')
-                    || (isApplicationLandlord()
-                        && onlyChanged(['status', 'notes', 'updatedAt'])
-                        && incoming().status in ['approved', 'rejected']
-                        && current().status == 'pending')
-                    || isAdmin();
-
-      allow delete: if isAdmin();
+      allow create, update, delete: if false;   // Server Actions only
 
       function isApplicationTenant() {
         return isSignedIn() && current().tenantUid == uid();
       }
       function isApplicationLandlord() {
         return isSignedIn() && current().landlordUid == uid();
+      }
+    }
+
+    // ----------------------------- notifications ----------------------------
+    // What the bell shows. Each one belongs to exactly one person.
+    //
+    // Written only by the server, and marked read only by the server too: `readAt` is the one
+    // field a client could plausibly own, and letting it write would mean letting it write to a
+    // document it does not otherwise touch. The Server Action scopes the update to the caller's
+    // own uid, which no rule here could check as precisely.
+    match /notifications/{notificationId} {
+      allow get:  if isSignedIn() && current().recipientUid == uid();
+      /*
+       * Bounded, and only over one's own. A `list` is evaluated per candidate document, so
+       * `recipientUid == uid()` is what forces the query to be filtered: an unfiltered sweep
+       * hits somebody else's notification and the whole read is denied.
+       *
+       * There is no way to inspect a query's filters from here — `request.query` carries only
+       * `limit`, `offset` and `orderBy` — and a rule written as if there were is a rule that
+       * denies everything.
+       */
+      allow list: if isSignedIn()
+                  && request.query.limit <= 50
+                  && current().recipientUid == uid();
+      allow create, update, delete: if false;   // Server Actions only
+    }
+
+    // ---------------------------- tenantProfiles ----------------------------
+    // The tenant's rental dossier: identity document, income, personal reference. The most
+    // sensitive document in the product.
+    //
+    // Its owner may read it. Nobody else can, not even a landlord with an open application:
+    // what a landlord sees is the **snapshot** frozen inside that application, which is what
+    // was declared to them. Editing the profile afterwards cannot rewrite what they were told,
+    // and a landlord cannot follow it to whatever the tenant declares to someone else.
+    //
+    // `list` is denied outright: a query over this collection is a list of everyone's income.
+    match /tenantProfiles/{userId} {
+      allow get:  if isOwner(userId) || isAdmin();
+      allow list: if false;
+      allow create, update, delete: if false;   // Server Actions only
+
+      // The papers themselves live in Cloud Storage; this is only what was uploaded and when.
+      // Same reading as the profile: its owner, and nobody else. A landlord reviewing an
+      // application is served time-limited signed URLs by the server, which is what lets the
+      // bucket stay private — a landlord who saw this collection could follow it after the
+      // process ended, or to documents uploaded for somebody else entirely.
+      match /documents/{documentId} {
+        allow get:  if isOwner(userId) || isAdmin();
+        allow list: if isOwner(userId) || isAdmin();
+        allow create, update, delete: if false;   // Server Actions only
       }
     }
 

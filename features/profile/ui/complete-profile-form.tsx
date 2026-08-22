@@ -3,17 +3,16 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { FormAlert } from "@/shared/form/form-alert";
-import { PhoneField } from "@/shared/form/phone-field";
 import { SubmitButton } from "@/shared/form/submit-button";
 import { Checkbox } from "@/shared/ui/checkbox";
+
+import { AccountFields } from "./account-fields";
 import { Label } from "@/shared/ui/label";
-import { SelectField } from "@/shared/form/select-field";
-import { TextField } from "@/shared/form/text-field";
-import { DEPARTMENTS, GENDER_OPTIONS, MIN_AGE } from "../domain/colombia";
+
 import { DEFAULT_COUNTRY_ISO } from "@/shared/phone/countries";
 import {
   completeProfileSchema,
@@ -24,8 +23,6 @@ import {
 import { refreshServerSession } from "@/shared/auth/client";
 
 import { completeProfile } from "../actions/complete-profile";
-
-const DEPARTMENT_OPTIONS = DEPARTMENTS.map((name) => ({ value: name, label: name }));
 
 const FIELD_NAMES = [
   "fullName",
@@ -43,26 +40,12 @@ function isFieldName(value: string): value is FieldName {
   return (FIELD_NAMES as readonly string[]).includes(value);
 }
 
-/** Upper bound for `<input type="date">`: today minus the minimum age. */
-function maxBirthDate(): string {
-  const date = new Date();
-  date.setFullYear(date.getFullYear() - MIN_AGE);
-  return date.toISOString().slice(0, 10);
-}
-
 export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const [isNavigating, startNavigation] = useTransition();
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    setError,
-    trigger,
-    formState: { errors, isSubmitting },
-  } = useForm<CompleteProfileFormValues, unknown, CompleteProfileInput>({
+  const form = useForm<CompleteProfileFormValues, unknown, CompleteProfileInput>({
     resolver: zodResolver(completeProfileSchema),
     mode: "onBlur",
     defaultValues: {
@@ -76,8 +59,12 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
     },
   });
 
-  // The number already typed, to decide whether revalidating on country change is worth it.
-  const nationalPhone = useWatch({ control, name: "phone.national" });
+  const {
+    handleSubmit,
+    control,
+    setError,
+    formState: { errors, isSubmitting },
+  } = form;
 
   const isSaving = isSubmitting || isNavigating;
 
@@ -125,117 +112,13 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
     });
   }
 
+  // `post`, though JS handles the submit: see the note in `login-form.tsx`.
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-3">
+    <FormProvider {...form}>
+      <form method="post" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-3">
       {formError ? <FormAlert>{formError}</FormAlert> : null}
 
-      <TextField
-        id="fullName"
-        label="Nombre completo"
-        autoComplete="name"
-        placeholder="Ana María Restrepo"
-        error={errors.fullName?.message}
-        disabled={isSaving}
-        {...register("fullName")}
-      />
-
-      <Controller
-        control={control}
-        name="phone.country"
-        render={({ field }) => (
-          <PhoneField
-            label="Teléfono"
-            country={field.value}
-            onCountryChange={(iso) => {
-              field.onChange(iso);
-              // The number's rule depends on the country: without revalidating, the
-              // previous country's error stays visible even once the number is valid.
-              if (nationalPhone) void trigger("phone");
-            }}
-            countryError={errors.phone?.country?.message}
-            numberError={errors.phone?.national?.message}
-            disabled={isSaving}
-            inputProps={register("phone.national")}
-          />
-        )}
-      />
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Controller
-        control={control}
-        name="gender"
-        render={({ field }) => (
-          <SelectField
-            id="gender"
-            label="Género"
-            placeholder="Selecciona una opción"
-            options={GENDER_OPTIONS}
-            value={field.value}
-            onValueChange={field.onChange}
-            error={errors.gender?.message}
-            disabled={isSaving}
-          />
-        )}
-      />
-
-        <TextField
-        id="birthDate"
-        label="Fecha de nacimiento"
-        type="date"
-        autoComplete="bday"
-        max={maxBirthDate()}
-        error={errors.birthDate?.message}
-        disabled={isSaving}
-        {...register("birthDate")}
-      />
-      </div>
-
-      {/*
-        No `fieldset`: a group without a `legend` has no accessible name, and adding the
-        legend back broke the goal of fitting the screen without scrolling. The three labels
-        (Dirección, Ciudad, Departamento) speak for themselves and there is only one address.
-      */}
-      <div className="space-y-2.5">
-        
-        <TextField
-          id="address.line"
-          label="Dirección"
-          autoComplete="street-address"
-          placeholder="Calle 60 #10-20, apto 301"
-          error={errors.address?.line?.message}
-          disabled={isSaving}
-          {...register("address.line")}
-        />
-
-        <div className="grid gap-3 sm:grid-cols-2">
-          <TextField
-            id="address.city"
-            label="Ciudad"
-            autoComplete="address-level2"
-            placeholder="Bogotá"
-            error={errors.address?.city?.message}
-            disabled={isSaving}
-            {...register("address.city")}
-          />
-
-          <Controller
-            control={control}
-            name="address.department"
-            render={({ field }) => (
-              <SelectField
-                id="address.department"
-                label="Departamento"
-                placeholder="Selecciona uno"
-                options={DEPARTMENT_OPTIONS}
-                value={field.value}
-                onValueChange={field.onChange}
-                error={errors.address?.department?.message}
-                disabled={isSaving}
-              />
-            )}
-          />
-        </div>
-      </div>
+      <AccountFields disabled={isSaving} />
 
       <div className="space-y-2">
         <div className="flex items-start gap-3">
@@ -280,6 +163,7 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
       <SubmitButton loading={isSaving} loadingLabel="Guardando…">
         Guardar y continuar
       </SubmitButton>
-    </form>
+      </form>
+    </FormProvider>
   );
 }

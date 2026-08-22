@@ -15,6 +15,12 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  /**
+   * Absolute base for every relative URL in metadata. Without it `og:url` and `og:image` ship
+   * as paths, and a link pasted into WhatsApp or Facebook previews nothing: the crawler has no
+   * host to resolve them against.
+   */
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.miarriendodirecto.com"),
   title: {
     default: "miarriendoDIRECTO.com",
     template: "%s · miarriendoDIRECTO.com",

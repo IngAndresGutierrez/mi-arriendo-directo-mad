@@ -10,6 +10,26 @@ const nextConfig: NextConfig = {
    * bundler resolves that ESM import and the runtime's Node version stops mattering.
    */
   transpilePackages: ["firebase-admin"],
+
+  /**
+   * `/contrato` was the rental process's URL, and every email already sent points at it —
+   * `/contrato/<id>#etapa-<stage>`. A permanent redirect keeps those links working: the id
+   * carries over, and the browser keeps the fragment on its own, so an email from last week
+   * still lands on the stage it was about.
+   */
+  async redirects() {
+    return [
+      { source: "/contrato", destination: "/arriendos", permanent: true },
+      { source: "/contrato/:id", destination: "/arriendos/:id", permanent: true },
+    ];
+  },
+
+  images: {
+    remotePatterns: [
+      // Property photos live in Cloud Storage; the download URL is public and tokenised.
+      { protocol: "https", hostname: "firebasestorage.googleapis.com" },
+    ],
+  },
 };
 
 export default nextConfig;

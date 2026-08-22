@@ -1,6 +1,8 @@
 import { z } from "zod";
 
-import { DEPARTMENTS, GENDERS, MAX_AGE, MIN_AGE } from "../domain/colombia";
+import { GENDERS, MAX_AGE, MIN_AGE } from "../domain/profile";
+import { DEPARTMENTS } from "@/shared/geo/colombia";
+import { isMunicipalityOf } from "@/shared/geo/municipalities";
 import { COUNTRY_ISO_CODES, phoneRuleFor } from "@/shared/phone/countries";
 
 /** Hoisted: building the RegExp on every call is repeated work. */
@@ -51,19 +53,32 @@ const phone = z
   });
 
 /** Colombian address: no postal code and no "state/province". */
-const colombianAddress = z.object({
-  line: z
-    .string({ error: "Ingresa tu dirección" })
-    .trim()
-    .min(5, { error: "La dirección es demasiado corta" })
-    .max(160, { error: "La dirección es demasiado larga" }),
-  city: z
-    .string({ error: "Ingresa tu ciudad" })
-    .trim()
-    .min(2, { error: "Ingresa tu ciudad" })
-    .max(80, { error: "La ciudad es demasiado larga" }),
-  department: z.enum(DEPARTMENTS, { error: "Selecciona un departamento" }),
-});
+const colombianAddress = z
+  .object({
+    line: z
+      .string({ error: "Ingresa tu dirección" })
+      .trim()
+      .min(5, { error: "La dirección es demasiado corta" })
+      .max(160, { error: "La dirección es demasiado larga" }),
+    city: z
+      .string({ error: "Selecciona tu ciudad" })
+      .trim()
+      .min(2, { error: "Selecciona tu ciudad" })
+      .max(80, { error: "La ciudad es demasiado larga" }),
+    department: z.enum(DEPARTMENTS, { error: "Selecciona un departamento" }),
+  })
+  .superRefine((value, ctx) => {
+    // Cross-field, so it runs at object level: a city means nothing without its department, and
+    // the form now offers only the municipalities of the one chosen — the same rule the property
+    // form applies, against the same DANE list, so the two cannot disagree about what exists.
+    if (!isMunicipalityOf(value.city, value.department)) {
+      ctx.addIssue({
+        code: "custom",
+        message: `${value.city || "Esa ciudad"} no es un municipio de ${value.department}`,
+        path: ["city"],
+      });
+    }
+  });
 
 /**
  * The profile completed after the first sign-in.
@@ -103,6 +118,18 @@ export const completeProfileSchema = z.object({
     error: "Debes aceptar los Términos y la Política de privacidad",
   }),
 });
+
+/**
+ * The same fields, minus the consent.
+ *
+ * Editing your own name is not a moment to re-accept the terms: they were accepted once, at
+ * signup, and `termsAcceptedAt` records when. Asking again on every correction would make the
+ * checkbox mean nothing.
+ */
+export const accountDetailsSchema = completeProfileSchema.omit({ acceptsTerms: true });
+
+export type AccountDetailsValues = z.output<typeof accountDetailsSchema>;
+export type AccountDetailsFormValues = z.input<typeof accountDetailsSchema>;
 
 /** What the Server Action validates (after transformation). */
 export type CompleteProfileInput = z.output<typeof completeProfileSchema>;

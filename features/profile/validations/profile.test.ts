@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { GENDERS, MIN_AGE } from "../domain/colombia";
+import { GENDERS, MIN_AGE } from "../domain/profile";
 import { COUNTRIES, DEFAULT_COUNTRY_ISO, findCountry, toE164 } from "@/shared/phone/countries";
 import {
   ageInYears,
@@ -152,6 +152,24 @@ describe("completeProfileSchema", () => {
         address: { ...VALID_PROFILE.address, department: "Cataluña" },
       });
       expect(r.success).toBe(false);
+    });
+
+    it("rejects a city that is not in the chosen department", () => {
+      const r = completeProfileSchema.safeParse({
+        ...VALID_PROFILE,
+        address: { line: "Calle 60 #10-20", city: "Manizales", department: "Antioquia" },
+      });
+      expect(r.success).toBe(false);
+      expect(r.error?.issues[0]?.message).toBe("Manizales no es un municipio de Antioquia");
+      expect(r.error?.issues[0]?.path).toEqual(["address", "city"]);
+    });
+
+    it("accepts a real pair, with its accent", () => {
+      const r = completeProfileSchema.safeParse({
+        ...VALID_PROFILE,
+        address: { line: "Calle 60 #10-20", city: "Medellín", department: "Antioquia" },
+      });
+      expect(r.success).toBe(true);
     });
 
     it("requires city and address line", () => {

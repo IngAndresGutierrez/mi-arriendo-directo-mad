@@ -12,59 +12,107 @@ export type NavEntry = {
   readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
   /** Absent while the section does not exist yet. */
   readonly href?: string;
+  /**
+   * What the narrow rail shows instead of `label`.
+   *
+   * There the label sits under the icon in a 96px column: two words wrap to two lines and read
+   * fine, three turn the entry into a paragraph and push the menu out of shape.
+   */
+  readonly shortLabel?: string;
+  /**
+   * Extra routes that belong to this section but do not hang off its path. Publishing lives
+   * at `/inmuebles/publicar`, yet it is something you do inside "Mis inmuebles": without this
+   * the menu claims you are nowhere while you fill the form.
+   */
+  readonly activeOn?: readonly string[];
 };
 
-const BASE =
-  "flex flex-col items-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-medium transition-colors";
+type NavItemProps = NavEntry & {
+  /** Icon over label, in a narrow rail. */
+  readonly collapsed?: boolean;
+  /** Closes the drawer once the user has chosen where to go. */
+  readonly onNavigate?: () => void;
+};
+
+const ROW = "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium";
+const STACK =
+  "flex w-full flex-col items-center gap-1.5 rounded-xl px-1 py-2.5 text-center text-xs font-medium";
 
 /**
- * Sidebar menu item.
+ * One entry of the menu, in whichever of its two shapes the surface asked for: a row with the
+ * label beside the icon, or the icon with the label underneath.
  *
- * Without an `href` it renders disabled with a "coming soon" tooltip: honest about what
- * exists, and it does not lead to a 404. A `<span aria-disabled>` rather than a dead link,
- * so screen readers do not announce it as navigable.
+ * How "this section does not exist yet" is said depends on the room available. Expanded there
+ * is space for a "Pronto" badge, which a touch screen can read; collapsed there is not, so it
+ * falls back to the tooltip. A hover-only explanation is a poor one, which is why it is the
+ * fallback and not the rule.
  */
-export function NavItem({ label, icon: Icon, href }: NavEntry) {
+export function NavItem({
+  label,
+  shortLabel,
+  icon: Icon,
+  href,
+  activeOn,
+  collapsed,
+  onNavigate,
+}: NavItemProps) {
   const pathname = usePathname();
+  const base = collapsed ? STACK : ROW;
+  const shown = collapsed && shortLabel ? shortLabel : label;
+  const focus = "focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none";
 
   if (!href) {
+    const disabled = (
+      <span
+        aria-disabled="true"
+        tabIndex={collapsed ? 0 : undefined}
+        className={cn(
+          base,
+          "cursor-not-allowed text-brand-panel-muted/60",
+          collapsed && focus,
+        )}
+      >
+        <Icon className="size-5 shrink-0" aria-hidden="true" />
+        <span className={collapsed ? undefined : "flex-1 text-left"}>{shown}</span>
+        {!collapsed && (
+          <span className="rounded-full bg-white/10 px-2 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase">
+            Pronto
+          </span>
+        )}
+      </span>
+    );
+
+    if (!collapsed) return disabled;
+
     return (
       <Tooltip>
-        <TooltipTrigger asChild>
-          <span
-            aria-disabled="true"
-            tabIndex={0}
-            className={cn(
-              BASE,
-              "cursor-not-allowed text-brand-panel-muted/60",
-              "focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none",
-            )}
-          >
-            <Icon className="size-5" aria-hidden="true" />
-            {label}
-          </span>
-        </TooltipTrigger>
+        <TooltipTrigger asChild>{disabled}</TooltipTrigger>
         <TooltipContent side="right">Próximamente</TooltipContent>
       </Tooltip>
     );
   }
 
-  const isActive = pathname === href;
+  const isActive =
+    pathname === href ||
+    pathname.startsWith(`${href}/`) ||
+    (activeOn?.some((route) => pathname === route || pathname.startsWith(`${route}/`)) ?? false);
 
   return (
     <Link
       href={href}
+      onClick={onNavigate}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        BASE,
-        "focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none",
+        base,
+        focus,
+        "transition-colors",
         isActive
           ? "bg-accent/15 text-accent"
           : "text-brand-panel-muted hover:bg-white/5 hover:text-brand-panel-foreground",
       )}
     >
-      <Icon className="size-5" aria-hidden="true" />
-      {label}
+      <Icon className="size-5 shrink-0" aria-hidden="true" />
+      {shown}
     </Link>
   );
 }

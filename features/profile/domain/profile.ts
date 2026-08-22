@@ -1,50 +1,9 @@
 /**
- * Colombian geography and contact data.
+ * Profile domain values: gender, the role every account starts with, and the age bounds.
  *
- * The territorial division is department + city: there is no "state/province" and no postal
- * code, which is barely used in Colombia.
- *
+ * The Colombian departments moved to `shared/geo/colombia.ts`: properties need them too.
  * Dial codes and per-country rules live in `shared/phone/countries.ts`.
  */
-
-/** The 32 departments plus the Capital District, alphabetically. */
-export const DEPARTMENTS = [
-  "Amazonas",
-  "Antioquia",
-  "Arauca",
-  "Atlántico",
-  "Bogotá D.C.",
-  "Bolívar",
-  "Boyacá",
-  "Caldas",
-  "Caquetá",
-  "Casanare",
-  "Cauca",
-  "Cesar",
-  "Chocó",
-  "Córdoba",
-  "Cundinamarca",
-  "Guainía",
-  "Guaviare",
-  "Huila",
-  "La Guajira",
-  "Magdalena",
-  "Meta",
-  "Nariño",
-  "Norte de Santander",
-  "Putumayo",
-  "Quindío",
-  "Risaralda",
-  "San Andrés y Providencia",
-  "Santander",
-  "Sucre",
-  "Tolima",
-  "Valle del Cauca",
-  "Vaupés",
-  "Vichada",
-] as const;
-
-export type Department = (typeof DEPARTMENTS)[number];
 
 /**
  * Gender options.

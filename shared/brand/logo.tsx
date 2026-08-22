@@ -8,18 +8,18 @@ type LogoProps = {
   /** Rendered width in px. It also feeds `sizes`, so the two cannot diverge. */
   width: number;
   /** `true` only for the logo visible without scrolling: it preloads the image. */
-  priority?: boolean;
+  preload?: boolean;
   className?: string;
 };
 
-export function Logo({ width, priority = false, className }: LogoProps) {
+export function Logo({ width, preload = false, className }: LogoProps) {
   return (
     <Image
       src="/logo.png"
       alt="miarriendoDIRECTO.com"
       width={INTRINSIC_WIDTH}
       height={INTRINSIC_HEIGHT}
-      priority={priority}
+      preload={preload}
       sizes={`${width}px`}
       style={{ width, height: "auto" }}
       className={className}

@@ -1,5 +1,6 @@
 import type { ComponentProps, ReactNode } from "react";
 
+import { FieldHint } from "./field-hint";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { cn } from "@/shared/lib/utils";
@@ -14,6 +15,11 @@ type TextFieldProps = ComponentProps<"input"> & {
   labelAction?: ReactNode;
   /** Permanent helper text below the field. */
   hint?: ReactNode;
+  /**
+   * The same explanation, behind an icon next to the label. For what a field *is* — a sentence
+   * you read once, when you wonder — rather than for what it needs, which belongs under it.
+   */
+  hintTooltip?: ReactNode;
 };
 
 /**
@@ -31,17 +37,27 @@ export function TextField({
   error,
   labelAction,
   hint,
+  hintTooltip,
   className,
   ...inputProps
 }: TextFieldProps) {
   const errorId = `${id}-error`;
   const hintId = `${id}-hint`;
-  const describedBy = [error ? errorId : null, hint ? hintId : null].filter(Boolean).join(" ");
+  const describedBy = [error ? errorId : null, hint || hintTooltip ? hintId : null]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <div className="space-y-2">
       <div className="flex items-baseline justify-between gap-2">
-        <Label htmlFor={id}>{label}</Label>
+        <div className="flex items-center gap-1.5">
+          <Label htmlFor={id}>{label}</Label>
+          {hintTooltip ? (
+            <FieldHint id={hintId} label={label}>
+              {hintTooltip}
+            </FieldHint>
+          ) : null}
+        </div>
         {labelAction}
       </div>
 

@@ -2,12 +2,15 @@
 
 import {
   createUserWithEmailAndPassword,
+  onAuthStateChanged,
+  signInWithCustomToken,
   GoogleAuthProvider,
   sendEmailVerification,
   sendPasswordResetEmail,
   signInWithEmailAndPassword,
   signInWithPopup,
   signOut,
+  type User,
   type UserCredential,
 } from "firebase/auth";
 
@@ -69,7 +72,10 @@ export async function signInWithGoogle(): Promise<void> {
  * the server re-mints the cookie. Without this, Server Components keep reading the old role.
  */
 export async function refreshServerSession(): Promise<void> {
-  const user = auth.currentUser;
+  // `ensureClientSession`, not `auth.currentUser`: this runs right after a Server Action, when
+  // the SDK may not have finished restoring, and giving up silently would leave the browser
+  // reading the old role until the next full reload.
+  const user = await ensureClientSession();
   if (!user) return;
 
   const idToken = await user.getIdToken(true);
@@ -92,4 +98,47 @@ export async function sendPasswordReset(email: string): Promise<void> {
 export async function signOutUser(): Promise<void> {
   await fetch("/api/session", { method: "DELETE" });
   await signOut(auth);
+}
+
+/**
+ * Waits for the web SDK to finish restoring its session, and rebuilds it from the server's if
+ * there is none.
+ *
+ * `auth.currentUser` is `null` for the first moments after a page loads — the SDK reads its
+ * storage asynchronously — so asking for it directly answers "signed out" for anyone quick
+ * enough to click. And there are real cases where it never comes back: cleared site data, a
+ * private window, storage the browser reclaimed. In both the httpOnly cookie is still valid,
+ * and the honest answer is not "your session expired" but "one moment".
+ *
+ * So: wait for the first definite answer, and if it is nobody, ask the server for a custom
+ * token minted from the cookie and sign in with it. Only when *that* fails is the person
+ * genuinely signed out.
+ *
+ * Returns the user, or `null` when there is no session on either side.
+ */
+export async function ensureClientSession(): Promise<User | null> {
+  const restored = await new Promise<User | null>((resolve) => {
+    // `onAuthStateChanged` fires once as soon as the SDK knows, which is the point: it is the
+    // difference between "not yet" and "nobody".
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      unsubscribe();
+      resolve(user);
+    });
+  });
+
+  if (restored) return restored;
+
+  try {
+    const response = await fetch("/api/session/token", { method: "POST" });
+    if (!response.ok) return null;
+
+    const { token } = (await response.json()) as { token?: string };
+    if (!token) return null;
+
+    const credential = await signInWithCustomToken(auth, token);
+
+    return credential.user;
+  } catch {
+    return null;
+  }
 }

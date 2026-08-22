@@ -1,17 +1,28 @@
-import { HeadsetIcon, MessageCircleIcon } from "lucide-react";
+import { HeadsetIcon } from "lucide-react";
+import Link from "next/link";
 
-import { ComingSoonCard } from "@/shared/ui/coming-soon-card";
+import { SUPPORT_ROUTE } from "@/shared/auth/routes";
+import { SUPPORT_EMAIL, supportWhatsAppDisplay } from "@/shared/lib/support-contact";
+
+import { SupportActions } from "./support-actions";
 
 /**
- * Support card, mocked up.
+ * Support card on the home screen: the two ways to reach a person, without a detour.
  *
- * Deliberately **without a photo of a person**: presenting a stock image as "our team"
- * would invent someone who does not exist. A neutral avatar says the same thing without
- * claiming something false. Once there is a real support channel, this becomes interactive.
+ * Deliberately **without a photo of a person**: presenting a stock image as "our team" would
+ * invent someone who does not exist. A neutral avatar says the same thing without claiming
+ * something false.
+ *
+ * The buttons come from `SupportActions`, the same block `/soporte` renders, so the two
+ * surfaces cannot drift. The number and the address are printed underneath as plain text
+ * because a channel you can only reach by clicking is a channel you cannot write down.
  */
 export function SupportCard({ firstName }: { firstName: string }) {
   return (
-    <ComingSoonCard label="El chat de soporte llegará pronto">
+    <section
+      className="rounded-2xl border border-border bg-card p-5"
+      aria-labelledby="support-heading"
+    >
       <div className="flex items-center gap-3">
         <span
           aria-hidden="true"
@@ -20,20 +31,40 @@ export function SupportCard({ firstName }: { firstName: string }) {
           <HeadsetIcon className="size-5" />
         </span>
         <div>
-          <p className="font-semibold text-foreground">Equipo de soporte</p>
+          <h2 id="support-heading" className="font-semibold text-foreground">
+            Equipo de soporte
+          </h2>
           <p className="text-sm text-muted-foreground">miarriendoDIRECTO</p>
         </div>
       </div>
 
       <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
-        Hola{firstName ? ` ${firstName}` : ""}, aquí vas a poder escribirnos si tienes dudas
-        sobre tu arriendo, tu contrato o tus pagos.
+        Hola{firstName ? ` ${firstName}` : ""}, escríbenos si tienes dudas sobre tu arriendo, tu
+        contrato o tus pagos.
       </p>
 
-      <span className="mt-4 flex h-10 items-center justify-center gap-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">
-        <MessageCircleIcon className="size-4" />
-        Obtener soporte
-      </span>
-    </ComingSoonCard>
+      <SupportActions className="mt-4" />
+
+      <dl className="mt-4 space-y-1 text-xs text-muted-foreground">
+        <div className="flex flex-wrap items-baseline gap-x-1.5">
+          <dt>WhatsApp:</dt>
+          <dd>{supportWhatsAppDisplay()}</dd>
+        </div>
+        <div className="flex flex-wrap items-baseline gap-x-1.5">
+          <dt>Correo:</dt>
+          {/* `break-all`: the address is longer than the 22rem column on a narrow screen. */}
+          <dd className="break-all">{SUPPORT_EMAIL}</dd>
+        </div>
+      </dl>
+
+      <p className="mt-4 text-xs text-muted-foreground">
+        <Link
+          href={SUPPORT_ROUTE}
+          className="font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none dark:text-foreground"
+        >
+          Ver la página de soporte
+        </Link>
+      </p>
+    </section>
   );
 }

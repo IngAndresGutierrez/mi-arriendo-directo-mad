@@ -15,6 +15,49 @@ export const COMPLETE_PROFILE_ROUTE = "/registro/completar-perfil";
 /** Where a freshly authenticated user lands. */
 export const HOME_ROUTE = "/inicio";
 
+/** Public catalog of properties. Not built yet — see PROPERTY_DETAIL below. */
+export const PROPERTIES_ROUTE = "/inmuebles";
+/** Where a landlord publishes. Static segment, so it never collides with a property id. */
+export const PUBLISH_PROPERTY_ROUTE = "/inmuebles/publicar";
+/** A landlord's own listings, with their management actions. */
+export const MY_PROPERTIES_ROUTE = "/mis-inmuebles";
+
+/** The rental process: its nine stages, for whichever side of it you are on. */
+export const RENTALS_ROUTE = "/arriendos";
+
+/** The tenant's reusable dossier. */
+export const TENANT_PROFILE_ROUTE = "/perfil-inquilino";
+
+/**
+ * Where to reach a person. It is a page rather than a link straight to WhatsApp because the
+ * menu entry has to lead somewhere the browser's back button can return from, and because the
+ * two channels need room to say what each one is good for.
+ */
+export const SUPPORT_ROUTE = "/soporte";
+/** Editing one of them. Keyed by id, not by slug: the slug is what the edit may change. */
+export function editPropertyRoute(id: string): string {
+  return `${MY_PROPERTIES_ROUTE}/${id}/editar`;
+}
+/**
+ * Public detail of one property: the slug alone, with no id appended.
+ *
+ * A random-looking code at the end of a link reads as untrustworthy where these get shared —
+ * a Facebook group, a WhatsApp chat — so the slug is reserved to be unique and resolves on its
+ * own. Links that still carry an id keep working: the page redirects them here.
+ */
+export function applicationRoute(id: string): string {
+  return `${RENTALS_ROUTE}/${id}`;
+}
+
+/** Where a tenant applies to a listing. The slug, never an id: it is a link people paste. */
+export function applyToPropertyRoute(slug: string): string {
+  return `/postularme/${slug}`;
+}
+
+export function propertyDetailRoute(slug: string): string {
+  return `${PROPERTIES_ROUTE}/${slug}`;
+}
+
 /**
  * Public access screens. Redirecting here after signing in would loop: the screen would
  * see the active session and redirect straight back.

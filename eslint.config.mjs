@@ -2,18 +2,21 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextVitals from "eslint-config-next/core-web-vitals";
 import nextTs from "eslint-config-next/typescript";
 
-// Fronteras entre modulos — la skill mad-architecture las documenta.
-// Dentro de un feature se importa con rutas relativas; "@/features/..." se
-// reserva para cruzar de modulo, asi que un import profundo ES una violacion.
+// Module boundaries — the mad-architecture skill documents them.
+// Inside a feature, import with relative paths; "@/features/..." is reserved for crossing
+// from one module to another, so a deep import IS a violation.
 const CROSS_FEATURE = {
-  group: ["@/features/*/*", "@/features/*/**"],
+  // Gitignore-style: the negation is how `client.ts` stays reachable. It is a public entry
+  // too — the half of a module a Client Component may import, because the index also
+  // re-exports server-only code and a client bundle that touched it would fail to build.
+  group: ["@/features/*/*", "@/features/*/**", "!@/features/*/client"],
   message:
-    "Importa la API publica del modulo (@/features/<dominio>), no sus internos.",
+    "Import the module's public API (@/features/<domain> or /client), not its internals.",
 };
 const NO_ADMIN = {
   group: ["@/shared/firebase/admin"],
   message:
-    "El Admin SDK solo se usa en data/, actions/, app/api/ y shared/auth/.",
+    "The Admin SDK is only used in data/, actions/, app/api/ and shared/auth/.",
 };
 const NO_UPWARD = {
   group: ["@/features/**", "@/app/**"],
@@ -24,9 +27,8 @@ const NO_UPWARD = {
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
-  // `no-restricted-imports` es UNA regla: en flat config el ultimo objeto que
-  // hace match la reemplaza entera, no la suma. Por eso cada override repite
-  // la lista completa que si aplica.
+  // `no-restricted-imports` is ONE rule: in flat config the last matching object replaces it
+  // whole rather than adding to it, which is why every override repeats the full list.
   {
     rules: {
       "no-restricted-imports": ["error", { patterns: [CROSS_FEATURE, NO_ADMIN] }],
@@ -42,8 +44,8 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    // `actions.ts` suelto tambien cuenta: es la convencion de Next para las
-    // Server Actions de una ruta, y ese archivo ES la capa de mutacion.
+    // A bare `actions.ts` counts too: it is Next's convention for a route's Server Actions,
+    // and that file IS the mutation layer.
     files: [
       "**/data/**",
       "**/data.ts",
