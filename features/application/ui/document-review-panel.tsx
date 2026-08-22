@@ -52,21 +52,34 @@ export function DocumentReviewPanel({
   readonly reviews: DocumentReviews;
 }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
+  const [, start] = useTransition();
+  /*
+   * Which row is being saved, not just that something is.
+   *
+   * `useTransition` gives one boolean for the whole panel, so judging one document froze the
+   * buttons on all of them — reviewing five meant five waits with the whole list unusable, and
+   * each wait long enough to look broken.
+   */
+  const [saving, setSaving] = useState<string | null>(null);
   const [rejecting, setRejecting] = useState<string | null>(null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   function judge(documentId: string, status: "approved" | "rejected", reason = "") {
+    setSaving(documentId);
     start(async () => {
-      const result = await reviewTenantDocument(applicationId, { documentId, status, note: reason });
-      if (!result.ok) {
-        setError(result.message);
-        return;
+      try {
+        const result = await reviewTenantDocument(applicationId, { documentId, status, note: reason });
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        setRejecting(null);
+        setNote("");
+        router.refresh();
+      } finally {
+        setSaving(null);
       }
-      setRejecting(null);
-      setNote("");
-      router.refresh();
     });
   }
 
@@ -139,29 +152,38 @@ export function DocumentReviewPanel({
                   {REVIEW_STATUS_LABELS[status]}
                 </span>
 
+                {/*
+                  Only the action that changes the state. Offering "Aprobar" on something already
+                  approved is offering to do nothing, and it makes the row read as undecided when
+                  it is not — the verdict is the chip beside it, not the buttons.
+                */}
                 <span className="flex gap-1.5">
-                  <Button
-                    type="button"
-                    variant={status === "approved" ? "accent" : "outline"}
-                    size="lg"
-                    disabled={pending}
-                    onClick={() => judge(document.id, "approved")}
-                    aria-label={`Aprobar ${DOCUMENT_LABELS[document.kind]}`}
-                  >
-                    <CheckIcon aria-hidden="true" />
-                    Aprobar
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="destructive"
-                    size="lg"
-                    disabled={pending}
-                    onClick={() => setRejecting(rejecting === document.id ? null : document.id)}
-                    aria-label={`Rechazar ${DOCUMENT_LABELS[document.kind]}`}
-                  >
-                    <XIcon aria-hidden="true" />
-                    Rechazar
-                  </Button>
+                  {status !== "approved" ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="lg"
+                      disabled={saving === document.id}
+                      onClick={() => judge(document.id, "approved")}
+                      aria-label={`Aprobar ${DOCUMENT_LABELS[document.kind]}`}
+                    >
+                      <CheckIcon aria-hidden="true" />
+                      {status === "rejected" ? "Aprobar de todos modos" : "Aprobar"}
+                    </Button>
+                  ) : null}
+                  {status !== "rejected" ? (
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="lg"
+                      disabled={saving === document.id}
+                      onClick={() => setRejecting(rejecting === document.id ? null : document.id)}
+                      aria-label={`Rechazar ${DOCUMENT_LABELS[document.kind]}`}
+                    >
+                      <XIcon aria-hidden="true" />
+                      {status === "approved" ? "Cambiar de opinión" : "Rechazar"}
+                    </Button>
+                  ) : null}
                 </span>
               </div>
 
@@ -190,7 +212,7 @@ export function DocumentReviewPanel({
                       type="button"
                       variant="destructive"
                       size="lg"
-                      disabled={pending}
+                      disabled={saving === document.id}
                       onClick={() => judge(document.id, "rejected", note)}
                     >
                       Rechazar documento
@@ -199,7 +221,7 @@ export function DocumentReviewPanel({
                       type="button"
                       variant="ghost"
                       size="lg"
-                      disabled={pending}
+                      disabled={saving === document.id}
                       onClick={() => {
                         setRejecting(null);
                         setNote("");

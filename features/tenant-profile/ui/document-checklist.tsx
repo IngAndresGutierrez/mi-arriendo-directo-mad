@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { CheckIcon, FileTextIcon, Loader2Icon, UploadIcon } from "lucide-react";
+import { AlertTriangleIcon, CheckIcon, FileTextIcon, Loader2Icon, UploadIcon } from "lucide-react";
 
 import { ensureClientSession } from "@/shared/auth/client";
 import { storage } from "@/shared/firebase/storage";
@@ -14,6 +14,7 @@ import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { cn } from "@/shared/lib/utils";
 
 import {
+  acceptable,
   identityShape,
   isPdf,
   requiredDocuments,
@@ -81,6 +82,13 @@ export function DocumentChecklist({
    * and the checkbox only matters while nothing has been uploaded yet, which is exactly when the
    * question can still be answered either way.
    */
+  /*
+   * A rejected file does not count towards its line. Otherwise three payslips with one rejected
+   * read as "Completo" with the upload disabled — and replacing it, the only thing left to do,
+   * became the one thing impossible to do.
+   */
+  const counted = acceptable(documents, reviews);
+
   const shape = identityShape(documents);
   const [singleFileId, setSingleFileId] = useState(shape === "one_file");
   const identityDecided = shape !== null;
@@ -171,27 +179,35 @@ export function DocumentChecklist({
       <ul className="space-y-3">
         {requiredDocuments(occupation, singleFileId).map((requirement) => {
           const mine = documents.filter((document) => document.kind === requirement.kind);
-          const done = mine.length >= requirement.count;
-          const room = requirement.count - mine.length;
+          const valid = counted.filter((document) => document.kind === requirement.kind);
+          const rejected = mine.filter((document) => statusOf(reviews, document.id) === "rejected");
+          const done = valid.length >= requirement.count;
+          const room = requirement.count - valid.length;
 
           return (
             <li
               key={requirement.kind}
               className={cn(
                 "rounded-xl border p-4",
-                done ? "border-accent/40 bg-accent/5" : "border-border bg-card",
+                rejected.length > 0
+                  ? "border-destructive bg-destructive/5"
+                  : done
+                    ? "border-accent/40 bg-accent/5"
+                    : "border-border bg-card",
               )}
             >
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="flex items-center gap-2 font-medium text-foreground">
-                    {done ? (
+                    {rejected.length > 0 ? (
+                      <AlertTriangleIcon className="size-4 shrink-0 text-destructive" aria-hidden="true" />
+                    ) : done ? (
                       <CheckIcon className="size-4 shrink-0 text-accent" aria-hidden="true" />
                     ) : null}
                     {DOCUMENT_LABELS[requirement.kind]}
                     {requirement.count > 1 ? (
                       <span className="text-sm font-normal text-muted-foreground">
-                        ({mine.length} de {requirement.count})
+                        ({valid.length} de {requirement.count})
                       </span>
                     ) : null}
                     {requirement.optional ? (
@@ -203,6 +219,27 @@ export function DocumentChecklist({
                   <p className="mt-0.5 text-sm text-muted-foreground">
                     {DOCUMENT_HINTS[requirement.kind]}
                   </p>
+
+                  {/*
+                    Loud on purpose. A rejection is the only thing on this screen that needs
+                    doing again, and the previous version said it in grey text under a thumbnail
+                    — where it read as a caption rather than as a problem.
+                  */}
+                  {rejected.map((document) => (
+                    <p
+                      key={document.id}
+                      className="mt-2 flex items-start gap-2 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                    >
+                      <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
+                      <span>
+                        <strong className="font-semibold">Rechazado.</strong>{" "}
+                        {reviews[document.id]?.note
+                          ? reviews[document.id]!.note
+                          : "El propietario no lo aceptó."}{" "}
+                        Súbelo otra vez.
+                      </span>
+                    </p>
+                  ))}
                 </div>
 
                 <input
@@ -248,7 +285,12 @@ export function DocumentChecklist({
                         href={document.url}
                         target="_blank"
                         rel="noreferrer"
-                        className="block overflow-hidden rounded-lg border border-border focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                        className={cn(
+                          "block overflow-hidden rounded-lg border focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+                          statusOf(reviews, document.id) === "rejected"
+                            ? "border-2 border-destructive opacity-60"
+                            : "border-border",
+                        )}
                       >
                         {isPdf(document) ? (
                           <span className="flex aspect-4/3 w-full flex-col items-center justify-center gap-1 bg-muted text-xs text-muted-foreground">
@@ -273,6 +315,7 @@ export function DocumentChecklist({
                         The landlord's verdict, beside the file it is about. A rejection with its
                         reason is the only thing that tells the tenant what to upload instead.
                       */}
+                      {/* Beside the file, the verdict alone: the reason is spelled out above. */}
                       {statusOf(reviews, document.id) !== "pending" ? (
                         <p
                           className={cn(
@@ -283,7 +326,6 @@ export function DocumentChecklist({
                           )}
                         >
                           {REVIEW_STATUS_LABELS[statusOf(reviews, document.id)]}
-                          {reviews[document.id]?.note ? `: ${reviews[document.id]!.note}` : ""}
                         </p>
                       ) : null}
                       <button

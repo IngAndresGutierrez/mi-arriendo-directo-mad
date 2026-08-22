@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  acceptable,
   countOf,
   documentsBlocker,
   documentsBlockerMessage,
@@ -163,6 +164,33 @@ describe("countOf / isPdf", () => {
   it("tells a PDF from an image, which decides how it is previewed", () => {
     expect(isPdf({ contentType: "application/pdf" })).toBe(true);
     expect(isPdf({ contentType: "image/jpeg" })).toBe(false);
+  });
+});
+
+describe("acceptable", () => {
+  const three = uploaded("payslip", 3);
+
+  /*
+   * The bug this exists for: with three payslips uploaded and one rejected, counting it left the
+   * line reading "Completo" with the upload button disabled — so replacing it, the one thing the
+   * tenant had to do, was the one thing the screen would not let them do.
+   */
+  it("does not let a rejected file occupy its slot", () => {
+    const reviews = {
+      [three[0]!.id]: { status: "rejected" as const, note: "Ilegible", at: "2026-08-22T12:00:00.000Z" },
+    };
+
+    expect(acceptable(three, reviews)).toHaveLength(2);
+    expect(missingDocuments("employee", acceptable(three, reviews)).map((r) => r.kind)).toContain("payslip");
+  });
+
+  it("keeps the approved and the unreviewed ones", () => {
+    const reviews = {
+      [three[0]!.id]: { status: "approved" as const, note: "", at: "2026-08-22T12:00:00.000Z" },
+    };
+
+    expect(acceptable(three, reviews)).toHaveLength(3);
+    expect(acceptable(three, {})).toHaveLength(3);
   });
 });
 

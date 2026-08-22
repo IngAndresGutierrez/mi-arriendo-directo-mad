@@ -244,6 +244,20 @@ export type DocumentReview = {
 
 export type DocumentReviews = Readonly<Record<string, DocumentReview>>;
 
+/**
+ * The documents that still count, which is not all of them.
+ *
+ * A rejected file occupies no slot: with three payslips uploaded and one rejected, counting it
+ * left the line reading "Completo" with the upload button disabled — so the one thing the tenant
+ * had to do, replace it, was the one thing the screen would not let them do.
+ */
+export function acceptable<T extends { readonly id: string }>(
+  documents: readonly T[],
+  reviews: DocumentReviews,
+): readonly T[] {
+  return documents.filter((document) => statusOf(reviews, document.id) !== "rejected");
+}
+
 export function reviewOf(reviews: DocumentReviews, documentId: string): DocumentReview | null {
   return reviews[documentId] ?? null;
 }

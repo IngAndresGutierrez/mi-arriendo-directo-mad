@@ -324,7 +324,16 @@ for somebody else to find out. Only a **429** is retried: it is the one response
 request without sending anything, so repeating it cannot duplicate an email — which is also why
 no idempotency key is needed.
 
-- **A rejected document is told; an approved one is not.** The tenant has to act on a rejection
+- **A rejected file occupies no slot.** `acceptable()` drops it before counting, because three
+payslips with one rejected read as "Completo" with the upload disabled — so replacing it, the
+only thing left to do, became the one thing the screen would not allow. On the tenant's side the
+whole line turns red and says what to do; the verdict beside the thumbnail is just the word.
+
+**Each row owns its own pending state**, in the review panel as in the uploader. One boolean
+from `useTransition` froze every button in the panel while a single verdict saved, which for five
+documents is five waits with the list unusable.
+
+**A rejected document is told; an approved one is not.** The tenant has to act on a rejection
   and the reason is the only thing that says how; one approval out of five is a status change
   nobody needs interrupting for, and the last one moves the stage, which announces itself.
 - **`notify()` never throws.** It runs after the work that matters is already written, and a
