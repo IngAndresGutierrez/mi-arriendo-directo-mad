@@ -1,7 +1,10 @@
+import type { ReactNode } from "react";
 import { CheckIcon, ClockIcon, LockIcon } from "lucide-react";
 
 import { stageAnchor } from "@/features/notification/client";
 import { cn } from "@/shared/lib/utils";
+
+import { StagePanel } from "./stage-panel";
 
 import {
   isUnbuilt,
@@ -29,18 +32,27 @@ const STATE_BADGE = {
  * are not built. Those carry a note saying they happen off the platform for now — the landlord
  * still records them here, which is what keeps the two people looking at the same thing.
  */
-/** Where each stage's work happens, when it happens in the product at all. */
-const STAGE_ANCHORS: Partial<Record<Stage, string>> = {
-  tenant_data: "documentos",
-  background_check: "expedientes",
+/** What a stage lets you do, when the product lets you do it here. */
+export type StageWork = {
+  readonly title: string;
+  readonly meta?: string;
+  readonly content: ReactNode;
 };
 
 export function StageTimeline({
   application,
   isLandlord,
+  work,
 }: {
   readonly application: Application;
   readonly isLandlord: boolean;
+  /**
+   * The work of a stage, folded inside its own card.
+   *
+   * Passed in rather than imported: the documents belong to another module, and the timeline's
+   * job is to lay the stages out, not to know what happens inside each one.
+   */
+  readonly work?: Partial<Record<Stage, StageWork>>;
 }) {
   const stopped = application.status !== "open";
 
@@ -107,23 +119,7 @@ export function StageTimeline({
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  {/*
-                    The stage being worked on is a link to where the work happens: reading "sube
-                    tus documentos" and then having to go looking for where is the kind of small
-                    cruelty that makes people write to support.
-                  */}
-                  <h3 className="font-medium text-foreground">
-                    {current && !stopped && STAGE_ANCHORS[stage] ? (
-                      <a
-                        href={`#${STAGE_ANCHORS[stage]}`}
-                        className="underline decoration-accent decoration-2 underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                      >
-                        {STAGE_LABELS[stage]}
-                      </a>
-                    ) : (
-                      STAGE_LABELS[stage]
-                    )}
-                  </h3>
+                  <h3 className="font-medium text-foreground">{STAGE_LABELS[stage]}</h3>
                   <span
                     className={cn(
                       "rounded-full px-2 py-0.5 text-xs font-medium",
@@ -145,7 +141,14 @@ export function StageTimeline({
                   {stageDescription(stage, isLandlord)}
                 </p>
 
-                {current && isUnbuilt(stage) ? (
+                {/* The work of this stage, where the stage is. */}
+                {current && !stopped && work?.[stage] ? (
+                  <StagePanel title={work[stage]!.title} meta={work[stage]!.meta}>
+                    {work[stage]!.content}
+                  </StagePanel>
+                ) : null}
+
+                {current && isUnbuilt(stage) && !work?.[stage] ? (
                   <p className="mt-2 flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-xs text-muted-foreground">
                     <LockIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
                     <span>

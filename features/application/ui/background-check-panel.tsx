@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLinkIcon, ShieldCheckIcon } from "lucide-react";
+import { ExternalLinkIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
@@ -61,15 +61,8 @@ export function BackgroundCheckPanel({
     : null;
 
   return (
-    <section
-      id="expedientes"
-      className="scroll-mt-24 space-y-4 rounded-2xl border border-border bg-card p-5 transition-shadow"
-    >
-      <h2 className="flex items-center gap-2 font-semibold text-primary dark:text-foreground">
-        <ShieldCheckIcon className="size-4" aria-hidden="true" />
-        Validación de expedientes
-      </h2>
-
+    // No frame and no heading of its own: the accordion around it already provides both.
+    <div className="space-y-4">
       {authorized ? (
         <p className="rounded-xl bg-status-approved-bg px-4 py-3 text-sm text-status-approved">
           Autorización otorgada el {when}.
@@ -161,6 +154,6 @@ export function BackgroundCheckPanel({
           </ul>
         </div>
       ) : null}
-    </section>
+    </div>
   );
 }

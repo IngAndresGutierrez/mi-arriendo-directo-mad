@@ -14,7 +14,6 @@ import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { cn } from "@/shared/lib/utils";
 
 import {
-  documentProgress,
   identityShape,
   isPdf,
   requiredDocuments,
@@ -66,8 +65,6 @@ export function DocumentChecklist({
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<ChecklistDocument | null>(null);
   const inputs = useRef<Record<string, HTMLInputElement | null>>({});
-
-  const progress = documentProgress(occupation, documents);
 
   /*
    * How the person happens to hold their identity document. It starts from what is already
@@ -136,13 +133,10 @@ export function DocumentChecklist({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-semibold text-primary dark:text-foreground">Tus documentos</h2>
-        <span className="text-sm text-muted-foreground" aria-live="polite">
-          {progress.uploaded} de {progress.required} listos
-        </span>
-      </div>
-
+      {/*
+        No heading here: the accordion that wraps this already says what it is and how far along
+        it is. Two of them was what the page ended up rendering, one from each side.
+      */}
       {!identityDecided ? (
         <div className="flex items-start gap-2.5 rounded-xl border border-border bg-card p-4">
           <Checkbox

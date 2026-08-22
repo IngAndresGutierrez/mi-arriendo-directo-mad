@@ -21,6 +21,7 @@ import {
   DocumentChecklist,
 } from "@/features/tenant-profile";
 import { requireCompleteProfile } from "@/features/profile";
+import { stageAnchor } from "@/features/notification";
 import { CONTRACT_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 
@@ -131,59 +132,57 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
         The two stages that ask something of somebody live above the timeline, where whoever has
         to act will see them without scrolling past nine other steps.
       */}
-      {application.status === "open" && application.stage === "tenant_data" ? (
-        <section
-          // The id the timeline links to and the blocked button points at.
-          id="documentos"
-          className="mt-6 scroll-mt-24 rounded-2xl border border-border bg-card p-5 transition-shadow"
-        >
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-            <h2 className="font-semibold text-primary dark:text-foreground">
-              {isLandlord ? "Documentos del inquilino" : "Tus documentos"}
-            </h2>
-            <span className="text-sm text-muted-foreground">
-              {progress.uploaded} de {progress.required} subidos
-            </span>
-          </div>
-
-          {isLandlord ? (
-            <DocumentReviewPanel
-              applicationId={application.id}
-              documents={documents}
-              reviews={application.documentReviews}
-            />
-          ) : (
-            <DocumentChecklist
-              occupation={application.dossier.occupation}
-              documents={documents}
-              reviews={application.documentReviews}
-            />
-          )}
-        </section>
-      ) : null}
-
-      {application.status === "open" && application.stage === "background_check" ? (
-        <div className="mt-6">
-          <BackgroundCheckPanel
-            applicationId={application.id}
-            authorizedAt={application.checksAuthorizedAt}
-            isLandlord={isLandlord}
-            documentNumber={application.dossier.documentNumber}
-          />
-        </div>
-      ) : null}
-
       <div className="mt-6">
         <StageActions
           application={application}
           isLandlord={isLandlord}
           blockedBecause={blocker ? documentsBlockerMessage(blocker, isLandlord) : null}
-          resolveAt="documentos"
+          // The stage's own card, which is where its work now lives.
+          resolveAt={stageAnchor("tenant_data")}
         />
       </div>
 
       <div className="mt-8">
-        <StageTimeline application={application} isLandlord={isLandlord} />
+        {/*
+          The work of a stage goes inside the stage, folded. Built here because it needs both
+          modules — the documents are the tenant profile's, the review is the application's — and
+          the timeline should not have to know either.
+        */}
+        <StageTimeline
+          application={application}
+          isLandlord={isLandlord}
+          work={{
+            tenant_data: {
+              title: isLandlord ? "Documentos del inquilino" : "Tus documentos",
+              meta: `${progress.uploaded} de ${progress.required} subidos`,
+              content: isLandlord ? (
+                <DocumentReviewPanel
+                  applicationId={application.id}
+                  documents={documents}
+                  reviews={application.documentReviews}
+                />
+              ) : (
+                <DocumentChecklist
+                  occupation={application.dossier.occupation}
+                  documents={documents}
+                  reviews={application.documentReviews}
+                />
+              ),
+            },
+            background_check: {
+              title: "Validación de expedientes",
+              meta: application.checksAuthorizedAt ? "Autorizada" : "Falta autorización",
+              content: (
+                <BackgroundCheckPanel
+                  applicationId={application.id}
+                  authorizedAt={application.checksAuthorizedAt}
+                  isLandlord={isLandlord}
+                  documentNumber={application.dossier.documentNumber}
+                />
+              ),
+            },
+          }}
+        />
       </div>
     </div>
   );

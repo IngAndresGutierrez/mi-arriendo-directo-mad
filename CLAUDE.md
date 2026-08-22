@@ -240,11 +240,19 @@ API. What it does have is the **express authorisation** — Ley 1581 again — w
 per application, dated, plus links to the official portals. Nothing there claims a search was
 run.
 
+**A stage's work lives inside the stage.** `StageTimeline` takes a `work` map and folds each
+entry into its own card as a `StagePanel` — a chevron that rotates, open by default because the
+panel only renders on the stage being worked on and hiding the one thing there is to do behind a
+click is a click for nothing. It is passed in rather than imported: the documents belong to the
+tenant profile module and the timeline should not have to know that. Before this the panel sat in
+a section of its own above the timeline, which is why it needed a link pointing at it — and why
+the page rendered its heading twice, once from each side.
+
 **The advance button is gated at `tenant_data`.** `documentsBlocker()` answers *why* in one of
 three ways — something missing, something rejected, something unreviewed — and the button says
 it: `aria-disabled` (so the tooltip stays reachable, unlike `disabled`, which drops out of the
 tab order and stops firing hover), the sentence in the page, and a **"Ver qué falta"** button
-that scrolls to the section and outlines it for three seconds. The blocked button itself does
+that scrolls to the stage's card and outlines it for three seconds. The blocked button itself does
 nothing on click: a control announced as unavailable that turns out to act is its own kind of
 lie, and Playwright refuses to click it for the same reason a screen reader would not offer it.
 
