@@ -7,6 +7,7 @@ import { ImagePlusIcon, StarIcon, Trash2Icon } from "lucide-react";
 import { auth } from "@/shared/firebase/auth";
 import { storage } from "@/shared/firebase/storage";
 import { Button } from "@/shared/ui/button";
+import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { cn } from "@/shared/lib/utils";
 
 import { PHOTOS_MAX, type PropertyPhoto } from "../domain/property";
@@ -19,6 +20,8 @@ type PhotoUploaderProps = {
   readonly onChange: (photos: readonly PropertyPhoto[]) => void;
   /** Form-level error for the field, already resolved by the caller. */
   readonly error?: string;
+  /** Editing: the photo is already published, so removing it asks first. */
+  readonly confirmBeforeRemove?: boolean;
 };
 
 /**
@@ -31,12 +34,13 @@ type PhotoUploaderProps = {
  * The first photo is the cover: it is what the catalog card shows, so it is reorderable rather
  * than a separate field the landlord has to think about.
  */
-export function PhotoUploader({ photos, onChange, error }: PhotoUploaderProps) {
+export function PhotoUploader({ photos, onChange, error, confirmBeforeRemove = false }: PhotoUploaderProps) {
   const inputId = useId();
   const errorId = `${inputId}-error`;
   const inputRef = useRef<HTMLInputElement>(null);
   const [isUploading, startUpload] = useTransition();
   const [localError, setLocalError] = useState<string | null>(null);
+  const [pendingRemoval, setPendingRemoval] = useState<string | null>(null);
 
   function onPick(fileList: FileList | null) {
     if (!fileList || fileList.length === 0) return;
@@ -82,6 +86,11 @@ export function PhotoUploader({ photos, onChange, error }: PhotoUploaderProps) {
 
   function remove(path: string) {
     onChange(photos.filter((photo) => photo.path !== path));
+  }
+
+  function askToRemove(path: string) {
+    if (confirmBeforeRemove) setPendingRemoval(path);
+    else remove(path);
   }
 
   function makeCover(path: string) {
@@ -131,7 +140,7 @@ export function PhotoUploader({ photos, onChange, error }: PhotoUploaderProps) {
                 )}
                 <button
                   type="button"
-                  onClick={() => remove(photo.path)}
+                  onClick={() => askToRemove(photo.path)}
                   aria-label={`Quitar la foto ${index + 1}`}
                   className="rounded-md bg-background/90 p-1.5 text-destructive shadow-xs transition-colors hover:bg-background focus-visible:ring-3 focus-visible:ring-destructive/40 focus-visible:outline-none"
                 >
@@ -174,6 +183,19 @@ export function PhotoUploader({ photos, onChange, error }: PhotoUploaderProps) {
           {message}
         </p>
       )}
+
+      <ConfirmDialog
+        open={pendingRemoval !== null}
+        onOpenChange={(open) => (open ? undefined : setPendingRemoval(null))}
+        title="¿Quitar esta foto?"
+        description="Deja de verse en el anuncio y se borra al guardar los cambios. No se puede deshacer."
+        confirmLabel="Quitar foto"
+        pendingLabel="Quitando…"
+        onConfirm={() => {
+          if (pendingRemoval) remove(pendingRemoval);
+          setPendingRemoval(null);
+        }}
+      />
     </div>
   );
 }

@@ -96,3 +96,38 @@ export const getVisiblePropertyBySlug = cache(
     return getVisibleProperty(propertyId, viewerUid);
   },
 );
+
+/**
+ * Every listing a landlord owns, newest first — including drafts and rented ones, which is the
+ * point: this is the management screen, not the catalog.
+ *
+ * Not wrapped in `cache()` like the single reads: it is called once per render and caching it
+ * would only hide a stale list behind a mutation.
+ */
+export async function listLandlordProperties(landlordUid: string): Promise<readonly Property[]> {
+  const snapshot = await adminDb()
+    .collection("properties")
+    .where("landlordUid", "==", landlordUid)
+    .orderBy("createdAt", "desc")
+    .limit(100)
+    .get();
+
+  return snapshot.docs
+    .map((doc) => toProperty(doc as unknown as Snapshot))
+    .filter((property): property is Property => property !== null);
+}
+
+/**
+ * A property the caller owns, whatever its status — the read every mutation starts from.
+ *
+ * Returns `null` for a stranger, the same answer as "there is no such property": a caller
+ * cannot tell the two apart, so a mistake at the call site leaks nothing.
+ */
+export const getOwnedProperty = cache(
+  async (id: string, landlordUid: string): Promise<Property | null> => {
+    const snapshot = await adminDb().collection("properties").doc(id).get();
+    const property = toProperty(snapshot as unknown as Snapshot);
+
+    return property && property.landlordUid === landlordUid ? property : null;
+  },
+);

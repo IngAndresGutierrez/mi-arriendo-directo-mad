@@ -17,6 +17,7 @@ import { TextField } from "@/shared/form/text-field";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { Label } from "@/shared/ui/label";
 
+import { updateProperty } from "../actions/manage-property";
 import { publishProperty } from "../actions/publish-property";
 import {
   LEASE_TERMS,
@@ -26,6 +27,7 @@ import {
   PROPERTY_TYPES,
   PROPERTY_TYPE_LABELS,
   STRATA,
+  type Property,
   type PropertyPhoto,
 } from "../domain/property";
 import {
@@ -73,41 +75,76 @@ function todayISO(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+type PropertyFormProps = {
+  /** Present when editing: the listing as it is stored today. Absent when publishing. */
+  readonly property?: Property;
+  /** The street address, which lives outside the public document. Only for editing. */
+  readonly addressLine?: string;
+};
+
 /**
- * The form a landlord fills to publish a property.
+ * The form a landlord fills to publish a property — and the same one they edit it with.
  *
  * It is one page rather than a wizard: everything asked here is information the landlord
  * already has in their head, and a five-step wizard would only add ceremony. The sections are
  * the reading order of the listing itself, so the form doubles as a preview of what a tenant
  * will see.
+ *
+ * Publishing and editing share it on purpose: two forms for one shape is how a field ends up
+ * being addable but not editable.
  */
-export function PublishPropertyForm() {
+export function PropertyForm({ property, addressLine }: PropertyFormProps) {
   const router = useRouter();
-  const [photos, setPhotos] = useState<readonly PropertyPhoto[]>([]);
+  const isEditing = property !== undefined;
+  const [photos, setPhotos] = useState<readonly PropertyPhoto[]>(property?.photos ?? []);
 
   const form = useForm<PublishPropertyFormValues, unknown, PublishPropertyInput>({
     resolver: zodResolver(publishPropertySchema),
     mode: "onBlur",
-    defaultValues: {
-      title: "",
-      description: "",
-      type: "apartment",
-      rent: "",
-      adminFee: "0",
-      areaM2: "",
-      bedrooms: "",
-      bathrooms: "",
-      parking: "none",
-      stratum: "",
-      furnished: false,
-      petsAllowed: false,
-      minLeaseMonths: "12",
-      availableFrom: todayISO(),
-      // No default department: the city list hangs off it, and a preselected one would
-      // quietly publish in the wrong place.
-      address: { line: "", neighborhood: "", city: "", department: undefined },
-      photos: [],
-    },
+    defaultValues: property
+      ? {
+          title: property.title,
+          description: property.description,
+          type: property.type,
+          rent: String(property.rent),
+          adminFee: String(property.adminFee),
+          areaM2: String(property.areaM2),
+          bedrooms: String(property.bedrooms),
+          bathrooms: String(property.bathrooms),
+          parking: property.parking,
+          stratum: String(property.stratum),
+          furnished: property.furnished,
+          petsAllowed: property.petsAllowed,
+          minLeaseMonths: String(property.minLeaseMonths),
+          availableFrom: property.availableFrom,
+          address: {
+            line: addressLine ?? "",
+            neighborhood: property.area.neighborhood,
+            city: property.area.city,
+            department: property.area.department,
+          },
+          photos: [...property.photos],
+        }
+      : {
+          title: "",
+          description: "",
+          type: "apartment",
+          rent: "",
+          adminFee: "0",
+          areaM2: "",
+          bedrooms: "",
+          bathrooms: "",
+          parking: "none",
+          stratum: "",
+          furnished: false,
+          petsAllowed: false,
+          minLeaseMonths: "12",
+          availableFrom: todayISO(),
+          // No default department: the city list hangs off it, and a preselected one would
+          // quietly publish in the wrong place.
+          address: { line: "", neighborhood: "", city: "", department: undefined },
+          photos: [],
+        },
   });
 
   const { errors, isSubmitting } = form.formState;
@@ -141,7 +178,9 @@ export function PublishPropertyForm() {
     data.set("address.department", values.address.department);
     data.set("photos", JSON.stringify(values.photos));
 
-    const result = await publishProperty(data);
+    const result = property
+      ? await updateProperty(property.id, data)
+      : await publishProperty(data);
 
     if (!result.ok) {
       for (const [field, messages] of Object.entries(result.fieldErrors ?? {})) {
@@ -153,7 +192,7 @@ export function PublishPropertyForm() {
 
     // The action promoted the account to landlord, but this browser's cookie was minted before
     // the claim existed: without re-minting it the server keeps reading the old role.
-    if (result.rolePromoted) await refreshServerSession();
+    if ("rolePromoted" in result && result.rolePromoted) await refreshServerSession();
 
     router.push(propertyDetailRoute(result.slug));
     router.refresh();
@@ -426,6 +465,9 @@ export function PublishPropertyForm() {
         <h2 className="text-lg font-semibold text-primary">Fotos</h2>
         <PhotoUploader
           photos={photos}
+          // Editing removes a photo that already exists: that is a delete, and every delete in
+          // the product asks first. While publishing there is nothing to lose yet.
+          confirmBeforeRemove={isEditing}
           error={errors.photos?.message}
           onChange={(next) => {
             setPhotos(next);
@@ -434,8 +476,8 @@ export function PublishPropertyForm() {
         />
       </section>
 
-      <SubmitButton loading={isSubmitting} loadingLabel="Publicando…">
-        Publicar inmueble
+      <SubmitButton loading={isSubmitting} loadingLabel={isEditing ? "Guardando…" : "Publicando…"}>
+        {isEditing ? "Guardar cambios" : "Publicar inmueble"}
       </SubmitButton>
     </form>
   );

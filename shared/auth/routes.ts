@@ -19,6 +19,12 @@ export const HOME_ROUTE = "/inicio";
 export const PROPERTIES_ROUTE = "/inmuebles";
 /** Where a landlord publishes. Static segment, so it never collides with a property id. */
 export const PUBLISH_PROPERTY_ROUTE = "/inmuebles/publicar";
+/** A landlord's own listings, with their management actions. */
+export const MY_PROPERTIES_ROUTE = "/mis-inmuebles";
+/** Editing one of them. Keyed by id, not by slug: the slug is what the edit may change. */
+export function editPropertyRoute(id: string): string {
+  return `${MY_PROPERTIES_ROUTE}/${id}/editar`;
+}
 /**
  * Public detail of one property: the slug alone, with no id appended.
  *

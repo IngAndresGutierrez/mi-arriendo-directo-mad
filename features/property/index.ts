@@ -14,7 +14,10 @@ export {
 } from "./domain/property";
 export { getPropertyLocation, getVisibleProperty, getVisiblePropertyBySlug } from "./data/property";
 export { publishProperty } from "./actions/publish-property";
-export { PublishPropertyForm } from "./ui/publish-property-form";
+export { deleteProperty, updateProperty } from "./actions/manage-property";
+export { getOwnedProperty, listLandlordProperties } from "./data/property";
+export { PropertyForm } from "./ui/property-form";
+export { PropertyManageCard } from "./ui/property-manage-card";
 export { PropertyFacts } from "./ui/property-facts";
 export { PropertyGallery } from "./ui/property-gallery";
 export { PropertyPriceCard } from "./ui/property-price-card";

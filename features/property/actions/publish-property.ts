@@ -1,13 +1,16 @@
 "use server";
 
 import { FieldValue } from "firebase-admin/firestore";
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireCompleteProfile } from "@/features/profile";
+import { MY_PROPERTIES_ROUTE } from "@/shared/auth/routes";
 import { adminAuth, adminDb } from "@/shared/firebase/admin";
 
 import { propertySlug } from "../domain/property";
 import { publishPropertySchema, validateAvailableFrom } from "../validations/property";
+import { parsePropertyForm, photosBelongTo, reserveSlug } from "./form-input";
 
 export type PublishPropertyResult =
   | { readonly ok: true; readonly id: string; readonly slug: string; readonly rolePromoted: boolean }
@@ -16,45 +19,6 @@ export type PublishPropertyResult =
       readonly message?: string;
       readonly fieldErrors?: Readonly<Record<string, readonly string[]>>;
     };
-
-/**
- * Claims a slug for a property, and hands back the one that was actually free.
- *
- * `propertySlugs/{slug}` is the reservation: the document id *is* the slug, so uniqueness is
- * document existence and resolving a URL later is a single `get` instead of a query. `create()`
- * fails when the document is already there, which makes each attempt atomic — two landlords
- * publishing "Apartamento en Palermo, Manizales" at the same second cannot both win.
- *
- * Collisions get a counter, because "-2" still reads like a place and a random suffix does not.
- * After a few attempts it falls back to the property id, which cannot collide.
- *
- * Whoever builds "delete a listing" or "edit the title" owes this collection a write: an
- * abandoned reservation keeps a URL taken forever, and a renamed property that keeps its old
- * reservation would answer on a slug that no longer describes it.
- */
-async function reserveSlug(base: string, propertyId: string): Promise<string> {
-  const slugs = adminDb().collection("propertySlugs");
-  const candidates = [base, ...[2, 3, 4, 5, 6].map((n) => `${base}-${n}`)];
-
-  for (const candidate of candidates) {
-    try {
-      await slugs.doc(candidate).create({ propertyId });
-      return candidate;
-    } catch {
-      // taken: try the next one
-    }
-  }
-
-  const unique = `${base}-${propertyId.slice(0, 6).toLowerCase()}`;
-  await slugs.doc(unique).create({ propertyId });
-  return unique;
-}
-
-/** Photos are uploaded from the browser into the landlord's own folder, and nowhere else. */
-function photosBelongTo(uid: string, photos: readonly { path: string }[]): boolean {
-  const prefix = `properties/${uid}/`;
-  return photos.every((photo) => photo.path.startsWith(prefix) && !photo.path.includes(".."));
-}
 
 /**
  * Publishes a property.
@@ -74,37 +38,10 @@ function photosBelongTo(uid: string, photos: readonly { path: string }[]): boole
 export async function publishProperty(formData: FormData): Promise<PublishPropertyResult> {
   const user = await requireCompleteProfile();
 
-  const photosRaw = formData.get("photos");
-  let photos: unknown = [];
-  try {
-    photos = typeof photosRaw === "string" ? JSON.parse(photosRaw) : [];
-  } catch {
-    return { ok: false, message: "No pudimos leer las fotos. Vuelve a subirlas." };
-  }
+  const input = parsePropertyForm(formData);
+  if ("error" in input) return { ok: false, message: input.error };
 
-  const parsed = publishPropertySchema.safeParse({
-    title: formData.get("title"),
-    description: formData.get("description"),
-    type: formData.get("type"),
-    rent: formData.get("rent"),
-    adminFee: formData.get("adminFee") || "0",
-    areaM2: formData.get("areaM2"),
-    bedrooms: formData.get("bedrooms"),
-    bathrooms: formData.get("bathrooms"),
-    parking: formData.get("parking"),
-    stratum: formData.get("stratum"),
-    furnished: formData.get("furnished") === "true",
-    petsAllowed: formData.get("petsAllowed") === "true",
-    minLeaseMonths: formData.get("minLeaseMonths"),
-    availableFrom: formData.get("availableFrom"),
-    address: {
-      line: formData.get("address.line"),
-      neighborhood: formData.get("address.neighborhood"),
-      city: formData.get("address.city"),
-      department: formData.get("address.department"),
-    },
-    photos,
-  });
+  const parsed = publishPropertySchema.safeParse(input.value);
 
   if (!parsed.success) {
     // Never return Zod's raw error: it carries the submitted values back to the client.
@@ -148,6 +85,9 @@ export async function publishProperty(formData: FormData): Promise<PublishProper
   if (rolePromoted) {
     await adminAuth().setCustomUserClaims(user.uid, { role: "landlord" });
   }
+
+  // The landlord lands on the detail, but their list has to include it the moment they go back.
+  revalidatePath(MY_PROPERTIES_ROUTE);
 
   return { ok: true, id: propertyRef.id, slug, rolePromoted };
 }

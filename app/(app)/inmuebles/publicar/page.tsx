@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { PublishPropertyForm } from "@/features/property";
+import { PropertyForm } from "@/features/property";
 import { requireCompleteProfile } from "@/features/profile";
 import { AppSidebar } from "@/shared/shell/app-sidebar";
 import { TooltipProvider } from "@/shared/ui/tooltip";
@@ -29,7 +29,7 @@ export default async function PublishPropertyPage() {
               vista de ambos hasta la firma.
             </p>
 
-            <PublishPropertyForm />
+            <PropertyForm />
           </div>
         </main>
       </div>
