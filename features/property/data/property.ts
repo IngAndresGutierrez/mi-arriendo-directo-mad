@@ -74,9 +74,16 @@ export const getPropertyLocation = cache(
     if (!property.exists || property.data()?.landlordUid !== viewerUid) return null;
 
     const location = await adminDb().collection("properties").doc(id).collection("private").doc("location").get();
-    const line = location.data()?.line;
+    const data = location.data();
+    const line = data?.line;
 
-    return typeof line === "string" ? { line } : null;
+    return typeof line === "string"
+      ? {
+          line,
+          // Empty on listings published before the registry number was required.
+          registryNumber: typeof data?.registryNumber === "string" ? data.registryNumber : "",
+        }
+      : null;
   },
 );
 

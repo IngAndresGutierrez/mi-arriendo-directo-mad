@@ -77,6 +77,7 @@ export function parsePropertyForm(
       minLeaseMonths: formData.get("minLeaseMonths"),
       availableFrom: formData.get("availableFrom"),
       address: {
+        registryNumber: formData.get("address.registryNumber"),
         line: formData.get("address.line"),
         neighborhood: formData.get("address.neighborhood"),
         city: formData.get("address.city"),

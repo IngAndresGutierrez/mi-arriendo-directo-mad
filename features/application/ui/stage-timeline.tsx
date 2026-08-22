@@ -151,7 +151,8 @@ export function StageTimeline({
                   <StagePanel
                     title={work[stage]!.title}
                     meta={work[stage]!.meta}
-                    defaultOpen={current}
+                    // Moving to another stage folds every panel, this one included.
+                    resetOn={application.stage}
                   >
                     {work[stage]!.content}
                   </StagePanel>

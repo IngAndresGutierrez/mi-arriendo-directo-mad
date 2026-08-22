@@ -78,7 +78,10 @@ export async function publishProperty(formData: FormData): Promise<PublishProper
     updatedAt: FieldValue.serverTimestamp(),
   });
   // The street never enters the public document.
-  batch.set(propertyRef.collection("private").doc("location"), { line: address.line });
+  batch.set(propertyRef.collection("private").doc("location"), {
+    line: address.line,
+    registryNumber: address.registryNumber,
+  });
   await batch.commit();
 
   const rolePromoted = user.role === "tenant";

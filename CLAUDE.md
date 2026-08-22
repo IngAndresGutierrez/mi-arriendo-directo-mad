@@ -101,6 +101,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/inicio` | `HOME_ROUTE` | User portal: greeting, contracts and shortcuts. Destination after signing in. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
 | `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
+| — | — | Publishing requires the **matrícula inmobiliaria**, and it is stored beside the street in `properties/{id}/private/location`, never in the public document: with that number anyone can pull the certificate and read the address off it, so publishing it would publish the address by the back door. Validated loosely — the circle is two or three digits and the separator is written every way — because the only real check is against the registry, which this product does not do. |
 | `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
 | `/postularme/<slug>` | `applyToPropertyRoute(slug)` | Where a tenant applies. Needs a complete profile; redirects to the process if one is already open. |
 | `/contrato` | `CONTRACT_ROUTE` | Every rental process the user is part of, on either side. |
@@ -228,10 +229,14 @@ risk of leaving a field unconnected.
 
 ## The rental process (`features/application`)
 
-Ten stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
+Nine stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
 nothing advances by itself, because each of these is a decision someone makes off the platform
-and then records here. `submitted → tenant_data → background_check → document_review → interview → guarantee →
-approved → contract_signature → first_payment → active`.
+and then records here. `submitted → tenant_data → background_check → interview → guarantee → approved →
+contract_signature → first_payment → active`.
+
+There is no separate "revisión de documentos" stage: reviewing them **is** stage two, where each
+one is approved or rejected. A stage repeating what the previous one settled is a stage everybody
+clicks through without reading.
 
 **`tenant_data` is built.** The tenant uploads the documents their occupation calls for and both
 sides see them previewed; the landlord approves or rejects each one, with a reason on a
@@ -259,6 +264,12 @@ uploaded three stages ago is a normal thing to want, and a process that hides wh
 moment it moves on is a record nobody can audit. The buttons go because a control that no longer
 changes anything is the same lie as a "Continuar" that does not continue — `readOnly` on each
 panel, decided by the page, which is the only place that knows which stage the process is on.
+
+**Every panel starts folded, and a change of stage folds them all.** The header carries the
+state — "5 de 5 subidos", "2 de 4 consultadas" — so what a click reveals is the controls, not the
+news; nine stages each unfolding on their own would be a page nobody can see the shape of.
+`resetOn` carries the current stage, so moving forward leaves the timeline collapsed instead of
+growing a section at a time.
 
 **A stage's work lives inside the stage.** `StageTimeline` takes a `work` map and folds each
 entry into its own card as a `StagePanel` — a chevron that rotates, open by default because the
@@ -392,6 +403,9 @@ rules or keeping two versions of every screen, so the subscription reads one fie
   file arrived" into a live update on the other screen.
 - Both hooks fail quietly: a denied or dropped subscription logs and stops updating. No live
   updates is a lesser problem than a broken screen.
+- **`networkidle` no longer happens.** A Firestore subscription keeps a connection open, so any
+  test or script waiting for the network to go quiet waits forever. Wait for `domcontentloaded`
+  and then for the thing you actually mean.
 
 ## Client-safe module entries
 

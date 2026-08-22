@@ -4,11 +4,15 @@ import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/c
 import type { CheckResults } from "./background-check";
 
 /**
- * The ten stages a rental goes through, in order.
+ * The nine stages a rental goes through, in order.
  *
  * The landlord moves the process forward one stage at a time — there is no automatic
  * progression, because every one of these is a decision someone makes off the platform and then
  * records here.
+ *
+ * There is no separate "revisión de documentos" stage either: reviewing them *is* stage two,
+ * where each one is approved or rejected, and a stage that repeats what the previous one already
+ * settled is a stage everybody clicks through without reading.
  *
  * There is deliberately **no deposit stage**. Ley 820 de 2003 forbids cash deposits on urban
  * housing leases in Colombia; what stands in for it is `guarantee` — a co-signer or an insurance
@@ -18,7 +22,6 @@ export const STAGES = [
   "submitted",
   "tenant_data",
   "background_check",
-  "document_review",
   "interview",
   "guarantee",
   "approved",
@@ -33,7 +36,6 @@ export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
   submitted: "Postulación recibida",
   tenant_data: "Datos y documentos del inquilino",
   background_check: "Validación de expedientes",
-  document_review: "Revisión de documentos",
   interview: "Entrevista con el propietario",
   guarantee: "Codeudor o póliza",
   approved: "Postulación aprobada",
@@ -54,7 +56,6 @@ export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
   tenant_data: "Sube tu documento de identidad y el soporte de tus ingresos.",
   background_check:
     "Con tu autorización se revisan tus antecedentes judiciales, multas de tránsito y sanciones disciplinarias.",
-  document_review: "El propietario está revisando lo que enviaste.",
   interview: "El propietario te contactará para conocerte, por llamada o en persona.",
   guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
   approved: "El propietario aceptó tu postulación. Sigue la firma.",
@@ -69,7 +70,6 @@ export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
   tenant_data: "Pídele su documento de identidad y el soporte de sus ingresos.",
   background_check:
     "Consulta sus antecedentes judiciales, de tránsito y disciplinarios, y marca el resultado.",
-  document_review: "Revisa los documentos que te envió.",
   interview: "Contáctalo para conocerlo, por llamada o en persona.",
   guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
   approved: "Aceptaste la postulación. Sigue la firma del contrato.",
@@ -93,7 +93,6 @@ export function stageDescription(stage: Stage, isLandlord: boolean): string {
  */
 export const UNBUILT_STAGES: readonly Stage[] = [
   "background_check",
-  "document_review",
   "interview",
   "guarantee",
   "contract_signature",

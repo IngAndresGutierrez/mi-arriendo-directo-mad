@@ -22,8 +22,8 @@ import {
 const at = (stage: Stage, status: Application["status"] = "open") => ({ stage, status });
 
 describe("the nine stages", () => {
-  it("are ten, in the agreed order, and end with the rental in course", () => {
-    expect(STAGES).toHaveLength(10);
+  it("are nine, in the agreed order, and end with the rental in course", () => {
+    expect(STAGES).toHaveLength(9);
     expect(STAGES[0]).toBe("submitted");
     expect(STAGES.at(-1)).toBe("active");
   });
@@ -35,6 +35,14 @@ describe("the nine stages", () => {
   it("checks records only once the documents are in", () => {
     expect(STAGES.indexOf("background_check")).toBe(STAGES.indexOf("tenant_data") + 1);
     expect(STAGES.indexOf("background_check")).toBeLessThan(STAGES.indexOf("approved"));
+  });
+
+  /*
+   * Reviewing the documents *is* stage two, where each is approved or rejected. A stage that
+   * repeats what the previous one settled is a stage everybody clicks through without reading.
+   */
+  it("has no separate document review stage", () => {
+    expect(STAGES).not.toContain("document_review");
   });
 
   /*
@@ -86,7 +94,7 @@ describe("nextStage", () => {
     expect(nextStage("active")).toBeNull();
   });
 
-  it("reaches the last stage in exactly nine moves", () => {
+  it("reaches the last stage in exactly eight moves", () => {
     let stage: Stage | null = "submitted";
     let moves = 0;
     while (nextStage(stage!) !== null) {
@@ -94,7 +102,7 @@ describe("nextStage", () => {
       moves += 1;
     }
     expect(stage).toBe("active");
-    expect(moves).toBe(9);
+    expect(moves).toBe(8);
   });
 });
 
@@ -108,12 +116,12 @@ describe("stageState", () => {
 
 describe("progress", () => {
   it("counts from one, not from zero", () => {
-    expect(stageProgressLabel("submitted")).toBe("Paso 1 de 10");
-    expect(stageProgressLabel("active")).toBe("Paso 10 de 10");
+    expect(stageProgressLabel("submitted")).toBe("Paso 1 de 9");
+    expect(stageProgressLabel("active")).toBe("Paso 9 de 9");
   });
 
   it("fills the bar only when the process is at the last stage", () => {
-    expect(stageProgress("submitted")).toBeCloseTo(1 / 10);
+    expect(stageProgress("submitted")).toBeCloseTo(1 / 9);
     expect(stageProgress("active")).toBe(1);
   });
 });

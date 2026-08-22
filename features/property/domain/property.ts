@@ -141,9 +141,19 @@ export type Property = Omit<PropertyDoc, "createdAt" | "updatedAt"> & {
   readonly updatedAt: string;
 };
 
-/** `properties/{id}/private/location` — the exact street, never public. */
+/**
+ * `properties/{id}/private/location` — what is not public about a property.
+ *
+ * The street, and the **matrícula inmobiliaria**: the number the Oficina de Registro de
+ * Instrumentos Públicos gives every property in Colombia. It is required to publish, because a
+ * listing without one cannot be checked against the registry — and it stays private for the same
+ * reason the address does: with it, anybody can pull the certificate and read the address off it,
+ * so publishing the number would publish the address by the back door.
+ */
 export type PropertyLocation = {
   readonly line: string;
+  /** `050-123456` — the registry number. Empty on listings published before it was required. */
+  readonly registryNumber: string;
 };
 
 /**

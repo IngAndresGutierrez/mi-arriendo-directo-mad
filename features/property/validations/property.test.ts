@@ -29,6 +29,7 @@ const VALID_PROPERTY = {
   minLeaseMonths: "12",
   availableFrom: "2026-12-07",
   address: {
+    registryNumber: "050-123456",
     line: "Calle 60 #10-20 apto 301",
     neighborhood: "Palermo",
     city: "Manizales",

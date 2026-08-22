@@ -40,7 +40,11 @@ export default async function EditPropertyPage(props: PageProps<"/mis-inmuebles/
         enlace nuevo empieza a funcionar y el anterior sigue llevando aquí.
       </p>
 
-      <PropertyForm property={property} addressLine={location?.line ?? ""} />
+      <PropertyForm
+          property={property}
+          addressLine={location?.line ?? ""}
+          registryNumber={location?.registryNumber ?? ""}
+        />
     </div>
   );
 }

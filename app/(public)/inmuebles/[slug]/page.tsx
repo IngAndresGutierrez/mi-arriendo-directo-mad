@@ -131,9 +131,16 @@ export default async function PropertyDetailPage(props: DetailProps) {
             <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2.5 text-sm text-muted-foreground">
               <LockIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
               <span>
-                <strong className="font-medium text-foreground">{location.line}</strong> — la
-                dirección exacta solo la ves tú. El inquilino la recibe cuando apruebes su
-                postulación.
+                <strong className="font-medium text-foreground">{location.line}</strong>
+                {location.registryNumber ? (
+                  <>
+                    {" · matrícula "}
+                    <strong className="font-medium text-foreground">
+                      {location.registryNumber}
+                    </strong>
+                  </>
+                ) : null}{" "}
+                — solo lo ves tú. El inquilino recibe la dirección cuando apruebes su postulación.
               </span>
             </p>
           )}

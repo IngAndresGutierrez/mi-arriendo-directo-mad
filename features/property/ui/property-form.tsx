@@ -80,6 +80,8 @@ type PropertyFormProps = {
   readonly property?: Property;
   /** The street address, which lives outside the public document. Only for editing. */
   readonly addressLine?: string;
+  /** The registry number, which lives beside the address and is just as private. */
+  readonly registryNumber?: string;
 };
 
 /**
@@ -93,7 +95,7 @@ type PropertyFormProps = {
  * Publishing and editing share it on purpose: two forms for one shape is how a field ends up
  * being addable but not editable.
  */
-export function PropertyForm({ property, addressLine }: PropertyFormProps) {
+export function PropertyForm({ property, addressLine, registryNumber }: PropertyFormProps) {
   const router = useRouter();
   const isEditing = property !== undefined;
   const [photos, setPhotos] = useState<readonly PropertyPhoto[]>(property?.photos ?? []);
@@ -118,6 +120,7 @@ export function PropertyForm({ property, addressLine }: PropertyFormProps) {
           minLeaseMonths: String(property.minLeaseMonths),
           availableFrom: property.availableFrom,
           address: {
+            registryNumber: registryNumber ?? "",
             line: addressLine ?? "",
             neighborhood: property.area.neighborhood,
             city: property.area.city,
@@ -142,7 +145,7 @@ export function PropertyForm({ property, addressLine }: PropertyFormProps) {
           availableFrom: todayISO(),
           // No default department: the city list hangs off it, and a preselected one would
           // quietly publish in the wrong place.
-          address: { line: "", neighborhood: "", city: "", department: undefined },
+          address: { registryNumber: "", line: "", neighborhood: "", city: "", department: undefined },
           photos: [],
         },
   });
@@ -172,6 +175,7 @@ export function PropertyForm({ property, addressLine }: PropertyFormProps) {
     data.set("petsAllowed", String(values.petsAllowed));
     data.set("minLeaseMonths", String(values.minLeaseMonths));
     data.set("availableFrom", values.availableFrom);
+    data.set("address.registryNumber", values.address.registryNumber);
     data.set("address.line", values.address.line);
     data.set("address.neighborhood", values.address.neighborhood);
     data.set("address.city", values.address.city);
@@ -394,6 +398,16 @@ export function PropertyForm({ property, addressLine }: PropertyFormProps) {
             label="Barrio"
             error={errors.address?.neighborhood?.message}
             {...form.register("address.neighborhood")}
+          />
+          <TextField
+            id="address.registryNumber"
+            label="Número de matrícula inmobiliaria"
+            placeholder="050-123456"
+            inputMode="numeric"
+            autoComplete="off"
+            hint="El número del certificado de tradición, que expide la Oficina de Registro de Instrumentos Públicos. No se publica: identifica el inmueble ante el registro."
+            error={errors.address?.registryNumber?.message}
+            {...form.register("address.registryNumber")}
           />
           <TextField
             id="address.line"

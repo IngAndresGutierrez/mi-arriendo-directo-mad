@@ -76,7 +76,10 @@ export async function updateProperty(
     },
     updatedAt: FieldValue.serverTimestamp(),
   });
-  batch.set(propertyRef.collection("private").doc("location"), { line: address.line });
+  batch.set(propertyRef.collection("private").doc("location"), {
+    line: address.line,
+    registryNumber: address.registryNumber,
+  });
   await batch.commit();
 
   // Photos the landlord removed are dropped from Storage: an orphan file is invisible and

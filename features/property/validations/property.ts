@@ -58,7 +58,28 @@ const photo = z.object({
  * validated **against the department**: a city on its own means nothing, and "Manizales,
  * Antioquia" is exactly what a free-text pair used to let through.
  */
+/**
+ * Matrícula inmobiliaria: the number the Oficina de Registro de Instrumentos Públicos gives
+ * every property in Colombia, usually written `050-123456`.
+ *
+ * Validated loosely on purpose. The shape is a registry circle and a sequential number, but the
+ * circle can be two or three digits, the separator is written as a hyphen, a space or nothing at
+ * all, and older records are shorter than newer ones. A stricter pattern would reject real
+ * numbers off real certificates, and what it would buy is a false sense of having verified
+ * something: the only real check is against the registry, which is not something this product
+ * does.
+ */
+const registryNumber = z
+  .string({ error: "Ingresa la matrícula inmobiliaria" })
+  .trim()
+  .min(6, { error: "La matrícula es demasiado corta" })
+  .max(20, { error: "La matrícula es demasiado larga" })
+  .regex(/^[0-9][0-9\s-]*[0-9]$/, {
+    error: "Solo números, con o sin guion. Por ejemplo: 050-123456",
+  });
+
 const address = z.object({
+  registryNumber,
   line: z
     .string({ error: "Ingresa la dirección" })
     .trim()
