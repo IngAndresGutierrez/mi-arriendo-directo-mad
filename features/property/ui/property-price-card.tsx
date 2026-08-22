@@ -78,7 +78,7 @@ export function PropertyPriceCard({
       <div className="mt-5 space-y-2">
         {applyState === "own" ? (
           <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-            Este inmueble es tuyo. Las postulaciones que reciba las verás en Contrato.
+            Este inmueble es tuyo. Las postulaciones que reciba las verás en Arriendos.
           </p>
         ) : applyState === "open" && applicationId ? (
           <Button asChild variant="accent" size="xl" className="w-full">
