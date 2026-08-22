@@ -29,6 +29,7 @@ import {
 import { requireCompleteProfile } from "@/features/profile";
 import { stageAnchor } from "@/features/notification";
 import { RENTALS_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
+import { formatLongDate } from "@/shared/format/date";
 import { formatCOP } from "@/shared/format/money";
 
 export const metadata: Metadata = {
@@ -119,19 +120,42 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
       ) : null}
 
       <section className="mt-6 space-y-4 rounded-2xl border border-border bg-card p-5">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="font-semibold text-primary dark:text-foreground">La postulación</h2>
-          <p className="text-sm text-muted-foreground">
-            {formatCOP(application.monthlyCost)} al mes ·{" "}
-            {application.leaseMonths === 6 ? "6 meses" : "1 año"} · desde el{" "}
-            {new Intl.DateTimeFormat("es-CO", {
-              day: "numeric",
-              month: "long",
-              year: "numeric",
-              timeZone: "America/Bogota",
-            }).format(new Date(`${application.desiredMoveIn}T12:00:00Z`))}
-          </p>
-        </div>
+        <h2 className="font-semibold text-primary dark:text-foreground">La postulación</h2>
+
+        {/*
+          Three facts with their names on them, under the heading. They used to be one line of
+          small grey text to the right of the title — "$1.400.000 al mes · 1 año · desde el 31 de
+          agosto" — where the reader had to work out which number was the rent, which was the term
+          and what the date meant. These are the terms of a lease: they are what someone comes to
+          this page to check.
+        */}
+        <dl className="grid gap-4 sm:grid-cols-3">
+          <div>
+            <dt className="text-sm text-muted-foreground">
+              Canon mensual
+            </dt>
+            <dd className="mt-0.5 font-medium text-foreground">
+              {formatCOP(application.monthlyCost)}
+              <span className="font-normal text-muted-foreground"> al mes</span>
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-muted-foreground">
+              Duración del contrato
+            </dt>
+            <dd className="mt-0.5 font-medium text-foreground">
+              {application.leaseMonths === 6 ? "6 meses" : "1 año"}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-sm text-muted-foreground">
+              {isLandlord ? "Se mudaría el" : "Te mudarías el"}
+            </dt>
+            <dd className="mt-0.5 font-medium text-foreground">
+              {formatLongDate(application.desiredMoveIn)}
+            </dd>
+          </div>
+        </dl>
 
         {/*
           The identity document and the reference's phone are for the landlord alone. The

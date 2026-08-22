@@ -31,6 +31,7 @@ import {
   type PropertyPhoto,
 } from "../domain/property";
 import {
+  bogotaDay,
   publishPropertySchema,
   type PublishPropertyFormValues,
   type PublishPropertyInput,
@@ -70,9 +71,15 @@ function isFieldName(value: string): value is FieldName {
   return (FIELD_NAMES as readonly string[]).includes(value);
 }
 
-/** Today, as `<input type="date">` wants it. The server re-checks against its own clock. */
+/**
+ * Today in Colombia, as `<input type="date">` wants it.
+ *
+ * Not `toISOString()`: that is the UTC day, and where it differs from the Colombian one the
+ * server rejected its own default as "una fecha en el pasado". The server re-checks with the
+ * same rule — `validateAvailableFrom` — against its own clock.
+ */
 function todayISO(): string {
-  return new Date().toISOString().slice(0, 10);
+  return bogotaDay(new Date());
 }
 
 type PropertyFormProps = {
