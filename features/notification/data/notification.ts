@@ -26,6 +26,7 @@ function toNotification(snapshot: Snapshot): Notification | null {
     stage: doc.stage,
     propertyTitle: doc.propertyTitle,
     actorName: doc.actorName,
+    ...(doc.detail ? { detail: doc.detail } : {}),
     readAt: doc.readAt ? iso(doc.readAt) : null,
     createdAt: iso(doc.createdAt),
   };

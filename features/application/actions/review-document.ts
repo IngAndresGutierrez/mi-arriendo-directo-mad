@@ -4,8 +4,9 @@ import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
-import { requireCompleteProfile } from "@/features/profile";
-import { listTenantDocuments } from "@/features/tenant-profile";
+import { notify } from "@/features/notification";
+import { getProfile, requireCompleteProfile } from "@/features/profile";
+import { listTenantDocuments, DOCUMENT_LABELS } from "@/features/tenant-profile";
 import { applicationRoute } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
 
@@ -60,7 +61,8 @@ export async function reviewTenantDocument(
    * open door that later turns into "approved" appearing for a document nobody sent.
    */
   const documents = await listTenantDocuments(application.tenantUid);
-  if (!documents.some((document) => document.id === parsed.data.documentId)) {
+  const document = documents.find((candidate) => candidate.id === parsed.data.documentId);
+  if (!document) {
     return { ok: false, message: "Ese documento ya no existe." };
   }
 
@@ -75,6 +77,33 @@ export async function reviewTenantDocument(
       },
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+  /*
+   * A rejection is told; an approval is not.
+   *
+   * The tenant has to act on a rejection — upload something else — and the reason is the only
+   * thing that says what. One approval out of five is a status change nobody needs interrupting
+   * for, and when the last one lands the stage moves, which announces itself already.
+   */
+  if (parsed.data.status === "rejected") {
+    const [landlord, tenant] = await Promise.all([
+      getProfile(user.uid),
+      getProfile(application.tenantUid),
+    ]);
+
+    await notify({
+      recipientUid: application.tenantUid,
+      recipientEmail: tenant?.email ?? null,
+      type: "document_rejected",
+      applicationId,
+      stage: application.stage,
+      propertyTitle: application.propertyTitle,
+      actorName: landlord?.fullName ?? "",
+      detail: parsed.data.note
+        ? `${DOCUMENT_LABELS[document.kind]}: ${parsed.data.note}`
+        : `Se trata de: ${DOCUMENT_LABELS[document.kind]}.`,
+    });
+  }
 
   revalidatePath(applicationRoute(applicationId));
 

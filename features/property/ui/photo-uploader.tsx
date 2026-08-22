@@ -2,7 +2,7 @@
 
 import { useId, useRef, useState, useTransition } from "react";
 import Image from "next/image";
-import { ImagePlusIcon, StarIcon, Trash2Icon } from "lucide-react";
+import { ImagePlusIcon, Loader2Icon, StarIcon, Trash2Icon } from "lucide-react";
 
 import { ensureClientSession } from "@/shared/auth/client";
 import { storage } from "@/shared/firebase/storage";
@@ -179,12 +179,21 @@ export function PhotoUploader({ photos, onChange, error, confirmBeforeRemove = f
         onClick={() => inputRef.current?.click()}
         className={cn("w-full border-dashed", photos.length === 0 && "h-24")}
       >
-        <ImagePlusIcon aria-hidden="true" />
+        {isUploading ? (
+          <Loader2Icon className="animate-spin" aria-hidden="true" />
+        ) : (
+          <ImagePlusIcon aria-hidden="true" />
+        )}
         {isUploading ? "Subiendo…" : photos.length === 0 ? "Agregar fotos" : "Agregar más fotos"}
       </Button>
 
       <p className="text-xs text-muted-foreground">
         La primera foto es la portada. JPG, PNG o WEBP, hasta 8 MB cada una.
+      </p>
+
+      {/* A spinner inside a button says nothing to a screen reader. */}
+      <p className="sr-only" aria-live="polite">
+        {isUploading ? "Subiendo las fotos." : ""}
       </p>
 
       {message && (

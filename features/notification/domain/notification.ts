@@ -13,6 +13,7 @@ export const NOTIFICATION_TYPES = [
   "application_received",
   "stage_advanced",
   "documents_requested",
+  "document_rejected",
   "application_approved",
   "application_rejected",
   "application_withdrawn",
@@ -29,6 +30,13 @@ export type NotificationDoc = {
   readonly propertyTitle: string;
   /** Who caused it, so the text can name them: "Ana se postuló…". */
   readonly actorName: string;
+  /**
+   * The bit that only makes sense for some types — which document was rejected, and why.
+   *
+   * One optional field instead of a shape per type: the alternative is a union that every
+   * reader has to narrow, for a sentence that differs by a clause.
+   */
+  readonly detail?: string;
   /** ISO 8601, or `null` while unread. */
   readonly readAt: string | null;
   readonly createdAt: unknown;
@@ -47,7 +55,9 @@ export type Notification = Omit<NotificationDoc, "createdAt"> & {
  * fixes every notification that already went out, instead of only the next one.
  */
 export function notificationCopy(
-  notification: Pick<Notification, "type" | "stage" | "propertyTitle" | "actorName">,
+  notification: Pick<Notification, "type" | "stage" | "propertyTitle" | "actorName"> & {
+    readonly detail?: string;
+  },
 ): { readonly title: string; readonly body: string } {
   const who = notification.actorName || "Alguien";
   const property = notification.propertyTitle;
@@ -57,6 +67,13 @@ export function notificationCopy(
       return {
         title: "Nueva postulación",
         body: `${who} se postuló a ${property}. Revisa sus datos y decide si continúan.`,
+      };
+    case "document_rejected":
+      return {
+        title: "Tienes que corregir un documento",
+        body: notification.detail
+          ? `${who} rechazó un documento de tu postulación a ${property}. ${notification.detail}`
+          : `${who} rechazó un documento de tu postulación a ${property}. Súbelo otra vez.`,
       };
     case "documents_requested":
       return {

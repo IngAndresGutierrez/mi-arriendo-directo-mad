@@ -47,6 +47,28 @@ describe("notificationCopy", () => {
     expect(copy.body).toMatch(/subir/i);
   });
 
+  /*
+   * The reason is the whole message. "Rechazado" on its own sends the tenant back to the
+   * checklist to guess which file and what was wrong with it.
+   */
+  it("names the document and the reason when one is rejected", () => {
+    const copy = notificationCopy({
+      ...base,
+      type: "document_rejected",
+      stage: "tenant_data",
+      detail: "Cédula por el frente: la foto está borrosa",
+    });
+
+    expect(copy.title).toMatch(/corregir un documento/i);
+    expect(copy.body).toContain("Cédula por el frente");
+    expect(copy.body).toContain("la foto está borrosa");
+  });
+
+  it("still says something useful when the landlord left no reason", () => {
+    const copy = notificationCopy({ ...base, type: "document_rejected", stage: "tenant_data" });
+    expect(copy.body).toMatch(/Súbelo otra vez/);
+  });
+
   it("says at which stage a closed process stopped", () => {
     expect(notificationCopy({ ...base, type: "application_rejected", stage: "interview" }).body).toContain(
       "Entrevista con el propietario",

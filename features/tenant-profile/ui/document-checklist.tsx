@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { CheckIcon, FileTextIcon, UploadIcon } from "lucide-react";
+import { CheckIcon, FileTextIcon, Loader2Icon, UploadIcon } from "lucide-react";
 
 import { ensureClientSession } from "@/shared/auth/client";
 import { storage } from "@/shared/firebase/storage";
@@ -62,6 +62,15 @@ export function DocumentChecklist({
 }) {
   const router = useRouter();
   const [busy, startUpload] = useTransition();
+  /*
+   * Which line is uploading, not just *that* something is.
+   *
+   * `useTransition` gives one boolean for the whole component, so the first version disabled
+   * every button and said nothing anywhere: three payslips went up over several seconds with no
+   * sign that anything was happening, which reads as a page that ignored the click. The spinner
+   * belongs on the row the file is going into.
+   */
+  const [uploading, setUploading] = useState<{ readonly kind: DocumentKind; readonly total: number; readonly done: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<ChecklistDocument | null>(null);
   const inputs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -91,6 +100,8 @@ export function DocumentChecklist({
       return;
     }
 
+    setUploading({ kind, total: files.length, done: 0 });
+
     startUpload(async () => {
       try {
         // The upload needs the web SDK's session, which can lag a page load: see
@@ -103,7 +114,8 @@ export function DocumentChecklist({
 
         const { ref, uploadBytes } = await import("firebase/storage");
 
-        for (const file of files) {
+        for (const [index, file] of files.entries()) {
+          setUploading({ kind, total: files.length, done: index });
           const safeName = file.name.replace(/[^\w.-]/g, "");
           const path = `applicants/${user.uid}/${crypto.randomUUID()}-${safeName}`;
           await uploadBytes(ref(storage, path), file, { contentType: file.type });
@@ -125,6 +137,7 @@ export function DocumentChecklist({
       } catch {
         setError("No pudimos subir el archivo. Revisa tu conexión e inténtalo de nuevo.");
       } finally {
+        setUploading(null);
         const input = inputs.current[kind];
         if (input) input.value = "";
       }
@@ -210,8 +223,20 @@ export function DocumentChecklist({
                   disabled={busy || room <= 0}
                   onClick={() => inputs.current[requirement.kind]?.click()}
                 >
-                  <UploadIcon aria-hidden="true" />
-                  {mine.length === 0 ? "Subir" : room > 0 ? "Subir otro" : "Completo"}
+                  {uploading?.kind === requirement.kind ? (
+                    <>
+                      <Loader2Icon className="animate-spin" aria-hidden="true" />
+                      {/* With several files, which one: "subiendo 2 de 3" is a progress bar in words. */}
+                      {uploading.total > 1
+                        ? `Subiendo ${uploading.done + 1} de ${uploading.total}…`
+                        : "Subiendo…"}
+                    </>
+                  ) : (
+                    <>
+                      <UploadIcon aria-hidden="true" />
+                      {mine.length === 0 ? "Subir" : room > 0 ? "Subir otro" : "Completo"}
+                    </>
+                  )}
                 </Button>
               </div>
 
@@ -276,6 +301,16 @@ export function DocumentChecklist({
           );
         })}
       </ul>
+
+      {/*
+        Said out loud as well as shown: a spinner inside a button is invisible to a screen reader,
+        and this is the part of the process that takes the longest.
+      */}
+      <p className="sr-only" aria-live="polite">
+        {uploading
+          ? `Subiendo ${DOCUMENT_LABELS[uploading.kind]}${uploading.total > 1 ? `, archivo ${uploading.done + 1} de ${uploading.total}` : ""}.`
+          : ""}
+      </p>
 
       {error ? (
         <p role="alert" className="text-sm text-destructive">

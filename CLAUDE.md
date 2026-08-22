@@ -324,6 +324,9 @@ for somebody else to find out. Only a **429** is retried: it is the one response
 request without sending anything, so repeating it cannot duplicate an email — which is also why
 no idempotency key is needed.
 
+- **A rejected document is told; an approved one is not.** The tenant has to act on a rejection
+  and the reason is the only thing that says how; one approval out of five is a status change
+  nobody needs interrupting for, and the last one moves the stage, which announces itself.
 - **`notify()` never throws.** It runs after the work that matters is already written, and a
   failed notification must not undo an application or show an error about work that succeeded.
 - **`listNotifications()` never throws either.** It is read by the layout that wraps every

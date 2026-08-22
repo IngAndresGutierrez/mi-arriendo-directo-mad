@@ -40,6 +40,8 @@ export type NotifyInput = {
   readonly stage: Stage;
   readonly propertyTitle: string;
   readonly actorName: string;
+  /** Only for the types that need it: which document, and what was wrong with it. */
+  readonly detail?: string;
 };
 
 /**
@@ -65,6 +67,8 @@ export async function notify(input: NotifyInput): Promise<void> {
       stage: input.stage,
       propertyTitle: input.propertyTitle,
       actorName: input.actorName,
+      // Firestore rejects `undefined`, and a notification with no detail simply has none.
+      ...(input.detail ? { detail: input.detail } : {}),
       readAt: null,
       createdAt: FieldValue.serverTimestamp(),
     });
