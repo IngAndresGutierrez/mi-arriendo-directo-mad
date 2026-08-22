@@ -47,7 +47,9 @@ export default async function CatalogPage(props: CatalogProps) {
   const page = paginate(sortProperties(filterProperties(published, filters), filters.sort), filters.page);
 
   return (
-    <>
+    // `h-full` + `overflow-hidden` desde lg: el alto lo pone la ventana y el que se desplaza es
+    // el listado, no la página. El encabezado, los filtros y la paginación se quedan quietos.
+    <div className="lg:flex lg:h-full lg:flex-col lg:overflow-hidden">
       <h1 className="text-3xl font-semibold tracking-tight text-balance text-primary sm:text-4xl dark:text-foreground">
         {filters.city ? `Arriendos en ${filters.city}` : "Encuentra tu próximo hogar"}
       </h1>
@@ -56,16 +58,16 @@ export default async function CatalogPage(props: CatalogProps) {
         inmobiliaria.
       </p>
 
-      <div className="mt-8 grid items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
+      <div className="mt-8 grid items-start gap-6 lg:mt-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-stretch">
         {/* From `lg` the facets have a column; below that they are behind the toolbar's button. */}
         <aside
           aria-label="Filtros"
-          className="hidden rounded-2xl border border-border bg-card p-5 lg:block"
+          className="hidden rounded-2xl border border-border bg-card p-5 lg:block lg:h-full lg:overflow-y-auto"
         >
           <CatalogFilters filters={filters} facets={facets} />
         </aside>
 
-        <div className="min-w-0 space-y-6">
+        <div className="flex min-w-0 flex-col space-y-6 lg:h-full lg:min-h-0">
           <CatalogToolbar filters={filters} facets={facets} total={page.total} />
 
           {page.total === 0 ? (
@@ -83,7 +85,8 @@ export default async function CatalogPage(props: CatalogProps) {
               )}
             </div>
           ) : (
-            <ul className="space-y-5">
+            /* La lista es la única zona con desplazamiento propio; `pr-1` deja aire para su barra. */
+            <ul className="space-y-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
               {page.items.map((property, index) => (
                 <PropertyCard
                   key={property.id}
@@ -102,7 +105,8 @@ export default async function CatalogPage(props: CatalogProps) {
           {page.pages > 1 && (
             <nav
               aria-label="Paginación"
-              className="flex items-center justify-between gap-4 border-t border-border pt-4"
+              /* `shrink-0`: se queda visible al pie de la columna en vez de irse con el scroll. */
+              className="flex shrink-0 items-center justify-between gap-4 border-t border-border pt-4"
             >
               <PageLink
                 to={page.page - 1}
@@ -125,7 +129,7 @@ export default async function CatalogPage(props: CatalogProps) {
           )}
         </div>
       </div>
-    </>
+    </div>
   );
 }
 

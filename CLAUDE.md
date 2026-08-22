@@ -107,7 +107,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/arriendos` | `RENTALS_ROUTE` | Every rental the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. It is called "Arriendos" in the menu and titled "Gestión de arriendos". **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
 | `/arriendos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
-| `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. |
+| `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
 | `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
@@ -146,6 +146,14 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
   already shared keep working.
 
 Links with no route yet (they 404): `/recuperar`, `/terminos`, `/privacidad`.
+
+**On a wide screen the catalog is a fixed frame and only the list scrolls.** From `lg` the public
+chrome is `fixed inset-0` and `main` owns the overflow; the results column keeps its own
+`overflow-y-auto` so the heading, the facets and the pager stay put — a filter you cannot see is
+a filter you forget you applied. `h-svh` alone was not enough: the document still scrolled the
+header out of view by its own height. Below `lg` the page scrolls as a page, because an inner
+scroller on a phone fights the address bar and pull-to-refresh, and there the facets are behind a
+button anyway. `CATALOG_PAGE_SIZE` is **6**.
 
 **The catalog filters, counts, sorts and paginates in memory**, over one query capped by
 `CATALOG_MAX_SCAN`. That is deliberate: faceted search needs a count per option computed against
@@ -199,7 +207,9 @@ risk of leaving a field unconnected.
 
 | Component | For |
 | --- | --- |
-| `shared/form/text-field.tsx` | `TextField`: label + input + error + `aria-invalid`/`aria-describedby`. Takes `{...register("field")}` directly. |
+| `shared/form/text-field.tsx` | `TextField`: label + input + error + `aria-invalid`/`aria-describedby`. Takes `{...register("field")}` directly. `hint` is permanent text below the field; `hintTooltip` is the same sentence behind an icon beside the label — for what a field *is* rather than what it needs. |
+| `shared/form/field-hint.tsx` | `FieldHint`: that icon. Opens on hover, on focus **and on click** (Radix tooltips do not open on touch), closes on a tap outside, and renders the sentence `sr-only` as well so the field stays described for a screen reader. |
+| `shared/shell/account-menu.tsx` | `AccountMenu`: on the public header, who you are signed in as. It shows the initial of the **email** (the session cookie carries it; reading the profile would add a Firestore round trip to the catalog) and holds "Mi portal", "Mi perfil" and "Cerrar sesión". Without a session the header offers "Iniciar sesión" instead — showing that to somebody already signed in read as a session that had expired. |
 | `shared/form/form-alert.tsx` | `FormAlert`: form-level error with `role="alert"`. |
 | `features/auth/ui/google-button.tsx` | `GoogleButton`: Google sign-in, with spinner. |
 | `features/auth/ui/or-divider.tsx` | `OrDivider`: the "or" divider. |
@@ -216,6 +226,13 @@ risk of leaving a field unconnected.
 | `shared/shell/app-drawer.tsx` | `AppDrawer`: below `lg`, the bar with the hamburger plus the same menu in a drawer. Owns the open state. |
 | `shared/ui/nav-item.tsx` | `NavItem`: a menu entry. Without `href` it renders disabled with a "Pronto" badge. `activeOn` marks the section on routes that do not hang off its path; `shortLabel` is what the narrow rail shows instead of a name too long to sit under an icon. |
 | `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: wraps mocked-up UI whose function does not exist yet. |
+
+## Where someone lives
+The **city depends on its department**, in the profile as in the property form: two selects, the
+second offering the municipalities of the first (`shared/geo/municipalities.ts` — the 1.122 from
+DANE, generated, so no small town is missing) and cleared when the department changes. The pair is
+validated together (`superRefine` on the address), because free text let "Manizales, Antioquia"
+through: a pair that does not exist.
 
 ## Phone numbers
 - Stored in **E.164** (`phone: "+573001234567"`) plus the country ISO (`phoneCountry: "CO"`).

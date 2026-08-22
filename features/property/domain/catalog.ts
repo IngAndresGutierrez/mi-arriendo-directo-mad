@@ -41,7 +41,7 @@ export const CATALOG_SORT_LABELS: Readonly<Record<CatalogSort, string>> = {
 };
 
 /** How many listings one page shows. */
-export const CATALOG_PAGE_SIZE = 12;
+export const CATALOG_PAGE_SIZE = 6;
 
 export type CatalogFilters = {
   readonly city: string | null;

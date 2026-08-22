@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { HeadsetIcon, MailIcon } from "lucide-react";
 
-import { getProfile, requireCompleteProfile } from "@/features/profile";
+import { getProfile } from "@/features/profile";
+import { getSessionUser } from "@/shared/auth/session";
 import { firstName } from "@/shared/format/greeting";
+import { ProductChrome } from "@/app/product-chrome";
+import { PublicChrome } from "@/app/public-chrome";
 import {
   SUPPORT_EMAIL,
   supportWhatsAppDisplay,
@@ -15,14 +18,25 @@ export const metadata: Metadata = {
   description: "Escríbenos por WhatsApp o por correo si tienes dudas sobre tu arriendo.",
 };
 
+/**
+ * The one page that renders in either chrome.
+ *
+ * It used to live behind the session, which made "Contacto" in the public header a link to the
+ * login screen: needing help is not something you should have to sign in to do, and the two
+ * things on this page — a WhatsApp number and an email address — are the same for everybody.
+ * So it picks its own frame instead: the product's menu when there is a session, the public
+ * header when there is not. One URL, one copy of the content.
+ */
 export default async function SupportPage() {
-  const user = await requireCompleteProfile();
-  // Free: the guard has already read it and `getProfile` is cached for the request.
-  const profile = await getProfile(user.uid);
+  const user = await getSessionUser();
+  // Only to greet by name. `getProfile` is cached per request, and it is skipped for a visitor.
+  const profile = user ? await getProfile(user.uid) : null;
   const name = profile ? firstName(profile.fullName) : "";
+  const Chrome = user ? ProductChrome : PublicChrome;
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <Chrome>
+      <div className="mx-auto w-full max-w-3xl">
       <h1 className="text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
         Soporte
       </h1>
@@ -91,6 +105,7 @@ export default async function SupportPage() {
           </p>
         </div>
       </section>
-    </div>
+      </div>
+    </Chrome>
   );
 }

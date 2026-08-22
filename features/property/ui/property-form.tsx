@@ -403,7 +403,7 @@ export function PropertyForm({ property, addressLine, registryNumber }: Property
             id="address.line"
             label="Dirección"
             placeholder="Calle 60 #10-20 apto 301"
-            hint="Solo la ve el inquilino cuya postulación apruebes. En el anuncio se muestran el barrio y la ciudad."
+            hintTooltip="Solo la ve el inquilino cuya postulación apruebes. En el anuncio se muestran el barrio y la ciudad."
             error={errors.address?.line?.message}
             {...form.register("address.line")}
           />
@@ -413,7 +413,7 @@ export function PropertyForm({ property, addressLine, registryNumber }: Property
             placeholder="050-123456"
             inputMode="numeric"
             autoComplete="off"
-            hint="El número del certificado de tradición, que expide la Oficina de Registro de Instrumentos Públicos. No se publica: identifica el inmueble ante el registro."
+            hintTooltip="El número del certificado de tradición, que expide la Oficina de Registro de Instrumentos Públicos. No se publica: identifica el inmueble ante el registro."
             error={errors.address?.registryNumber?.message}
             {...form.register("address.registryNumber")}
           />

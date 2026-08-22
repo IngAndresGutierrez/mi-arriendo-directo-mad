@@ -120,13 +120,15 @@ export function PropertyManageCard({ property }: { readonly property: Property }
 
         {/*
           Three different weights, because three identical buttons make the eye read them as one
-          block and pick by position. Sharing the link is what publishing was for, so it takes the
-          brand CTA; editing is the ordinary secondary action; deleting recedes to a plain red word
-          and asks for confirmation anyway — a solid red button next to two others invites the
-          click it should discourage.
+          block and pick by position. Copying the link is the most used one, so it is the filled
+          button of the card — but filled in soft purple, not the cyan CTA: the page has exactly
+          one of those, "Publicar inmueble", and repeating that cyan once per card made the unique
+          action the quietest thing on the screen. Editing stays the outlined secondary, and
+          deleting recedes to a plain red word: a solid red button between two others invites the
+          click it should discourage, and it asks for confirmation anyway.
         */}
         <div className="flex flex-wrap items-center gap-2 pt-2">
-          <Button type="button" variant="accent" size="lg" onClick={copyLink}>
+          <Button type="button" variant="secondary" size="lg" onClick={copyLink}>
             {copied ? <CheckIcon aria-hidden="true" /> : <LinkIcon aria-hidden="true" />}
             {copied ? "Enlace copiado" : "Copiar enlace"}
           </Button>

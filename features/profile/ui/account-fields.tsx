@@ -6,7 +6,8 @@ import { BirthDateField } from "@/shared/form/birth-date-field";
 import { PhoneField } from "@/shared/form/phone-field";
 import { SelectField } from "@/shared/form/select-field";
 import { TextField } from "@/shared/form/text-field";
-import { DEPARTMENTS } from "@/shared/geo/colombia";
+import { DEPARTMENTS, type Department } from "@/shared/geo/colombia";
+import { municipalitiesOf } from "@/shared/geo/municipalities";
 
 import { GENDER_OPTIONS } from "../domain/profile";
 import type { CompleteProfileFormValues } from "../validations/profile";
@@ -22,15 +23,23 @@ const DEPARTMENT_OPTIONS = DEPARTMENTS.map((value) => ({ value, label: value }))
  * duplicating the ARIA wiring too, which is how a field ends up with an error nobody renders.
  */
 export function AccountFields({ disabled = false }: { readonly disabled?: boolean }) {
+  const form = useFormContext<CompleteProfileFormValues>();
   const {
     control,
     register,
     trigger,
     formState: { errors },
-  } = useFormContext<CompleteProfileFormValues>();
+  } = form;
 
   // `useWatch`, never `watch()`: the latter returns a function the React Compiler cannot memoize.
   const nationalPhone = useWatch({ control, name: "phone.national" });
+
+  // The city depends on the department: 1.122 municipalities in one list is not a list anybody
+  // reads, and free text let "Manizales, Antioquia" through — a pair that does not exist.
+  const department = useWatch({ control, name: "address.department" });
+  const cityOptions = department
+    ? municipalitiesOf(department as Department).map((value) => ({ value, label: value }))
+    : [];
 
   return (
     <div className="space-y-3">
@@ -114,17 +123,8 @@ export function AccountFields({ disabled = false }: { readonly disabled?: boolea
           {...register("address.line")}
         />
 
+        {/* Departamento primero: es lo que decide qué ciudades hay. */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <TextField
-            id="address.city"
-            label="Ciudad"
-            autoComplete="address-level2"
-            placeholder="Bogotá"
-            error={errors.address?.city?.message}
-            disabled={disabled}
-            {...register("address.city")}
-          />
-
           <Controller
             control={control}
             name="address.department"
@@ -135,9 +135,38 @@ export function AccountFields({ disabled = false }: { readonly disabled?: boolea
                 placeholder="Selecciona uno"
                 options={DEPARTMENT_OPTIONS}
                 value={field.value}
-                onValueChange={field.onChange}
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  // The city almost certainly does not exist in the new department, and leaving
+                  // it would submit a pair that only the server would catch.
+                  form.setValue("address.city", "", {
+                    shouldValidate: form.formState.isSubmitted,
+                  });
+                }}
                 error={errors.address?.department?.message}
                 disabled={disabled}
+              />
+            )}
+          />
+
+          <Controller
+            control={control}
+            name="address.city"
+            render={({ field }) => (
+              <SelectField
+                // Remounted with the department: Radix keeps the old selection otherwise, and
+                // the field shows a city that is no longer among its options.
+                key={department ?? "sin-departamento"}
+                id="address.city"
+                label="Ciudad"
+                placeholder={
+                  cityOptions.length > 0 ? "Selecciona tu ciudad" : "Elige primero el departamento"
+                }
+                options={cityOptions}
+                disabled={disabled || cityOptions.length === 0}
+                value={field.value || undefined}
+                onValueChange={field.onChange}
+                error={errors.address?.city?.message}
               />
             )}
           />
