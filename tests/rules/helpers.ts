@@ -92,6 +92,7 @@ export function publishedProperty(overrides: Record<string, unknown> = {}) {
     petsAllowed: true,
     availableFrom: "2026-12-07",
     area: { neighborhood: "Palermo", city: "Manizales", department: "Caldas" },
+    slug: "apartamento-luminoso-en-palermo-manizales",
     photos: [{ path: `properties/${UID_LANDLORD}/a.jpg`, url: "https://example.com/a.jpg" }],
     createdAt: new Date(),
     ...overrides,

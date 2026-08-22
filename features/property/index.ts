@@ -3,6 +3,8 @@
  */
 export {
   LEASE_TERM_LABELS,
+  propertyIdFromSlug,
+  propertySlug,
   PROPERTY_STATUS_LABELS,
   PROPERTY_TYPE_LABELS,
   propertyMonthlyCost,

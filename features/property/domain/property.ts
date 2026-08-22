@@ -126,6 +126,8 @@ export interface PropertyDoc {
   /** `YYYY-MM-DD`: a calendar day, not an instant. */
   readonly availableFrom: string;
   readonly area: PropertyArea;
+  /** Kept on the document so the canonical URL cannot drift from what was published. */
+  readonly slug: string;
   readonly photos: readonly PropertyPhoto[];
   readonly createdAt: StoredTimestamp;
   readonly updatedAt: StoredTimestamp;
@@ -143,6 +145,37 @@ export type Property = Omit<PropertyDoc, "createdAt" | "updatedAt"> & {
 export type PropertyLocation = {
   readonly line: string;
 };
+
+/**
+ * The slug that makes a shared link readable: `apartaestudio-en-los-alcazares-manizales`.
+ *
+ * A listing is pasted into WhatsApp, Facebook Marketplace or a broker's group, where the URL
+ * is often all the context there is before the preview loads. The id stays in the path — it is
+ * what resolves the document — but it stops being the whole of it.
+ *
+ * Accents are folded rather than dropped, so "Chinchiná" becomes "chinchina" and not "chinchin".
+ */
+export function propertySlug(title: string, city: string): string {
+  return `${title} ${city}`
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 70)
+    .replace(/-+$/g, "");
+}
+
+/**
+ * The document id hidden at the end of a slug, or `null` if the segment carries none.
+ *
+ * Firestore's generated ids are twenty characters of letters and digits — never a hyphen — so
+ * the last hyphen-separated token is unambiguous.
+ */
+export function propertyIdFromSlug(segment: string): string | null {
+  const id = segment.split("-").at(-1) ?? "";
+  return /^[A-Za-z0-9]{20}$/.test(id) ? id : null;
+}
 
 /** What the catalog shows as the headline number: rent plus admin fee. */
 export function propertyMonthlyCost(property: Pick<Property, "rent" | "adminFee">): number {

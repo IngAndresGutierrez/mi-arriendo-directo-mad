@@ -1,45 +1,88 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { LockIcon, MapPinIcon } from "lucide-react";
 
 import {
   getPropertyLocation,
   getVisibleProperty,
+  propertyIdFromSlug,
+  propertyMonthlyCost,
   publicLocationLabel,
   PropertyFacts,
   PropertyGallery,
   PropertyPriceCard,
   PROPERTY_STATUS_LABELS,
+  PROPERTY_TYPE_LABELS,
+  type Property,
 } from "@/features/property";
+import { propertyDetailRoute } from "@/shared/auth/routes";
+import { formatCOP } from "@/shared/format/money";
 import { getSessionUser } from "@/shared/auth/session";
 
-type DetailProps = PageProps<"/inmuebles/[id]">;
+type DetailProps = PageProps<"/inmuebles/[slug]">;
 
-export async function generateMetadata(props: DetailProps): Promise<Metadata> {
-  const { id } = await props.params;
+/**
+ * Resolves the property behind a URL segment.
+ *
+ * The segment is `<slug>-<id>`, and a bare `<id>` still resolves: links already shared must not
+ * rot because the title later changed.
+ */
+async function resolve(segment: string): Promise<{ property: Property; canonical: string } | null> {
+  const id = propertyIdFromSlug(segment) ?? (/^[A-Za-z0-9]{20}$/.test(segment) ? segment : null);
+  if (!id) return null;
+
   const viewer = await getSessionUser();
   const property = await getVisibleProperty(id, viewer?.uid ?? null);
+  if (!property) return null;
 
-  if (!property) return { title: "Inmueble no disponible" };
+  return { property, canonical: propertyDetailRoute(property.id, property.slug) };
+}
 
+export async function generateMetadata(props: DetailProps): Promise<Metadata> {
+  const { slug } = await props.params;
+  const found = await resolve(slug);
+
+  if (!found) return { title: "Inmueble no disponible" };
+
+  const { property, canonical } = found;
+  const where = publicLocationLabel(property.area);
+  const bathrooms = property.bathrooms === 1 ? "1 baño" : `${property.bathrooms} baños`;
+  const description =
+    `${PROPERTY_TYPE_LABELS[property.type]} en ${where} por ` +
+    `${formatCOP(propertyMonthlyCost(property))} al mes. ` +
+    `${property.bedrooms} hab · ${bathrooms} · ${property.areaM2} m².`;
+
+  // Shared into WhatsApp or a Facebook group, the preview card is the listing: the cover photo
+  // and this line are what someone decides on before the page even opens.
   return {
     title: property.title,
-    description: `${property.title} en ${publicLocationLabel(property.area)}.`,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "website",
+      locale: "es_CO",
+      url: canonical,
+      title: property.title,
+      description,
+      images: property.photos.slice(0, 1).map((photo) => ({ url: photo.url })),
+    },
   };
 }
 
 export default async function PropertyDetailPage(props: DetailProps) {
-  const { id } = await props.params;
+  const { slug } = await props.params;
+  const found = await resolve(slug);
 
-  // The session is optional here: the catalog is public. It only decides whether this viewer
-  // is the owner, which unlocks their own unpublished listing and the exact address.
+  if (!found) notFound();
+  const { property, canonical } = found;
+
+  // One property, one address: a stale or hand-typed slug is redirected instead of served, so
+  // search engines and shared links converge on the same URL.
+  if (slug !== `${property.slug}-${property.id}`) permanentRedirect(canonical);
+
   const viewer = await getSessionUser();
-  const property = await getVisibleProperty(id, viewer?.uid ?? null);
-
-  if (!property) notFound();
-
   const isOwner = viewer?.uid === property.landlordUid;
-  const location = isOwner ? await getPropertyLocation(id, viewer.uid) : null;
+  const location = isOwner ? await getPropertyLocation(property.id, viewer.uid) : null;
 
   return (
     <article className="space-y-8">

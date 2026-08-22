@@ -4,6 +4,7 @@ import { cache } from "react";
 
 import { adminDb } from "@/shared/firebase/admin";
 
+import { propertySlug } from "../domain/property";
 import type { Property, PropertyDoc, PropertyLocation } from "../domain/property";
 
 /** Firestore hands back `DocumentData`: nothing here is typed until this module says so. */
@@ -29,6 +30,8 @@ function toProperty(snapshot: Snapshot): Property | null {
   return {
     ...doc,
     id: snapshot.id,
+    // Documents published before slugs existed still get a canonical URL, derived on read.
+    slug: doc.slug || propertySlug(doc.title, doc.area?.city ?? ""),
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };

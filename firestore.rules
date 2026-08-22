@@ -170,6 +170,9 @@ service cloud.firestore {
             && incoming().area.department.size() <= 40
             && !('line' in incoming().area)
             && !('address' in incoming())
+            && incoming().slug is string
+            && incoming().slug.size() > 0
+            && incoming().slug.size() <= 80
             && incoming().photos is list
             && incoming().photos.size() >= 1
             && incoming().photos.size() <= 20;

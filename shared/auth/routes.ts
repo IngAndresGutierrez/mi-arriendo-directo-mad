@@ -19,9 +19,14 @@ export const HOME_ROUTE = "/inicio";
 export const PROPERTIES_ROUTE = "/inmuebles";
 /** Where a landlord publishes. Static segment, so it never collides with a property id. */
 export const PUBLISH_PROPERTY_ROUTE = "/inmuebles/publicar";
-/** Public detail of one property. */
-export function propertyDetailRoute(id: string): string {
-  return `${PROPERTIES_ROUTE}/${id}`;
+/**
+ * Public detail of one property.
+ *
+ * The slug is decoration for humans and the id is what resolves the document, so a link
+ * without a slug still works — and the page redirects it to the canonical one.
+ */
+export function propertyDetailRoute(id: string, slug?: string): string {
+  return slug ? `${PROPERTIES_ROUTE}/${slug}-${id}` : `${PROPERTIES_ROUTE}/${id}`;
 }
 
 /**

@@ -6,10 +6,11 @@ import { z } from "zod";
 import { requireCompleteProfile } from "@/features/profile";
 import { adminAuth, adminDb } from "@/shared/firebase/admin";
 
+import { propertySlug } from "../domain/property";
 import { publishPropertySchema, validateAvailableFrom } from "../validations/property";
 
 export type PublishPropertyResult =
-  | { readonly ok: true; readonly id: string; readonly rolePromoted: boolean }
+  | { readonly ok: true; readonly id: string; readonly slug: string; readonly rolePromoted: boolean }
   | {
       readonly ok: false;
       readonly message?: string;
@@ -90,11 +91,14 @@ export async function publishProperty(formData: FormData): Promise<PublishProper
   const { address, ...listing } = parsed.data;
   const propertyRef = adminDb().collection("properties").doc();
 
+  const slug = propertySlug(listing.title, address.city);
+
   const batch = adminDb().batch();
   batch.set(propertyRef, {
     ...listing,
     landlordUid: user.uid,
     status: "available",
+    slug,
     area: {
       neighborhood: address.neighborhood,
       city: address.city,
@@ -112,5 +116,5 @@ export async function publishProperty(formData: FormData): Promise<PublishProper
     await adminAuth().setCustomUserClaims(user.uid, { role: "landlord" });
   }
 
-  return { ok: true, id: propertyRef.id, rolePromoted };
+  return { ok: true, id: propertyRef.id, slug, rolePromoted };
 }
