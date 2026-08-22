@@ -253,15 +253,6 @@ service cloud.firestore {
       allow create, update, delete: if false;   // Server Actions only
     }
 
-    // -------------------------------- mail ----------------------------------
-    // The outbox the Firebase "Trigger Email from Firestore" extension delivers from. Every
-    // document here is an email addressed to somebody, with its full body: reading the
-    // collection would be reading other people's mail, and writing to it would be sending mail
-    // as us. Both are denied outright — the server writes through the Admin SDK.
-    match /mail/{mailId} {
-      allow read, write: if false;
-    }
-
     // ---------------------------- tenantProfiles ----------------------------
     // The tenant's rental dossier: identity document, income, personal reference. The most
     // sensitive document in the product.

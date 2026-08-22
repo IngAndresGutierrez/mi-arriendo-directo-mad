@@ -30,7 +30,6 @@ import {
   CONTRACT_ID,
   PROPERTY_ID,
   APPLICATION_ID,
-  MAIL_ID,
   NOTIFICATION_ID,
   seed,
   UID_ADMIN,
@@ -449,29 +448,5 @@ describe("notifications", () => {
     await assertFails(
       addDoc(collection(db, "notifications"), { recipientUid: UID_TENANT, type: "application_received" }),
     );
-  });
-});
-
-describe("mail", () => {
-  /*
-   * The outbox the Firebase "Trigger Email from Firestore" extension delivers from. Every
-   * document is an email addressed to somebody, with its full body: reading the collection is
-   * reading other people's mail, and writing to it is sending mail as us.
-   */
-  it("nobody reads the outbox, not even the person the email is for", async () => {
-    await assertFails(getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `mail/${MAIL_ID}`)));
-    await assertFails(getDoc(doc(actingAs(env, UID_ADMIN, "admin"), `mail/${MAIL_ID}`)));
-    await assertFails(getDocs(collection(actingAs(env, UID_TENANT, "tenant"), "mail")));
-  });
-
-  it("nobody sends mail from the client", async () => {
-    const db = actingAs(env, UID_TENANT, "tenant");
-    await assertFails(
-      addDoc(collection(db, "mail"), {
-        to: ["victima@example.com"],
-        message: { subject: "Suplantación", text: "…", html: "<p>…</p>" },
-      }),
-    );
-    await assertFails(updateDoc(doc(db, `mail/${MAIL_ID}`), { to: ["otro@example.com"] }));
   });
 });

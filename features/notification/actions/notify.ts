@@ -3,10 +3,12 @@ import "server-only";
 // Not `"use server"`: this is called *by* Server Actions, not from a form. Making it one would
 // publish an endpoint that lets anyone send anyone an email.
 import { FieldValue } from "firebase-admin/firestore";
+import { after } from "next/server";
 
 import { adminDb } from "@/shared/firebase/admin";
 
 import { renderNotificationEmail } from "../domain/email";
+import { sendEmail } from "./send-email";
 import type { NotificationType } from "../domain/notification";
 import type { Stage } from "@/features/application/client";
 
@@ -34,16 +36,15 @@ export type NotifyInput = {
  * it or show the user an error about work that succeeded. What it does instead is log, so a
  * silent failure is still a visible one.
  *
- * The email is not sent from here. It is written to the `mail` collection, which the Firebase
- * "Trigger Email from Firestore" extension delivers: no SMTP credential ever reaches this
- * codebase, retries are the extension's problem, and swapping providers is a change to its
- * configuration rather than to this file.
+ * The email goes out through Resend — see `send-email.ts` — and it goes out **after the
+ * response**. A notification is three network calls the person who clicked has no business
+ * waiting for: their decision is already saved, and making them wait half a second so that
+ * somebody else finds out is charging them for work that is not theirs. `after()` runs even
+ * when the action ends in a `redirect()`, which is what applying does.
  */
 export async function notify(input: NotifyInput): Promise<void> {
   try {
-    const batch = adminDb().batch();
-
-    batch.set(adminDb().collection("notifications").doc(), {
+    await adminDb().collection("notifications").add({
       recipientUid: input.recipientUid,
       type: input.type,
       applicationId: input.applicationId,
@@ -53,19 +54,14 @@ export async function notify(input: NotifyInput): Promise<void> {
       readAt: null,
       createdAt: FieldValue.serverTimestamp(),
     });
-
-    if (input.recipientEmail) {
-      const email = renderNotificationEmail(input, input.recipientEmail, baseUrl());
-
-      batch.set(adminDb().collection("mail").doc(), {
-        to: [email.to],
-        message: { subject: email.subject, text: email.text, html: email.html },
-      });
-    }
-
-    await batch.commit();
   } catch (error) {
     // Logged, not thrown: see above. The id is enough to find it in the process.
     console.error(`notify failed for application ${input.applicationId}:`, error);
   }
+
+  // A profile with no email address sends nothing, and says nothing about it.
+  if (!input.recipientEmail) return;
+
+  const email = renderNotificationEmail(input, input.recipientEmail, baseUrl());
+  after(() => sendEmail(email));
 }

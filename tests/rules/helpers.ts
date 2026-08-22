@@ -23,7 +23,6 @@ export const PROPERTY_ID = "property-1";
 export const APPLICATION_ID = "application-1";
 export const CONTRACT_ID = "contract-1";
 export const NOTIFICATION_ID = "notification-1";
-export const MAIL_ID = "mail-1";
 
 export async function createTestEnvironment(): Promise<RulesTestEnvironment> {
   return initializeTestEnvironment({
@@ -185,10 +184,6 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       createdAt: new Date(),
     });
 
-    await db.doc(`mail/${MAIL_ID}`).set({
-      to: ["tenant@example.com"],
-      message: { subject: "Nueva postulación", text: "…", html: "<p>…</p>" },
-    });
 
     await db.doc(`contracts/${CONTRACT_ID}`).set({
       propertyId: PROPERTY_ID,

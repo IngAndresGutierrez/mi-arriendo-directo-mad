@@ -37,7 +37,7 @@ Keys are English, labels are Spanish — `GENDER_LABELS` and `STATUS_LABEL` are 
 `{ female: "Femenino" }`, `{ active: "Vigente" }`.
 
 Domain glossary (the deployed names): `users`, `properties`, `applications`, `tenantProfiles`,
-`contracts`, `payments`, `notifications`, `mail`; `role` with values `tenant` / `landlord` / `admin`; `rent` for the monthly amount,
+`contracts`, `payments`, `notifications`; `role` with values `tenant` / `landlord` / `admin`; `rent` for the monthly amount,
 `status` for state. `scripts/migrate-i18n-domain.mjs` records the rename from the Spanish
 names this project started with.
 
@@ -252,11 +252,17 @@ The email carries what the bell cannot: an **absolute link straight to the stage
 `/contrato/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
 the step it is about instead of at the top of a page with nine of them.
 
-**Email is not sent from this codebase.** `notify()` writes a document to the `mail` collection
-and the Firebase **"Trigger Email from Firestore"** extension delivers it. No SMTP credential
-ever reaches the app, retries are the extension's problem, and changing provider is a change to
-its configuration. The `mail` collection is `read, write: if false`: reading it would be reading
-other people's mail, writing to it would be sending mail as us.
+**Email goes out through Resend**, over its REST API — no SDK, because sending is a `POST` with
+five fields. `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN` come from the Vercel integration; the
+`from` domain is derived from the second one rather than written by hand, because Resend answers
+**403** when it does not match a verified domain and nothing errors until a real email fails to
+leave. Without a key nothing breaks: the email is logged and the action carries on, which is
+what lets the flow be exercised locally without mailing anyone.
+
+It is sent inside **`after()`**, so the person who clicked is not waiting on three network calls
+for somebody else to find out. Only a **429** is retried: it is the one response that refused the
+request without sending anything, so repeating it cannot duplicate an email — which is also why
+no idempotency key is needed.
 
 - **`notify()` never throws.** It runs after the work that matters is already written, and a
   failed notification must not undo an application or show an error about work that succeeded.
@@ -269,10 +275,9 @@ other people's mail, writing to it would be sending mail as us.
 - Marking as read is a Server Action scoped to the session's uid. `readAt` is the one field a
   client could plausibly own, and it still does not.
 
-**What the extension needs, and this repo cannot do for you:** installing it
-(`firebase ext:install firebase/firestore-send-email`), pointing it at the `mail` collection,
-and giving it an SMTP connection plus a verified sender domain. Until that exists the documents
-pile up in `mail` and nothing is delivered.
+`miarriendodirecto.com` is already verified in that Resend account (SPF/DKIM), and it is the
+same domain the links point at — a message about a rental arriving from another domain reads as
+phishing, correctly.
 
 ## Client-safe module entries
 
