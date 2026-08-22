@@ -249,41 +249,41 @@ export function PublishPropertyForm() {
               />
             )}
           />
-        </div>
-
-        <div className="flex flex-wrap gap-6">
-          <Controller
-            control={form.control}
-            name="furnished"
-            render={({ field }) => (
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="furnished"
-                  checked={Boolean(field.value)}
-                  onCheckedChange={(checked) => field.onChange(checked === true)}
-                />
-                <Label htmlFor="furnished" className="block font-normal">
-                  Amoblado
-                </Label>
-              </div>
-            )}
-          />
-          <Controller
-            control={form.control}
-            name="petsAllowed"
-            render={({ field }) => (
-              <div className="flex items-center gap-2">
-                <Checkbox
-                  id="petsAllowed"
-                  checked={Boolean(field.value)}
-                  onCheckedChange={(checked) => field.onChange(checked === true)}
-                />
-                <Label htmlFor="petsAllowed" className="block font-normal">
-                  Acepta mascotas
-                </Label>
-              </div>
-            )}
-          />
+          {/* The two switches share the parking row: they answer the same kind of question. */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 sm:self-end sm:pb-2.5">
+            <Controller
+              control={form.control}
+              name="furnished"
+              render={({ field }) => (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="furnished"
+                    checked={Boolean(field.value)}
+                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                  />
+                  <Label htmlFor="furnished" className="block font-normal">
+                    Amoblado
+                  </Label>
+                </div>
+              )}
+            />
+            <Controller
+              control={form.control}
+              name="petsAllowed"
+              render={({ field }) => (
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="petsAllowed"
+                    checked={Boolean(field.value)}
+                    onCheckedChange={(checked) => field.onChange(checked === true)}
+                  />
+                  <Label htmlFor="petsAllowed" className="block font-normal">
+                    Acepta mascotas
+                  </Label>
+                </div>
+              )}
+            />
+          </div>
         </div>
       </section>
 
@@ -355,22 +355,22 @@ export function PublishPropertyForm() {
             error={errors.availableFrom?.message}
             {...form.register("availableFrom")}
           />
+          <Controller
+            control={form.control}
+            name="minLeaseMonths"
+            render={({ field }) => (
+              <SelectField
+                id="minLeaseMonths"
+                label="Duración mínima"
+                placeholder="Selecciona la duración"
+                options={LEASE_OPTIONS}
+                value={String(field.value)}
+                onValueChange={field.onChange}
+                error={errors.minLeaseMonths?.message}
+              />
+            )}
+          />
         </div>
-        <Controller
-          control={form.control}
-          name="minLeaseMonths"
-          render={({ field }) => (
-            <SelectField
-              id="minLeaseMonths"
-              label="Duración mínima del arriendo"
-              placeholder="Selecciona la duración"
-              options={LEASE_OPTIONS}
-              value={String(field.value)}
-              onValueChange={field.onChange}
-              error={errors.minLeaseMonths?.message}
-            />
-          )}
-        />
       </section>
 
       <section className="space-y-4">
