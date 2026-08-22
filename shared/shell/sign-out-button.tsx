@@ -10,10 +10,10 @@ import { Button } from "@/shared/ui/button";
 
 type SignOutButtonProps = {
   /**
-   * `"sidebar"` for the purple app rail (stacked icon over label); `"inline"` for a light
-   * surface, such as the header row of the auth shell.
+   * `"drawer"` for the purple navigation panel; `"inline"` for a light surface, such as the
+   * header row of the auth shell.
    */
-  readonly variant?: "sidebar" | "inline";
+  readonly variant?: "drawer" | "inline";
 };
 
 /**
@@ -22,7 +22,7 @@ type SignOutButtonProps = {
  * One component for both surfaces on purpose: the sign-out sequence (revoke, replace, refresh)
  * must not be duplicated, only its presentation changes.
  */
-export function SignOutButton({ variant = "sidebar" }: SignOutButtonProps) {
+export function SignOutButton({ variant = "drawer" }: SignOutButtonProps) {
   const router = useRouter();
   const [isSigningOut, setSigningOut] = useState(false);
 
@@ -57,7 +57,7 @@ export function SignOutButton({ variant = "sidebar" }: SignOutButtonProps) {
       type="button"
       onClick={onClick}
       disabled={isSigningOut}
-      className="flex w-full flex-col items-center gap-1.5 rounded-xl px-2 py-2.5 text-xs font-medium text-brand-panel-muted transition-colors hover:bg-white/5 hover:text-brand-panel-foreground focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none disabled:opacity-50"
+      className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-brand-panel-muted transition-colors hover:bg-white/5 hover:text-brand-panel-foreground focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none disabled:opacity-50"
     >
       <LogOutIcon className="size-5" aria-hidden="true" />
       {label}

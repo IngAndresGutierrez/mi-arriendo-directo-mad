@@ -172,8 +172,9 @@ risk of leaving a field unconnected.
 | `shared/brand/logo.tsx` | `Logo`: the only place with the PNG's dimensions. |
 | `shared/form/select-field.tsx` | `SelectField`: select with label, error and ARIA. Controlled with `Controller`. |
 | `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. |
-| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the product's sidebar. **It is a Client Component**: it passes icon components to `NavItem` and uses `usePathname`. |
-| `shared/ui/nav-item.tsx` | `NavItem`: without `href` it renders disabled with a "coming soon" tooltip. |
+| `shared/shell/app-shell.tsx` | `AppShell`: the frame of every product screen — navigation bar, drawer and content. A page brings only its heading and its body. |
+| `shared/shell/app-drawer.tsx` | `AppDrawer`: the bar with the hamburger and the navigation drawer, the same at every width. **It is a Client Component**: it passes icon components to `NavItem` and owns the open state. |
+| `shared/ui/nav-item.tsx` | `NavItem`: a drawer row. Without `href` it renders disabled with a "Pronto" badge. `activeOn` marks the section on routes that do not hang off its path. |
 | `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: wraps mocked-up UI whose function does not exist yet. |
 
 ## Phone numbers
@@ -188,9 +189,14 @@ risk of leaving a field unconnected.
   country's error stays on screen.
 
 ## Sections not built yet
-The sidebar shows Soporte, Contrato, Facturación and Ajustes **disabled**, with a "coming
-soon" tooltip, instead of linking to a 404. To activate one: create the route and add its
-`href` to the `NAV` array in `shared/shell/app-sidebar.tsx`.
+The drawer shows Soporte, Contrato, Facturación and Ajustes **disabled**, with a "Pronto"
+badge, instead of linking to a 404. To activate one: create the route and add its `href` to
+the `NAV` array in `shared/shell/app-drawer.tsx`.
+
+There is **no "Publicar" entry in the menu**: publishing is something you do to your
+properties, not a separate place. The action lives on `/mis-inmuebles`, next to the list it
+adds to, and the drawer keeps "Mis inmuebles" marked as the current section while the form is
+open (`activeOn`).
 
 The support card and the catalog card are mocked up inside `ComingSoonCard`: they are visible
 but not interactive. The support card deliberately **carries no photo of a person** — a stock

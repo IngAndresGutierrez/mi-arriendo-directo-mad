@@ -42,7 +42,7 @@ features/<domain>/        profile, property, application, contract, payment…
 shared/                   cross-cutting, owned by no domain
   ui/                     shadcn primitives and visual compositions. ZERO logic, ZERO data
   form/                   pre-wired fields (label + error + ARIA): TextField, PhoneField…
-  shell/                  the app chrome: sidebar, auth-shell, sign-out button
+  shell/                  the app chrome: app-shell, drawer, auth-shell, sign-out button
   brand/                  logo
   auth/                   session, guards, routes, Firebase Auth errors, auth client
   firebase/               app, auth, db, storage, admin, analytics
