@@ -141,9 +141,18 @@ export function StageTimeline({
                   {stageDescription(stage, isLandlord)}
                 </p>
 
-                {/* The work of this stage, where the stage is. */}
-                {current && !stopped && work?.[stage] ? (
-                  <StagePanel title={work[stage]!.title} meta={work[stage]!.meta}>
+                {/*
+                  The work of this stage, where the stage is — and it stays there once the stage
+                  is behind us, folded shut. Looking up what was uploaded three stages ago is a
+                  normal thing to want; making it disappear the moment the process moves on is
+                  how a record becomes unauditable.
+                */}
+                {(current || done) && work?.[stage] ? (
+                  <StagePanel
+                    title={work[stage]!.title}
+                    meta={work[stage]!.meta}
+                    defaultOpen={current}
+                  >
                     {work[stage]!.content}
                   </StagePanel>
                 ) : null}

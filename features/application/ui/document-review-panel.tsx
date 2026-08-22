@@ -47,10 +47,13 @@ export function DocumentReviewPanel({
   applicationId,
   documents,
   reviews,
+  readOnly = false,
 }: {
   readonly applicationId: string;
   readonly documents: readonly ReviewableDocument[];
   readonly reviews: DocumentReviews;
+  /** `true` once the stage is behind us: the files stay, the verdicts stay, the buttons go. */
+  readonly readOnly?: boolean;
 }) {
   const router = useRouter();
   const [, start] = useTransition();
@@ -161,7 +164,7 @@ export function DocumentReviewPanel({
                   it is not — the verdict is the chip beside it, not the buttons.
                 */}
                 <span className="flex gap-1.5">
-                  {status !== "approved" ? (
+                  {readOnly ? null : status !== "approved" ? (
                     <Button
                       type="button"
                       variant="outline"
@@ -174,7 +177,7 @@ export function DocumentReviewPanel({
                       {status === "rejected" ? "Aprobar de todos modos" : "Aprobar"}
                     </Button>
                   ) : null}
-                  {status !== "rejected" ? (
+                  {readOnly ? null : status !== "rejected" ? (
                     <Button
                       type="button"
                       variant="destructive"
@@ -194,7 +197,7 @@ export function DocumentReviewPanel({
                 <p className="mt-2 text-sm text-destructive">Motivo: {review.note}</p>
               ) : null}
 
-              {rejecting === document.id ? (
+              {rejecting === document.id && !readOnly ? (
                 <div className="mt-3 space-y-2 border-t border-border pt-3">
                   <label
                     htmlFor={`note-${document.id}`}

@@ -240,6 +240,12 @@ API. What it does have is the **express authorisation** — Ley 1581 again — w
 per application, dated, plus links to the official portals. Nothing there claims a search was
 run.
 
+**A finished stage keeps its panel**, folded shut and without its buttons. Looking up what was
+uploaded three stages ago is a normal thing to want, and a process that hides what was agreed the
+moment it moves on is a record nobody can audit. The buttons go because a control that no longer
+changes anything is the same lie as a "Continuar" that does not continue — `readOnly` on each
+panel, decided by the page, which is the only place that knows which stage the process is on.
+
 **A stage's work lives inside the stage.** `StageTimeline` takes a `work` map and folds each
 entry into its own card as a `StagePanel` — a chevron that rotates, open by default because the
 panel only renders on the stage being worked on and hiding the one thing there is to do behind a

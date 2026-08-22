@@ -5,6 +5,7 @@ import { ArrowLeftIcon, MessageSquareIcon } from "lucide-react";
 
 import {
   closedAtLabel,
+  stageIndex,
   getApplicationFor,
   BackgroundCheckPanel,
   DocumentReviewPanel,
@@ -56,6 +57,14 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
    * it — what was uploaded and what the landlord decided — and handed to the button as a
    * sentence: its job is to say the reason, not to work it out.
    */
+  /*
+   * A stage already behind us shows its panel without its buttons: the files and the verdicts
+   * are the record, and a control that no longer changes anything is the same lie as a
+   * "Continuar" that does not continue.
+   */
+  const past = (stage: Parameters<typeof stageIndex>[0]) =>
+    stageIndex(application.stage) > stageIndex(stage) || application.status !== "open";
+
   const blocker =
     application.stage === "tenant_data"
       ? documentsBlocker(application.dossier.occupation, documents, application.documentReviews)
@@ -165,6 +174,7 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
                   applicationId={application.id}
                   documents={documents}
                   reviews={application.documentReviews}
+                  readOnly={past("tenant_data")}
                 />
               ) : (
                 <DocumentChecklist
@@ -173,6 +183,7 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
                   reviews={application.documentReviews}
                   // Nudges the application so the landlord's screen learns a file arrived.
                   onChanged={touchApplicationDocuments.bind(null, application.id)}
+                  readOnly={past("tenant_data")}
                 />
               ),
             },
@@ -185,6 +196,7 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
                   authorizedAt={application.checksAuthorizedAt}
                   isLandlord={isLandlord}
                   documentNumber={application.dossier.documentNumber}
+                  readOnly={past("background_check")}
                 />
               ),
             },

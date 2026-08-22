@@ -38,12 +38,15 @@ export function BackgroundCheckPanel({
   authorizedAt,
   isLandlord,
   documentNumber,
+  readOnly = false,
 }: {
   readonly applicationId: string;
   readonly authorizedAt: string | null;
   readonly isLandlord: boolean;
   /** The number the searches are run against, shown only to the landlord doing them. */
   readonly documentNumber: string;
+  /** `true` once the stage is behind us: the authorisation and its date stay, the control goes. */
+  readonly readOnly?: boolean;
 }) {
   const router = useRouter();
   const [accepted, setAccepted] = useState(false);
@@ -67,7 +70,7 @@ export function BackgroundCheckPanel({
         <p className="rounded-xl bg-status-approved-bg px-4 py-3 text-sm text-status-approved">
           Autorización otorgada el {when}.
         </p>
-      ) : isLandlord ? (
+      ) : isLandlord || readOnly ? (
         <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
           Todavía no tienes autorización del inquilino para consultar sus antecedentes. Sin ella no
           puedes hacerlo: se la pediremos en esta misma pantalla.

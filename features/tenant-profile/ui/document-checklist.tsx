@@ -57,6 +57,7 @@ export function DocumentChecklist({
   documents,
   reviews = {},
   onChanged,
+  readOnly = false,
 }: {
   readonly occupation: Occupation;
   readonly documents: readonly ChecklistDocument[];
@@ -69,6 +70,14 @@ export function DocumentChecklist({
    * has no business knowing that one exists. The page, which knows both, wires them together.
    */
   readonly onChanged?: () => Promise<void>;
+  /**
+   * `true` once the stage is behind us: the files stay visible, the actions go.
+   *
+   * A button that no longer changes anything is the same lie as a button that says it will
+   * continue and does not — and uploading into a stage the process has left would be recording
+   * something nobody asked for.
+   */
+  readonly readOnly?: boolean;
 }) {
   const router = useRouter();
   const [busy, startUpload] = useTransition();
@@ -168,7 +177,7 @@ export function DocumentChecklist({
         No heading here: the accordion that wraps this already says what it is and how far along
         it is. Two of them was what the page ended up rendering, one from each side.
       */}
-      {!identityDecided ? (
+      {!identityDecided && !readOnly ? (
         <div className="flex items-start gap-2.5 rounded-xl border border-border bg-card p-4">
           <Checkbox
             id="single-file-id"
@@ -245,8 +254,8 @@ export function DocumentChecklist({
                         <strong className="font-semibold">Rechazado.</strong>{" "}
                         {reviews[document.id]?.note
                           ? reviews[document.id]!.note
-                          : "El propietario no lo aceptó."}{" "}
-                        Súbelo otra vez.
+                          : "El propietario no lo aceptó."}
+                        {readOnly ? "" : " Súbelo otra vez."}
                       </span>
                     </p>
                   ))}
@@ -263,6 +272,7 @@ export function DocumentChecklist({
                   className="sr-only"
                   onChange={(event) => upload(requirement.kind, event.target.files)}
                 />
+                {readOnly ? null : (
                 <Button
                   type="button"
                   variant="outline"
@@ -285,6 +295,7 @@ export function DocumentChecklist({
                     </>
                   )}
                 </Button>
+                )}
               </div>
 
               {mine.length > 0 ? (
@@ -343,13 +354,15 @@ export function DocumentChecklist({
                           {REVIEW_STATUS_LABELS[statusOf(reviews, document.id)]}
                         </p>
                       ) : null}
-                      <button
-                        type="button"
-                        onClick={() => setRemoving(document)}
-                        className="text-xs text-destructive underline-offset-2 hover:underline focus-visible:ring-3 focus-visible:ring-destructive/40 focus-visible:outline-none"
-                      >
-                        Quitar
-                      </button>
+                      {readOnly ? null : (
+                        <button
+                          type="button"
+                          onClick={() => setRemoving(document)}
+                          className="text-xs text-destructive underline-offset-2 hover:underline focus-visible:ring-3 focus-visible:ring-destructive/40 focus-visible:outline-none"
+                        >
+                          Quitar
+                        </button>
+                      )}
                     </li>
                   ))}
                 </ul>

@@ -12,21 +12,25 @@ import { cn } from "@/shared/lib/utils";
  * the timeline already says "sube tus documentos", and the documents being somewhere else on the
  * page is the reason the previous version needed a link to point at them.
  *
- * Open by default — this only ever renders on the stage being worked on, and hiding the one
- * thing there is to do behind a click is a click for nothing. It folds because the list is long
- * and, once the papers are in, what the person came back for is the timeline underneath it.
+ * Open on the stage being worked on — hiding the one thing there is to do behind a click is a
+ * click for nothing — and closed on the ones already done, where it is there to be looked up
+ * rather than acted on. A finished stage keeps its panel: the documents are still the documents,
+ * and a process that hides what was agreed as soon as it moves on is a process nobody can audit.
  */
 export function StagePanel({
   title,
   meta,
+  defaultOpen = true,
   children,
 }: {
   readonly title: string;
   /** A count, a status — whatever belongs on the header line beside the title. */
   readonly meta?: string;
+  /** `false` for a stage already behind us: available, not in the way. */
+  readonly defaultOpen?: boolean;
   readonly children: ReactNode;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open, setOpen] = useState(defaultOpen);
   const id = `panel-${title.replace(/\s+/g, "-").toLowerCase()}`;
 
   return (
