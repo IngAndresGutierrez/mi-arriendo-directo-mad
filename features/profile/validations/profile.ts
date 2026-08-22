@@ -105,6 +105,18 @@ export const completeProfileSchema = z.object({
   }),
 });
 
+/**
+ * The same fields, minus the consent.
+ *
+ * Editing your own name is not a moment to re-accept the terms: they were accepted once, at
+ * signup, and `termsAcceptedAt` records when. Asking again on every correction would make the
+ * checkbox mean nothing.
+ */
+export const accountDetailsSchema = completeProfileSchema.omit({ acceptsTerms: true });
+
+export type AccountDetailsValues = z.output<typeof accountDetailsSchema>;
+export type AccountDetailsFormValues = z.input<typeof accountDetailsSchema>;
+
 /** What the Server Action validates (after transformation). */
 export type CompleteProfileInput = z.output<typeof completeProfileSchema>;
 

@@ -180,7 +180,9 @@ export function DossierFields() {
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             id="reference.name"
-            label="Nombre completo"
+            // Not "Nombre completo": next to the tenant's own name, that reads as being asked
+            // for it a second time, which is exactly how this page looked before.
+            label="Nombre de tu referencia"
             autoComplete="off"
             error={errors.reference?.name?.message}
             {...register("reference.name")}

@@ -1,38 +1,98 @@
 "use client";
 
 import { useState } from "react";
+import { z } from "zod";
+
+import type { Department } from "@/shared/geo/colombia";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { FormProvider, useForm } from "react-hook-form";
 
+import {
+  AccountFields,
+  accountDetailsSchema,
+  updateProfile,
+  type Gender,
+} from "@/features/profile/client";
 import { FormAlert } from "@/shared/form/form-alert";
 import { SubmitButton } from "@/shared/form/submit-button";
 
 import { saveTenantProfile } from "../actions/save-tenant-profile";
 import { emptyDossier, toFormValues } from "./defaults";
-import { tenantDossierSchema, type TenantDossierInput, type TenantDossierValues } from "../validations/tenant-profile";
+import { tenantDossierSchema } from "../validations/tenant-profile";
 import type { TenantProfile } from "../domain/tenant-profile";
 import { DossierFields } from "./dossier-fields";
 
 /**
- * The tenant's dossier, on its own page.
+ * One page, one form, both halves of who you are: what you gave when you signed up, and what a
+ * landlord needs on top of it.
  *
- * The same fields the first application asks for. Filling them here means the next application
- * starts already answered, and correcting them here is where you come when something changes —
- * a new job, a new phone for your reference — instead of retyping it at the worst moment.
+ * They are together because they were never apart in anyone's head. Filling in a name at signup
+ * and then never seeing it again reads as data that got lost — and the next form asking for a
+ * "Nombre completo", even someone else's, confirms the suspicion.
  */
-export function TenantProfileForm({ profile }: { readonly profile: TenantProfile | null }) {
+const schema = accountDetailsSchema.and(tenantDossierSchema);
+type FormInput = z.input<typeof schema>;
+type FormValues = z.output<typeof schema>;
+
+/**
+ * Everything a landlord ends up knowing about a tenant, on one page.
+ *
+ * The account half arrives filled in from what was given at signup — that is the whole point:
+ * it was being stored and never shown. The dossier half is what an application adds. Correcting
+ * either is done here instead of at the worst possible moment, in the middle of applying.
+ */
+export function TenantProfileForm({
+  profile,
+  account,
+}: {
+  readonly profile: TenantProfile | null;
+  /**
+   * What was given at signup, in the shape the fields want.
+   *
+   * `gender` and `department` may be `undefined`: they are selects, and a select with no value
+   * shows its placeholder. Typing them as required would force a fake default here, which is
+   * how a form ends up submitting an answer nobody gave.
+   */
+  readonly account: {
+    readonly fullName: string;
+    readonly phone: { readonly country: string; readonly national: string };
+    readonly gender: Gender | undefined;
+    readonly birthDate: string;
+    readonly address: {
+      readonly line: string;
+      readonly city: string;
+      readonly department: Department | undefined;
+    };
+  };
+}) {
   const router = useRouter();
   const [saved, setSaved] = useState(false);
 
-  const form = useForm<TenantDossierInput, unknown, TenantDossierValues>({
-    resolver: zodResolver(tenantDossierSchema),
-    defaultValues: profile ? toFormValues(profile) : emptyDossier(),
+  const form = useForm<FormInput, unknown, FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: { ...account, ...(profile ? toFormValues(profile) : emptyDossier()) },
   });
 
   const { isSubmitting } = form.formState;
 
-  async function onSubmit(values: TenantDossierValues) {
+  async function onSubmit(values: FormValues) {
+    const account = new FormData();
+    account.set("fullName", values.fullName);
+    account.set("phone.country", values.phone.country);
+    account.set("phone.national", values.phone.national);
+    account.set("gender", values.gender);
+    account.set("birthDate", values.birthDate);
+    account.set("address.line", values.address.line);
+    account.set("address.city", values.address.city);
+    account.set("address.department", values.address.department);
+
+    const saveAccount = await updateProfile(account);
+    if (!saveAccount.ok) {
+      form.setError("root", { message: saveAccount.message ?? "No pudimos guardar tus datos." });
+      return;
+    }
+
     const data = new FormData();
     data.set("documentType", values.documentType);
     data.set("documentNumber", values.documentNumber);
@@ -53,6 +113,12 @@ export function TenantProfileForm({ profile }: { readonly profile: TenantProfile
       return;
     }
 
+    /*
+     * What was just saved becomes the new baseline. Without this the form stays "dirty" against
+     * the values it started with, and the confirmation — which only shows for a clean form —
+     * never appeared: it saved correctly and said nothing.
+     */
+    form.reset(form.getValues());
     setSaved(true);
     router.refresh();
   }
@@ -64,6 +130,16 @@ export function TenantProfileForm({ profile }: { readonly profile: TenantProfile
         {form.formState.errors.root?.message ? (
           <FormAlert>{form.formState.errors.root.message}</FormAlert>
         ) : null}
+
+        <section className="space-y-4">
+          <div>
+            <h2 className="font-semibold text-primary dark:text-foreground">Tus datos</h2>
+            <p className="text-sm text-muted-foreground">
+              Los que diste al crear tu cuenta. Corrígelos aquí si algo cambió.
+            </p>
+          </div>
+          <AccountFields disabled={isSubmitting} />
+        </section>
 
         <DossierFields />
 

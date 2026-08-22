@@ -1,5 +1,7 @@
 "use client";
 
+import { useId } from "react";
+
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import {
@@ -41,11 +43,18 @@ export function PhoneField({
   const error = countryError ?? numberError;
   const selected = findCountry(country);
   const rule = phoneRuleFor(country);
-  const errorId = "phone-error";
+  /*
+   * Generated, not fixed. Two of these can share a page — your own number and your reference's
+   * — and with a hardcoded id `label for=` resolves to the *first* match: typing in the second
+   * field went into the first, and the second stayed empty while looking filled in.
+   */
+  const uid = useId();
+  const inputId = `${uid}-phone`;
+  const errorId = `${inputId}-error`;
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="phone.national">{label}</Label>
+      <Label htmlFor={inputId}>{label}</Label>
 
       <div className="flex items-stretch gap-2">
         <Select value={country} onValueChange={onCountryChange} disabled={disabled}>
@@ -81,7 +90,7 @@ export function PhoneField({
         </Select>
 
         <Input
-          id="phone.national"
+          id={inputId}
           type="tel"
           inputMode="numeric"
           autoComplete="tel-national"

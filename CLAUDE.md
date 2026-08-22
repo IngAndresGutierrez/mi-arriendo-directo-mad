@@ -105,7 +105,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/postularme/<slug>` | `applyToPropertyRoute(slug)` | Where a tenant applies. Needs a complete profile; redirects to the process if one is already open. |
 | `/contrato` | `CONTRACT_ROUTE` | Every rental process the user is part of, on either side. |
 | `/contrato/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
-| `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | The tenant's reusable dossier. |
+| `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
 | `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
@@ -206,7 +206,7 @@ risk of leaving a field unconnected.
 | `shared/shell/auth-shell.tsx` | `AuthShell`: two-column layout for login and signup. |
 | `shared/brand/logo.tsx` | `Logo`: the only place with the PNG's dimensions. |
 | `shared/form/select-field.tsx` | `SelectField`: select with label, error and ARIA. Controlled with `Controller`. |
-| `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. |
+| `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. Its ids are generated: two can share a page (yours and your reference's), and with fixed ids `label for=` resolves to the first, so typing in one filled the other. |
 | `shared/shell/app-shell.tsx` | `AppShell`: the frame of every product screen — menu and content. A page brings only its heading and its body. |
 | `shared/shell/app-nav.tsx` | `AppNav`: the `NAV` list itself, shared by the two surfaces that show it. **It is a Client Component**: it passes icon components to `NavItem`. |
 | `shared/shell/app-sidebar.tsx` | `AppSidebar`: the menu always visible from `lg` up, narrow by default, widened with the arrow. |
@@ -253,6 +253,12 @@ says out loud that those happen off the platform for now.
   reason the tenant reads; the tenant may withdraw. Neither can do the other's action.
 - **The client never writes an application.** The stage machine cannot be expressed in
   `firestore.rules`, so every mutation is a Server Action and the rules deny all writes.
+- **What signup asked for is shown here.** Filling in a name at signup and never seeing it
+  again reads as data that got lost — the data was being used all along (the greeting, the
+  applicant's name, every email) and simply had no screen. `AccountFields` is the same block on
+  both forms, so the two cannot drift; `updateProfile` never touches the email (it comes from
+  the verified session), the role (a custom claim) or `termsAcceptedAt` (which would become a
+  lie if it moved every time a name is corrected).
 - **The dossier is stored twice on purpose**: in `tenantProfiles/{uid}`, so the next application
   starts filled in, and as a **snapshot inside the application**, so the landlord sees what was
   declared to them and a later edit cannot rewrite it. `tenantProfiles` is readable by its owner
