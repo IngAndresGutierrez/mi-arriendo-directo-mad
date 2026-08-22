@@ -9,6 +9,7 @@ import { refreshServerSession } from "@/shared/auth/client";
 import { propertyDetailRoute } from "@/shared/auth/routes";
 import { DEPARTMENTS, type Department } from "@/shared/geo/colombia";
 import { municipalitiesOf } from "@/shared/geo/municipalities";
+import { AmountField } from "@/shared/form/amount-field";
 import { FormAlert } from "@/shared/form/form-alert";
 import { SelectField } from "@/shared/form/select-field";
 import { SubmitButton } from "@/shared/form/submit-button";
@@ -365,21 +366,35 @@ export function PublishPropertyForm() {
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-primary">Condiciones</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          <TextField
-            id="rent"
-            label="Canon mensual (COP)"
-            inputMode="numeric"
-            placeholder="1800000"
-            error={errors.rent?.message}
-            {...form.register("rent")}
+          <Controller
+            control={form.control}
+            name="rent"
+            render={({ field }) => (
+              <AmountField
+                id="rent"
+                label="Canon mensual (COP)"
+                placeholder="1.800.000"
+                value={field.value === undefined || field.value === null ? "" : String(field.value)}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                error={errors.rent?.message}
+              />
+            )}
           />
-          <TextField
-            id="adminFee"
-            label="Administración (COP)"
-            inputMode="numeric"
-            hint="Escribe 0 si el inmueble no paga administración."
-            error={errors.adminFee?.message}
-            {...form.register("adminFee")}
+          <Controller
+            control={form.control}
+            name="adminFee"
+            render={({ field }) => (
+              <AmountField
+                id="adminFee"
+                label="Administración (COP)"
+                hint="Escribe 0 si el inmueble no paga administración."
+                value={field.value === undefined || field.value === null ? "" : String(field.value)}
+                onChange={field.onChange}
+                onBlur={field.onBlur}
+                error={errors.adminFee?.message}
+              />
+            )}
           />
           <TextField
             id="availableFrom"
