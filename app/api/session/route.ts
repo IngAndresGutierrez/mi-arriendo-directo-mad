@@ -11,7 +11,7 @@ const MAX_LOGIN_AGE_MS = 5 * 60 * 1000;
  * Exchanges the client's idToken for an httpOnly session cookie.
  *
  * This endpoint is public: it validates the body, verifies the token against Firebase and
- * requires a recent sign-in before issuing a cookie that lives for 5 days.
+ * requires a recent sign-in before issuing a cookie that lives for `SESSION_MAX_AGE_MS`.
  */
 export async function POST(request: Request): Promise<Response> {
   let body: unknown;

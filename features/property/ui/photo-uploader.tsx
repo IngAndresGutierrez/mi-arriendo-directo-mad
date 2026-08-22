@@ -4,7 +4,7 @@ import { useId, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { ImagePlusIcon, StarIcon, Trash2Icon } from "lucide-react";
 
-import { auth } from "@/shared/firebase/auth";
+import { ensureClientSession } from "@/shared/auth/client";
 import { storage } from "@/shared/firebase/storage";
 import { Button } from "@/shared/ui/button";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
@@ -58,14 +58,23 @@ export function PhotoUploader({ photos, onChange, error, confirmBeforeRemove = f
       return;
     }
 
-    const uid = auth.currentUser?.uid;
-    if (!uid) {
-      setLocalError("Tu sesión expiró. Vuelve a iniciar sesión para subir fotos.");
-      return;
-    }
-
     startUpload(async () => {
       try {
+        /*
+         * The upload goes straight from the browser to Cloud Storage, so it needs the *web
+         * SDK's* session, not the cookie the rest of the app runs on. That one can be missing
+         * for a moment after a page load, or genuinely gone while the cookie is still valid.
+         * `ensureClientSession` waits for the first definite answer and rebuilds it from the
+         * server if needed — asking `auth.currentUser` directly is what produced "tu sesión
+         * expiró" for people who were perfectly signed in.
+         */
+        const user = await ensureClientSession();
+        if (!user) {
+          setLocalError("Tu sesión expiró. Vuelve a iniciar sesión para subir fotos.");
+          return;
+        }
+        const uid = user.uid;
+
         const { getDownloadURL, ref, uploadBytes } = await import("firebase/storage");
         const uploaded = await Promise.all(
           files.map(async (file) => {

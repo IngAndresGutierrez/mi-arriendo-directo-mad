@@ -114,6 +114,18 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
   recent sign-in); **`PATCH` re-mints it** with the current claims after a role change;
   `DELETE` signs out and revokes the refresh tokens.
 - `requireUser()` redirects to `LOGIN_ROUTE`; `requireRole()` to `HOME_ROUTE`.
+- **There are two sessions, not one**, and this is the trap behind "tu sesión expiró" appearing
+  to someone perfectly signed in. The httpOnly cookie (7 days, `SESSION_MAX_AGE_MS`) is what the
+  server reads; the **web SDK keeps its own** in IndexedDB, and that is the one Cloud Storage and
+  the Security Rules check when the browser uploads a photo straight to the bucket. They have
+  different storage and different failure modes — cleared site data, a private window, storage
+  the browser reclaimed — and `auth.currentUser` is also `null` for the first moments after any
+  page load, so reading it directly answers "signed out" to anyone quick enough to click.
+  **Never read `auth.currentUser` to decide whether someone is signed in**: call
+  `ensureClientSession()` (`shared/auth/client.ts`), which waits for the first definite answer
+  and, if it is nobody, rebuilds the client session from the cookie through
+  `POST /api/session/token`. That endpoint mints a custom token for the uid its own cookie
+  names, so it grants nothing the cookie holder did not already have.
 - **`requireCompleteProfile()` is the guard for every product screen**: it requires a session
   and a profile. It lives in `features/profile` (import it from `@/features/profile`), not in
   `shared/auth`: "does this user have a profile?" is a question of the profile domain. The
