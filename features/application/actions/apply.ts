@@ -13,7 +13,7 @@ import {
   tenantDossierSchema,
   toStoredDossier,
 } from "@/features/tenant-profile";
-import { CONTRACT_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
+import { RENTALS_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
 
 import { getTenantApplicationTo } from "../data/application";
@@ -133,7 +133,7 @@ export async function applyToProperty(slug: string, formData: FormData): Promise
     actorName: profile?.fullName ?? "",
   });
 
-  revalidatePath(CONTRACT_ROUTE);
+  revalidatePath(RENTALS_ROUTE);
   revalidatePath(propertyDetailRoute(property.slug));
 
   return { ok: true, applicationId: reference.id };

@@ -2,23 +2,16 @@
 
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 
+import { BirthDateField } from "@/shared/form/birth-date-field";
 import { PhoneField } from "@/shared/form/phone-field";
 import { SelectField } from "@/shared/form/select-field";
 import { TextField } from "@/shared/form/text-field";
 import { DEPARTMENTS } from "@/shared/geo/colombia";
 
-import { GENDER_OPTIONS, MIN_AGE } from "../domain/profile";
+import { GENDER_OPTIONS } from "../domain/profile";
 import type { CompleteProfileFormValues } from "../validations/profile";
 
 const DEPARTMENT_OPTIONS = DEPARTMENTS.map((value) => ({ value, label: value }));
-
-/** Upper bound for `<input type="date">`: today minus the minimum age. */
-export function maxBirthDate(): string {
-  const date = new Date();
-  date.setFullYear(date.getFullYear() - MIN_AGE);
-
-  return date.toISOString().slice(0, 10);
-}
 
 /**
  * Who the person is: the fields asked once at signup.
@@ -89,16 +82,19 @@ export function AccountFields({ disabled = false }: { readonly disabled?: boolea
             />
           )}
         />
-
-        <TextField
-          id="birthDate"
-          label="Fecha de nacimiento"
-          type="date"
-          autoComplete="bday"
-          max={maxBirthDate()}
-          error={errors.birthDate?.message}
-          disabled={disabled}
-          {...register("birthDate")}
+        <Controller
+          control={control}
+          name="birthDate"
+          render={({ field }) => (
+            <BirthDateField
+              label="Fecha de nacimiento"
+              value={field.value ?? ""}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              error={errors.birthDate?.message}
+              disabled={disabled}
+            />
+          )}
         />
       </div>
 

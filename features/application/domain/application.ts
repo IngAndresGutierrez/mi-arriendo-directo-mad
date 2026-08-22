@@ -179,6 +179,17 @@ export type Application = Omit<ApplicationDoc, "createdAt" | "updatedAt"> & {
   readonly updatedAt: string;
 };
 
+/**
+ * A short code for one process, to say out loud.
+ *
+ * The id is what identifies it, but nobody reads twenty characters over WhatsApp to support. Six
+ * is enough to find the right one among a handful and it is derived, not stored: there is no
+ * counter to keep and no second identifier that could disagree with the first.
+ */
+export function applicationCode(id: string): string {
+  return id.slice(0, 6).toUpperCase();
+}
+
 export function stageIndex(stage: Stage): number {
   return STAGES.indexOf(stage);
 }

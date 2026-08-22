@@ -23,10 +23,17 @@ export const PUBLISH_PROPERTY_ROUTE = "/inmuebles/publicar";
 export const MY_PROPERTIES_ROUTE = "/mis-inmuebles";
 
 /** The rental process: its nine stages, for whichever side of it you are on. */
-export const CONTRACT_ROUTE = "/contrato";
+export const RENTALS_ROUTE = "/arriendos";
 
 /** The tenant's reusable dossier. */
 export const TENANT_PROFILE_ROUTE = "/perfil-inquilino";
+
+/**
+ * Where to reach a person. It is a page rather than a link straight to WhatsApp because the
+ * menu entry has to lead somewhere the browser's back button can return from, and because the
+ * two channels need room to say what each one is good for.
+ */
+export const SUPPORT_ROUTE = "/soporte";
 /** Editing one of them. Keyed by id, not by slug: the slug is what the edit may change. */
 export function editPropertyRoute(id: string): string {
   return `${MY_PROPERTIES_ROUTE}/${id}/editar`;
@@ -39,7 +46,7 @@ export function editPropertyRoute(id: string): string {
  * own. Links that still carry an id keep working: the page redirects them here.
  */
 export function applicationRoute(id: string): string {
-  return `${CONTRACT_ROUTE}/${id}`;
+  return `${RENTALS_ROUTE}/${id}`;
 }
 
 /** Where a tenant applies to a listing. The slug, never an id: it is a link people paste. */

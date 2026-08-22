@@ -118,8 +118,15 @@ export function PropertyManageCard({ property }: { readonly property: Property }
           <span className="font-normal text-muted-foreground"> al mes</span>
         </p>
 
-        <div className="flex flex-wrap gap-2 pt-2">
-          <Button type="button" variant="outline" size="lg" onClick={copyLink}>
+        {/*
+          Three different weights, because three identical buttons make the eye read them as one
+          block and pick by position. Sharing the link is what publishing was for, so it takes the
+          brand CTA; editing is the ordinary secondary action; deleting recedes to a plain red word
+          and asks for confirmation anyway — a solid red button next to two others invites the
+          click it should discourage.
+        */}
+        <div className="flex flex-wrap items-center gap-2 pt-2">
+          <Button type="button" variant="accent" size="lg" onClick={copyLink}>
             {copied ? <CheckIcon aria-hidden="true" /> : <LinkIcon aria-hidden="true" />}
             {copied ? "Enlace copiado" : "Copiar enlace"}
           </Button>
@@ -131,10 +138,11 @@ export function PropertyManageCard({ property }: { readonly property: Property }
           </Button>
           <Button
             type="button"
-            variant="destructive"
+            variant="ghost"
             size="lg"
             onClick={() => setConfirming(true)}
             disabled={isDeleting}
+            className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
           >
             <Trash2Icon aria-hidden="true" />
             Eliminar

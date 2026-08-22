@@ -28,14 +28,14 @@ import {
 } from "@/features/tenant-profile";
 import { requireCompleteProfile } from "@/features/profile";
 import { stageAnchor } from "@/features/notification";
-import { CONTRACT_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
+import { RENTALS_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 
 export const metadata: Metadata = {
   title: "Proceso de arriendo",
 };
 
-export default async function ApplicationPage(props: PageProps<"/contrato/[id]">) {
+export default async function ApplicationPage(props: PageProps<"/arriendos/[id]">) {
   const { id } = await props.params;
   const user = await requireCompleteProfile();
 
@@ -86,7 +86,7 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
       <LiveApplication applicationId={application.id} updatedAt={application.updatedAt} />
 
       <Link
-        href={CONTRACT_ROUTE}
+        href={RENTALS_ROUTE}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-4" aria-hidden="true" />

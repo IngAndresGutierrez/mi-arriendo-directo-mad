@@ -8,6 +8,7 @@ import {
   isUnbuilt,
   nextStage,
   stageProgress,
+  applicationCode,
   stageProgressLabel,
   stageState,
   STAGES,
@@ -119,6 +120,16 @@ describe("progress", () => {
     expect(stageProgressLabel("submitted")).toBe("Paso 1 de 9");
     expect(stageProgressLabel("active")).toBe("Paso 9 de 9");
   });
+
+describe("applicationCode", () => {
+  it("takes six characters, upper case, so it can be read out loud", () => {
+    expect(applicationCode("i4rwXIRttilMjbYca60i")).toBe("I4RWXI");
+  });
+
+  it("does not pad a shorter id", () => {
+    expect(applicationCode("abc")).toBe("ABC");
+  });
+});
 
   it("fills the bar only when the process is at the last stage", () => {
     expect(stageProgress("submitted")).toBeCloseTo(1 / 9);

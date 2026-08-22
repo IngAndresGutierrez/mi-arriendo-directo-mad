@@ -104,9 +104,10 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | — | — | Publishing requires the **matrícula inmobiliaria**, and it is stored beside the street in `properties/{id}/private/location`, never in the public document: with that number anyone can pull the certificate and read the address off it, so publishing it would publish the address by the back door. Validated loosely — the circle is two or three digits and the separator is written every way — because the only real check is against the registry, which this product does not do. |
 | `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
 | `/postularme/<slug>` | `applyToPropertyRoute(slug)` | Where a tenant applies. Needs a complete profile; redirects to the process if one is already open. |
-| `/contrato` | `CONTRACT_ROUTE` | Every rental process the user is part of, on either side. |
-| `/contrato/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
+| `/arriendos` | `RENTALS_ROUTE` | Every rental the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. It is called "Arriendos" in the menu and titled "Gestión de arriendos". **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
+| `/arriendos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
+| `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
 | `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
@@ -332,7 +333,7 @@ top bar, and an email. Both use the same copy, derived from the notification's `
 than stored with it, so fixing a confusing sentence fixes the ones already sent.
 
 The email carries what the bell cannot: an **absolute link straight to the stage**,
-`/contrato/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
+`/arriendos/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
 the step it is about instead of at the top of a page with nine of them.
 
 **Email goes out through Resend**, over its REST API — no SDK, because sending is a `POST` with
@@ -416,7 +417,7 @@ entry, allowed by eslint and dependency-cruiser alongside the index; anything de
 violation.
 
 ## Sections not built yet
-The menu shows Soporte, Facturación and Ajustes **disabled**, with a "Pronto"
+The menu shows Facturación and Ajustes **disabled**, with a "Pronto"
 badge, instead of linking to a 404. To activate one: create the route and add its `href` to
 the `NAV` array in `shared/shell/app-nav.tsx` — the one list both surfaces render, so the
 sidebar and the drawer cannot disagree about what the product contains.
@@ -438,9 +439,29 @@ properties, not a separate place. The action lives on `/mis-inmuebles`, next to 
 adds to, and the drawer keeps "Mis inmuebles" marked as the current section while the form is
 open (`activeOn`).
 
-The support card is mocked up inside `ComingSoonCard`: visible but not interactive. The catalog
+The support card is real: WhatsApp and email, from `shared/lib/support-contact.ts`
+(`SUPPORT_WHATSAPP_E164`, `SUPPORT_EMAIL`) so the number and the address change in one place.
+WhatsApp goes first because it is where this conversation actually happens here; the `wa.me`
+draft is short enough to send unedited, and both the draft and the mail subject are
+percent-encoded or the first accent truncates the parameter. The catalog
 card is a real link now that `/inmuebles` exists. The support card deliberately **carries no photo of a person** — a stock
 image presented as "our team" would claim something false.
+
+**The email action is not the same action on every device**, and the deciding question is the
+pointer, not the width. `mailto:` only opens something when the operating system has a mail
+client registered, and somebody who reads their mail on gmail.com in a browser has never
+registered one — the click opens nothing and reads as a broken button. So `pointer: coarse` (a
+finger) gets "Enviar un correo" with `mailto:`, and `pointer: fine` (a mouse) gets "Copiar
+correo", which works on every desktop there is. A width breakpoint would get a phone held in
+landscape wrong. Both buttons are rendered and one is hidden in **CSS**, not chosen in
+JavaScript: the media query is answered before hydration, so nothing flashes, and `display:
+none` also drops the hidden one out of the accessibility tree — a screen reader is offered
+exactly one email action. The clipboard can still refuse (insecure origin, withheld
+permission), and then the address itself appears under the button instead of a silent failure.
+
+The buttons live in `shared/shell/support-actions.tsx` and are rendered by **both** the card on
+`/inicio` and the `/soporte` page, so the two surfaces cannot drift. Only the copy button is a
+Client Component; everything else there is a plain link.
 
 ## Verification commands
 ```bash

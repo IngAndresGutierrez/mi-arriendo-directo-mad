@@ -13,10 +13,11 @@ import {
 } from "lucide-react";
 
 import {
-  CONTRACT_ROUTE,
+  RENTALS_ROUTE,
   HOME_ROUTE,
   MY_PROPERTIES_ROUTE,
   PUBLISH_PROPERTY_ROUTE,
+  SUPPORT_ROUTE,
   TENANT_PROFILE_ROUTE,
 } from "@/shared/auth/routes";
 import { NavItem, type NavEntry } from "@/shared/ui/nav-item";
@@ -40,7 +41,7 @@ const NAV: readonly NavEntry[] = [
     href: MY_PROPERTIES_ROUTE,
     activeOn: [PUBLISH_PROPERTY_ROUTE],
   },
-  { label: "Contrato", icon: FileTextIcon, href: CONTRACT_ROUTE },
+  { label: "Arriendos", icon: FileTextIcon, href: RENTALS_ROUTE },
   {
     label: "Perfil de inquilino",
     // Two words fit under an icon in the narrow rail; three do not.
@@ -48,7 +49,7 @@ const NAV: readonly NavEntry[] = [
     icon: IdCardIcon,
     href: TENANT_PROFILE_ROUTE,
   },
-  { label: "Soporte", icon: LifeBuoyIcon },
+  { label: "Soporte", icon: LifeBuoyIcon, href: SUPPORT_ROUTE },
   { label: "Facturación", icon: CreditCardIcon },
   { label: "Ajustes", icon: SettingsIcon },
 ];

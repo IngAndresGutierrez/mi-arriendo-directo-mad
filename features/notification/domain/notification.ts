@@ -1,4 +1,5 @@
 import { STAGE_LABELS, type Stage } from "@/features/application/client";
+import { applicationRoute } from "@/shared/auth/routes";
 
 /**
  * What happened. One type per movement of a rental process, from the point of view of whoever
@@ -126,7 +127,7 @@ export function stageAnchor(stage: Stage): string {
 export function notificationPath(
   notification: Pick<Notification, "applicationId" | "stage">,
 ): string {
-  return `/contrato/${notification.applicationId}#${stageAnchor(notification.stage)}`;
+  return `${applicationRoute(notification.applicationId)}#${stageAnchor(notification.stage)}`;
 }
 
 /** `hace 5 minutos`, in words a person reads without doing arithmetic. */

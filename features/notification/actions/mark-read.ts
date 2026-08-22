@@ -4,7 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 
 import { requireCompleteProfile } from "@/features/profile";
-import { CONTRACT_ROUTE } from "@/shared/auth/routes";
+import { RENTALS_ROUTE } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
 
 /**
@@ -31,6 +31,6 @@ export async function markNotificationsRead(): Promise<{ readonly ok: true }> {
     await batch.commit();
   }
 
-  revalidatePath(CONTRACT_ROUTE);
+  revalidatePath(RENTALS_ROUTE);
   return { ok: true };
 }

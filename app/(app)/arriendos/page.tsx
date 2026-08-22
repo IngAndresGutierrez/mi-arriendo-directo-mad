@@ -8,8 +8,8 @@ import { PROPERTIES_ROUTE, TENANT_PROFILE_ROUTE } from "@/shared/auth/routes";
 import { Button } from "@/shared/ui/button";
 
 export const metadata: Metadata = {
-  title: "Contrato",
-  description: "El proceso de tu arriendo, etapa por etapa.",
+  title: "Gestión de arriendos",
+  description: "Tus arriendos en curso y los procesos que ya se cerraron, etapa por etapa.",
 };
 
 export default async function ContractPage() {
@@ -20,20 +20,20 @@ export default async function ContractPage() {
   const closed = applications.filter((application) => application.status !== "open");
 
   return (
-    <div className="mx-auto w-full max-w-3xl">
+    <div className="mx-auto w-full max-w-5xl">
       <h1 className="text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
-        Contrato
+        Gestión de arriendos
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        El proceso de arriendo, de la postulación a la firma. Aquí lo ven las dos partes.
+        Cada arriendo, de la postulación a la firma. Aquí lo ven las dos partes.
       </p>
 
       {applications.length === 0 ? (
         <div className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border px-6 py-14 text-center">
           <FileTextIcon className="size-8 text-muted-foreground" aria-hidden="true" />
           <p className="max-w-md text-sm text-muted-foreground">
-            Todavía no hay ningún proceso. Empieza postulándote a un inmueble, o espera a que
-            alguien se postule a los tuyos.
+            Todavía no hay ningún arriendo en curso. Empieza postulándote a un inmueble, o espera
+            a que alguien se postule a los tuyos.
           </p>
           <div className="flex flex-wrap justify-center gap-2">
             <Button asChild variant="accent" size="lg">
@@ -48,9 +48,16 @@ export default async function ContractPage() {
         <div className="mt-8 space-y-8">
           {open.length > 0 && (
             <section aria-labelledby="open-heading" className="space-y-4">
-              <h2 id="open-heading" className="font-semibold text-foreground">
-                En proceso
+              <h2
+                id="open-heading"
+                className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
+              >
+                Arriendos en curso ({open.length})
               </h2>
+              {/*
+                Uno por fila: la barra de nueve etapas y la frase de "siguiente paso" son lo que
+                trae a alguien a esta pantalla, y en media columna la barra deja de leerse.
+              */}
               <ul className="space-y-4">
                 {open.map((application) => (
                   <ApplicationCard
@@ -65,10 +72,14 @@ export default async function ContractPage() {
 
           {closed.length > 0 && (
             <section aria-labelledby="closed-heading" className="space-y-4">
-              <h2 id="closed-heading" className="font-semibold text-foreground">
-                Cerrados
+              <h2
+                id="closed-heading"
+                className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
+              >
+                Procesos cerrados ({closed.length})
               </h2>
-              <ul className="space-y-4">
+              {/* Ya no hay nada que hacer en ellos: caben de dos en dos y no compiten con los abiertos. */}
+              <ul className="grid gap-4 lg:grid-cols-2">
                 {closed.map((application) => (
                   <ApplicationCard
                     key={application.id}

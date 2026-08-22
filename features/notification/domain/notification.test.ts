@@ -83,7 +83,7 @@ describe("notificationPath", () => {
   // The point of the anchor: land on the step, not on a page with nine of them.
   it("points at the stage inside the process", () => {
     expect(notificationPath({ applicationId: "abc", stage: "contract_signature" })).toBe(
-      "/contrato/abc#etapa-contract-signature",
+      "/arriendos/abc#etapa-contract-signature",
     );
   });
 
@@ -98,7 +98,7 @@ describe("renderNotificationEmail", () => {
   const email = renderNotificationEmail(base, "duena@example.com", "https://www.miarriendodirecto.com");
 
   it("carries an absolute link straight to the stage", () => {
-    const link = "https://www.miarriendodirecto.com/contrato/app-1#etapa-submitted";
+    const link = "https://www.miarriendodirecto.com/arriendos/app-1#etapa-submitted";
     expect(email.html).toContain(link);
     expect(email.text).toContain(link);
   });

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRightIcon, CalendarIcon, InfoIcon } from "lucide-react";
 
-import { applyToPropertyRoute, LOGIN_ROUTE } from "@/shared/auth/routes";
+import { applicationRoute, applyToPropertyRoute, LOGIN_ROUTE } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 
@@ -82,7 +82,7 @@ export function PropertyPriceCard({
           </p>
         ) : applyState === "open" && applicationId ? (
           <Button asChild variant="accent" size="xl" className="w-full">
-            <Link href={`/contrato/${applicationId}`}>
+            <Link href={applicationRoute(applicationId)}>
               Ver mi proceso
               <ArrowRightIcon aria-hidden="true" />
             </Link>
@@ -99,7 +99,7 @@ export function PropertyPriceCard({
             </p>
             {applicationId ? (
               <Button asChild variant="outline" size="lg" className="w-full">
-                <Link href={`/contrato/${applicationId}`}>
+                <Link href={applicationRoute(applicationId)}>
                   Ver mi postulación
                   <ArrowRightIcon aria-hidden="true" />
                 </Link>
