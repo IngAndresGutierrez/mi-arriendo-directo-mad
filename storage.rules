@@ -19,12 +19,17 @@ service firebase.storage {
       allow delete: if false;                  // traceability: only the backend deletes
     }
 
-    // listing photos: public read, authenticated write
-    match /properties/{propertyId}/{allPaths=**} {
+    // listing photos: public read, and each landlord writes only inside their own folder.
+    // The path is keyed by uid and not by propertyId on purpose: photos are uploaded from the
+    // browser before the property exists, so there is no id to scope them to yet.
+    match /properties/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null
+                   && request.auth.uid == userId
                    && validSize()
                    && request.resource.contentType.matches('image/(jpeg|png|webp)');
+      // the owner may drop a photo they just uploaded, before or after publishing
+      allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
     // signed contracts: generated and served by the backend

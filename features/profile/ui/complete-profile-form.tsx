@@ -13,7 +13,8 @@ import { Checkbox } from "@/shared/ui/checkbox";
 import { Label } from "@/shared/ui/label";
 import { SelectField } from "@/shared/form/select-field";
 import { TextField } from "@/shared/form/text-field";
-import { DEPARTMENTS, GENDER_OPTIONS, MIN_AGE } from "../domain/colombia";
+import { GENDER_OPTIONS, MIN_AGE } from "../domain/profile";
+import { DEPARTMENTS } from "@/shared/geo/colombia";
 import { DEFAULT_COUNTRY_ISO } from "@/shared/phone/countries";
 import {
   completeProfileSchema,

@@ -10,6 +10,13 @@ const nextConfig: NextConfig = {
    * bundler resolves that ESM import and the runtime's Node version stops mattering.
    */
   transpilePackages: ["firebase-admin"],
+
+  images: {
+    remotePatterns: [
+      // Property photos live in Cloud Storage; the download URL is public and tokenised.
+      { protocol: "https", hostname: "firebasestorage.googleapis.com" },
+    ],
+  },
 };
 
 export default nextConfig;

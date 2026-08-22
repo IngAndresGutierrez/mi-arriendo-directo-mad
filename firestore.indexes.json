@@ -5,7 +5,7 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
-          "fieldPath": "city",
+          "fieldPath": "area.city",
           "order": "ASCENDING"
         },
         {

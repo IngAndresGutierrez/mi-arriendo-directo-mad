@@ -34,12 +34,12 @@ describe("public catalog (anonymous)", () => {
     );
   });
 
-  it("list filtered by city + status (the catalog's real query) -> allowed", async () => {
+  it("list filtered by area.city + status (the catalog's real query) -> allowed", async () => {
     await assertSucceeds(
       getDocs(
         query(
           collection(anonymous(env), "properties"),
-          where("city", "==", "Bogotá"),
+          where("area.city", "==", "Bogotá"),
           where("status", "==", "available"),
           limit(20),
         ),

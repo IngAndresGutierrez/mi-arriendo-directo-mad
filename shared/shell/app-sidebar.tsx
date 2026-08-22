@@ -5,6 +5,7 @@
 // active section, so it is interactive anyway.
 import Image from "next/image";
 import {
+  BuildingIcon,
   CreditCardIcon,
   FileTextIcon,
   HouseIcon,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 
 import { NavItem, type NavEntry } from "@/shared/ui/nav-item";
-import { HOME_ROUTE } from "@/shared/auth/routes";
+import { HOME_ROUTE, PUBLISH_PROPERTY_ROUTE } from "@/shared/auth/routes";
 
 import { SignOutButton } from "./sign-out-button";
 
@@ -23,6 +24,7 @@ import { SignOutButton } from "./sign-out-button";
  */
 const NAV: readonly NavEntry[] = [
   { label: "Inicio", icon: HouseIcon, href: HOME_ROUTE },
+  { label: "Publicar", icon: BuildingIcon, href: PUBLISH_PROPERTY_ROUTE },
   { label: "Soporte", icon: LifeBuoyIcon },
   { label: "Contrato", icon: FileTextIcon },
   { label: "Facturación", icon: CreditCardIcon },

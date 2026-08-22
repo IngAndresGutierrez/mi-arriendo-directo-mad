@@ -15,6 +15,15 @@ export const COMPLETE_PROFILE_ROUTE = "/registro/completar-perfil";
 /** Where a freshly authenticated user lands. */
 export const HOME_ROUTE = "/inicio";
 
+/** Public catalog of properties. Not built yet — see PROPERTY_DETAIL below. */
+export const PROPERTIES_ROUTE = "/inmuebles";
+/** Where a landlord publishes. Static segment, so it never collides with a property id. */
+export const PUBLISH_PROPERTY_ROUTE = "/inmuebles/publicar";
+/** Public detail of one property. */
+export function propertyDetailRoute(id: string): string {
+  return `${PROPERTIES_ROUTE}/${id}`;
+}
+
 /**
  * Public access screens. Redirecting here after signing in would loop: the screen would
  * see the active session and redirect straight back.

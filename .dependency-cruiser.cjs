@@ -32,7 +32,9 @@ module.exports = {
       comment: "Los internos de un feature son suyos; de fuera solo su index.ts.",
       from: { path: "^features/([^/]+)/" },
       to: {
-        path: "^features/([^/]+)/.+",
+        // `(?!index\\.ts)` matters: importing another feature's index IS the contract; what is
+        // forbidden is reaching past it into its internals.
+        path: "^features/[^/]+/(?!index\\.ts$).+",
         pathNot: "^features/$1/",
       },
     },

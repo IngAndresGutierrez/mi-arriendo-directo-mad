@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-import { DEPARTMENTS, GENDERS, MAX_AGE, MIN_AGE } from "../domain/colombia";
+import { GENDERS, MAX_AGE, MIN_AGE } from "../domain/profile";
+import { DEPARTMENTS } from "@/shared/geo/colombia";
 import { COUNTRY_ISO_CODES, phoneRuleFor } from "@/shared/phone/countries";
 
 /** Hoisted: building the RegExp on every call is repeated work. */

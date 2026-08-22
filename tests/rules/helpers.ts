@@ -69,6 +69,36 @@ export function completeProfileDoc(role: "tenant" | "landlord" = "tenant") {
   };
 }
 
+/**
+ * A property with the shape the rules require. Tests override one field at a time to check
+ * each validation, so every key here has to be valid on its own.
+ */
+export function publishedProperty(overrides: Record<string, unknown> = {}) {
+  return {
+    landlordUid: UID_LANDLORD,
+    title: "Apartamento luminoso en Palermo",
+    description: "Dos habitaciones, cocina integral y zona de ropas independiente.",
+    type: "apartment",
+    status: "available",
+    rent: 1_800_000,
+    adminFee: 250_000,
+    deposit: 1_800_000,
+    minLeaseMonths: 12,
+    stratum: 4,
+    areaM2: 65,
+    bedrooms: 2,
+    bathrooms: 2,
+    parkingSpots: 1,
+    furnished: false,
+    petsAllowed: true,
+    availableFrom: "2026-12-07",
+    area: { neighborhood: "Palermo", city: "Manizales", department: "Caldas" },
+    photos: [{ path: `properties/${UID_LANDLORD}/a.jpg`, url: "https://example.com/a.jpg" }],
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
 /** Baseline data: one published property and one pending application on it. */
 export async function seed(env: RulesTestEnvironment): Promise<void> {
   await env.withSecurityRulesDisabled(async (ctx) => {
@@ -82,31 +112,23 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       uploadedAt: new Date(),
     });
 
-    await db.doc(`properties/${PROPERTY_ID}`).set({
-      landlordUid: UID_LANDLORD,
-      title: "Apartamento en Chapinero",
-      type: "apartment",
-      status: "available",
-      rent: 1_800_000,
-      address: { city: "Bogotá", neighborhood: "Chapinero", line: "Calle 60 #10-20" },
-      areaM2: 65,
-      bedrooms: 2,
-      bathrooms: 2,
-      createdAt: new Date(),
-    });
+    await db.doc(`properties/${PROPERTY_ID}`).set(
+      publishedProperty({
+        title: "Apartamento en Chapinero",
+        area: { neighborhood: "Chapinero", city: "Bogotá", department: "Bogotá D.C." },
+      }),
+    );
+    // The street lives apart from the public document: the catalog is world-readable.
+    await db.doc(`properties/${PROPERTY_ID}/private/location`).set({ line: "Calle 60 #10-20" });
 
-    await db.doc(`properties/property-draft`).set({
-      landlordUid: UID_LANDLORD,
-      title: "Casa sin publicar",
-      type: "house",
-      status: "draft",
-      rent: 3_000_000,
-      address: { city: "Medellín", neighborhood: "Laureles", line: "Cra 70 #1-2" },
-      areaM2: 120,
-      bedrooms: 3,
-      bathrooms: 2,
-      createdAt: new Date(),
-    });
+    await db.doc(`properties/property-draft`).set(
+      publishedProperty({
+        title: "Casa sin publicar todavía",
+        status: "draft",
+        type: "house",
+        area: { neighborhood: "Laureles", city: "Medellín", department: "Antioquia" },
+      }),
+    );
 
     await db.doc(`applications/${APPLICATION_ID}`).set({
       propertyId: PROPERTY_ID,

@@ -26,6 +26,7 @@ import {
   anonymous,
   actingAs,
   createTestEnvironment,
+  publishedProperty,
   CONTRACT_ID,
   PROPERTY_ID,
   APPLICATION_ID,
@@ -124,34 +125,65 @@ describe("properties", () => {
   it("a tenant CANNOT create properties", async () => {
     const db = actingAs(env, UID_TENANT, "tenant");
     await assertFails(
-      addDoc(collection(db, "properties"), {
-        landlordUid: UID_TENANT,
-        title: "Intento de publicación",
-        type: "apartment",
-        status: "available",
-        rent: 1_000_000,
-        address: { city: "Cali", neighborhood: "Granada", line: "Cra 1" },
-        areaM2: 50,
-        bedrooms: 1,
-        bathrooms: 1,
-      }),
+      addDoc(collection(db, "properties"), publishedProperty({ landlordUid: UID_TENANT })),
     );
   });
 
   it("a landlord CANNOT publish on someone else's behalf", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(
-      addDoc(collection(db, "properties"), {
-        landlordUid: UID_THIRD_PARTY, // impersonation
-        title: "Inmueble ajeno",
-        type: "house",
-        status: "available",
-        rent: 1_000_000,
-        address: { city: "Cali", neighborhood: "Granada", line: "Cra 1" },
-        areaM2: 50,
-        bedrooms: 1,
-        bathrooms: 1,
-      }),
+      addDoc(collection(db, "properties"), publishedProperty({ landlordUid: UID_THIRD_PARTY })),
+    );
+  });
+
+  it("a landlord publishes their own property", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertSucceeds(addDoc(collection(db, "properties"), publishedProperty()));
+  });
+
+  it("the public document CANNOT carry the street address", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    // inside `area`...
+    await assertFails(
+      addDoc(collection(db, "properties"), publishedProperty({
+        area: { neighborhood: "Palermo", city: "Manizales", department: "Caldas", line: "Calle 60 #10-20" },
+      })),
+    );
+    // ...or as a top-level `address`
+    await assertFails(
+      addDoc(collection(db, "properties"), publishedProperty({ address: { line: "Calle 60 #10-20" } })),
+    );
+  });
+
+  it("rejects a property with no photos", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertFails(addDoc(collection(db, "properties"), publishedProperty({ photos: [] })));
+  });
+
+  it("rejects a lease shorter than the product allows", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertFails(addDoc(collection(db, "properties"), publishedProperty({ minLeaseMonths: 1 })));
+  });
+
+  it("rejects a stratum outside 1-6", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertFails(addDoc(collection(db, "properties"), publishedProperty({ stratum: 7 })));
+  });
+
+  it("the exact address is private: only the owner and admin read it", async () => {
+    const path = `properties/${PROPERTY_ID}/private/location`;
+    await assertSucceeds(getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), path)));
+    await assertSucceeds(getDoc(doc(actingAs(env, UID_ADMIN, "admin"), path)));
+    // an interested tenant sees the listing but NOT the street
+    await assertSucceeds(getDoc(doc(anonymous(env), `properties/${PROPERTY_ID}`)));
+    await assertFails(getDoc(doc(actingAs(env, UID_TENANT, "tenant"), path)));
+    await assertFails(getDoc(doc(anonymous(env), path)));
+  });
+
+  it("nobody writes the private address from the client, not even the owner", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertFails(
+      setDoc(doc(db, `properties/${PROPERTY_ID}/private/location`), { line: "Otra dirección" }),
     );
   });
 

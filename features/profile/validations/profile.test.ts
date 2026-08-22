@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { GENDERS, MIN_AGE } from "../domain/colombia";
+import { GENDERS, MIN_AGE } from "../domain/profile";
 import { COUNTRIES, DEFAULT_COUNTRY_ISO, findCountry, toE164 } from "@/shared/phone/countries";
 import {
   ageInYears,
