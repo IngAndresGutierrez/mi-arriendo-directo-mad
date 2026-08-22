@@ -203,37 +203,23 @@ service cloud.firestore {
     }
 
     // ----------------------------- applications -----------------------------
-    // Visible ONLY to the tenant who created it and to the property's landlord.
+    // A rental process: nine stages the landlord moves it through. Visible ONLY to the tenant
+    // who created it and to the property's landlord.
+    //
+    // Every write goes through a Server Action with the Admin SDK, which bypasses these rules,
+    // so the client cannot write here at all. That is not belt-and-braces: the stage machine
+    // has rules a `firestore.rules` file cannot express — only one stage forward, only while
+    // open, only by the landlord — and a rule that half-enforces them would be a rule someone
+    // trusts.
     match /applications/{applicationId} {
       allow get:  if isApplicationTenant() || isApplicationLandlord() || isAdmin();
-      // Bounded `list`: the client cannot sweep the whole collection
+      // Bounded `list`: the client cannot sweep the whole collection.
       allow list: if isAdmin()
                   || (isSignedIn()
                       && request.query.limit <= 50
                       && (isApplicationTenant() || isApplicationLandlord()));
 
-      allow create: if isSignedIn()
-                    && incoming().tenantUid == uid()
-                    && incoming().status == 'pending'   // nobody approves their own
-                    && incoming().propertyId is string
-                    && exists(/databases/$(database)/documents/properties/$(incoming().propertyId))
-                    // the owner is denormalized to avoid spending a get() in every rule
-                    && incoming().landlordUid ==
-                       get(/databases/$(database)/documents/properties/$(incoming().propertyId))
-                         .data.landlordUid;
-
-      // the tenant may only withdraw; approving/rejecting belongs to the landlord
-      allow update: if (isApplicationTenant()
-                        && onlyChanged(['status', 'updatedAt'])
-                        && incoming().status == 'withdrawn'
-                        && current().status == 'pending')
-                    || (isApplicationLandlord()
-                        && onlyChanged(['status', 'notes', 'updatedAt'])
-                        && incoming().status in ['approved', 'rejected']
-                        && current().status == 'pending')
-                    || isAdmin();
-
-      allow delete: if isAdmin();
+      allow create, update, delete: if false;   // Server Actions only
 
       function isApplicationTenant() {
         return isSignedIn() && current().tenantUid == uid();
@@ -241,6 +227,22 @@ service cloud.firestore {
       function isApplicationLandlord() {
         return isSignedIn() && current().landlordUid == uid();
       }
+    }
+
+    // ---------------------------- tenantProfiles ----------------------------
+    // The tenant's rental dossier: identity document, income, personal reference. The most
+    // sensitive document in the product.
+    //
+    // Its owner may read it. Nobody else can, not even a landlord with an open application:
+    // what a landlord sees is the **snapshot** frozen inside that application, which is what
+    // was declared to them. Editing the profile afterwards cannot rewrite what they were told,
+    // and a landlord cannot follow it to whatever the tenant declares to someone else.
+    //
+    // `list` is denied outright: a query over this collection is a list of everyone's income.
+    match /tenantProfiles/{userId} {
+      allow get:  if isOwner(userId) || isAdmin();
+      allow list: if false;
+      allow create, update, delete: if false;   // Server Actions only
     }
 
     // -------------------------- contracts and payments ----------------------

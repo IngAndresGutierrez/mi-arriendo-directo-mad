@@ -1,0 +1,77 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { ArrowLeftIcon } from "lucide-react";
+
+import {
+  applicationBlocker,
+  getTenantApplicationTo,
+  ApplicationForm,
+} from "@/features/application";
+import { requireCompleteProfile } from "@/features/profile";
+import {
+  getVisiblePropertyBySlug,
+  propertyMonthlyCost,
+  publicLocationLabel,
+} from "@/features/property";
+import { getTenantProfile } from "@/features/tenant-profile";
+import { applicationRoute, propertyDetailRoute } from "@/shared/auth/routes";
+import { formatCOP } from "@/shared/format/money";
+import { AppShell } from "@/shared/shell/app-shell";
+
+export const metadata: Metadata = {
+  title: "Postularme",
+  // A form behind a session: there is nothing here for a crawler to index.
+  robots: { index: false },
+};
+
+export default async function ApplyPage(props: PageProps<"/postularme/[slug]">) {
+  const { slug } = await props.params;
+  const user = await requireCompleteProfile();
+
+  const property = await getVisiblePropertyBySlug(slug, user.uid);
+  if (!property) notFound();
+
+  const existing = await getTenantApplicationTo(property.id, user.uid);
+  const blocker = applicationBlocker(property, user.uid, existing);
+
+  // An open application means the process already exists: send them to it rather than let them
+  // start a second one that would split the conversation in two.
+  if (blocker === "already_applied" && existing) redirect(applicationRoute(existing.id));
+  if (blocker) redirect(propertyDetailRoute(property.slug));
+
+  const profile = await getTenantProfile(user.uid);
+
+  return (
+    <AppShell>
+      <div className="mx-auto w-full max-w-2xl">
+        <Link
+          href={propertyDetailRoute(property.slug)}
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeftIcon className="size-4" aria-hidden="true" />
+          Volver al inmueble
+        </Link>
+
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance text-primary dark:text-foreground">
+          Postúlate a {property.title}
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {publicLocationLabel(property.area)} · {formatCOP(propertyMonthlyCost(property))} al mes
+        </p>
+
+        <p className="mt-6 mb-8 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+          {profile
+            ? "Tus datos ya están aquí, de tu perfil de inquilino. Revísalos y cambia lo que haga falta antes de enviar."
+            : "Llénalo una sola vez: estos datos quedan en tu perfil de inquilino y la próxima postulación empieza contestada."}
+        </p>
+
+        <ApplicationForm
+          slug={property.slug}
+          profile={profile}
+          minLeaseMonths={property.minLeaseMonths}
+        />
+      </div>
+    </AppShell>
+  );
+}

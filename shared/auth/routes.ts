@@ -21,6 +21,12 @@ export const PROPERTIES_ROUTE = "/inmuebles";
 export const PUBLISH_PROPERTY_ROUTE = "/inmuebles/publicar";
 /** A landlord's own listings, with their management actions. */
 export const MY_PROPERTIES_ROUTE = "/mis-inmuebles";
+
+/** The rental process: its nine stages, for whichever side of it you are on. */
+export const CONTRACT_ROUTE = "/contrato";
+
+/** The tenant's reusable dossier. */
+export const TENANT_PROFILE_ROUTE = "/perfil-inquilino";
 /** Editing one of them. Keyed by id, not by slug: the slug is what the edit may change. */
 export function editPropertyRoute(id: string): string {
   return `${MY_PROPERTIES_ROUTE}/${id}/editar`;
@@ -32,6 +38,15 @@ export function editPropertyRoute(id: string): string {
  * a Facebook group, a WhatsApp chat — so the slug is reserved to be unique and resolves on its
  * own. Links that still carry an id keep working: the page redirects them here.
  */
+export function applicationRoute(id: string): string {
+  return `${CONTRACT_ROUTE}/${id}`;
+}
+
+/** Where a tenant applies to a listing. The slug, never an id: it is a link people paste. */
+export function applyToPropertyRoute(slug: string): string {
+  return `/postularme/${slug}`;
+}
+
 export function propertyDetailRoute(slug: string): string {
   return `${PROPERTIES_ROUTE}/${slug}`;
 }

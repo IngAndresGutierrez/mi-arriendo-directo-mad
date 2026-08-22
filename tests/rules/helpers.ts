@@ -134,8 +134,28 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       propertyId: PROPERTY_ID,
       tenantUid: UID_TENANT,
       landlordUid: UID_LANDLORD,
-      status: "pending",
+      stage: "submitted",
+      status: "open",
       createdAt: new Date(),
+    });
+
+    // The dossier the tenant reuses across applications: income, identity document, reference.
+    await db.doc(`tenantProfiles/${UID_TENANT}`).set({
+      documentType: "cc",
+      documentNumber: "1053812345",
+      occupation: "employee",
+      employer: "Crehana",
+      monthlyIncome: 6_000_000,
+      householdSize: 2,
+      hasPets: false,
+      petsDescription: "",
+      reference: {
+        name: "Carolina Restrepo",
+        phone: "+573001234567",
+        phoneCountry: "CO",
+        relationship: "Jefe directo",
+      },
+      updatedAt: new Date(),
     });
 
     await db.doc(`contracts/${CONTRACT_ID}`).set({

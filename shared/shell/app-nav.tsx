@@ -11,7 +11,12 @@ import {
   SettingsIcon,
 } from "lucide-react";
 
-import { HOME_ROUTE, MY_PROPERTIES_ROUTE, PUBLISH_PROPERTY_ROUTE } from "@/shared/auth/routes";
+import {
+  CONTRACT_ROUTE,
+  HOME_ROUTE,
+  MY_PROPERTIES_ROUTE,
+  PUBLISH_PROPERTY_ROUTE,
+} from "@/shared/auth/routes";
 import { NavItem, type NavEntry } from "@/shared/ui/nav-item";
 import { cn } from "@/shared/lib/utils";
 
@@ -34,7 +39,7 @@ const NAV: readonly NavEntry[] = [
     activeOn: [PUBLISH_PROPERTY_ROUTE],
   },
   { label: "Soporte", icon: LifeBuoyIcon },
-  { label: "Contrato", icon: FileTextIcon },
+  { label: "Contrato", icon: FileTextIcon, href: CONTRACT_ROUTE },
   { label: "Facturación", icon: CreditCardIcon },
   { label: "Ajustes", icon: SettingsIcon },
 ];

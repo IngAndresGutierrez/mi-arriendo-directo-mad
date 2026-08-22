@@ -17,6 +17,7 @@ import {
   PROPERTY_TYPE_LABELS,
   type Property,
 } from "@/features/property";
+import { applicationBlocker, getTenantApplicationTo } from "@/features/application";
 import { PROPERTIES_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 import { getSessionUser } from "@/shared/auth/session";
@@ -91,6 +92,11 @@ export default async function PropertyDetailPage(props: DetailProps) {
   const isOwner = viewer?.uid === property.landlordUid;
   const location = isOwner ? await getPropertyLocation(property.id, viewer.uid) : null;
 
+  // What the apply button should say, decided here because it needs the session and the
+  // reader's own application — neither of which belongs inside a presentational card.
+  const existing = viewer ? await getTenantApplicationTo(property.id, viewer.uid) : null;
+  const apply = applyStateFor(property, viewer?.uid ?? null, existing);
+
   return (
     <article className="space-y-8">
       {isOwner && property.status !== "available" && (
@@ -153,8 +159,33 @@ export default async function PropertyDetailPage(props: DetailProps) {
           </p>
         </section>
 
-        <PropertyPriceCard property={property} />
+        <PropertyPriceCard
+          property={property}
+          applyState={apply.state}
+          applicationId={apply.applicationId}
+        />
       </div>
     </article>
   );
+}
+
+/** Which of the five things the apply button is, for this reader. */
+function applyStateFor(
+  property: Property,
+  viewerUid: string | null,
+  existing: { readonly id: string; readonly status: string } | null,
+): {
+  readonly state: "anonymous" | "own" | "open" | "closed" | "can_apply";
+  readonly applicationId?: string;
+} {
+  if (!viewerUid) return { state: "anonymous" };
+
+  const blocker = applicationBlocker(property, viewerUid, existing as never);
+  if (blocker === "own_property") return { state: "own" };
+  if (blocker === "already_applied" && existing) {
+    return { state: "open", applicationId: existing.id };
+  }
+  if (blocker === "closed_before") return { state: "closed" };
+
+  return { state: "can_apply" };
 }

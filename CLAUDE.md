@@ -36,8 +36,8 @@ Three exceptions, and only these:
 Keys are English, labels are Spanish — `GENDER_LABELS` and `STATUS_LABEL` are the pattern:
 `{ female: "Femenino" }`, `{ active: "Vigente" }`.
 
-Domain glossary (the deployed names): `users`, `properties`, `applications`, `contracts`,
-`payments`; `role` with values `tenant` / `landlord` / `admin`; `rent` for the monthly amount,
+Domain glossary (the deployed names): `users`, `properties`, `applications`, `tenantProfiles`,
+`contracts`, `payments`; `role` with values `tenant` / `landlord` / `admin`; `rent` for the monthly amount,
 `status` for state. `scripts/migrate-i18n-domain.mjs` records the rename from the Spanish
 names this project started with.
 
@@ -102,6 +102,10 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
 | `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
 | `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
+| `/postularme/<slug>` | `applyToPropertyRoute(slug)` | Where a tenant applies. Needs a complete profile; redirects to the process if one is already open. |
+| `/contrato` | `CONTRACT_ROUTE` | Every rental process the user is part of, on either side. |
+| `/contrato/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
+| `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | The tenant's reusable dossier. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Saving returns here to the list**, not to the listing: the change was a correction, not something new to go and admire. Publishing, which is, ends on the listing. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
 | `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
@@ -210,8 +214,44 @@ risk of leaving a field unconnected.
 - The form revalidates the number when the country changes; without that, the previous
   country's error stays on screen.
 
+## The rental process (`features/application`)
+
+Nine stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
+nothing advances by itself, because each of these is a decision someone makes off the platform
+and then records here. `submitted → tenant_data → document_review → interview → guarantee →
+approved → contract_signature → first_payment → active`.
+
+**There is no deposit stage, and there must never be one.** Ley 820 de 2003 forbids cash
+deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
+is what stands in for it, and a test asserts the word never comes back.
+
+Six of the nine are `UNBUILT_STAGES`: visible, described, with no interface of their own yet.
+They are shown rather than hidden because a tenant needs to know what is coming, and the screen
+says out loud that those happen off the platform for now.
+
+- **Both sides read the same screen**, so the stage copy exists twice: `STAGE_DESCRIPTIONS` for
+  the tenant, `STAGE_DESCRIPTIONS_LANDLORD` for the landlord. The sentence that tells the tenant
+  to wait for a call is the sentence that tells the landlord to make it.
+- **Closing keeps the stage.** "Rechazada en la entrevista" and "rechazada al recibirla" are
+  different things to have happened. The landlord may reject at any stage with an optional
+  reason the tenant reads; the tenant may withdraw. Neither can do the other's action.
+- **The client never writes an application.** The stage machine cannot be expressed in
+  `firestore.rules`, so every mutation is a Server Action and the rules deny all writes.
+- **The dossier is stored twice on purpose**: in `tenantProfiles/{uid}`, so the next application
+  starts filled in, and as a **snapshot inside the application**, so the landlord sees what was
+  declared to them and a later edit cannot rewrite it. `tenantProfiles` is readable by its owner
+  alone — not by a landlord with an open application — and is never listable.
+
+## Client-safe module entries
+
+A feature's `index.ts` re-exports its data layer, which is `server-only`. A Client Component
+that imports it fails the build — the guard working as intended — so a module whose UI needs its
+own domain also exposes **`client.ts`**: the pure half. `@/features/<domain>/client` is a public
+entry, allowed by eslint and dependency-cruiser alongside the index; anything deeper is still a
+violation.
+
 ## Sections not built yet
-The menu shows Soporte, Contrato, Facturación and Ajustes **disabled**, with a "Pronto"
+The menu shows Soporte, Facturación and Ajustes **disabled**, with a "Pronto"
 badge, instead of linking to a 404. To activate one: create the route and add its `href` to
 the `NAV` array in `shared/shell/app-nav.tsx` — the one list both surfaces render, so the
 sidebar and the drawer cannot disagree about what the product contains.

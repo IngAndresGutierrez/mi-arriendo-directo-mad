@@ -1,7 +1,8 @@
-import { CalendarIcon, InfoIcon } from "lucide-react";
+import Link from "next/link";
+import { ArrowRightIcon, CalendarIcon, InfoIcon } from "lucide-react";
 
+import { applyToPropertyRoute, LOGIN_ROUTE } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
-import { ComingSoonCard } from "@/shared/ui/coming-soon-card";
 import { Button } from "@/shared/ui/button";
 
 import { LEASE_TERM_LABELS, propertyMonthlyCost, type Property } from "../domain/property";
@@ -23,10 +24,24 @@ function formatDay(day: string): string {
  * Ley 820 de 2003 forbids cash deposits on urban housing leases, so the product does not have
  * the field to show.
  *
- * The application button is deliberately inert: applications are the next feature, and a
- * button that pretends to work is worse than one that says what it is.
+ * What the application button says depends on where the reader stands: a visitor is sent to
+ * sign in and comes back here, the owner is told it is theirs, and someone already in a process
+ * is sent to the process instead of being offered a second one.
  */
-export function PropertyPriceCard({ property }: { readonly property: Property }) {
+export function PropertyPriceCard({
+  property,
+  applyState,
+  applicationId,
+}: {
+  readonly property: Property;
+  /**
+   * `anonymous` — no session yet. `own` — the reader published it. `open` — they already have a
+   * live application. `closed` — they applied before and it ended. `can_apply` — everyone else.
+   */
+  readonly applyState: "anonymous" | "own" | "open" | "closed" | "can_apply";
+  /** Only when `applyState` is `open`. */
+  readonly applicationId?: string;
+}) {
   const monthly = propertyMonthlyCost(property);
 
   return (
@@ -59,16 +74,41 @@ export function PropertyPriceCard({ property }: { readonly property: Property })
         </div>
       </dl>
 
-      <div className="mt-5">
-        <ComingSoonCard label="Las postulaciones abren pronto">
-          <Button variant="accent" size="xl" className="w-full">
-            Postularme
-          </Button>
-          <p className="mt-2 flex items-start gap-1.5 text-xs text-muted-foreground">
-            <InfoIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
-            Podrás postularte, enviar tus documentos y firmar el contrato desde aquí.
+      <div className="mt-5 space-y-2">
+        {applyState === "own" ? (
+          <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+            Este inmueble es tuyo. Las postulaciones que reciba las verás en Contrato.
           </p>
-        </ComingSoonCard>
+        ) : applyState === "open" && applicationId ? (
+          <Button asChild variant="accent" size="xl" className="w-full">
+            <Link href={`/contrato/${applicationId}`}>
+              Ver mi proceso
+              <ArrowRightIcon aria-hidden="true" />
+            </Link>
+          </Button>
+        ) : (
+          <>
+            <Button asChild variant="accent" size="xl" className="w-full">
+              <Link
+                href={
+                  applyState === "anonymous"
+                    ? `${LOGIN_ROUTE}?next=${encodeURIComponent(applyToPropertyRoute(property.slug))}`
+                    : applyToPropertyRoute(property.slug)
+                }
+              >
+                Postularme
+              </Link>
+            </Button>
+            <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
+              <InfoIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
+              {applyState === "anonymous"
+                ? "Necesitas una cuenta para postularte. Es gratis y toma un minuto."
+                : applyState === "closed"
+                  ? "Ya te postulaste antes a este inmueble. Puedes volver a intentarlo."
+                  : "Postularte no te compromete a nada: el propietario decide y tú también."}
+            </p>
+          </>
+        )}
       </div>
     </aside>
   );

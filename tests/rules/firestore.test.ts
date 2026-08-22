@@ -243,107 +243,86 @@ describe("applications", () => {
     );
   });
 
-  it("an application is born 'pending': nobody self-approves on create", async () => {
-    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
-    const base = {
+  /*
+   * Every write goes through a Server Action with the Admin SDK. The stage machine — one
+   * stage forward, only while open, only by the landlord — cannot be expressed here, and a
+   * rule that half-enforced it would be a rule someone trusts.
+   */
+  it("nobody writes an application from the client, not even its own parties", async () => {
+    const application = {
       propertyId: PROPERTY_ID,
       tenantUid: UID_THIRD_PARTY,
       landlordUid: UID_LANDLORD,
+      stage: "submitted",
+      status: "open",
       createdAt: new Date(),
     };
-    await assertFails(addDoc(collection(db, "applications"), { ...base, status: "approved" }));
-    await assertSucceeds(addDoc(collection(db, "applications"), { ...base, status: "pending" }));
-  });
 
-  it("cannot apply on someone else's behalf", async () => {
-    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
     await assertFails(
-      addDoc(collection(db, "applications"), {
-        propertyId: PROPERTY_ID,
-        tenantUid: UID_TENANT, // impersonation
-        landlordUid: UID_LANDLORD,
-        status: "pending",
-        createdAt: new Date(),
-      }),
+      addDoc(collection(actingAs(env, UID_THIRD_PARTY, "tenant"), "applications"), application),
+    );
+    await assertFails(
+      addDoc(collection(actingAs(env, UID_LANDLORD, "landlord"), "applications"), application),
     );
   });
 
-  it("cannot apply to a property that does not exist", async () => {
-    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
-    await assertFails(
-      addDoc(collection(db, "applications"), {
-        propertyId: "does-not-exist",
-        tenantUid: UID_THIRD_PARTY,
-        landlordUid: UID_LANDLORD,
-        status: "pending",
-        createdAt: new Date(),
-      }),
-    );
-  });
-
-  it("the denormalized landlordUid cannot be forged", async () => {
-    const db = actingAs(env, UID_THIRD_PARTY, "tenant");
-    await assertFails(
-      addDoc(collection(db, "applications"), {
-        propertyId: PROPERTY_ID,
-        tenantUid: UID_THIRD_PARTY,
-        landlordUid: UID_THIRD_PARTY, // claims to own someone else's property
-        status: "pending",
-        createdAt: new Date(),
-      }),
-    );
-  });
-
-  it("the tenant can only withdraw, NOT approve", async () => {
+  it("the tenant cannot move their own process forward", async () => {
     const db = actingAs(env, UID_TENANT, "tenant");
-    await assertFails(
-      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "approved" }),
-    );
-    await assertSucceeds(
-      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "withdrawn" }),
-    );
+    await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { stage: "approved" }));
+    await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "withdrawn" }));
   });
 
-  it("the landlord approves or rejects; a third party does not", async () => {
-    await assertSucceeds(
-      updateDoc(
-        doc(actingAs(env, UID_LANDLORD, "landlord"), `applications/${APPLICATION_ID}`),
-        { status: "approved" },
-      ),
-    );
-    await assertFails(
-      updateDoc(
-        doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `applications/${APPLICATION_ID}`),
-        { status: "approved" },
-      ),
-    );
-  });
-
-  it("an already resolved application cannot be reopened", async () => {
+  it("the landlord cannot advance or reject it from the client either", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
-    await assertSucceeds(
-      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "rejected" }),
-    );
+    await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { stage: "tenant_data" }));
+    await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "rejected" }));
+  });
+
+  it("nobody deletes an application: a process that happened, happened", async () => {
+    await assertFails(deleteDoc(doc(actingAs(env, UID_TENANT, "tenant"), `applications/${APPLICATION_ID}`)));
     await assertFails(
-      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "approved" }),
+      deleteDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `applications/${APPLICATION_ID}`)),
+    );
+  });
+});
+
+describe("tenantProfiles", () => {
+  it("the tenant reads their own dossier", async () => {
+    await assertSucceeds(
+      getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `tenantProfiles/${UID_TENANT}`)),
     );
   });
 
-  it("the landlord CANNOT touch fields other than status/notes", async () => {
-    const db = actingAs(env, UID_LANDLORD, "landlord");
+  /*
+   * Not even a landlord with an open application on this tenant. What a landlord sees is the
+   * snapshot frozen inside that application — what was declared to *them*. This document
+   * follows the tenant to every other application they ever make.
+   */
+  it("nobody else reads it, landlord with an open application included", async () => {
     await assertFails(
-      updateDoc(doc(db, `applications/${APPLICATION_ID}`), { tenantUid: UID_THIRD_PARTY }),
+      getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `tenantProfiles/${UID_TENANT}`)),
+    );
+    await assertFails(
+      getDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `tenantProfiles/${UID_TENANT}`)),
+    );
+    await assertFails(getDoc(doc(anonymous(env), `tenantProfiles/${UID_TENANT}`)));
+  });
+
+  // A query over this collection is a list of everyone's income.
+  it("the collection is not listable, not even by its own members", async () => {
+    await assertFails(getDocs(collection(actingAs(env, UID_TENANT, "tenant"), "tenantProfiles")));
+    await assertFails(
+      getDocs(query(collection(actingAs(env, UID_TENANT, "tenant"), "tenantProfiles"), limit(1))),
     );
   });
 
-  it("nobody deletes applications except admin", async () => {
-    await assertFails(
-      deleteDoc(doc(actingAs(env, UID_TENANT, "tenant"), `applications/${APPLICATION_ID}`)),
-    );
-    await assertSucceeds(
-      deleteDoc(doc(actingAs(env, UID_ADMIN, "admin"), `applications/${APPLICATION_ID}`)),
-    );
+  it("it is written by the server, never by the client", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertFails(setDoc(doc(db, `tenantProfiles/${UID_TENANT}`), { monthlyIncome: 99_000_000 }));
+    await assertFails(updateDoc(doc(db, `tenantProfiles/${UID_TENANT}`), { monthlyIncome: 1 }));
+    await assertFails(deleteDoc(doc(db, `tenantProfiles/${UID_TENANT}`)));
   });
+
 });
 
 describe("the slug index", () => {

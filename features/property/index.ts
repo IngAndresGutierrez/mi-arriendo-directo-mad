@@ -2,6 +2,7 @@
  * Public API of the property module. Anything not exported here is internal to the feature.
  */
 export {
+  LEASE_TERMS,
   LEASE_TERM_LABELS,
   propertyIdFromSlug,
   propertySlug,
@@ -9,6 +10,7 @@ export {
   PROPERTY_TYPE_LABELS,
   propertyMonthlyCost,
   publicLocationLabel,
+  type LeaseTerm,
   type Property,
   type PropertyPhoto,
 } from "./domain/property";

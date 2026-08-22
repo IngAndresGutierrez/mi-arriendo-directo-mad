@@ -34,7 +34,7 @@ module.exports = {
       to: {
         // `(?!index\\.ts)` matters: importing another feature's index IS the contract; what is
         // forbidden is reaching past it into its internals.
-        path: "^features/[^/]+/(?!index\\.ts$).+",
+        path: "^features/[^/]+/(?!index\\.ts$)(?!client\\.ts$).+",
         pathNot: "^features/$1/",
       },
     },
