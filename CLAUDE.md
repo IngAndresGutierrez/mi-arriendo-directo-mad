@@ -232,6 +232,10 @@ says out loud that those happen off the platform for now.
 - **Both sides read the same screen**, so the stage copy exists twice: `STAGE_DESCRIPTIONS` for
   the tenant, `STAGE_DESCRIPTIONS_LANDLORD` for the landlord. The sentence that tells the tenant
   to wait for a call is the sentence that tells the landlord to make it.
+- **A rejection is final; a withdrawal is not.** Once a landlord says no, the listing stops
+  offering the form — the first version offered it and refused on submit, which read like a
+  broken button. Someone who withdrew *can* apply again: they stopped it themselves, and locking
+  them out for changing their mind would punish them for using the button we gave them.
 - **Closing keeps the stage.** "Rechazada en la entrevista" and "rechazada al recibirla" are
   different things to have happened. The landlord may reject at any stage with an optional
   reason the tenant reads; the tenant may withdraw. Neither can do the other's action.

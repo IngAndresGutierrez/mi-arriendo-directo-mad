@@ -175,7 +175,7 @@ function applyStateFor(
   viewerUid: string | null,
   existing: { readonly id: string; readonly status: string } | null,
 ): {
-  readonly state: "anonymous" | "own" | "open" | "closed" | "can_apply";
+  readonly state: "anonymous" | "own" | "open" | "rejected" | "can_apply";
   readonly applicationId?: string;
 } {
   if (!viewerUid) return { state: "anonymous" };
@@ -185,7 +185,9 @@ function applyStateFor(
   if (blocker === "already_applied" && existing) {
     return { state: "open", applicationId: existing.id };
   }
-  if (blocker === "closed_before") return { state: "closed" };
+  if (blocker === "rejected_before") {
+    return { state: "rejected", applicationId: existing?.id };
+  }
 
   return { state: "can_apply" };
 }

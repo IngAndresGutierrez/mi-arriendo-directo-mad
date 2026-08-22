@@ -206,18 +206,25 @@ export function closedAtLabel(application: Pick<Application, "status" | "stage">
 /**
  * Can this tenant apply to this property?
  *
- * A landlord cannot apply to their own listing, and nobody applies twice to the same one: the
- * second application would split the conversation in two and neither would be the real one.
+ * A landlord cannot apply to their own listing, and nobody applies twice to the same one: a
+ * second live application would split the conversation in two and neither would be the real one.
+ *
+ * **A rejection is final.** The landlord already looked at this person and said no; offering
+ * them the form again is offering them the same answer with extra steps, and letting them fill
+ * it in only to be refused on submit is worse than not offering it.
+ *
+ * **A withdrawal is not.** The tenant stopped it themselves, and locking them out of a listing
+ * for changing their mind would be punishing them for using the button we gave them.
  */
 export function applicationBlocker(
   { landlordUid, status }: { readonly landlordUid: string; readonly status: string },
   tenantUid: string,
   existing: Pick<Application, "status"> | null,
-): "own_property" | "not_available" | "already_applied" | "closed_before" | null {
+): "own_property" | "not_available" | "already_applied" | "rejected_before" | null {
   if (landlordUid === tenantUid) return "own_property";
   if (status !== "available") return "not_available";
   if (existing?.status === "open") return "already_applied";
-  if (existing) return "closed_before";
+  if (existing?.status === "rejected") return "rejected_before";
 
   return null;
 }

@@ -33,7 +33,7 @@ const BLOCKER_MESSAGES: Readonly<Record<string, string>> = {
   own_property: "Este inmueble es tuyo: no puedes postularte a él.",
   not_available: "Este inmueble ya no está disponible.",
   already_applied: "Ya tienes una postulación abierta a este inmueble.",
-  closed_before: "Ya te postulaste antes a este inmueble. Escríbele al propietario si quieres retomarlo.",
+  rejected_before: "El propietario ya no continuó con tu postulación a este inmueble.",
 };
 
 /**

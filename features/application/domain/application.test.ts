@@ -158,9 +158,21 @@ describe("applicationBlocker", () => {
     expect(applicationBlocker(listing, "tenant", { status: "open" })).toBe("already_applied");
   });
 
-  it("tells apart a closed one from no application at all", () => {
-    expect(applicationBlocker(listing, "tenant", { status: "rejected" })).toBe("closed_before");
-    expect(applicationBlocker(listing, "tenant", { status: "withdrawn" })).toBe("closed_before");
+  /*
+   * A rejection is final: the landlord looked at this person and said no. Offering the form
+   * again offers the same answer with extra steps — and the first version did worse, offering
+   * the button and refusing on submit.
+   */
+  it("refuses again after a rejection", () => {
+    expect(applicationBlocker(listing, "tenant", { status: "rejected" })).toBe("rejected_before");
+  });
+
+  /*
+   * A withdrawal is not. The tenant stopped it themselves, and locking them out for changing
+   * their mind would be punishing them for using the button we gave them.
+   */
+  it("lets someone who withdrew apply again", () => {
+    expect(applicationBlocker(listing, "tenant", { status: "withdrawn" })).toBeNull();
   });
 
   // Order matters: their own property is the answer even if everything else is also wrong.

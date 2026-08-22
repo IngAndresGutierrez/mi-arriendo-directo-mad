@@ -36,10 +36,11 @@ export function PropertyPriceCard({
   readonly property: Property;
   /**
    * `anonymous` — no session yet. `own` — the reader published it. `open` — they already have a
-   * live application. `closed` — they applied before and it ended. `can_apply` — everyone else.
+   * live application. `rejected` — the landlord already said no. `can_apply` — everyone else,
+   * which includes someone who withdrew and changed their mind.
    */
-  readonly applyState: "anonymous" | "own" | "open" | "closed" | "can_apply";
-  /** Only when `applyState` is `open`. */
+  readonly applyState: "anonymous" | "own" | "open" | "rejected" | "can_apply";
+  /** When `applyState` is `open` or `rejected`: the process this reader already has. */
   readonly applicationId?: string;
 }) {
   const monthly = propertyMonthlyCost(property);
@@ -86,6 +87,25 @@ export function PropertyPriceCard({
               <ArrowRightIcon aria-hidden="true" />
             </Link>
           </Button>
+        ) : applyState === "rejected" ? (
+          /*
+            No button. The landlord already looked at this person and said no; offering the form
+            again offers the same answer with extra steps. The link stays, because what happened
+            and why is still theirs to read.
+          */
+          <>
+            <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
+              El propietario no continuó con tu postulación a este inmueble.
+            </p>
+            {applicationId ? (
+              <Button asChild variant="outline" size="lg" className="w-full">
+                <Link href={`/contrato/${applicationId}`}>
+                  Ver mi postulación
+                  <ArrowRightIcon aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : null}
+          </>
         ) : (
           <>
             <Button asChild variant="accent" size="xl" className="w-full">
@@ -103,9 +123,7 @@ export function PropertyPriceCard({
               <InfoIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               {applyState === "anonymous"
                 ? "Necesitas una cuenta para postularte. Es gratis y toma un minuto."
-                : applyState === "closed"
-                  ? "Ya te postulaste antes a este inmueble. Puedes volver a intentarlo."
-                  : "Postularte no te compromete a nada: el propietario decide y tú también."}
+                : "Postularte no te compromete a nada: el propietario decide y tú también."}
             </p>
           </>
         )}

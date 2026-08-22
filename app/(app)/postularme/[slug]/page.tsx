@@ -34,9 +34,14 @@ export default async function ApplyPage(props: PageProps<"/postularme/[slug]">) 
   const existing = await getTenantApplicationTo(property.id, user.uid);
   const blocker = applicationBlocker(property, user.uid, existing);
 
-  // An open application means the process already exists: send them to it rather than let them
-  // start a second one that would split the conversation in two.
-  if (blocker === "already_applied" && existing) redirect(applicationRoute(existing.id));
+  /*
+   * A process this reader is already part of — open, or closed by a rejection — sends them to
+   * it rather than to a form. Bouncing them back to the listing with no explanation is how the
+   * first version of this behaved, and it read like the button was broken.
+   */
+  if (existing && (blocker === "already_applied" || blocker === "rejected_before")) {
+    redirect(applicationRoute(existing.id));
+  }
   if (blocker) redirect(propertyDetailRoute(property.slug));
 
   const profile = await getTenantProfile(user.uid);
