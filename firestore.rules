@@ -193,6 +193,15 @@ service cloud.firestore {
       }
     }
 
+    // ------------------------------ slug index ------------------------------
+    // `propertySlugs/{slug}` maps a URL to a property id. The document id is the slug, so
+    // uniqueness is existence and a page resolves with one `get`. Only the backend touches it:
+    // letting a client write here would let anyone squat or hijack another listing's URL, and
+    // letting one read it would hand over a full list of every slug in the product.
+    match /propertySlugs/{slug} {
+      allow read, write: if false;
+    }
+
     // ----------------------------- applications -----------------------------
     // Visible ONLY to the tenant who created it and to the property's landlord.
     match /applications/{applicationId} {

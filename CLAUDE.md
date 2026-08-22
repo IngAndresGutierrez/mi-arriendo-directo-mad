@@ -100,6 +100,9 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: there is a session but no profile yet. |
 | `/inicio` | `HOME_ROUTE` | User portal: greeting, contracts and shortcuts. Destination after signing in. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
+| `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
+| `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
+| `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog. **Not built yet** (404). |
 
 - `POST /api/session` exchanges the idToken for an httpOnly session cookie (and requires a
   recent sign-in); **`PATCH` re-mints it** with the current claims after a role change;
@@ -115,6 +118,12 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 - The login and signup layout is `shared/shell/auth-shell.tsx`. Its side panel uses the
   `panel-marca` token (purple in both themes), never `bg-primary`.
 - The email from signup step 1 lives in component state, **never in the URL**.
+- **A property's URL is its slug alone** — `/inmuebles/apartaestudio-en-los-alcazares-manizales`,
+  with no id appended: these links get pasted into WhatsApp and Facebook groups, where a random
+  code at the end reads as unsafe to click. Uniqueness comes from `propertySlugs/{slug}`, whose
+  document id *is* the slug, so a page resolves with one `get` and two landlords cannot claim the
+  same URL. Older shapes (`<slug>-<id>` and a bare `<id>`) are permanently redirected, so links
+  already shared keep working.
 
 Links with no route yet (they 404): `/recuperar`, `/terminos`, `/privacidad`.
 The `users/{uid}` document and the `role` claim are created during onboarding, not at signup:

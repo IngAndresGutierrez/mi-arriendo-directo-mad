@@ -12,7 +12,7 @@ export {
   type Property,
   type PropertyPhoto,
 } from "./domain/property";
-export { getPropertyLocation, getVisibleProperty } from "./data/property";
+export { getPropertyLocation, getVisibleProperty, getVisiblePropertyBySlug } from "./data/property";
 export { publishProperty } from "./actions/publish-property";
 export { PublishPropertyForm } from "./ui/publish-property-form";
 export { PropertyFacts } from "./ui/property-facts";

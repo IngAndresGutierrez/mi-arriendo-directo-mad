@@ -155,7 +155,7 @@ export function PublishPropertyForm() {
     // the claim existed: without re-minting it the server keeps reading the old role.
     if (result.rolePromoted) await refreshServerSession();
 
-    router.push(propertyDetailRoute(result.id, result.slug));
+    router.push(propertyDetailRoute(result.slug));
     router.refresh();
   }
 

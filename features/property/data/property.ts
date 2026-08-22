@@ -79,3 +79,20 @@ export const getPropertyLocation = cache(
     return typeof line === "string" ? { line } : null;
   },
 );
+
+/**
+ * The property behind a slug, or `null`.
+ *
+ * One `get` on the reservation and one on the property: no query, so no composite index and no
+ * `list` rule to widen. Visibility is still decided by `getVisibleProperty`, which is where the
+ * "only the owner sees a draft" rule lives.
+ */
+export const getVisiblePropertyBySlug = cache(
+  async (slug: string, viewerUid: string | null): Promise<Property | null> => {
+    const reservation = await adminDb().collection("propertySlugs").doc(slug).get();
+    const propertyId = reservation.data()?.propertyId;
+    if (typeof propertyId !== "string") return null;
+
+    return getVisibleProperty(propertyId, viewerUid);
+  },
+);

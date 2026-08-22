@@ -346,6 +346,25 @@ describe("applications", () => {
   });
 });
 
+describe("the slug index", () => {
+  it("is invisible to the client: not even the owner reads or writes it", async () => {
+    const landlord = actingAs(env, UID_LANDLORD, "landlord");
+    await assertFails(getDoc(doc(landlord, "propertySlugs/apartamento-en-palermo-manizales")));
+    await assertFails(
+      setDoc(doc(landlord, "propertySlugs/apartamento-en-palermo-manizales"), {
+        propertyId: PROPERTY_ID,
+      }),
+    );
+    // and nobody can hijack another listing's URL
+    await assertFails(
+      setDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), "propertySlugs/casa-en-cali"), {
+        propertyId: PROPERTY_ID,
+      }),
+    );
+    await assertFails(getDocs(collection(anonymous(env), "propertySlugs")));
+  });
+});
+
 describe("contracts and payments", () => {
   it("only the parties read the contract", async () => {
     await assertSucceeds(

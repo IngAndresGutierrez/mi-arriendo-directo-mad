@@ -20,13 +20,14 @@ export const PROPERTIES_ROUTE = "/inmuebles";
 /** Where a landlord publishes. Static segment, so it never collides with a property id. */
 export const PUBLISH_PROPERTY_ROUTE = "/inmuebles/publicar";
 /**
- * Public detail of one property.
+ * Public detail of one property: the slug alone, with no id appended.
  *
- * The slug is decoration for humans and the id is what resolves the document, so a link
- * without a slug still works — and the page redirects it to the canonical one.
+ * A random-looking code at the end of a link reads as untrustworthy where these get shared —
+ * a Facebook group, a WhatsApp chat — so the slug is reserved to be unique and resolves on its
+ * own. Links that still carry an id keep working: the page redirects them here.
  */
-export function propertyDetailRoute(id: string, slug?: string): string {
-  return slug ? `${PROPERTIES_ROUTE}/${slug}-${id}` : `${PROPERTIES_ROUTE}/${id}`;
+export function propertyDetailRoute(slug: string): string {
+  return `${PROPERTIES_ROUTE}/${slug}`;
 }
 
 /**

@@ -17,6 +17,39 @@ export type PublishPropertyResult =
       readonly fieldErrors?: Readonly<Record<string, readonly string[]>>;
     };
 
+/**
+ * Claims a slug for a property, and hands back the one that was actually free.
+ *
+ * `propertySlugs/{slug}` is the reservation: the document id *is* the slug, so uniqueness is
+ * document existence and resolving a URL later is a single `get` instead of a query. `create()`
+ * fails when the document is already there, which makes each attempt atomic — two landlords
+ * publishing "Apartamento en Palermo, Manizales" at the same second cannot both win.
+ *
+ * Collisions get a counter, because "-2" still reads like a place and a random suffix does not.
+ * After a few attempts it falls back to the property id, which cannot collide.
+ *
+ * Whoever builds "delete a listing" or "edit the title" owes this collection a write: an
+ * abandoned reservation keeps a URL taken forever, and a renamed property that keeps its old
+ * reservation would answer on a slug that no longer describes it.
+ */
+async function reserveSlug(base: string, propertyId: string): Promise<string> {
+  const slugs = adminDb().collection("propertySlugs");
+  const candidates = [base, ...[2, 3, 4, 5, 6].map((n) => `${base}-${n}`)];
+
+  for (const candidate of candidates) {
+    try {
+      await slugs.doc(candidate).create({ propertyId });
+      return candidate;
+    } catch {
+      // taken: try the next one
+    }
+  }
+
+  const unique = `${base}-${propertyId.slice(0, 6).toLowerCase()}`;
+  await slugs.doc(unique).create({ propertyId });
+  return unique;
+}
+
 /** Photos are uploaded from the browser into the landlord's own folder, and nowhere else. */
 function photosBelongTo(uid: string, photos: readonly { path: string }[]): boolean {
   const prefix = `properties/${uid}/`;
@@ -91,7 +124,7 @@ export async function publishProperty(formData: FormData): Promise<PublishProper
   const { address, ...listing } = parsed.data;
   const propertyRef = adminDb().collection("properties").doc();
 
-  const slug = propertySlug(listing.title, address.city);
+  const slug = await reserveSlug(propertySlug(listing.title, address.city), propertyRef.id);
 
   const batch = adminDb().batch();
   batch.set(propertyRef, {

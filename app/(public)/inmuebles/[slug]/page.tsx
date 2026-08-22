@@ -5,6 +5,7 @@ import { LockIcon, MapPinIcon } from "lucide-react";
 import {
   getPropertyLocation,
   getVisibleProperty,
+  getVisiblePropertyBySlug,
   propertyIdFromSlug,
   propertyMonthlyCost,
   publicLocationLabel,
@@ -24,18 +25,23 @@ type DetailProps = PageProps<"/inmuebles/[slug]">;
 /**
  * Resolves the property behind a URL segment.
  *
- * The segment is `<slug>-<id>`, and a bare `<id>` still resolves: links already shared must not
- * rot because the title later changed.
+ * The slug alone is the address now. Two older shapes still resolve, and are redirected rather
+ * than served: `<slug>-<id>` from when the id was appended, and a bare `<id>` from before slugs
+ * existed. A link that was already pasted somewhere must not rot.
  */
 async function resolve(segment: string): Promise<{ property: Property; canonical: string } | null> {
-  const id = propertyIdFromSlug(segment) ?? (/^[A-Za-z0-9]{20}$/.test(segment) ? segment : null);
-  if (!id) return null;
-
   const viewer = await getSessionUser();
-  const property = await getVisibleProperty(id, viewer?.uid ?? null);
+  const viewerUid = viewer?.uid ?? null;
+
+  const bySlug = await getVisiblePropertyBySlug(segment, viewerUid);
+  const legacyId = bySlug
+    ? null
+    : (propertyIdFromSlug(segment) ?? (/^[A-Za-z0-9]{20}$/.test(segment) ? segment : null));
+
+  const property = bySlug ?? (legacyId ? await getVisibleProperty(legacyId, viewerUid) : null);
   if (!property) return null;
 
-  return { property, canonical: propertyDetailRoute(property.id, property.slug) };
+  return { property, canonical: propertyDetailRoute(property.slug) };
 }
 
 export async function generateMetadata(props: DetailProps): Promise<Metadata> {
@@ -78,7 +84,7 @@ export default async function PropertyDetailPage(props: DetailProps) {
 
   // One property, one address: a stale or hand-typed slug is redirected instead of served, so
   // search engines and shared links converge on the same URL.
-  if (slug !== `${property.slug}-${property.id}`) permanentRedirect(canonical);
+  if (slug !== property.slug) permanentRedirect(canonical);
 
   const viewer = await getSessionUser();
   const isOwner = viewer?.uid === property.landlordUid;
