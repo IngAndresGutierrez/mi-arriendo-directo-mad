@@ -46,3 +46,15 @@ export { reviewTenantDocument, type ReviewResult } from "./actions/review-docume
 export { DocumentReviewPanel, type ReviewableDocument } from "./ui/document-review-panel";
 export { LiveApplication } from "./ui/live-application";
 export { touchApplicationDocuments } from "./actions/touch-documents";
+export { recordBackgroundCheck, type CheckRecordResult } from "./actions/record-check";
+export {
+  checkProgress,
+  checksBlocker,
+  checksBlockerMessage,
+  checkStatusOf,
+  CHECK_SOURCES,
+  CHECK_STATUS_LABELS,
+  type CheckResults,
+  type CheckSourceId,
+  type CheckStatus,
+} from "./domain/background-check";

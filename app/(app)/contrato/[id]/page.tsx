@@ -4,6 +4,9 @@ import { notFound } from "next/navigation";
 import { ArrowLeftIcon, MessageSquareIcon } from "lucide-react";
 
 import {
+  checkProgress,
+  checksBlocker,
+  checksBlockerMessage,
   closedAtLabel,
   stageIndex,
   getApplicationFor,
@@ -68,6 +71,13 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
   const blocker =
     application.stage === "tenant_data"
       ? documentsBlocker(application.dossier.occupation, documents, application.documentReviews)
+      : null;
+
+  // The records stage has a gate of its own: nothing may be consulted without the tenant's
+  // authorisation, and the process should not leave the stage with searches nobody ran.
+  const checksLeft =
+    application.stage === "background_check"
+      ? checksBlocker(application.checksAuthorizedAt, application.checkResults)
       : null;
 
   return (
@@ -150,9 +160,15 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
         <StageActions
           application={application}
           isLandlord={isLandlord}
-          blockedBecause={blocker ? documentsBlockerMessage(blocker, isLandlord) : null}
-          // The stage's own card, which is where its work now lives.
-          resolveAt={stageAnchor("tenant_data")}
+          blockedBecause={
+            blocker
+              ? documentsBlockerMessage(blocker, isLandlord)
+              : checksLeft
+                ? checksBlockerMessage(checksLeft, isLandlord)
+                : null
+          }
+          // The stage's own card, which is where its work lives.
+          resolveAt={stageAnchor(application.stage)}
         />
       </div>
 
@@ -189,13 +205,16 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
             },
             background_check: {
               title: "Validación de expedientes",
-              meta: application.checksAuthorizedAt ? "Autorizada" : "Falta autorización",
+              meta: application.checksAuthorizedAt
+                ? `${checkProgress(application.checkResults).done} de ${checkProgress(application.checkResults).total} consultadas`
+                : "Falta autorización",
               content: (
                 <BackgroundCheckPanel
                   applicationId={application.id}
                   authorizedAt={application.checksAuthorizedAt}
                   isLandlord={isLandlord}
                   documentNumber={application.dossier.documentNumber}
+                  results={application.checkResults}
                   readOnly={past("background_check")}
                 />
               ),

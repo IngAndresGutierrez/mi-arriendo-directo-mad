@@ -111,6 +111,7 @@ export async function applyToProperty(slug: string, formData: FormData): Promise
     closingNote: "",
     checksAuthorizedAt: null,
     documentReviews: {},
+    checkResults: {},
     history: [{ stage: "submitted", at: now, by: "system" }],
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),

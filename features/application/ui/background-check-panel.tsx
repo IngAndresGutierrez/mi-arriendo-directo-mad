@@ -2,28 +2,29 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ExternalLinkIcon } from "lucide-react";
+import { AlertTriangleIcon, CheckIcon, ExternalLinkIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { Label } from "@/shared/ui/label";
+import { cn } from "@/shared/lib/utils";
 
 import { authorizeBackgroundChecks } from "../actions/authorize-checks";
+import { recordBackgroundCheck } from "../actions/record-check";
+import {
+  checkStatusOf,
+  CHECK_SOURCES,
+  CHECK_STATUS_LABELS,
+  type CheckResults,
+  type CheckSourceId,
+  type CheckStatus,
+} from "../domain/background-check";
 
-/**
- * The official sources, for the landlord to consult by hand.
- *
- * They are listed rather than queried because none of them can be queried from here: SIMIT, the
- * RUNT and the Policía have no open API, and the commercial providers that do reach them need a
- * contract. Linking them is honest work — it saves the landlord looking them up — and pretending
- * to have run the search would not be.
- */
-const SOURCES: readonly { readonly name: string; readonly what: string; readonly url: string }[] = [
-  { name: "SIMIT", what: "Multas y comparendos de tránsito", url: "https://www.fcm.org.co/simit/" },
-  { name: "Policía Nacional", what: "Antecedentes judiciales", url: "https://antecedentes.policia.gov.co/" },
-  { name: "Procuraduría", what: "Antecedentes disciplinarios", url: "https://www.procuraduria.gov.co/CertWEB/Certificado.aspx" },
-  { name: "Contraloría", what: "Responsabilidad fiscal", url: "https://www.contraloria.gov.co/web/guest/atencion-al-ciudadano/tramites-servicios/certificado-de-antecedentes-fiscales" },
-];
+const STATUS_STYLES: Readonly<Record<CheckStatus, string>> = {
+  pending: "bg-muted text-muted-foreground",
+  clean: "bg-status-approved-bg text-status-approved",
+  findings: "bg-destructive/10 text-destructive",
+};
 
 /**
  * The stage where records are checked: whether it may happen, and where.
@@ -38,6 +39,7 @@ export function BackgroundCheckPanel({
   authorizedAt,
   isLandlord,
   documentNumber,
+  results,
   readOnly = false,
 }: {
   readonly applicationId: string;
@@ -45,13 +47,37 @@ export function BackgroundCheckPanel({
   readonly isLandlord: boolean;
   /** The number the searches are run against, shown only to the landlord doing them. */
   readonly documentNumber: string;
-  /** `true` once the stage is behind us: the authorisation and its date stay, the control goes. */
+  /** What each search turned up so far. */
+  readonly results: CheckResults;
+  /** `true` once the stage is behind us: the results stay, the controls go. */
   readonly readOnly?: boolean;
 }) {
   const router = useRouter();
   const [accepted, setAccepted] = useState(false);
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  /** Which source's note is being written, and what it says. */
+  const [writing, setWriting] = useState<CheckSourceId | null>(null);
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState<CheckSourceId | null>(null);
+
+  function record(source: CheckSourceId, status: "clean" | "findings", reason = "") {
+    setSaving(source);
+    start(async () => {
+      try {
+        const result = await recordBackgroundCheck(applicationId, { source, status, note: reason });
+        if (!result.ok) {
+          setError(result.message);
+          return;
+        }
+        setWriting(null);
+        setNote("");
+        router.refresh();
+      } finally {
+        setSaving(null);
+      }
+    });
+  }
 
   const authorized = authorizedAt !== null;
   const when = authorized
@@ -123,40 +149,161 @@ export function BackgroundCheckPanel({
         </div>
       )}
 
-      {isLandlord ? (
-        <div className="space-y-3 border-t border-border pt-4">
-          <p className="text-sm text-muted-foreground">
-            {authorized ? (
+      {/*
+        Every one of these is consulted by hand — none of them has an open API — so the product
+        does the honest half: it says what to check, links straight to it, and keeps what was
+        found. The tenant reads the same list, which is the point of writing it down at all.
+      */}
+      <div className="space-y-3 border-t border-border pt-4">
+        <p className="text-sm text-muted-foreground">
+          {isLandlord ? (
+            authorized ? (
               <>
-                Consulta con la cédula{" "}
-                <strong className="font-medium text-foreground">{documentNumber}</strong>. Por ahora
-                las consultas se hacen en los portales oficiales; cuando termines, continúa el
-                proceso.
+                Consulta cada una con la cédula{" "}
+                <strong className="font-medium text-foreground">{documentNumber}</strong> y anota
+                qué encontraste.
               </>
             ) : (
-              "Cuando tengas la autorización, estos son los portales donde se consulta."
-            )}
-          </p>
-          <ul className="grid gap-2 sm:grid-cols-2">
-            {SOURCES.map((source) => (
-              <li key={source.name}>
-                <a
-                  href={source.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center justify-between gap-2 rounded-xl border border-border px-3 py-2.5 text-sm transition-colors hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
-                >
-                  <span className="min-w-0">
-                    <span className="block font-medium text-foreground">{source.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">{source.what}</span>
+              "Cuando tengas la autorización, estas son las consultas que hay que hacer."
+            )
+          ) : (
+            "Estas son las consultas que hace el propietario, y lo que ha encontrado."
+          )}
+        </p>
+
+        <ul className="space-y-2">
+          {CHECK_SOURCES.map((source) => {
+            const status = checkStatusOf(results, source.id);
+            const result = results[source.id];
+
+            return (
+              <li
+                key={source.id}
+                className={cn(
+                  "rounded-xl border p-3",
+                  status === "clean" && "border-accent/40 bg-accent/5",
+                  status === "findings" && "border-destructive/40 bg-destructive/5",
+                  status === "pending" && "border-border",
+                )}
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <a
+                    href={source.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-lg focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                  >
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-1.5 font-medium text-foreground">
+                        {source.name}
+                        <ExternalLinkIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />
+                      </span>
+                      <span className="block truncate text-xs text-muted-foreground">
+                        {source.what}
+                      </span>
+                    </span>
+                  </a>
+
+                  <span
+                    className={cn(
+                      "flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium",
+                      STATUS_STYLES[status],
+                    )}
+                  >
+                    {status === "clean" ? (
+                      <CheckIcon className="size-3" aria-hidden="true" />
+                    ) : status === "findings" ? (
+                      <AlertTriangleIcon className="size-3" aria-hidden="true" />
+                    ) : null}
+                    {CHECK_STATUS_LABELS[status]}
                   </span>
-                  <ExternalLinkIcon className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                </a>
+
+                  {isLandlord && authorized && !readOnly ? (
+                    <span className="flex gap-1.5">
+                      {status !== "clean" ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="lg"
+                          disabled={saving === source.id}
+                          onClick={() => record(source.id, "clean")}
+                          aria-label={`Marcar ${source.name} sin hallazgos`}
+                        >
+                          Sin hallazgos
+                        </Button>
+                      ) : null}
+                      {status !== "findings" ? (
+                        <Button
+                          type="button"
+                          variant="destructive"
+                          size="lg"
+                          disabled={saving === source.id}
+                          onClick={() => setWriting(writing === source.id ? null : source.id)}
+                          aria-label={`Anotar un hallazgo en ${source.name}`}
+                        >
+                          Con hallazgos
+                        </Button>
+                      ) : null}
+                    </span>
+                  ) : null}
+                </div>
+
+                {/* What was found, in the landlord's own words. The tenant reads this. */}
+                {result?.note ? (
+                  <p
+                    className={cn(
+                      "mt-2 text-sm",
+                      status === "findings" ? "text-destructive" : "text-muted-foreground",
+                    )}
+                  >
+                    {result.note}
+                  </p>
+                ) : null}
+
+                {writing === source.id && !readOnly ? (
+                  <div className="mt-3 space-y-2 border-t border-border pt-3">
+                    <label htmlFor={`note-${source.id}`} className="text-sm font-medium text-foreground">
+                      ¿Qué encontraste?
+                    </label>
+                    <textarea
+                      id={`note-${source.id}`}
+                      rows={2}
+                      value={note}
+                      onChange={(event) => setNote(event.target.value)}
+                      placeholder="Por ejemplo: dos comparendos sin pagar de 2024."
+                      className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-xs focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="lg"
+                        disabled={saving === source.id}
+                        onClick={() => record(source.id, "findings", note)}
+                      >
+                        Guardar el hallazgo
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="lg"
+                        disabled={saving === source.id}
+                        onClick={() => {
+                          setWriting(null);
+                          setNote("");
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </div>
+                ) : null}
               </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
+            );
+          })}
+        </ul>
+      </div>
+
     </div>
   );
 }

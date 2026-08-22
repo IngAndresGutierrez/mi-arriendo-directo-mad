@@ -21,3 +21,12 @@ export {
   type Stage,
   type StageState,
 } from "./domain/application";
+export {
+  checkProgress,
+  checkStatusOf,
+  CHECK_SOURCES,
+  CHECK_STATUS_LABELS,
+  type CheckResults,
+  type CheckSourceId,
+  type CheckStatus,
+} from "./domain/background-check";

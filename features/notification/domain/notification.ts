@@ -14,6 +14,7 @@ export const NOTIFICATION_TYPES = [
   "stage_advanced",
   "documents_requested",
   "document_rejected",
+  "check_findings",
   "application_approved",
   "application_rejected",
   "application_withdrawn",
@@ -74,6 +75,13 @@ export function notificationCopy(
         body: notification.detail
           ? `${who} rechazó un documento de tu postulación a ${property}. ${notification.detail}`
           : `${who} rechazó un documento de tu postulación a ${property}. Súbelo otra vez.`,
+      };
+    case "check_findings":
+      return {
+        title: "Hay un hallazgo en tus antecedentes",
+        body: notification.detail
+          ? `${who} registró un hallazgo al revisar tus antecedentes para ${property}. ${notification.detail}`
+          : `${who} registró un hallazgo al revisar tus antecedentes para ${property}.`,
       };
     case "documents_requested":
       return {

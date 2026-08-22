@@ -1,6 +1,8 @@
 import type { LeaseTerm } from "@/features/property/client";
 import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/client";
 
+import type { CheckResults } from "./background-check";
+
 /**
  * The ten stages a rental goes through, in order.
  *
@@ -164,6 +166,8 @@ export type ApplicationDoc = {
    * the next, and a verdict written onto the tenant's own profile would follow them everywhere.
    */
   readonly documentReviews: DocumentReviews;
+  /** What each records search turned up, keyed by source. Written by the landlord. */
+  readonly checkResults: CheckResults;
   readonly history: readonly StageEvent[];
   readonly createdAt: unknown;
   readonly updatedAt: unknown;

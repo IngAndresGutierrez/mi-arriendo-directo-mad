@@ -26,6 +26,12 @@ function toApplication(snapshot: Snapshot): Application | null {
     history: (doc.history ?? []).map((event) => ({ ...event, at: iso(event.at) })),
     // Written by `authorizeBackgroundChecks`, absent on every application made before it existed.
     checksAuthorizedAt: doc.checksAuthorizedAt ? iso(doc.checksAuthorizedAt) : null,
+    checkResults: Object.fromEntries(
+      Object.entries(doc.checkResults ?? {}).map(([source, result]) => [
+        source,
+        { ...result, at: iso((result as { at?: unknown }).at) },
+      ]),
+    ),
     documentReviews: Object.fromEntries(
       Object.entries(doc.documentReviews ?? {}).map(([id, review]) => [
         id,

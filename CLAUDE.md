@@ -235,10 +235,17 @@ approved → contract_signature → first_payment → active`.
 
 **`tenant_data` is built.** The tenant uploads the documents their occupation calls for and both
 sides see them previewed; the landlord approves or rejects each one, with a reason on a
-rejection. `background_check` is not, and cannot be: SIMIT, the RUNT and the Policía have no open
-API. What it does have is the **express authorisation** — Ley 1581 again — which the tenant gives
-per application, dated, plus links to the official portals. Nothing there claims a search was
-run.
+rejection. `background_check` cannot query anything — SIMIT, the RUNT and the Policía have no open API — so
+it does the honest half: it lists the four sources a Colombian landlord checks, links straight to
+each, and **keeps what was found**. The landlord marks every one "sin hallazgos" or "con
+hallazgos" with a note, and the tenant reads the same list, which is the point of writing it down.
+
+Two rules there. Nothing may be recorded without the tenant's **express authorisation** (Ley
+1581, dated, given per application) — enforced in the action, not only in the interface. And **a
+finding never blocks the process**: somebody with an unpaid speeding ticket is not somebody who
+will not pay rent, and that decision is the landlord's. What blocks is not having looked. A
+finding *is* notified, with its note; a clean result is not — four "no encontré nada" would make
+the bell useless on the day it matters.
 
 **A finished stage keeps its panel**, folded shut and without its buttons. Looking up what was
 uploaded three stages ago is a normal thing to want, and a process that hides what was agreed the
