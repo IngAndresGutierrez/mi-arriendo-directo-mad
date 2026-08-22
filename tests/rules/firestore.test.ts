@@ -165,6 +165,12 @@ describe("properties", () => {
     await assertFails(addDoc(collection(db, "properties"), publishedProperty({ minLeaseMonths: 1 })));
   });
 
+  it("rejects a parking value outside the three options", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    await assertFails(addDoc(collection(db, "properties"), publishedProperty({ parking: 2 })));
+    await assertFails(addDoc(collection(db, "properties"), publishedProperty({ parking: "garaje" })));
+  });
+
   it("rejects a stratum outside 1-6", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(addDoc(collection(db, "properties"), publishedProperty({ stratum: 7 })));

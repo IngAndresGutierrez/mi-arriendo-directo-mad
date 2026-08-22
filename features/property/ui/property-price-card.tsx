@@ -19,8 +19,9 @@ function formatDay(day: string): string {
  * What the tenant actually pays, and what they commit to.
  *
  * The headline is rent + admin fee together, because that is the number that leaves their
- * account every month; the breakdown right below keeps it honest. The deposit sits apart: it
- * is paid once and confusing it with the monthly cost is the classic listing trap.
+ * account every month; the breakdown right below keeps it honest. There is no deposit row:
+ * Ley 820 de 2003 forbids cash deposits on urban housing leases, so the product does not have
+ * the field to show.
  *
  * The application button is deliberately inert: applications are the next feature, and a
  * button that pretends to work is worse than one that says what it is.
@@ -41,12 +42,6 @@ export function PropertyPriceCard({ property }: { readonly property: Property })
       </p>
 
       <dl className="mt-5 space-y-2.5 border-t border-border pt-5 text-sm">
-        <div className="flex items-start justify-between gap-3">
-          <dt className="text-muted-foreground">Depósito</dt>
-          <dd className="text-right font-medium text-foreground">
-            {property.deposit > 0 ? formatCOP(property.deposit) : "No se exige"}
-          </dd>
-        </div>
         <div className="flex items-start justify-between gap-3">
           <dt className="text-muted-foreground">Duración mínima</dt>
           <dd className="text-right font-medium text-foreground">

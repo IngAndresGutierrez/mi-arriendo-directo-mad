@@ -149,8 +149,6 @@ service cloud.firestore {
             && incoming().rent <= 100000000
             && incoming().adminFee is int
             && incoming().adminFee >= 0
-            && incoming().deposit is int
-            && incoming().deposit >= 0
             && incoming().minLeaseMonths in [6, 12]
             && incoming().stratum is int
             && incoming().stratum >= 1
@@ -160,7 +158,7 @@ service cloud.firestore {
             && incoming().bedrooms is int
             && incoming().bathrooms is int
             && incoming().bathrooms >= 1
-            && incoming().parkingSpots is int
+            && incoming().parking in ['private', 'communal', 'none']
             && incoming().furnished is bool
             && incoming().petsAllowed is bool
             // the public document carries the neighbourhood, NEVER the street

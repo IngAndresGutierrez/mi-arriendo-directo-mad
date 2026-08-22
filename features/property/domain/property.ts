@@ -57,6 +57,20 @@ export const PROPERTY_STATUS_LABELS: Readonly<Record<PropertyStatus, string>> = 
 };
 
 /**
+ * Parking, as it is actually offered in a Colombian building: a private spot, a communal one
+ * you queue for, or none. It is not a count — "2 parqueaderos" is rare enough that asking for
+ * a number made every landlord type 0 or 1 and told the tenant nothing about which kind.
+ */
+export const PARKING_KINDS = ["private", "communal", "none"] as const;
+export type ParkingKind = (typeof PARKING_KINDS)[number];
+
+export const PARKING_LABELS: Readonly<Record<ParkingKind, string>> = {
+  private: "Tiene parqueadero",
+  communal: "Parqueadero comunitario",
+  none: "No tiene parqueadero",
+};
+
+/**
  * Socio-economic stratum, 1 to 6. It is not decoration: in Colombia it sets the utility
  * tariffs a tenant will pay, so leaving it out would hide part of the real cost.
  */
@@ -96,12 +110,15 @@ export interface PropertyDoc {
   readonly rent: number;
   /** Building admin fee, whole pesos. `0` when the property has none. */
   readonly adminFee: number;
-  /** Deposit required to sign, whole pesos. `0` when none is asked for. */
-  readonly deposit: number;
+  //
+  // There is deliberately NO deposit field. Ley 820 de 2003 forbids cash deposits and real
+  // guarantees on urban housing leases in Colombia, so storing one would be modelling an
+  // illegal charge. A landlord who wants coverage uses a co-signer or a guarantee company,
+  // which is a different feature with a different shape.
   readonly areaM2: number;
   readonly bedrooms: number;
   readonly bathrooms: number;
-  readonly parkingSpots: number;
+  readonly parking: ParkingKind;
   readonly stratum: Stratum;
   readonly furnished: boolean;
   readonly petsAllowed: boolean;

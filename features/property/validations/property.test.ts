@@ -19,11 +19,10 @@ const VALID_PROPERTY = {
   type: "apartment",
   rent: "1800000",
   adminFee: "250000",
-  deposit: "1800000",
   areaM2: "65",
   bedrooms: "2",
   bathrooms: "2",
-  parkingSpots: "1",
+  parking: "private",
   stratum: "4",
   furnished: false,
   petsAllowed: true,
@@ -65,10 +64,14 @@ describe("publishPropertySchema", () => {
       expect(r.success).toBe(false);
     });
 
-    it("accepts zero admin fee and zero deposit: not every property charges them", () => {
-      const parsed = publishPropertySchema.parse({ ...VALID_PROPERTY, adminFee: "0", deposit: "0" });
+    it("accepts zero admin fee: not every property charges one", () => {
+      const parsed = publishPropertySchema.parse({ ...VALID_PROPERTY, adminFee: "0" });
       expect(parsed.adminFee).toBe(0);
-      expect(parsed.deposit).toBe(0);
+    });
+
+    it("has no deposit field at all: Ley 820 forbids it, so it cannot be sent", () => {
+      const parsed = publishPropertySchema.parse({ ...VALID_PROPERTY, deposit: "1800000" });
+      expect("deposit" in parsed).toBe(false);
     });
 
     it("rejects a negative admin fee", () => {
@@ -84,6 +87,14 @@ describe("publishPropertySchema", () => {
 
     it("requires at least one bathroom", () => {
       expect(publishPropertySchema.safeParse({ ...VALID_PROPERTY, bathrooms: "0" }).success).toBe(false);
+    });
+
+    it.each(["private", "communal", "none"])("accepts parking: %s", (parking) => {
+      expect(publishPropertySchema.safeParse({ ...VALID_PROPERTY, parking }).success).toBe(true);
+    });
+
+    it("rejects a parking value outside the three options", () => {
+      expect(publishPropertySchema.safeParse({ ...VALID_PROPERTY, parking: "2" }).success).toBe(false);
     });
 
     it("rejects an absurd area", () => {

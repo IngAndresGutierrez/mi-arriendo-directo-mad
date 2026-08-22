@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { PROPERTY_TYPE_LABELS, type Property } from "../domain/property";
+import { PARKING_LABELS, PROPERTY_TYPE_LABELS, type Property } from "../domain/property";
 
 type Fact = { readonly icon: LucideIcon; readonly label: string };
 
@@ -17,8 +17,8 @@ type Fact = { readonly icon: LucideIcon; readonly label: string };
  * The facts a tenant scans before reading a single line of the description: size, rooms and
  * the two rules that disqualify a listing outright — furnished or not, pets or not.
  *
- * Zero values are not hidden. "0 parqueaderos" is information; a missing row reads as an
- * oversight and sends the tenant to the chat to ask.
+ * Nothing is hidden when the answer is "no": "Sin mascotas" and "No tiene parqueadero" are
+ * information. A missing row reads as an oversight and sends the tenant to ask.
  */
 function factsOf(property: Property): readonly Fact[] {
   return [
@@ -28,11 +28,7 @@ function factsOf(property: Property): readonly Fact[] {
       label: property.bedrooms === 1 ? "1 habitación" : `${property.bedrooms} habitaciones`,
     },
     { icon: BathIcon, label: property.bathrooms === 1 ? "1 baño" : `${property.bathrooms} baños` },
-    {
-      icon: CarIcon,
-      label:
-        property.parkingSpots === 1 ? "1 parqueadero" : `${property.parkingSpots} parqueaderos`,
-    },
+    { icon: CarIcon, label: PARKING_LABELS[property.parking] },
     { icon: LayersIcon, label: `Estrato ${property.stratum}` },
     { icon: SofaIcon, label: property.furnished ? "Amoblado" : "Sin amoblar" },
     { icon: PawPrintIcon, label: property.petsAllowed ? "Acepta mascotas" : "Sin mascotas" },

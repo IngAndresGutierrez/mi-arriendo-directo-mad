@@ -5,6 +5,7 @@ import {
   AREA_MAX,
   AREA_MIN,
   LEASE_TERMS,
+  PARKING_KINDS,
   PHOTOS_MAX,
   PHOTOS_MIN,
   PROPERTY_TYPES,
@@ -92,12 +93,12 @@ export const publishPropertySchema = z.object({
 
   rent: pesos("el canon", { min: RENT_MIN, max: RENT_MAX }),
   adminFee: pesos("la administración", { min: 0, max: RENT_MAX }),
-  deposit: pesos("el depósito", { min: 0, max: RENT_MAX }),
+  // No deposit: Ley 820 de 2003 forbids it on urban housing leases (see the domain module).
 
   areaM2: count("el área", { min: AREA_MIN, max: AREA_MAX }),
   bedrooms: count("las habitaciones", { min: 0, max: 20 }),
   bathrooms: count("los baños", { min: 1, max: 20 }),
-  parkingSpots: count("los parqueaderos", { min: 0, max: 10 }),
+  parking: z.enum(PARKING_KINDS, { error: "Indica si el inmueble tiene parqueadero" }),
   stratum: z.coerce
     .number({ error: "Selecciona el estrato" })
     .refine((value): value is Stratum => (STRATA as readonly number[]).includes(value), {

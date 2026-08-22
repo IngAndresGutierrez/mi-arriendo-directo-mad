@@ -19,6 +19,8 @@ import { publishProperty } from "../actions/publish-property";
 import {
   LEASE_TERMS,
   LEASE_TERM_LABELS,
+  PARKING_KINDS,
+  PARKING_LABELS,
   PROPERTY_TYPES,
   PROPERTY_TYPE_LABELS,
   STRATA,
@@ -33,6 +35,7 @@ import { PhotoUploader } from "./photo-uploader";
 
 const TYPE_OPTIONS = PROPERTY_TYPES.map((value) => ({ value, label: PROPERTY_TYPE_LABELS[value] }));
 const DEPARTMENT_OPTIONS = DEPARTMENTS.map((value) => ({ value, label: value }));
+const PARKING_OPTIONS = PARKING_KINDS.map((value) => ({ value, label: PARKING_LABELS[value] }));
 const STRATUM_OPTIONS = STRATA.map((value) => ({ value: String(value), label: `Estrato ${value}` }));
 const LEASE_OPTIONS = LEASE_TERMS.map((value) => ({
   value: String(value),
@@ -46,11 +49,10 @@ const FIELD_NAMES = [
   "type",
   "rent",
   "adminFee",
-  "deposit",
   "areaM2",
   "bedrooms",
   "bathrooms",
-  "parkingSpots",
+  "parking",
   "stratum",
   "minLeaseMonths",
   "availableFrom",
@@ -90,11 +92,10 @@ export function PublishPropertyForm() {
       type: "apartment",
       rent: "",
       adminFee: "0",
-      deposit: "0",
       areaM2: "",
       bedrooms: "",
       bathrooms: "",
-      parkingSpots: "0",
+      parking: "none",
       stratum: "",
       furnished: false,
       petsAllowed: false,
@@ -114,11 +115,10 @@ export function PublishPropertyForm() {
     data.set("type", values.type);
     data.set("rent", String(values.rent));
     data.set("adminFee", String(values.adminFee));
-    data.set("deposit", String(values.deposit));
     data.set("areaM2", String(values.areaM2));
     data.set("bedrooms", String(values.bedrooms));
     data.set("bathrooms", String(values.bathrooms));
-    data.set("parkingSpots", String(values.parkingSpots));
+    data.set("parking", values.parking);
     data.set("stratum", String(values.stratum));
     data.set("furnished", String(values.furnished));
     data.set("petsAllowed", String(values.petsAllowed));
@@ -234,12 +234,20 @@ export function PublishPropertyForm() {
             error={errors.bathrooms?.message}
             {...form.register("bathrooms")}
           />
-          <TextField
-            id="parkingSpots"
-            label="Parqueaderos"
-            inputMode="numeric"
-            error={errors.parkingSpots?.message}
-            {...form.register("parkingSpots")}
+          <Controller
+            control={form.control}
+            name="parking"
+            render={({ field }) => (
+              <SelectField
+                id="parking"
+                label="Parqueadero"
+                placeholder="Selecciona"
+                options={PARKING_OPTIONS}
+                value={field.value as string}
+                onValueChange={field.onChange}
+                error={errors.parking?.message}
+              />
+            )}
           />
         </div>
 
@@ -338,14 +346,6 @@ export function PublishPropertyForm() {
             hint="Escribe 0 si el inmueble no paga administración."
             error={errors.adminFee?.message}
             {...form.register("adminFee")}
-          />
-          <TextField
-            id="deposit"
-            label="Depósito (COP)"
-            inputMode="numeric"
-            hint="Escribe 0 si no pides depósito."
-            error={errors.deposit?.message}
-            {...form.register("deposit")}
           />
           <TextField
             id="availableFrom"
