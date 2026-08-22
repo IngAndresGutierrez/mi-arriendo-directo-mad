@@ -20,6 +20,8 @@ import { getAuth, type Auth } from "firebase-admin/auth";
 import { getFirestore, type Firestore } from "firebase-admin/firestore";
 import { getStorage, type Storage } from "firebase-admin/storage";
 
+import { FIREBASE_PUBLIC_CONFIG } from "./public-config";
+
 function createApp(): App {
   const projectId = process.env.FIREBASE_PROJECT_ID;
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
@@ -36,7 +38,7 @@ function createApp(): App {
   return initializeApp({
     // Environment variables store the newlines escaped.
     credential: cert({ projectId, clientEmail, privateKey: privateKey.replace(/\\n/g, "\n") }),
-    storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+    storageBucket: FIREBASE_PUBLIC_CONFIG.storageBucket,
   });
 }
 

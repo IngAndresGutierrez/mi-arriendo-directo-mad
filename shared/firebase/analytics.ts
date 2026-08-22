@@ -12,13 +12,14 @@
 import { getAnalytics, isSupported, logEvent, type Analytics } from "firebase/analytics";
 
 import { firebaseApp } from "@/shared/firebase/app";
+import { FIREBASE_PUBLIC_CONFIG } from "@/shared/firebase/public-config";
 
 let instance: Analytics | null = null;
 
 /** `null` if the browser does not support it, if measurementId is missing, or if called on the server. */
 export async function getAnalyticsInstance(): Promise<Analytics | null> {
   if (typeof window === "undefined") return null;
-  if (!process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID) return null;
+  if (!FIREBASE_PUBLIC_CONFIG.measurementId) return null;
   if (instance) return instance;
   if (!(await isSupported())) return null;
 
