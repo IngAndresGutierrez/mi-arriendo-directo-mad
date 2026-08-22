@@ -8,6 +8,8 @@ import {
   getApplicationFor,
   BackgroundCheckPanel,
   DocumentReviewPanel,
+  LiveApplication,
+  touchApplicationDocuments,
   DossierSummary,
   StageActions,
   StageTimeline,
@@ -61,6 +63,9 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
 
   return (
     <div className="mx-auto w-full max-w-3xl">
+      {/* Both sides are often here at once: one uploading, the other approving. */}
+      <LiveApplication applicationId={application.id} updatedAt={application.updatedAt} />
+
       <Link
         href={CONTRACT_ROUTE}
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
@@ -166,6 +171,8 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
                   occupation={application.dossier.occupation}
                   documents={documents}
                   reviews={application.documentReviews}
+                  // Nudges the application so the landlord's screen learns a file arrived.
+                  onChanged={touchApplicationDocuments.bind(null, application.id)}
                 />
               ),
             },

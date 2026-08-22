@@ -351,6 +351,28 @@ documents is five waits with the list unusable.
 same domain the links point at — a message about a rental arriving from another domain reads as
 phishing, correctly.
 
+## Live updates
+
+Both sides of a process are often on the same screen at once — one uploading, the other
+approving — so the screen updates itself. `shared/lib/use-live-refresh.ts` subscribes to one
+document with the web SDK and, when it changes, calls `router.refresh()`.
+
+**The snapshot is a signal, not the data.** What is on screen comes from the server, and some of
+it only the server can produce: a signed URL for a private file, a document collection the reader
+is not allowed to query, an email address. Rendering from the snapshot would mean weakening those
+rules or keeping two versions of every screen, so the subscription reads one field —
+`updatedAt` — and the server render stays the single source of truth.
+
+- The **process page** watches its application document, which is the one thing both parties may
+  read and which every action here touches.
+- The **bell** watches the caller's own notifications, which the rules already allow, and ignores
+  its own first callback and its own pending writes.
+- A tenant's documents live where a landlord cannot read them, so uploading calls
+  `touchApplicationDocuments()` — one timestamp on the application — and that is what turns "a
+  file arrived" into a live update on the other screen.
+- Both hooks fail quietly: a denied or dropped subscription logs and stops updating. No live
+  updates is a lesser problem than a broken screen.
+
 ## Client-safe module entries
 
 A feature's `index.ts` re-exports its data layer, which is `server-only`. A Client Component

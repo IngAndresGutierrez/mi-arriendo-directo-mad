@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BellIcon, CheckCheckIcon } from "lucide-react";
 
+import { ensureClientSession } from "@/shared/auth/client";
 import { cn } from "@/shared/lib/utils";
 
 import { markNotificationsRead } from "../actions/mark-read";
@@ -49,6 +50,52 @@ export function NotificationBell({
     setDismissed(false);
   }
   const badge = dismissed ? 0 : unread;
+
+  /*
+   * Live, without polling. The rules already let someone read their own notifications, so the
+   * bell subscribes to exactly that query and uses it as a signal: when the set changes, ask the
+   * server to render again. The count and the words still come from the server — the same reason
+   * the process page does it this way.
+   */
+  useEffect(() => {
+    let stop: (() => void) | undefined;
+    let cancelled = false;
+
+    void (async () => {
+      const user = await ensureClientSession();
+      if (!user || cancelled) return;
+
+      const [{ collection, limit, onSnapshot, orderBy, query, where }, { db }] = await Promise.all([
+        import("firebase/firestore"),
+        import("@/shared/firebase/db"),
+      ]);
+      if (cancelled) return;
+
+      let first = true;
+      stop = onSnapshot(
+        query(
+          collection(db, "notifications"),
+          where("recipientUid", "==", user.uid),
+          orderBy("createdAt", "desc"),
+          limit(15),
+        ),
+        (snapshot) => {
+          // The first callback is what is already on screen.
+          if (first) {
+            first = false;
+            return;
+          }
+          if (!snapshot.metadata.hasPendingWrites) router.refresh();
+        },
+        (error) => console.error("live notifications stopped:", error.message),
+      );
+    })();
+
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [router]);
 
   useEffect(() => {
     if (!open) return;

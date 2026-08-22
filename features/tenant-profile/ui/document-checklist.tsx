@@ -3,7 +3,7 @@
 import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { AlertTriangleIcon, CheckIcon, FileTextIcon, Loader2Icon, UploadIcon } from "lucide-react";
+import { AlertTriangleIcon, CheckIcon, FileTextIcon, Loader2Icon, UploadIcon, XIcon } from "lucide-react";
 
 import { ensureClientSession } from "@/shared/auth/client";
 import { storage } from "@/shared/firebase/storage";
@@ -26,6 +26,7 @@ import {
   REVIEW_STATUS_LABELS,
   type DocumentKind,
   type DocumentReviews,
+  type ReviewStatus,
 } from "../domain/documents";
 import type { Occupation } from "../domain/tenant-profile";
 import { deleteTenantDocument, recordTenantDocument } from "../actions/documents";
@@ -55,11 +56,19 @@ export function DocumentChecklist({
   occupation,
   documents,
   reviews = {},
+  onChanged,
 }: {
   readonly occupation: Occupation;
   readonly documents: readonly ChecklistDocument[];
   /** What the landlord decided, so a rejection says what to fix instead of failing silently. */
   readonly reviews?: DocumentReviews;
+  /**
+   * Told after every upload or removal, so the other side's screen finds out.
+   *
+   * Passed in rather than imported: what has to be nudged is the application, and this module
+   * has no business knowing that one exists. The page, which knows both, wires them together.
+   */
+  readonly onChanged?: () => Promise<void>;
 }) {
   const router = useRouter();
   const [busy, startUpload] = useTransition();
@@ -141,6 +150,7 @@ export function DocumentChecklist({
           }
         }
 
+        await onChanged?.().catch(() => undefined);
         router.refresh();
       } catch {
         setError("No pudimos subir el archivo. Revisa tu conexión e inténtalo de nuevo.");
@@ -286,7 +296,7 @@ export function DocumentChecklist({
                         target="_blank"
                         rel="noreferrer"
                         className={cn(
-                          "block overflow-hidden rounded-lg border focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
+                          "relative block overflow-hidden rounded-lg border focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none",
                           statusOf(reviews, document.id) === "rejected"
                             ? "border-2 border-destructive opacity-60"
                             : "border-border",
@@ -307,6 +317,11 @@ export function DocumentChecklist({
                             className="aspect-4/3 w-full object-cover"
                           />
                         )}
+                        {/*
+                          The verdict on the file itself. A word underneath a thumbnail is a
+                          caption; a mark on the thing it is about is what people read.
+                        */}
+                        <Verdict status={statusOf(reviews, document.id)} />
                       </a>
                       <p className="mt-1 truncate text-xs text-muted-foreground" title={document.name}>
                         {document.name}
@@ -377,9 +392,37 @@ export function DocumentChecklist({
           const result = await deleteTenantDocument(removing.id);
           if (!result.ok) setError(result.message);
           setRemoving(null);
+          await onChanged?.().catch(() => undefined);
           router.refresh();
         }}
       />
     </div>
+  );
+}
+
+/**
+ * A tick or a cross on the corner of the file, or nothing while nobody has looked.
+ *
+ * Shared by both screens so the same file cannot be marked one way for the tenant and another
+ * for the landlord. `aria-hidden`: the state is already announced in words beside it, and a
+ * screen reader reading "aprobado" twice per file is worse than not decorating it at all.
+ */
+export function Verdict({ status }: { readonly status: ReviewStatus }) {
+  if (status === "pending") return null;
+
+  return (
+    <span
+      aria-hidden="true"
+      className={cn(
+        "absolute top-1 right-1 flex size-6 items-center justify-center rounded-full text-white shadow-xs",
+        status === "approved" ? "bg-status-approved" : "bg-destructive",
+      )}
+    >
+      {status === "approved" ? (
+        <CheckIcon className="size-4" strokeWidth={3} />
+      ) : (
+        <XIcon className="size-4" strokeWidth={3} />
+      )}
+    </span>
   );
 }

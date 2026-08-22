@@ -8,6 +8,7 @@ import { CheckIcon, ExternalLinkIcon, FileTextIcon, XIcon } from "lucide-react";
 import {
   isPdf,
   statusOf,
+  Verdict,
   DOCUMENT_LABELS,
   REVIEW_STATUS_LABELS,
   type DocumentReviews,
@@ -116,7 +117,7 @@ export function DocumentReviewPanel({
                   rel="noreferrer"
                   className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
                 >
-                  <span className="shrink-0 overflow-hidden rounded-lg border border-border">
+                  <span className="relative shrink-0 overflow-hidden rounded-lg border border-border">
                     {isPdf(document) ? (
                       <span className="flex size-14 items-center justify-center bg-muted text-muted-foreground">
                         <FileTextIcon className="size-5" aria-hidden="true" />
@@ -131,6 +132,8 @@ export function DocumentReviewPanel({
                         className="size-14 object-cover"
                       />
                     )}
+                    {/* The same mark the tenant sees, on the same file. */}
+                    <Verdict status={status} />
                   </span>
                   <span className="min-w-0">
                     <span className="flex items-center gap-2 font-medium text-foreground">

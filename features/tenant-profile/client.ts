@@ -53,3 +53,4 @@ export {
 } from "./domain/documents";
 export { deleteTenantDocument, recordTenantDocument } from "./actions/documents";
 export { DocumentChecklist, type ChecklistDocument } from "./ui/document-checklist";
+export { Verdict } from "./ui/document-checklist";
