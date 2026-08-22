@@ -126,8 +126,9 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
     });
   }
 
+  // `post`, though JS handles the submit: see the note in `login-form.tsx`.
   return (
-    <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-3">
+    <form method="post" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-3">
       {formError ? <FormAlert>{formError}</FormAlert> : null}
 
       <TextField

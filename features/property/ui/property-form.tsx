@@ -198,8 +198,9 @@ export function PropertyForm({ property, addressLine }: PropertyFormProps) {
     router.refresh();
   }
 
+  // `post`, though JS handles the submit: see the note in `login-form.tsx`.
   return (
-    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10" noValidate>
+    <form method="post" onSubmit={form.handleSubmit(onSubmit)} className="space-y-10" noValidate>
       {errors.root?.message ? <FormAlert>{errors.root.message}</FormAlert> : null}
 
       <section className="space-y-4">

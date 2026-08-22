@@ -245,5 +245,10 @@ collection, add its access-denied test too.
    payments are not listable by the client.
 5. **Sensitive data is never cached in a shared scope** (`"use cache"` without a per-uid tag),
    never stored in `localStorage`, never carried in `searchParams`, never logged.
+   **Every `<form>` carries `method="post"`**, even the ones JavaScript submits: before the page
+   hydrates there is no handler to prevent the default, and a form with no method is sent as a
+   GET — the password in the URL, and from there in the browser history and the server logs.
+   Next serves a POST to a page route as a normal render, so the fallback is the form again,
+   empty, with nothing leaked.
 6. **Any rules change is tested against the emulator** (`firebase emulators:exec`), negative
    case included, before `firebase deploy`.

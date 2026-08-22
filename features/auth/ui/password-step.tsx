@@ -63,7 +63,9 @@ export function PasswordStep({
         Vas a crear la cuenta de <span className="font-medium text-foreground">{email}</span>.
       </p>
 
+      {/* `post`, though JS handles the submit: see the note in `login-form.tsx`. */}
       <form
+        method="post"
         onSubmit={handleSubmit((values) => onSubmitPassword(values.password))}
         noValidate
         className="space-y-4"

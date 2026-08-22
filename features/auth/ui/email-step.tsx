@@ -51,7 +51,9 @@ export function EmailStep({
 
         <OrDivider />
 
+        {/* `post`, though JS handles the submit: see the note in `login-form.tsx`. */}
         <form
+          method="post"
           onSubmit={handleSubmit((values) => onSubmitEmail(values.email))}
           noValidate
           className="space-y-4"
