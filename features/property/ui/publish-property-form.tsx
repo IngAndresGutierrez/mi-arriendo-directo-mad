@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { refreshServerSession } from "@/shared/auth/client";
 import { propertyDetailRoute } from "@/shared/auth/routes";
-import { DEPARTMENTS } from "@/shared/geo/colombia";
+import { DEPARTMENTS, type Department } from "@/shared/geo/colombia";
+import { municipalitiesOf } from "@/shared/geo/municipalities";
 import { FormAlert } from "@/shared/form/form-alert";
 import { SelectField } from "@/shared/form/select-field";
 import { SubmitButton } from "@/shared/form/submit-button";
@@ -101,12 +102,21 @@ export function PublishPropertyForm() {
       petsAllowed: false,
       minLeaseMonths: "12",
       availableFrom: todayISO(),
-      address: { line: "", neighborhood: "", city: "", department: "Caldas" },
+      // No default department: the city list hangs off it, and a preselected one would
+      // quietly publish in the wrong place.
+      address: { line: "", neighborhood: "", city: "", department: undefined },
       photos: [],
     },
   });
 
   const { errors, isSubmitting } = form.formState;
+
+  // `useWatch`, never `watch()`: the latter returns a function the React Compiler cannot memoize.
+  const department = useWatch({ control: form.control, name: "address.department" });
+  const cityOptions = municipalitiesOf(department as Department).map((value) => ({
+    value,
+    label: value,
+  }));
 
   async function onSubmit(values: PublishPropertyInput) {
     const data = new FormData();
@@ -289,15 +299,52 @@ export function PublishPropertyForm() {
 
       <section className="space-y-4">
         <h2 className="text-lg font-semibold text-primary">Ubicación</h2>
-        <TextField
-          id="address.line"
-          label="Dirección"
-          placeholder="Calle 60 #10-20 apto 301"
-          hint="Solo la ve el inquilino cuya postulación apruebes. En el anuncio se muestran el barrio y la ciudad."
-          error={errors.address?.line?.message}
-          {...form.register("address.line")}
-        />
+        {/* Broad to specific: the city list depends on the department, so it is asked first. */}
         <div className="grid gap-4 sm:grid-cols-2">
+          <Controller
+            control={form.control}
+            name="address.department"
+            render={({ field }) => (
+              <SelectField
+                id="address.department"
+                label="Departamento"
+                placeholder="Selecciona el departamento"
+                options={DEPARTMENT_OPTIONS}
+                value={field.value as string}
+                onValueChange={(value) => {
+                  field.onChange(value);
+                  // The chosen city almost certainly does not exist in the new department, and
+                  // leaving it would submit a mismatched pair that only the server would catch.
+                  form.setValue("address.city", "", {
+                    shouldValidate: form.formState.isSubmitted,
+                  });
+                }}
+                error={errors.address?.department?.message}
+              />
+            )}
+          />
+          <Controller
+            control={form.control}
+            name="address.city"
+            render={({ field }) => (
+              <SelectField
+                // Remounted per department: Radix keeps the previous label when a controlled
+                // value goes back to undefined, so the trigger would sit empty instead of
+                // showing the placeholder again.
+                key={typeof department === "string" ? department : "sin-departamento"}
+                id="address.city"
+                label="Ciudad"
+                placeholder={
+                  cityOptions.length > 0 ? "Selecciona la ciudad" : "Elige primero el departamento"
+                }
+                options={cityOptions}
+                disabled={cityOptions.length === 0}
+                value={field.value ? String(field.value) : undefined}
+                onValueChange={field.onChange}
+                error={errors.address?.city?.message}
+              />
+            )}
+          />
           <TextField
             id="address.neighborhood"
             label="Barrio"
@@ -305,27 +352,14 @@ export function PublishPropertyForm() {
             {...form.register("address.neighborhood")}
           />
           <TextField
-            id="address.city"
-            label="Ciudad"
-            error={errors.address?.city?.message}
-            {...form.register("address.city")}
+            id="address.line"
+            label="Dirección"
+            placeholder="Calle 60 #10-20 apto 301"
+            hint="Solo la ve el inquilino cuya postulación apruebes. En el anuncio se muestran el barrio y la ciudad."
+            error={errors.address?.line?.message}
+            {...form.register("address.line")}
           />
         </div>
-        <Controller
-          control={form.control}
-          name="address.department"
-          render={({ field }) => (
-            <SelectField
-              id="address.department"
-              label="Departamento"
-              placeholder="Selecciona el departamento"
-              options={DEPARTMENT_OPTIONS}
-              value={field.value as string}
-              onValueChange={field.onChange}
-              error={errors.address?.department?.message}
-            />
-          )}
-        />
       </section>
 
       <section className="space-y-4">

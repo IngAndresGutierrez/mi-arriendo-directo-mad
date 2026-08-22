@@ -125,6 +125,33 @@ describe("publishPropertySchema", () => {
       expect(publishPropertySchema.safeParse({ ...VALID_PROPERTY, type: "castle" }).success).toBe(false);
     });
 
+    it("rejects a city that is not in the chosen department", () => {
+      const r = publishPropertySchema.safeParse({
+        ...VALID_PROPERTY,
+        address: { ...VALID_PROPERTY.address, city: "Manizales", department: "Antioquia" },
+      });
+      expect(r.success).toBe(false);
+      if (!r.success) {
+        expect(r.error.issues.some((i) => i.path.join(".") === "address.city")).toBe(true);
+      }
+    });
+
+    it("accepts a small municipality, not just the capitals", () => {
+      const r = publishPropertySchema.safeParse({
+        ...VALID_PROPERTY,
+        address: { ...VALID_PROPERTY.address, city: "Aranzazu", department: "Caldas" },
+      });
+      expect(r.success).toBe(true);
+    });
+
+    it("rejects an invented city", () => {
+      const r = publishPropertySchema.safeParse({
+        ...VALID_PROPERTY,
+        address: { ...VALID_PROPERTY.address, city: "Ciudad Gótica", department: "Caldas" },
+      });
+      expect(r.success).toBe(false);
+    });
+
     it("rejects a department that does not exist", () => {
       const r = publishPropertySchema.safeParse({
         ...VALID_PROPERTY,

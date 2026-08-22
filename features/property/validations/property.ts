@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { DEPARTMENTS } from "@/shared/geo/colombia";
+import { isMunicipalityOf } from "@/shared/geo/municipalities";
 import {
   AREA_MAX,
   AREA_MIN,
@@ -52,7 +53,11 @@ const photo = z.object({
   url: z.url({ error: "La URL de la foto no es válida" }),
 });
 
-/** Colombian address. The street line is stored apart from the public document. */
+/**
+ * Colombian address. The street line is stored apart from the public document, and the city is
+ * validated **against the department**: a city on its own means nothing, and "Manizales,
+ * Antioquia" is exactly what a free-text pair used to let through.
+ */
 const address = z.object({
   line: z
     .string({ error: "Ingresa la dirección" })
@@ -64,12 +69,17 @@ const address = z.object({
     .trim()
     .min(2, { error: "Ingresa el barrio" })
     .max(80, { error: "El barrio es demasiado largo" }),
-  city: z
-    .string({ error: "Ingresa la ciudad" })
-    .trim()
-    .min(2, { error: "Ingresa la ciudad" })
-    .max(80, { error: "La ciudad es demasiado larga" }),
+  city: z.string({ error: "Selecciona la ciudad" }).trim().min(2, { error: "Selecciona la ciudad" }),
   department: z.enum(DEPARTMENTS, { error: "Selecciona un departamento" }),
+}).superRefine((value, ctx) => {
+  // Cross-field, so it runs at object level: the city is only meaningful next to its department.
+  if (!isMunicipalityOf(value.city, value.department)) {
+    ctx.addIssue({
+      code: "custom",
+      message: `${value.city || "Esa ciudad"} no es un municipio de ${value.department}`,
+      path: ["city"],
+    });
+  }
 });
 
 /**
