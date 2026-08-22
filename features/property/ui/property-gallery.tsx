@@ -74,7 +74,7 @@ export function PropertyGallery({
           alt={`${title} — foto 1 de ${total}`}
           width={1200}
           height={800}
-          priority
+          preload
           unoptimized
           className="aspect-4/3 w-full object-cover sm:aspect-16/10"
         />

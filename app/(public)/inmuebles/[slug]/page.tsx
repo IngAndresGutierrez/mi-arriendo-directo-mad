@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { LockIcon, MapPinIcon } from "lucide-react";
+import { ArrowRightIcon, LockIcon, MapPinIcon } from "lucide-react";
 
 import {
   getPropertyLocation,
@@ -16,7 +17,7 @@ import {
   PROPERTY_TYPE_LABELS,
   type Property,
 } from "@/features/property";
-import { propertyDetailRoute } from "@/shared/auth/routes";
+import { PROPERTIES_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 import { getSessionUser } from "@/shared/auth/session";
 
@@ -110,6 +111,15 @@ export default async function PropertyDetailPage(props: DetailProps) {
             <span className="text-muted-foreground/70">· {property.area.department}</span>
           </p>
           <PropertyFacts property={property} />
+
+          {/* Someone who liked this one is usually looking in that city, not at that one. */}
+          <Link
+            href={`${PROPERTIES_ROUTE}?city=${encodeURIComponent(property.area.city)}`}
+            className="inline-flex items-center gap-1 text-sm font-medium text-primary underline-offset-4 hover:underline dark:text-foreground"
+          >
+            Ver más arriendos en {property.area.city}
+            <ArrowRightIcon className="size-4" aria-hidden="true" />
+          </Link>
 
           {location && (
             <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2.5 text-sm text-muted-foreground">

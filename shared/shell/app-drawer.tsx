@@ -32,14 +32,14 @@ export function AppDrawer() {
         </SheetTrigger>
 
         <Link href={HOME_ROUTE} aria-label="Ir al inicio" className="flex items-center">
-          <Logo width={150} priority className="hidden sm:block" />
+          <Logo width={150} preload className="hidden sm:block" />
           {/* On a phone the wordmark would eat the bar; the icon mark carries the brand. */}
           <Image
             src="/isotipo.png"
             alt="miarriendoDIRECTO.com"
             width={1254}
             height={1254}
-            priority
+            preload
             sizes="32px"
             className="h-auto w-8 sm:hidden"
           />

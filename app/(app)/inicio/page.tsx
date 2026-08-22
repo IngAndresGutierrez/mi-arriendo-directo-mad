@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { HouseIcon, SparklesIcon } from "lucide-react";
 
+import { PROPERTIES_ROUTE } from "@/shared/auth/routes";
 import { AppShell } from "@/shared/shell/app-shell";
-import { ComingSoonCard } from "@/shared/ui/coming-soon-card";
 import { SupportCard } from "@/shared/shell/support-card";
 
 import { ContractsCard, getUserContracts } from "@/features/contract";
@@ -43,20 +44,21 @@ export default async function HomePage() {
         <aside className="space-y-4" aria-label="Atajos y ayuda">
           <SupportCard firstName={name} />
 
-          <ComingSoonCard label="El catálogo de inmuebles llegará pronto">
-            <div className="flex items-center gap-3">
-              <span
-                aria-hidden="true"
-                className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground"
-              >
-                <HouseIcon className="size-5" />
-              </span>
-              <div>
-                <p className="font-medium text-foreground">¿Buscas un nuevo hogar?</p>
-                <p className="text-sm text-muted-foreground">Explora los inmuebles disponibles</p>
-              </div>
+          <Link
+            href={PROPERTIES_ROUTE}
+            className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5 transition-shadow hover:shadow-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          >
+            <span
+              aria-hidden="true"
+              className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-secondary text-secondary-foreground"
+            >
+              <HouseIcon className="size-5" />
+            </span>
+            <div>
+              <p className="font-medium text-foreground">¿Buscas un nuevo hogar?</p>
+              <p className="text-sm text-muted-foreground">Explora los inmuebles disponibles</p>
             </div>
-          </ComingSoonCard>
+          </Link>
 
           {/* Static content: it promises no functionality, so it needs no tooltip. */}
           <section className="rounded-2xl border border-border bg-card p-5">

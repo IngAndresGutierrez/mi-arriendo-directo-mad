@@ -63,3 +63,57 @@ export function municipalitiesOf(department: Department): readonly string[] {
 export function isMunicipalityOf(city: string, department: Department): boolean {
   return municipalitiesOf(department).includes(city);
 }
+
+/**
+ * Strips accents and case so a name can be compared with what someone typed.
+ *
+ * These URLs get pasted by hand and travel through keyboards without accents: `?city=Bogota`
+ * has to find `Bogotá D.C.` or the filter looks broken for the capital.
+ */
+function comparable(city: string): string {
+  return city
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .trim()
+    .toLowerCase();
+}
+
+/** Built once: the catalog is 1,122 names and this is asked on every catalog request. */
+const BY_COMPARABLE_NAME: ReadonlyMap<string, string> = new Map(
+  Object.values(MUNICIPALITIES_BY_DEPARTMENT)
+    .flat()
+    .map((city) => [comparable(city), city]),
+);
+
+/**
+ * What people call a few cities, mapped to the official name the catalog uses.
+ *
+ * Nobody writes `?city=Santiago%20de%20Cali`; they write `Cali`, and without this the filter
+ * answers "no listings" for the country's third city. Curated, not exhaustive — like the phone
+ * catalog: every entry here is a name that is genuinely in common use, and the list grows when
+ * a real link turns up empty, never by guessing.
+ */
+const ALIASES: Readonly<Record<string, string>> = {
+  cali: "Santiago de Cali",
+  cartagena: "Cartagena de Indias",
+  buga: "Guadalajara de Buga",
+  mompox: "Santa Cruz de Mompox",
+  mompos: "Santa Cruz de Mompox",
+  mariquita: "San Sebastián de Mariquita",
+  tolu: "Santiago de Tolú",
+  since: "San Luis de Sincé",
+  toluviejo: "San José de Toluviejo",
+};
+
+/**
+ * The catalog's spelling of a municipality, or `null` if there is no such place.
+ *
+ * It returns the canonical name rather than a boolean because that name is what the Firestore
+ * query needs: the stored `area.city` is the catalog's spelling, so `?city=manizales` only
+ * matches anything once it has become `Manizales`.
+ */
+export function canonicalMunicipality(city: string): string | null {
+  const key = comparable(city);
+
+  return BY_COMPARABLE_NAME.get(key) ?? ALIASES[key] ?? null;
+}

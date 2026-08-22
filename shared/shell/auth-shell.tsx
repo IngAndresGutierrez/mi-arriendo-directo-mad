@@ -78,7 +78,7 @@ export function AuthShell({
               LOGO_MARGIN[contentWidth],
             )}
           >
-            <Logo width={200} priority />
+            <Logo width={200} preload />
             {action}
           </div>
 

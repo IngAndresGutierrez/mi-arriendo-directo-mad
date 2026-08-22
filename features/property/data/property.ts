@@ -131,3 +131,56 @@ export const getOwnedProperty = cache(
     return property && property.landlordUid === landlordUid ? property : null;
   },
 );
+
+/**
+ * How many listings one catalog page shows. There is no pagination yet, so the page says out
+ * loud when it is showing the most recent ones rather than all of them.
+ */
+export const CATALOG_PAGE_SIZE = 24;
+
+/**
+ * The public catalog: published listings, newest first, optionally in one city.
+ *
+ * `status == "available"` is not a convenience here, it is the rule — a draft belongs to its
+ * owner alone, and the Security Rules require this same filter for a client-side `list`, so the
+ * server read and the rule agree on what "public" means.
+ */
+export async function listAvailableProperties(options: {
+  readonly city?: string | null;
+  readonly limit?: number;
+} = {}): Promise<readonly Property[]> {
+  const { city = null, limit = CATALOG_PAGE_SIZE } = options;
+
+  let query = adminDb().collection("properties").where("status", "==", "available");
+  if (city) query = query.where("area.city", "==", city);
+
+  const snapshot = await query.orderBy("createdAt", "desc").limit(limit).get();
+
+  return snapshot.docs
+    .map((doc) => toProperty(doc as unknown as Snapshot))
+    .filter((property): property is Property => property !== null);
+}
+
+/**
+ * The cities that actually have something published, for the filter.
+ *
+ * Offering all 1,122 municipalities would be a list of dead ends; this offers the ones a tenant
+ * can find something in. It reads only the `area.city` field of the published documents — cheap
+ * at this size, and the day the catalog outgrows it what this needs is a maintained counter per
+ * city, not a bigger read.
+ */
+export async function listAvailableCities(): Promise<readonly string[]> {
+  const snapshot = await adminDb()
+    .collection("properties")
+    .where("status", "==", "available")
+    .select("area.city")
+    .get();
+
+  const cities = new Set<string>();
+  for (const doc of snapshot.docs) {
+    const city = (doc.data() as { area?: { city?: unknown } }).area?.city;
+    if (typeof city === "string" && city !== "") cities.add(city);
+  }
+
+  return [...cities].sort((a, b) => a.localeCompare(b, "es"));
+}

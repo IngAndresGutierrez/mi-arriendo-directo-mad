@@ -69,7 +69,7 @@ export function AppSidebar({ defaultCollapsed }: { readonly defaultCollapsed: bo
               alt="miarriendoDIRECTO.com"
               width={1254}
               height={1254}
-              priority
+              preload
               sizes="32px"
               className="h-auto w-8"
             />

@@ -19,7 +19,7 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
         <header className="border-b border-border">
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
             <Link href={LOGIN_ROUTE} aria-label="miarriendoDIRECTO.com, ir al inicio">
-              <Logo width={170} priority />
+              <Logo width={170} preload />
             </Link>
             <Button asChild variant="outline" size="lg">
               <Link href={LOGIN_ROUTE}>Iniciar sesión</Link>
