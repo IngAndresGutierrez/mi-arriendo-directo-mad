@@ -324,6 +324,37 @@ describe("tenantProfiles", () => {
     await assertFails(deleteDoc(doc(db, `tenantProfiles/${UID_TENANT}`)));
   });
 
+  describe("its documents", () => {
+    it("the tenant reads the list of what they uploaded", async () => {
+      const db = actingAs(env, UID_TENANT, "tenant");
+      await assertSucceeds(getDoc(doc(db, `tenantProfiles/${UID_TENANT}/documents/doc-1`)));
+      await assertSucceeds(getDocs(collection(db, `tenantProfiles/${UID_TENANT}/documents`)));
+    });
+
+    /*
+     * Not even the landlord of an open application. What they get is a time-limited signed URL
+     * per document, issued by the server — otherwise this collection would follow the tenant to
+     * every other process they are ever part of.
+     */
+    it("nobody else does", async () => {
+      await assertFails(
+        getDocs(collection(actingAs(env, UID_LANDLORD, "landlord"), `tenantProfiles/${UID_TENANT}/documents`)),
+      );
+      await assertFails(
+        getDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `tenantProfiles/${UID_TENANT}/documents/doc-1`)),
+      );
+      await assertFails(getDoc(doc(anonymous(env), `tenantProfiles/${UID_TENANT}/documents/doc-1`)));
+    });
+
+    it("the client does not write the record either, only the server", async () => {
+      const db = actingAs(env, UID_TENANT, "tenant");
+      await assertFails(
+        addDoc(collection(db, `tenantProfiles/${UID_TENANT}/documents`), { kind: "id_front" }),
+      );
+      await assertFails(deleteDoc(doc(db, `tenantProfiles/${UID_TENANT}/documents/doc-1`)));
+    });
+  });
+
 });
 
 describe("the slug index", () => {

@@ -6,10 +6,20 @@ import { ArrowLeftIcon, MessageSquareIcon } from "lucide-react";
 import {
   closedAtLabel,
   getApplicationFor,
+  BackgroundCheckPanel,
+  DocumentReviewPanel,
   DossierSummary,
   StageActions,
   StageTimeline,
 } from "@/features/application";
+import {
+  documentProgress,
+  documentsBlocker,
+  documentsBlockerMessage,
+  listTenantDocuments,
+  withSignedUrls,
+  DocumentChecklist,
+} from "@/features/tenant-profile";
 import { requireCompleteProfile } from "@/features/profile";
 import { CONTRACT_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
@@ -29,6 +39,24 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
 
   const isLandlord = application.landlordUid === user.uid;
   const closed = closedAtLabel(application);
+
+  /*
+   * The documents belong to the tenant, not to the application, and the bucket is private: what
+   * either side gets is a link signed for the next hour. That is what lets the landlord read a
+   * payslip without the file becoming permanently reachable by whoever the link is forwarded to.
+   */
+  const documents = await withSignedUrls(await listTenantDocuments(application.tenantUid));
+  const progress = documentProgress(application.dossier.occupation, documents);
+
+  /*
+   * Why the process cannot move on, if it cannot. Worked out here because it needs both sides of
+   * it — what was uploaded and what the landlord decided — and handed to the button as a
+   * sentence: its job is to say the reason, not to work it out.
+   */
+  const blocker =
+    application.stage === "tenant_data"
+      ? documentsBlocker(application.dossier.occupation, documents, application.documentReviews)
+      : null;
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -99,8 +127,59 @@ export default async function ApplicationPage(props: PageProps<"/contrato/[id]">
         ) : null}
       </section>
 
+      {/*
+        The two stages that ask something of somebody live above the timeline, where whoever has
+        to act will see them without scrolling past nine other steps.
+      */}
+      {application.status === "open" && application.stage === "tenant_data" ? (
+        <section
+          // The id the timeline links to and the blocked button points at.
+          id="documentos"
+          className="mt-6 scroll-mt-24 rounded-2xl border border-border bg-card p-5 transition-shadow"
+        >
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold text-primary dark:text-foreground">
+              {isLandlord ? "Documentos del inquilino" : "Tus documentos"}
+            </h2>
+            <span className="text-sm text-muted-foreground">
+              {progress.uploaded} de {progress.required} subidos
+            </span>
+          </div>
+
+          {isLandlord ? (
+            <DocumentReviewPanel
+              applicationId={application.id}
+              documents={documents}
+              reviews={application.documentReviews}
+            />
+          ) : (
+            <DocumentChecklist
+              occupation={application.dossier.occupation}
+              documents={documents}
+              reviews={application.documentReviews}
+            />
+          )}
+        </section>
+      ) : null}
+
+      {application.status === "open" && application.stage === "background_check" ? (
+        <div className="mt-6">
+          <BackgroundCheckPanel
+            applicationId={application.id}
+            authorizedAt={application.checksAuthorizedAt}
+            isLandlord={isLandlord}
+            documentNumber={application.dossier.documentNumber}
+          />
+        </div>
+      ) : null}
+
       <div className="mt-6">
-        <StageActions application={application} isLandlord={isLandlord} />
+        <StageActions
+          application={application}
+          isLandlord={isLandlord}
+          blockedBecause={blocker ? documentsBlockerMessage(blocker, isLandlord) : null}
+          resolveAt="documentos"
+        />
       </div>
 
       <div className="mt-8">

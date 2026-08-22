@@ -40,3 +40,7 @@ export { ApplicationCard } from "./ui/application-card";
 export { DossierSummary } from "./ui/dossier-summary";
 export { StageActions } from "./ui/stage-actions";
 export { StageTimeline } from "./ui/stage-timeline";
+export { authorizeBackgroundChecks, type AuthorizeResult } from "./actions/authorize-checks";
+export { BackgroundCheckPanel } from "./ui/background-check-panel";
+export { reviewTenantDocument, type ReviewResult } from "./actions/review-document";
+export { DocumentReviewPanel, type ReviewableDocument } from "./ui/document-review-panel";

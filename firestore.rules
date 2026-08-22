@@ -267,6 +267,17 @@ service cloud.firestore {
       allow get:  if isOwner(userId) || isAdmin();
       allow list: if false;
       allow create, update, delete: if false;   // Server Actions only
+
+      // The papers themselves live in Cloud Storage; this is only what was uploaded and when.
+      // Same reading as the profile: its owner, and nobody else. A landlord reviewing an
+      // application is served time-limited signed URLs by the server, which is what lets the
+      // bucket stay private — a landlord who saw this collection could follow it after the
+      // process ended, or to documents uploaded for somebody else entirely.
+      match /documents/{documentId} {
+        allow get:  if isOwner(userId) || isAdmin();
+        allow list: if isOwner(userId) || isAdmin();
+        allow create, update, delete: if false;   // Server Actions only
+      }
     }
 
     // -------------------------- contracts and payments ----------------------

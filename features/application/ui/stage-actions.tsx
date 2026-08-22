@@ -7,6 +7,7 @@ import { ArrowRightIcon, XIcon } from "lucide-react";
 import { Button } from "@/shared/ui/button";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Label } from "@/shared/ui/label";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
 import { advanceApplication, rejectApplication, withdrawApplication } from "../actions/advance";
 import {
@@ -29,9 +30,20 @@ import {
 export function StageActions({
   application,
   isLandlord,
+  blockedBecause,
+  resolveAt,
 }: {
   readonly application: Application;
   readonly isLandlord: boolean;
+  /**
+   * Why the process cannot move on yet, in words. `null` means it can.
+   *
+   * The reason is computed by whoever knows it — the page — and passed in, because the obstacle
+   * lives in another feature's rules and this component's job is to *say* it, not to work it out.
+   */
+  readonly blockedBecause?: string | null;
+  /** The id of the section that has to be dealt with, so the button can point at it. */
+  readonly resolveAt?: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -67,16 +79,48 @@ export function StageActions({
       */}
       <div className="flex flex-wrap items-center gap-2">
         {isLandlord && canAdvance(application) && target ? (
-          <Button
-            type="button"
-            variant="accent"
-            size="xl"
-            disabled={pending}
-            onClick={() => run(() => advanceApplication(application.id))}
-          >
-            Continuar a “{STAGE_LABELS[target]}”
-            <ArrowRightIcon aria-hidden="true" />
-          </Button>
+          blockedBecause ? (
+            /*
+             * `aria-disabled`, not `disabled`: the reason has to stay reachable. A `disabled`
+             * button drops out of the tab order and, in several browsers, stops firing hover —
+             * so the tooltip explaining why becomes unreachable exactly when someone goes
+             * looking for it.
+             *
+             * What it does *not* do is act on a click. A control announced as unavailable that
+             * turns out to do something is its own kind of lie, and assistive technology is not
+             * the only thing that believes the announcement — Playwright refuses to click it
+             * too. So the way to the blocker is a button of its own, right beside it.
+             */
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant="accent"
+                  size="xl"
+                  aria-disabled="true"
+                  aria-describedby={`${application.id}-blocked`}
+                  className="opacity-50"
+                >
+                  Continuar a “{STAGE_LABELS[target]}”
+                  <ArrowRightIcon aria-hidden="true" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs">
+                {blockedBecause}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <Button
+              type="button"
+              variant="accent"
+              size="xl"
+              disabled={pending}
+              onClick={() => run(() => advanceApplication(application.id))}
+            >
+              Continuar a “{STAGE_LABELS[target]}”
+              <ArrowRightIcon aria-hidden="true" />
+            </Button>
+          )
         ) : null}
 
         {canClose(application) ? (
@@ -93,6 +137,29 @@ export function StageActions({
           </Button>
         ) : null}
       </div>
+
+      {/*
+        The same sentence as the tooltip, in the page. A tooltip is a hint, not the only copy of
+        something someone needs — it does not exist on a touch screen at all. The button beside
+        it is what takes them there and marks the spot.
+      */}
+      {blockedBecause ? (
+        <p
+          id={`${application.id}-blocked`}
+          className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground"
+        >
+          {blockedBecause}
+          {resolveAt ? (
+            <button
+              type="button"
+              onClick={() => pointAtBlocker(resolveAt)}
+              className="font-medium text-primary underline underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none dark:text-accent"
+            >
+              Ver qué falta
+            </button>
+          ) : null}
+        </p>
+      ) : null}
 
       {error ? (
         <p role="alert" className="text-sm text-destructive">
@@ -140,4 +207,24 @@ export function StageActions({
       />
     </div>
   );
+}
+
+/**
+ * Takes the person to what is in the way, and makes it obvious which thing it is.
+ *
+ * Scrolling alone is not enough on a long page: it leaves you looking at a screen that changed
+ * without telling you what changed. The outline is the "this one" — three seconds, then gone,
+ * because a permanent highlight becomes furniture.
+ */
+function pointAtBlocker(id?: string): void {
+  if (!id) return;
+
+  const target = document.getElementById(id);
+  if (!target) return;
+
+  target.scrollIntoView({ behavior: "smooth", block: "center" });
+  target.classList.add("ring-3", "ring-accent", "ring-offset-4", "ring-offset-background");
+  window.setTimeout(() => {
+    target.classList.remove("ring-3", "ring-accent", "ring-offset-4", "ring-offset-background");
+  }, 3000);
 }

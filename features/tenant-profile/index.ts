@@ -22,3 +22,29 @@ export { dossierFromForm, toStoredDossier } from "./actions/form-input";
 export { TenantProfileForm } from "./ui/tenant-profile-form";
 export { DossierFields } from "./ui/dossier-fields";
 export { emptyDossier, toFormValues } from "./ui/defaults";
+export {
+  countOf,
+  documentProgress,
+  documentsComplete,
+  isPdf,
+  missingDocuments,
+  requiredDocuments,
+  DOCUMENT_HINTS,
+  DOCUMENT_LABELS,
+  type DocumentKind,
+  type DocumentRequirement,
+  type TenantDocument,
+  documentsBlocker,
+  documentsBlockerMessage,
+  identitySatisfied,
+  identityShape,
+  statusOf,
+  REVIEW_STATUS_LABELS,
+  type DocumentReview,
+  type DocumentReviews,
+  type DocumentsBlocker,
+  type ReviewStatus,
+} from "./domain/documents";
+export { listTenantDocuments, withSignedUrls, type ViewableDocument } from "./data/documents";
+export { deleteTenantDocument, recordTenantDocument } from "./actions/documents";
+export { DocumentChecklist, type ChecklistDocument } from "./ui/document-checklist";

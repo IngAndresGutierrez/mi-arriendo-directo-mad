@@ -22,10 +22,19 @@ import {
 const at = (stage: Stage, status: Application["status"] = "open") => ({ stage, status });
 
 describe("the nine stages", () => {
-  it("are nine, in the agreed order, and end with the rental in course", () => {
-    expect(STAGES).toHaveLength(9);
+  it("are ten, in the agreed order, and end with the rental in course", () => {
+    expect(STAGES).toHaveLength(10);
     expect(STAGES[0]).toBe("submitted");
     expect(STAGES.at(-1)).toBe("active");
+  });
+
+  /*
+   * Checking records comes right after the documents that make it possible: the identity
+   * document is what the search is run against, so asking before it exists asks for nothing.
+   */
+  it("checks records only once the documents are in", () => {
+    expect(STAGES.indexOf("background_check")).toBe(STAGES.indexOf("tenant_data") + 1);
+    expect(STAGES.indexOf("background_check")).toBeLessThan(STAGES.indexOf("approved"));
   });
 
   /*
@@ -62,17 +71,22 @@ describe("the nine stages", () => {
     expect(isUnbuilt("submitted")).toBe(false);
     expect(isUnbuilt("active")).toBe(false);
     expect(isUnbuilt("contract_signature")).toBe(true);
+    // The documents stage is built now: files are uploaded and previewed in the product.
+    expect(isUnbuilt("tenant_data")).toBe(false);
+    // Checking records is not: no source can be queried from here yet.
+    expect(isUnbuilt("background_check")).toBe(true);
   });
 });
 
 describe("nextStage", () => {
   it("walks the list and stops at the end", () => {
     expect(nextStage("submitted")).toBe("tenant_data");
+    expect(nextStage("tenant_data")).toBe("background_check");
     expect(nextStage("approved")).toBe("contract_signature");
     expect(nextStage("active")).toBeNull();
   });
 
-  it("reaches the last stage in exactly eight moves", () => {
+  it("reaches the last stage in exactly nine moves", () => {
     let stage: Stage | null = "submitted";
     let moves = 0;
     while (nextStage(stage!) !== null) {
@@ -80,7 +94,7 @@ describe("nextStage", () => {
       moves += 1;
     }
     expect(stage).toBe("active");
-    expect(moves).toBe(8);
+    expect(moves).toBe(9);
   });
 });
 
@@ -94,12 +108,12 @@ describe("stageState", () => {
 
 describe("progress", () => {
   it("counts from one, not from zero", () => {
-    expect(stageProgressLabel("submitted")).toBe("Paso 1 de 9");
-    expect(stageProgressLabel("active")).toBe("Paso 9 de 9");
+    expect(stageProgressLabel("submitted")).toBe("Paso 1 de 10");
+    expect(stageProgressLabel("active")).toBe("Paso 10 de 10");
   });
 
   it("fills the bar only when the process is at the last stage", () => {
-    expect(stageProgress("submitted")).toBeCloseTo(1 / 9);
+    expect(stageProgress("submitted")).toBeCloseTo(1 / 10);
     expect(stageProgress("active")).toBe(1);
   });
 });

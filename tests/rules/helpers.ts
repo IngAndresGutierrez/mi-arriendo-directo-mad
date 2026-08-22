@@ -171,6 +171,16 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       createdAt: new Date(),
     });
 
+    // One document already uploaded by the tenant.
+    await db.doc(`tenantProfiles/${UID_TENANT}/documents/doc-1`).set({
+      kind: "id_front",
+      path: `applicants/${UID_TENANT}/id-front.jpg`,
+      name: "cedula.jpg",
+      contentType: "image/jpeg",
+      size: 120_000,
+      uploadedAt: new Date(),
+    });
+
     // A second one, for someone else: without it an unfiltered `list` would find only
     // documents the reader owns and the rule would look stricter than it is.
     await db.doc("notifications/notification-2").set({

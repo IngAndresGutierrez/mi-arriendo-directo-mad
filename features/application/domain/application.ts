@@ -1,8 +1,8 @@
 import type { LeaseTerm } from "@/features/property/client";
-import type { TenantDossier } from "@/features/tenant-profile/client";
+import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/client";
 
 /**
- * The nine stages a rental goes through, in order.
+ * The ten stages a rental goes through, in order.
  *
  * The landlord moves the process forward one stage at a time — there is no automatic
  * progression, because every one of these is a decision someone makes off the platform and then
@@ -15,6 +15,7 @@ import type { TenantDossier } from "@/features/tenant-profile/client";
 export const STAGES = [
   "submitted",
   "tenant_data",
+  "background_check",
   "document_review",
   "interview",
   "guarantee",
@@ -29,6 +30,7 @@ export type Stage = (typeof STAGES)[number];
 export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
   submitted: "Postulación recibida",
   tenant_data: "Datos y documentos del inquilino",
+  background_check: "Validación de expedientes",
   document_review: "Revisión de documentos",
   interview: "Entrevista con el propietario",
   guarantee: "Codeudor o póliza",
@@ -48,6 +50,8 @@ export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
 export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
   submitted: "El propietario ya tiene tu postulación y los datos que declaraste.",
   tenant_data: "Sube tu documento de identidad y el soporte de tus ingresos.",
+  background_check:
+    "Con tu autorización se revisan tus antecedentes judiciales, multas de tránsito y sanciones disciplinarias.",
   document_review: "El propietario está revisando lo que enviaste.",
   interview: "El propietario te contactará para conocerte, por llamada o en persona.",
   guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
@@ -61,6 +65,8 @@ export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
 export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
   submitted: "Revisa lo que declaró el inquilino y decide si sigues con él.",
   tenant_data: "Pídele su documento de identidad y el soporte de sus ingresos.",
+  background_check:
+    "Consulta sus antecedentes judiciales, de tránsito y disciplinarios, y marca el resultado.",
   document_review: "Revisa los documentos que te envió.",
   interview: "Contáctalo para conocerlo, por llamada o en persona.",
   guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
@@ -84,7 +90,7 @@ export function stageDescription(stage: Stage, isLandlord: boolean): string {
  * is how a process that happens over WhatsApp gets recorded here in the meantime.
  */
 export const UNBUILT_STAGES: readonly Stage[] = [
-  "tenant_data",
+  "background_check",
   "document_review",
   "interview",
   "guarantee",
@@ -142,6 +148,22 @@ export type ApplicationDoc = {
   readonly message: string;
   /** Why it was rejected, if the landlord wrote a reason. */
   readonly closingNote: string;
+  /**
+   * When the tenant authorised checking their records, ISO 8601, or `null`.
+   *
+   * Consulting someone's judicial, traffic and disciplinary record requires their express
+   * authorisation — Ley 1581 de 2012 — and the consent given at signup is not it: that one
+   * covers processing the data they handed over, not going to look for more. It is recorded per
+   * application because it is given to *this* landlord, for *this* process.
+   */
+  readonly checksAuthorizedAt: string | null;
+  /**
+   * What the landlord decided about each uploaded document, keyed by its id.
+   *
+   * Kept here and not on the document: a payslip approved by one landlord is not approved for
+   * the next, and a verdict written onto the tenant's own profile would follow them everywhere.
+   */
+  readonly documentReviews: DocumentReviews;
   readonly history: readonly StageEvent[];
   readonly createdAt: unknown;
   readonly updatedAt: unknown;

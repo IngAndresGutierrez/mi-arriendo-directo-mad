@@ -12,6 +12,7 @@ import {
   STAGES,
   STAGE_LABELS,
   type Application,
+  type Stage,
 } from "../domain/application";
 
 const STATE_BADGE = {
@@ -28,6 +29,12 @@ const STATE_BADGE = {
  * are not built. Those carry a note saying they happen off the platform for now — the landlord
  * still records them here, which is what keeps the two people looking at the same thing.
  */
+/** Where each stage's work happens, when it happens in the product at all. */
+const STAGE_ANCHORS: Partial<Record<Stage, string>> = {
+  tenant_data: "documentos",
+  background_check: "expedientes",
+};
+
 export function StageTimeline({
   application,
   isLandlord,
@@ -100,7 +107,23 @@ export function StageTimeline({
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium text-foreground">{STAGE_LABELS[stage]}</h3>
+                  {/*
+                    The stage being worked on is a link to where the work happens: reading "sube
+                    tus documentos" and then having to go looking for where is the kind of small
+                    cruelty that makes people write to support.
+                  */}
+                  <h3 className="font-medium text-foreground">
+                    {current && !stopped && STAGE_ANCHORS[stage] ? (
+                      <a
+                        href={`#${STAGE_ANCHORS[stage]}`}
+                        className="underline decoration-accent decoration-2 underline-offset-4 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+                      >
+                        {STAGE_LABELS[stage]}
+                      </a>
+                    ) : (
+                      STAGE_LABELS[stage]
+                    )}
+                  </h3>
                   <span
                     className={cn(
                       "rounded-full px-2 py-0.5 text-xs font-medium",

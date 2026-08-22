@@ -228,10 +228,32 @@ risk of leaving a field unconnected.
 
 ## The rental process (`features/application`)
 
-Nine stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
+Ten stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
 nothing advances by itself, because each of these is a decision someone makes off the platform
-and then records here. `submitted → tenant_data → document_review → interview → guarantee →
+and then records here. `submitted → tenant_data → background_check → document_review → interview → guarantee →
 approved → contract_signature → first_payment → active`.
+
+**`tenant_data` is built.** The tenant uploads the documents their occupation calls for and both
+sides see them previewed; the landlord approves or rejects each one, with a reason on a
+rejection. `background_check` is not, and cannot be: SIMIT, the RUNT and the Policía have no open
+API. What it does have is the **express authorisation** — Ley 1581 again — which the tenant gives
+per application, dated, plus links to the official portals. Nothing there claims a search was
+run.
+
+**The advance button is gated at `tenant_data`.** `documentsBlocker()` answers *why* in one of
+three ways — something missing, something rejected, something unreviewed — and the button says
+it: `aria-disabled` (so the tooltip stays reachable, unlike `disabled`, which drops out of the
+tab order and stops firing hover), the sentence in the page, and a **"Ver qué falta"** button
+that scrolls to the section and outlines it for three seconds. The blocked button itself does
+nothing on click: a control announced as unavailable that turns out to act is its own kind of
+lie, and Playwright refuses to click it for the same reason a screen reader would not offer it.
+
+Two details worth keeping: the identity document is accepted **either as one file with both
+faces or as two photos** — a scanner gives you the first, a phone the second, and demanding the
+second from someone holding the first is asking them to split a PDF. And the landlord's verdicts
+live **on the application**, never on the document: a payslip approved by one landlord is not
+approved for the next, and a verdict written onto the tenant's profile would follow them
+everywhere.
 
 **There is no deposit stage, and there must never be one.** Ley 820 de 2003 forbids cash
 deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
