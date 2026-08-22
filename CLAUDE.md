@@ -281,6 +281,14 @@ five fields. `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN` come from the Vercel int
 leave. Without a key nothing breaks: the email is logged and the action carries on, which is
 what lets the flow be exercised locally without mailing anyone.
 
+The links are absolute and built from **the request's own origin** (`shared/lib/site-url.ts`),
+so an email produced on localhost links to localhost and one produced in production links to
+production, without anyone remembering to set a variable — a preview links to itself. The `Host`
+header is written by the caller, so it is checked against the hosts this product answers on:
+without that, anyone reaching the server could have it email *its own users* a button pointing
+at a domain they chose, from the domain those users trust. `NEXT_PUBLIC_SITE_URL` overrides it
+all when something outside the request needs to decide, like a tunnel.
+
 It is sent inside **`after()`**, so the person who clicked is not waiting on three network calls
 for somebody else to find out. Only a **429** is retried: it is the one response that refused the
 request without sending anything, so repeating it cannot duplicate an email — which is also why

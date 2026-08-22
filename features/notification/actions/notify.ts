@@ -3,18 +3,32 @@ import "server-only";
 // Not `"use server"`: this is called *by* Server Actions, not from a form. Making it one would
 // publish an endpoint that lets anyone send anyone an email.
 import { FieldValue } from "firebase-admin/firestore";
+import { headers } from "next/headers";
 import { after } from "next/server";
 
 import { adminDb } from "@/shared/firebase/admin";
+import { resolveSiteUrl } from "@/shared/lib/site-url";
 
 import { renderNotificationEmail } from "../domain/email";
 import { sendEmail } from "./send-email";
 import type { NotificationType } from "../domain/notification";
 import type { Stage } from "@/features/application/client";
 
-/** Where the links in an email point. Absolute: an inbox has no origin of its own. */
-function baseUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL ?? "https://www.miarriendodirecto.com";
+/**
+ * Where the links in an email point.
+ *
+ * Taken from the request, so an email produced while testing on localhost links to localhost
+ * and one produced in production links to production — without anybody remembering to set a
+ * variable. `resolveSiteUrl` is what decides which hosts are believed.
+ */
+async function baseUrl(): Promise<string> {
+  const requestHeaders = await headers();
+
+  return resolveSiteUrl({
+    host: requestHeaders.get("host"),
+    proto: requestHeaders.get("x-forwarded-proto"),
+    configured: process.env.NEXT_PUBLIC_SITE_URL,
+  });
 }
 
 export type NotifyInput = {
@@ -62,6 +76,8 @@ export async function notify(input: NotifyInput): Promise<void> {
   // A profile with no email address sends nothing, and says nothing about it.
   if (!input.recipientEmail) return;
 
-  const email = renderNotificationEmail(input, input.recipientEmail, baseUrl());
+  // Read here, not inside `after()`: the request's headers belong to the request, and by the
+  // time the callback runs there is no longer one to read them from.
+  const email = renderNotificationEmail(input, input.recipientEmail, await baseUrl());
   after(() => sendEmail(email));
 }

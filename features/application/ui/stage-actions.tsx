@@ -59,7 +59,13 @@ export function StageActions({
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      {/*
+        The reject button sits at the far end of the row, not beside the primary one: they are
+        opposite decisions, and putting them shoulder to shoulder is how somebody ends a process
+        with a misplaced click. Same size, though — pushing it away is enough, making it small
+        as well would be pretending it is a lesser option than it is.
+      */}
+      <div className="flex flex-wrap items-center gap-2">
         {isLandlord && canAdvance(application) && target ? (
           <Button
             type="button"
@@ -77,9 +83,10 @@ export function StageActions({
           <Button
             type="button"
             variant="destructive"
-            size="lg"
+            size="xl"
             disabled={pending}
             onClick={() => setConfirming(isLandlord ? "reject" : "withdraw")}
+            className="sm:ml-auto"
           >
             <XIcon aria-hidden="true" />
             {isLandlord ? "Rechazar postulación" : "Retirar mi postulación"}
