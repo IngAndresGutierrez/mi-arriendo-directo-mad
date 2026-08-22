@@ -1,5 +1,6 @@
 import { CheckIcon, ClockIcon, LockIcon } from "lucide-react";
 
+import { stageAnchor } from "@/features/notification/client";
 import { cn } from "@/shared/lib/utils";
 
 import {
@@ -68,7 +69,8 @@ export function StageTimeline({
           const current = state === "current";
 
           return (
-            <li key={stage} className="flex gap-3">
+            // The anchor a notification links to: `#etapa-<stage>` lands here, not at the top.
+            <li key={stage} id={stageAnchor(stage)} className="flex scroll-mt-20 gap-3">
               <div className="flex flex-col items-center">
                 <span
                   aria-hidden="true"

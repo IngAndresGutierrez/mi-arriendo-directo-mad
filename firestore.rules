@@ -229,6 +229,39 @@ service cloud.firestore {
       }
     }
 
+    // ----------------------------- notifications ----------------------------
+    // What the bell shows. Each one belongs to exactly one person.
+    //
+    // Written only by the server, and marked read only by the server too: `readAt` is the one
+    // field a client could plausibly own, and letting it write would mean letting it write to a
+    // document it does not otherwise touch. The Server Action scopes the update to the caller's
+    // own uid, which no rule here could check as precisely.
+    match /notifications/{notificationId} {
+      allow get:  if isSignedIn() && current().recipientUid == uid();
+      /*
+       * Bounded, and only over one's own. A `list` is evaluated per candidate document, so
+       * `recipientUid == uid()` is what forces the query to be filtered: an unfiltered sweep
+       * hits somebody else's notification and the whole read is denied.
+       *
+       * There is no way to inspect a query's filters from here — `request.query` carries only
+       * `limit`, `offset` and `orderBy` — and a rule written as if there were is a rule that
+       * denies everything.
+       */
+      allow list: if isSignedIn()
+                  && request.query.limit <= 50
+                  && current().recipientUid == uid();
+      allow create, update, delete: if false;   // Server Actions only
+    }
+
+    // -------------------------------- mail ----------------------------------
+    // The outbox the Firebase "Trigger Email from Firestore" extension delivers from. Every
+    // document here is an email addressed to somebody, with its full body: reading the
+    // collection would be reading other people's mail, and writing to it would be sending mail
+    // as us. Both are denied outright — the server writes through the Admin SDK.
+    match /mail/{mailId} {
+      allow read, write: if false;
+    }
+
     // ---------------------------- tenantProfiles ----------------------------
     // The tenant's rental dossier: identity document, income, personal reference. The most
     // sensitive document in the product.

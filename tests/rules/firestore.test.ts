@@ -30,6 +30,8 @@ import {
   CONTRACT_ID,
   PROPERTY_ID,
   APPLICATION_ID,
+  MAIL_ID,
+  NOTIFICATION_ID,
   seed,
   UID_ADMIN,
   UID_TENANT,
@@ -394,5 +396,82 @@ describe("default closure", () => {
     const db = actingAs(env, UID_ADMIN, "admin");
     await assertFails(getDoc(doc(db, "made_up_collection/x")));
     await assertFails(setDoc(doc(db, "made_up_collection/x"), { a: 1 }));
+  });
+});
+
+describe("notifications", () => {
+  it("each person reads their own", async () => {
+    await assertSucceeds(
+      getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `notifications/${NOTIFICATION_ID}`)),
+    );
+  });
+
+  it("nobody reads someone else's", async () => {
+    await assertFails(
+      getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `notifications/${NOTIFICATION_ID}`)),
+    );
+    await assertFails(getDoc(doc(anonymous(env), `notifications/${NOTIFICATION_ID}`)));
+  });
+
+  // An unfiltered `list` would be everyone's notifications; the query has to prove whose it is.
+  it("an unfiltered or unbounded list is denied", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertFails(getDocs(collection(db, "notifications")));
+    await assertFails(
+      getDocs(query(collection(db, "notifications"), where("recipientUid", "==", UID_TENANT))),
+    );
+    await assertFails(
+      getDocs(query(collection(db, "notifications"), where("recipientUid", "==", UID_TENANT), limit(500))),
+    );
+  });
+
+  it("a bounded list of one's own is allowed", async () => {
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(actingAs(env, UID_TENANT, "tenant"), "notifications"),
+          where("recipientUid", "==", UID_TENANT),
+          limit(20),
+        ),
+      ),
+    );
+  });
+
+  /*
+   * `readAt` is the one field a client could plausibly own, and it still cannot write it: the
+   * Server Action scopes the update to the caller's own uid, which no rule here could check as
+   * precisely.
+   */
+  it("marking as read is the server's job, not the client's", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertFails(updateDoc(doc(db, `notifications/${NOTIFICATION_ID}`), { readAt: new Date() }));
+    await assertFails(deleteDoc(doc(db, `notifications/${NOTIFICATION_ID}`)));
+    await assertFails(
+      addDoc(collection(db, "notifications"), { recipientUid: UID_TENANT, type: "application_received" }),
+    );
+  });
+});
+
+describe("mail", () => {
+  /*
+   * The outbox the Firebase "Trigger Email from Firestore" extension delivers from. Every
+   * document is an email addressed to somebody, with its full body: reading the collection is
+   * reading other people's mail, and writing to it is sending mail as us.
+   */
+  it("nobody reads the outbox, not even the person the email is for", async () => {
+    await assertFails(getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `mail/${MAIL_ID}`)));
+    await assertFails(getDoc(doc(actingAs(env, UID_ADMIN, "admin"), `mail/${MAIL_ID}`)));
+    await assertFails(getDocs(collection(actingAs(env, UID_TENANT, "tenant"), "mail")));
+  });
+
+  it("nobody sends mail from the client", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertFails(
+      addDoc(collection(db, "mail"), {
+        to: ["victima@example.com"],
+        message: { subject: "Suplantación", text: "…", html: "<p>…</p>" },
+      }),
+    );
+    await assertFails(updateDoc(doc(db, `mail/${MAIL_ID}`), { to: ["otro@example.com"] }));
   });
 });

@@ -17,7 +17,6 @@ import {
 import { getTenantProfile } from "@/features/tenant-profile";
 import { applicationRoute, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
-import { AppShell } from "@/shared/shell/app-shell";
 
 export const metadata: Metadata = {
   title: "Postularme",
@@ -43,35 +42,33 @@ export default async function ApplyPage(props: PageProps<"/postularme/[slug]">) 
   const profile = await getTenantProfile(user.uid);
 
   return (
-    <AppShell>
-      <div className="mx-auto w-full max-w-2xl">
-        <Link
-          href={propertyDetailRoute(property.slug)}
-          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeftIcon className="size-4" aria-hidden="true" />
-          Volver al inmueble
-        </Link>
+    <div className="mx-auto w-full max-w-2xl">
+      <Link
+        href={propertyDetailRoute(property.slug)}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+      >
+        <ArrowLeftIcon className="size-4" aria-hidden="true" />
+        Volver al inmueble
+      </Link>
 
-        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance text-primary dark:text-foreground">
-          Postúlate a {property.title}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {publicLocationLabel(property.area)} · {formatCOP(propertyMonthlyCost(property))} al mes
-        </p>
+      <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance text-primary dark:text-foreground">
+        Postúlate a {property.title}
+      </h1>
+      <p className="mt-1 text-sm text-muted-foreground">
+        {publicLocationLabel(property.area)} · {formatCOP(propertyMonthlyCost(property))} al mes
+      </p>
 
-        <p className="mt-6 mb-8 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
-          {profile
-            ? "Tus datos ya están aquí, de tu perfil de inquilino. Revísalos y cambia lo que haga falta antes de enviar."
-            : "Llénalo una sola vez: estos datos quedan en tu perfil de inquilino y la próxima postulación empieza contestada."}
-        </p>
+      <p className="mt-6 mb-8 rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+        {profile
+          ? "Tus datos ya están aquí, de tu perfil de inquilino. Revísalos y cambia lo que haga falta antes de enviar."
+          : "Llénalo una sola vez: estos datos quedan en tu perfil de inquilino y la próxima postulación empieza contestada."}
+      </p>
 
-        <ApplicationForm
-          slug={property.slug}
-          profile={profile}
-          minLeaseMonths={property.minLeaseMonths}
-        />
-      </div>
-    </AppShell>
+      <ApplicationForm
+        slug={property.slug}
+        profile={profile}
+        minLeaseMonths={property.minLeaseMonths}
+      />
+    </div>
   );
 }

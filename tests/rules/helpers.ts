@@ -22,6 +22,8 @@ export const UID_ADMIN = "uid-admin";
 export const PROPERTY_ID = "property-1";
 export const APPLICATION_ID = "application-1";
 export const CONTRACT_ID = "contract-1";
+export const NOTIFICATION_ID = "notification-1";
+export const MAIL_ID = "mail-1";
 
 export async function createTestEnvironment(): Promise<RulesTestEnvironment> {
   return initializeTestEnvironment({
@@ -156,6 +158,36 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
         relationship: "Jefe directo",
       },
       updatedAt: new Date(),
+    });
+
+    // One notification for the tenant, and one email sitting in the extension's outbox.
+    await db.doc(`notifications/${NOTIFICATION_ID}`).set({
+      recipientUid: UID_TENANT,
+      type: "application_received",
+      applicationId: APPLICATION_ID,
+      stage: "submitted",
+      propertyTitle: "Apartamento en Chapinero",
+      actorName: "Ana Uno Pérez",
+      readAt: null,
+      createdAt: new Date(),
+    });
+
+    // A second one, for someone else: without it an unfiltered `list` would find only
+    // documents the reader owns and the rule would look stricter than it is.
+    await db.doc("notifications/notification-2").set({
+      recipientUid: UID_LANDLORD,
+      type: "application_withdrawn",
+      applicationId: APPLICATION_ID,
+      stage: "submitted",
+      propertyTitle: "Apartamento en Chapinero",
+      actorName: "Ana Uno Pérez",
+      readAt: null,
+      createdAt: new Date(),
+    });
+
+    await db.doc(`mail/${MAIL_ID}`).set({
+      to: ["tenant@example.com"],
+      message: { subject: "Nueva postulación", text: "…", html: "<p>…</p>" },
     });
 
     await db.doc(`contracts/${CONTRACT_ID}`).set({

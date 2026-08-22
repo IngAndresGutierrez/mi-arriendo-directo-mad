@@ -19,19 +19,24 @@ import { AppNav } from "./app-nav";
  * The drawer is what a phone needs — 250px of permanent menu would leave nothing for the
  * property form — and exactly what a wide screen does not.
  */
-export function AppDrawer() {
+export function AppDrawer({ bell }: { readonly bell?: React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
   return (
     <Sheet open={open} onOpenChange={setOpen}>
-      <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80 sm:px-6 lg:hidden">
+      {/*
+        The bar exists at every width now, because the bell has to live somewhere and the
+        sidebar is not it: from `lg` the menu is already on screen and this is a strip with the
+        notifications in it. Below `lg` it also carries the hamburger and the logo.
+      */}
+      <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80 sm:px-6">
         <SheetTrigger asChild>
-          <Button type="button" variant="ghost" size="icon" aria-label="Abrir menú">
+          <Button type="button" variant="ghost" size="icon" aria-label="Abrir menú" className="lg:hidden">
             <MenuIcon className="size-5" aria-hidden="true" />
           </Button>
         </SheetTrigger>
 
-        <Link href={HOME_ROUTE} aria-label="Ir al inicio" className="flex items-center">
+        <Link href={HOME_ROUTE} aria-label="Ir al inicio" className="flex items-center lg:hidden">
           <Logo width={150} preload className="hidden sm:block" />
           {/* On a phone the wordmark would eat the bar; the icon mark carries the brand. */}
           <Image
@@ -44,6 +49,8 @@ export function AppDrawer() {
             className="h-auto w-8 sm:hidden"
           />
         </Link>
+
+        <div className="ml-auto">{bell}</div>
       </header>
 
       <SheetContent

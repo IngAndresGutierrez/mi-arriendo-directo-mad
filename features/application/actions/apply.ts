@@ -4,6 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
+import { notify } from "@/features/notification";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
 import { getVisiblePropertyBySlug, propertyMonthlyCost } from "@/features/property";
 import {
@@ -116,6 +117,18 @@ export async function applyToProperty(slug: string, formData: FormData): Promise
   // Best effort: the application is already in, and failing to remember the dossier must not
   // undo it. The tenant would only have to type it again next time.
   await saveTenantProfile(formData).catch(() => undefined);
+
+  // The landlord is the one who has something to do now.
+  const landlord = await getProfile(property.landlordUid);
+  await notify({
+    recipientUid: property.landlordUid,
+    recipientEmail: landlord?.email ?? null,
+    type: "application_received",
+    applicationId: reference.id,
+    stage: "submitted",
+    propertyTitle: property.title,
+    actorName: profile?.fullName ?? "",
+  });
 
   revalidatePath(CONTRACT_ROUTE);
   revalidatePath(propertyDetailRoute(property.slug));

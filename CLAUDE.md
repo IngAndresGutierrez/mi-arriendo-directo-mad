@@ -37,7 +37,7 @@ Keys are English, labels are Spanish — `GENDER_LABELS` and `STATUS_LABEL` are 
 `{ female: "Femenino" }`, `{ active: "Vigente" }`.
 
 Domain glossary (the deployed names): `users`, `properties`, `applications`, `tenantProfiles`,
-`contracts`, `payments`; `role` with values `tenant` / `landlord` / `admin`; `rent` for the monthly amount,
+`contracts`, `payments`, `notifications`, `mail`; `role` with values `tenant` / `landlord` / `admin`; `rent` for the monthly amount,
 `status` for state. `scripts/migrate-i18n-domain.mjs` records the rename from the Spanish
 names this project started with.
 
@@ -241,6 +241,38 @@ says out loud that those happen off the platform for now.
   starts filled in, and as a **snapshot inside the application**, so the landlord sees what was
   declared to them and a later edit cannot rewrite it. `tenantProfiles` is readable by its owner
   alone — not by a landlord with an open application — and is never listable.
+
+## Notifications and email (`features/notification`)
+
+Every movement of a process tells the person who did **not** cause it, twice: the bell in the
+top bar, and an email. Both use the same copy, derived from the notification's `type` rather
+than stored with it, so fixing a confusing sentence fixes the ones already sent.
+
+The email carries what the bell cannot: an **absolute link straight to the stage**,
+`/contrato/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
+the step it is about instead of at the top of a page with nine of them.
+
+**Email is not sent from this codebase.** `notify()` writes a document to the `mail` collection
+and the Firebase **"Trigger Email from Firestore"** extension delivers it. No SMTP credential
+ever reaches the app, retries are the extension's problem, and changing provider is a change to
+its configuration. The `mail` collection is `read, write: if false`: reading it would be reading
+other people's mail, writing to it would be sending mail as us.
+
+- **`notify()` never throws.** It runs after the work that matters is already written, and a
+  failed notification must not undo an application or show an error about work that succeeded.
+- **`listNotifications()` never throws either.** It is read by the layout that wraps every
+  screen behind a session — the first version took the whole product down when its composite
+  index was still building.
+- `notifications` are readable only by their recipient, and a `list` is denied unless it is
+  bounded *and* filtered: rules evaluate `list` per candidate document, and `request.query`
+  exposes only `limit`, `offset` and `orderBy` — there is no way to inspect a query's filters.
+- Marking as read is a Server Action scoped to the session's uid. `readAt` is the one field a
+  client could plausibly own, and it still does not.
+
+**What the extension needs, and this repo cannot do for you:** installing it
+(`firebase ext:install firebase/firestore-send-email`), pointing it at the `mail` collection,
+and giving it an SMTP connection plus a verified sender domain. Until that exists the documents
+pile up in `mail` and nothing is delivered.
 
 ## Client-safe module entries
 

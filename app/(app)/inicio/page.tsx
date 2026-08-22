@@ -3,7 +3,6 @@ import Link from "next/link";
 import { HouseIcon, SparklesIcon } from "lucide-react";
 
 import { PROPERTIES_ROUTE } from "@/shared/auth/routes";
-import { AppShell } from "@/shared/shell/app-shell";
 import { SupportCard } from "@/shared/shell/support-card";
 
 import { ContractsCard, getUserContracts } from "@/features/contract";
@@ -30,7 +29,7 @@ export default async function HomePage() {
   const name = profile ? firstName(profile.fullName) : "";
 
   return (
-    <AppShell>
+    <>
       <p className="text-sm text-muted-foreground">{greeting}</p>
       <h1 className="mt-1 text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
         Bienvenido de nuevo{name ? `, ${name}` : ""} <span aria-hidden="true">👋</span>
@@ -73,6 +72,6 @@ export default async function HomePage() {
           </section>
         </aside>
       </div>
-    </AppShell>
+    </>
   );
 }

@@ -3,12 +3,28 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 
-import { requireCompleteProfile } from "@/features/profile";
+import { notify, type NotificationType } from "@/features/notification";
+import { getProfile, requireCompleteProfile } from "@/features/profile";
 import { applicationRoute, CONTRACT_ROUTE } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
 
 import { getApplicationFor } from "../data/application";
 import { canAdvance, canClose, nextStage, type Stage } from "../domain/application";
+
+/**
+ * Which notification a stage deserves.
+ *
+ * Most advances are a status line, but two of them are a task: landing on `tenant_data` is
+ * "sube tus documentos", and landing on `approved` is the answer the tenant has been waiting
+ * for. Telling them apart is the difference between a notification that gets acted on and one
+ * that gets ignored along with the rest.
+ */
+function typeForStage(stage: Stage): NotificationType {
+  if (stage === "tenant_data") return "documents_requested";
+  if (stage === "approved") return "application_approved";
+
+  return "stage_advanced";
+}
 
 export type StageResult =
   | { readonly ok: true; readonly stage: Stage }
@@ -48,6 +64,19 @@ export async function advanceApplication(id: string): Promise<StageResult> {
       history: FieldValue.arrayUnion({ stage: target, at: new Date(), by: "landlord" }),
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+  const [landlord] = await Promise.all([getProfile(user.uid)]);
+  const tenant = await getProfile(application.tenantUid);
+
+  await notify({
+    recipientUid: application.tenantUid,
+    recipientEmail: tenant?.email ?? null,
+    type: typeForStage(target),
+    applicationId: id,
+    stage: target,
+    propertyTitle: application.propertyTitle,
+    actorName: landlord?.fullName ?? "",
+  });
 
   revalidatePath(applicationRoute(id));
   revalidatePath(CONTRACT_ROUTE);
@@ -103,6 +132,21 @@ async function close(
       }),
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+  // Whoever did not do it is the one who needs to be told.
+  const actor = await getProfile(user.uid);
+  const recipientUid = status === "rejected" ? application.tenantUid : application.landlordUid;
+  const recipient = await getProfile(recipientUid);
+
+  await notify({
+    recipientUid,
+    recipientEmail: recipient?.email ?? null,
+    type: status === "rejected" ? "application_rejected" : "application_withdrawn",
+    applicationId: id,
+    stage: application.stage,
+    propertyTitle: application.propertyTitle,
+    actorName: actor?.fullName ?? "",
+  });
 
   revalidatePath(applicationRoute(id));
   revalidatePath(CONTRACT_ROUTE);
