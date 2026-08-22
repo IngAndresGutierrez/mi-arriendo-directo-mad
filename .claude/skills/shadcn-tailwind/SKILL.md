@@ -150,6 +150,17 @@ pnpm dlx shadcn@latest add input dialog table badge select sidebar
 Do not run `init` again (it overwrites `components.json` and `app/globals.css`, and with them
 the MAD UI tokens). To add components, always use `add`.
 
+⚠️ **Never pass `--overwrite` to `add`.** The flag does not only apply to the component you
+asked for: `add` reinstalls that component's dependencies too, from the registry, losing every
+local edit. Installing `dialog` this way rewrote `shared/ui/button.tsx` and dropped the `accent`
+variant and the `xl` size — the cyan CTA that every form in the product submits with, so the
+damage would have shipped as buttons silently falling back to the default variant.
+
+The habit that catches it: after any `shadcn add`, read `git diff --stat` and question any file
+you did not expect to see. Recovering is `git checkout shared/ui/<file>.tsx`, and it only works
+while the tree is clean enough to tell what changed — one more reason to add components in their
+own commit rather than in the middle of a feature.
+
 Conventions:
 - Location: `shared/ui/*` (generated primitives), `shared/form/*` (pre-wired fields),
   `shared/shell/*` (app chrome), and each domain's components in `features/<domain>/ui/*`. Never

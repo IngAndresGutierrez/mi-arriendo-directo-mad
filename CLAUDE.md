@@ -56,7 +56,11 @@ names this project started with.
   httpOnly `session` cookie.
 - `firestore.rules` / `storage.rules` / `firestore.indexes.json` / `firebase.json`.
 - `app/globals.css` — MAD UI tokens (light + dark, sidebar, charts, domain states).
-- `components.json` — shadcn `radix-nova`. Use `shadcn add`, **never** `shadcn init` again.
+- `components.json` — shadcn `radix-nova`. Use `shadcn add`, **never** `shadcn init` again, and
+  **never pass `--overwrite`**: `add` also rewrites the component's dependencies. Installing the
+  dialog with it rewrote `shared/ui/button.tsx` and silently dropped the `accent` variant and the
+  `xl` size — the brand CTA every form submits with. After any `shadcn add`, read `git diff` and
+  look for files you did not expect; recover one with `git checkout shared/ui/<file>.tsx`.
 - `.env.example` — template; copy to `.env.local` (already created with the public keys).
 - `shared/firebase/public-config.ts` — the Firebase **web** config, hardcoded. Public by
   design: Next inlines every `NEXT_PUBLIC_*` into the browser bundle, so these values ship to
