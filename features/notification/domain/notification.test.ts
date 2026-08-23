@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { renderNotificationEmail } from "./email";
 import {
+  isLeaseNotification,
   notificationCopy,
   notificationPath,
   relativeTime,
@@ -141,9 +142,9 @@ describe("notificationCopy", () => {
 describe("notificationPath", () => {
   // The point of the anchor: land on the step, not on a page with nine of them.
   it("points at the stage inside the process", () => {
-    expect(notificationPath({ applicationId: "abc", stage: "contract_signature" })).toBe(
-      "/arriendos/abc#etapa-contract-signature",
-    );
+    expect(
+      notificationPath({ applicationId: "abc", stage: "contract_signature", type: "contract_ready" }),
+    ).toBe("/contratos/abc#etapa-contract-signature");
   });
 
   it("builds an anchor a URL can carry for every stage", () => {
@@ -151,13 +152,85 @@ describe("notificationPath", () => {
     expect(stageAnchor("active")).toBe("etapa-active");
     expect(stageAnchor("first_payment")).not.toContain("_");
   });
+
+  /*
+   * Las dos mitades de la misma historia bajo la misma llave: el id de un arriendo *es* el de su
+   * postulación, así que lo único que cambia es qué página lo muestra.
+   */
+  it("points at the tenancy, at the month, when that is what it is about", () => {
+    expect(
+      notificationPath({
+        applicationId: "abc",
+        stage: "active",
+        type: "canon_receipt_uploaded",
+        period: "2026-09",
+      }),
+    ).toBe("/arriendos/abc#mes-2026-09");
+  });
+
+  it("points at the tenancy with no anchor when no month is named", () => {
+    expect(notificationPath({ applicationId: "abc", stage: "active", type: "lease_started" })).toBe(
+      "/arriendos/abc",
+    );
+  });
+
+  it("knows which types belong to the tenancy and which to the process", () => {
+    expect(isLeaseNotification("canon_paid")).toBe(true);
+    expect(isLeaseNotification("lease_started")).toBe(true);
+    expect(isLeaseNotification("canon_confirmed")).toBe(false);
+    expect(isLeaseNotification("stage_advanced")).toBe(false);
+  });
+});
+
+describe("the tenancy's notifications", () => {
+  const base = {
+    stage: "active",
+    propertyTitle: "Apartamento en Chapinero",
+    actorName: "Ana Uno Pérez",
+  } as const;
+
+  it("names the month it is about", () => {
+    expect(
+      notificationCopy({ ...base, type: "canon_receipt_uploaded", period: "2026-09" }).body,
+    ).toContain("septiembre de 2026");
+    expect(notificationCopy({ ...base, type: "canon_paid", period: "2026-10" }).body).toContain(
+      "octubre de 2026",
+    );
+  });
+
+  it("still reads as a sentence with no month", () => {
+    const body = notificationCopy({ ...base, type: "canon_receipt_uploaded" }).body;
+    expect(body).toContain("Apartamento en Chapinero");
+    expect(body).not.toContain("undefined");
+  });
+
+  /*
+   * Los datos de la cuenta no salen en la notificación, por lo mismo que en el primer canon: un
+   * correo con el número de cuenta de alguien es la forma de toda estafa de pagos que existe.
+   */
+  it("says the payout changed without carrying the payout", () => {
+    const body = notificationCopy({ ...base, type: "canon_payout_changed" }).body;
+    expect(body).toContain("cambió por dónde recibe");
+    expect(body).toMatch(/en el arriendo/);
+  });
+
+  it("carries the reason on a rejection: it is the only thing that says what to fix", () => {
+    const body = notificationCopy({
+      ...base,
+      type: "canon_receipt_rejected",
+      period: "2026-09",
+      detail: "Llegaron $200.000 de menos.",
+    }).body;
+    expect(body).toContain("Llegaron $200.000 de menos.");
+    expect(body).not.toContain("..");
+  });
 });
 
 describe("renderNotificationEmail", () => {
   const email = renderNotificationEmail(base, "duena@example.com", "https://www.miarriendodirecto.com");
 
   it("carries an absolute link straight to the stage", () => {
-    const link = "https://www.miarriendodirecto.com/arriendos/app-1#etapa-submitted";
+    const link = "https://www.miarriendodirecto.com/contratos/app-1#etapa-submitted";
     expect(email.html).toContain(link);
     expect(email.text).toContain(link);
   });

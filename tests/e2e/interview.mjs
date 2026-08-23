@@ -3,7 +3,7 @@
  * confirma, el propietario escribe la conclusión y solo entonces el proceso avanza.
  */
 import { chromium } from "playwright";
-import { BASE, MONTHS, config, fixtures, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fixtures, MONTHS, ok, settled } from "./lib.mjs";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 const requireDelProyecto = createRequire("/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/package.json");
@@ -26,8 +26,7 @@ const problemas = [];
 const b = await chromium.launch();
 
 async function cuenta(email) {
-  await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-    { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+  await createAccount(API_KEY, email);
 }
 async function entrar(email, nombre) {
   const p = await (await b.newContext({ viewport: { width: 1100, height: 1000 } })).newPage();
@@ -101,7 +100,7 @@ await inq.getByLabel("Qué relación tienen").fill("Jefe directo");
 await inq.getByLabel("Teléfono de tu referencia").fill("3009876543");
 await inq.getByLabel("Cuándo te mudarías").fill(new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10));
 await inq.getByRole("button", { name: /Enviar postulación/i }).click();
-await inq.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 40000 });
+await inq.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 40000 });
 await settled(inq);
 const proceso = inq.url();
 ok("proceso creado", new URL(proceso).pathname);
@@ -232,16 +231,16 @@ await inq.goto(BASE + "/inicio", { waitUntil: "domcontentloaded" });
 await settled(inq);
 const inicio = await inq.evaluate(() => document.body.innerText);
 if (inicio.includes("Todavía no tienes")) throw new Error("Inicio dice que no hay nada teniendo un proceso abierto");
-if (!inicio.includes("Tus arriendos en curso")) throw new Error("Inicio no lista los arriendos");
+if (!inicio.includes("Tus contratos en curso")) throw new Error("Inicio no lista los contratos");
 if (!inicio.includes(`Apartamento con balcón en Palermo ${STAMP}`)) throw new Error("no nombra el inmueble");
 if (!inicio.includes("Paso 5 de 9")) throw new Error("no dice en qué etapa va: " + inicio.slice(0, 400));
 ok("Inicio muestra el arriendo en curso con su etapa");
 {
-  const caja = await inq.locator("section").filter({ hasText: "Tus arriendos en curso" }).first().boundingBox().catch(() => null);
+  const caja = await inq.locator("section").filter({ hasText: "Tus contratos en curso" }).first().boundingBox().catch(() => null);
   if (caja) await inq.screenshot({ path: `${SHOT_DIR}/inicio-arriendos.png`, clip: caja });
 }
 await inq.getByRole("link", { name: /Apartamento con balcón en Palermo/ }).first().click();
-await inq.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 20000 });
+await inq.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 20000 });
 await settled(inq);
 ok("y desde ahí se entra al proceso");
 

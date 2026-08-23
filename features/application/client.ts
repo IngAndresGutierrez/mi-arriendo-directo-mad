@@ -71,3 +71,37 @@ export {
   GUARANTEE_STATE_LABELS,
   type Guarantee,
 } from "./domain/guarantee";
+/*
+ * El pago del canon: hacia dónde va, el comprobante y el veredicto.
+ *
+ * Está aquí y no solo en `index.ts` porque **el arriendo lo reutiliza tal cual**: el primer canon
+ * *es* el primer mes de la tenencia, y la cuenta que el propietario declaró en esta etapa es la
+ * misma a la que llegan los once siguientes. Una segunda copia de `PaymentReceipt` serían dos
+ * cosas que pueden separarse, y la primera en hacerlo sería el campo contra el que el propietario
+ * confirma.
+ */
+export {
+  payoutShape,
+  payoutSummary,
+  receiptFileProblem,
+  ACCOUNT_TYPE_LABELS,
+  ACCOUNT_TYPES,
+  PAYOUT_METHODS,
+  PAYOUT_METHOD_LABELS,
+  RECEIPT_CONTENT_TYPES,
+  RECEIPT_MAX_BYTES,
+  type AccountType,
+  type PaymentReceipt,
+  type Payout,
+  type PayoutMethod,
+  type ReceiptVerdict,
+} from "./domain/payout";
+/*
+ * El esquema del pago, una sola vez.
+ *
+ * Es Zod puro — no toca el servidor ni la red — y **una segunda copia serían noventa líneas que
+ * pueden separarse**: el día que un banco cambie el formato de su número de cuenta, la copia que
+ * nadie recuerde arreglar es la que rechaza una cuenta que funciona. La unión discriminada vive
+ * donde la escribió la etapa del primer canon y el arriendo la reutiliza tal cual.
+ */
+export { payoutSchema, type PayoutInput } from "./validations/payout";

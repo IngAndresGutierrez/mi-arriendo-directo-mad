@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRightIcon, FileTextIcon } from "lucide-react";
 
-import { applicationRoute, PROPERTIES_ROUTE, RENTALS_ROUTE } from "@/shared/auth/routes";
+import { applicationRoute, PROPERTIES_ROUTE, CONTRACTS_ROUTE } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 
 import {
@@ -42,7 +42,7 @@ export function RentalsCard({
             <FileTextIcon className="size-5" />
           </span>
           <div>
-            <h2 className="font-semibold text-foreground">Todavía no tienes arriendos en curso</h2>
+            <h2 className="font-semibold text-foreground">Todavía no tienes contratos en curso</h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
               Postúlate a un inmueble o espera a que alguien se postule a los tuyos: el proceso
               aparecerá aquí, etapa por etapa.
@@ -63,10 +63,10 @@ export function RentalsCard({
   return (
     <section className="rounded-2xl border border-border bg-card p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="font-semibold text-foreground">Tus arriendos en curso</h2>
+        <h2 className="font-semibold text-foreground">Tus contratos en curso</h2>
         {applications.length > SHOWN && (
           <Link
-            href={RENTALS_ROUTE}
+            href={CONTRACTS_ROUTE}
             className="text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             Ver los {applications.length}

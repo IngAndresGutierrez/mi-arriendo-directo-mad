@@ -4,6 +4,7 @@
 // cannot cross the Server → Client boundary.
 import {
   BuildingIcon,
+  CalendarClockIcon,
   CreditCardIcon,
   FileTextIcon,
   HouseIcon,
@@ -13,10 +14,11 @@ import {
 } from "lucide-react";
 
 import {
-  RENTALS_ROUTE,
+  CONTRACTS_ROUTE,
   HOME_ROUTE,
   MY_PROPERTIES_ROUTE,
   PUBLISH_PROPERTY_ROUTE,
+  RENTALS_ROUTE,
   SUPPORT_ROUTE,
   TENANT_PROFILE_ROUTE,
 } from "@/shared/auth/routes";
@@ -41,7 +43,13 @@ const NAV: readonly NavEntry[] = [
     href: MY_PROPERTIES_ROUTE,
     activeOn: [PUBLISH_PROPERTY_ROUTE],
   },
-  { label: "Arriendos", icon: FileTextIcon, href: RENTALS_ROUTE },
+  { label: "Contratos", icon: FileTextIcon, href: CONTRACTS_ROUTE },
+  /*
+   * The other half of the product: the tenancy that runs after the contract is signed. It was
+   * disabled here rather than absent for exactly this reason — a menu that stopped at "Contratos"
+   * said the year that follows a signature did not exist.
+   */
+  { label: "Arriendos", icon: CalendarClockIcon, href: RENTALS_ROUTE },
   {
     label: "Perfil de inquilino",
     // Two words fit under an icon in the narrow rail; three do not.

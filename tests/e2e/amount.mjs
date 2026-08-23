@@ -1,17 +1,16 @@
 import { chromium } from "playwright";
-import { MONTHS, config, fillBirthdate, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fillBirthdate, MONTHS, ok, settled } from "./lib.mjs";
 import { join } from "node:path";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const SHOT = join(SHOT_DIR, "amount.png");
 
 const email = `amount-${STAMP}@miarriendodirecto.test`;
-const su = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+const su = await createAccount(API_KEY, email);
 console.log("UID=" + su.localId);
 const b = await chromium.launch();
 const p = await b.newPage({ viewport: { width: 1280, height: 1000 } });
 
-await p.goto("http://localhost:3000/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.getByLabel("Correo electrónico").fill(email);
 await p.getByLabel("Contraseña").fill("ClaveDePrueba1");
@@ -27,7 +26,7 @@ await p.getByRole("checkbox").click();
 await p.getByRole("button", { name: /Guardar|Continuar/i }).click();
 await p.waitForURL(/\/inicio/, { timeout: 30000 });
 await settled(p);
-await p.goto("http://localhost:3000/inmuebles/publicar", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + "/inmuebles/publicar", { waitUntil: "domcontentloaded" });
 await settled(p);
 
 const rent = p.getByLabel("Canon mensual (COP)");

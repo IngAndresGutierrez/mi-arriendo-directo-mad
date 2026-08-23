@@ -1,4 +1,9 @@
-import { notificationCopy, notificationPath, type Notification } from "./notification";
+import {
+  isLeaseNotification,
+  notificationCopy,
+  notificationPath,
+  type Notification,
+} from "./notification";
 
 /**
  * One email, in the shape the `mail` collection takes.
@@ -35,13 +40,21 @@ function escapeHtml(value: string): string {
  * case, and an email that arrives blank is worse than one that arrives ugly.
  */
 export function renderNotificationEmail(
-  notification: Pick<Notification, "type" | "stage" | "propertyTitle" | "actorName" | "applicationId">,
+  notification: Pick<
+    Notification,
+    "type" | "stage" | "propertyTitle" | "actorName" | "applicationId"
+  > & { readonly detail?: string; readonly period?: string },
   to: string,
   baseUrl: string,
 ): Email {
   const { title, body } = notificationCopy(notification);
   const link = `${baseUrl.replace(/\/$/, "")}${notificationPath(notification)}`;
-  const cta = "Ver el proceso";
+  /*
+   * "Ver el proceso" y "Ver el arriendo" son dos pantallas distintas, y el botón tiene que decir a
+   * cuál va: quien recibe un correo sobre el canon de octubre no está en un proceso de nueve
+   * etapas, está en una tenencia que lleva meses andando.
+   */
+  const cta = isLeaseNotification(notification.type) ? "Ver el arriendo" : "Ver el proceso";
 
   const text = `${title}
 

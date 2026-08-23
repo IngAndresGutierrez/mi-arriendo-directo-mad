@@ -2,6 +2,7 @@
  * Public API of the notification module. Anything not exported here is internal.
  */
 export {
+  isLeaseNotification,
   notificationCopy,
   notificationPath,
   relativeTime,

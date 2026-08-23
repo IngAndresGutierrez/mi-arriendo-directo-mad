@@ -65,9 +65,17 @@ names this project started with.
 - `shared/firebase/public-config.ts` — the Firebase **web** config, hardcoded. Public by
   design: Next inlines every `NEXT_PUBLIC_*` into the browser bundle, so these values ship to
   every visitor and access control lives in the rules. They are in code because the server needs
-  them at request time too and this project's Vercel variables are sensitive ones that never
-  reach the Function; reading them from `process.env` returned 500 on every route. Each value
-  still honours an env override. The service account never goes here.
+  them at request time too, and this project's `NEXT_PUBLIC_*` variables in Vercel are marked
+  **Sensitive**, which is not there to inline at *build* time — reading them from `process.env`
+  returned 500 on every route. (A **Route Handler** does read a sensitive variable fine at request
+  time: see `CRON_SECRET`. The two are different moments, and conflating them is what made this
+  note wrong.) **There is deliberately no general env override**, contrary to what this said for a
+  while: an override that arrives empty wins over the literal — `"" ?? fallback` is `""` — and that
+  is how production threw `auth/invalid-api-key`. The **one** exception is the emulator, gated on
+  `NEXT_PUBLIC_FIREBASE_USE_EMULATOR=1` *and* a project id starting with `demo-`, neither of which
+  production sets; an empty value fails the `demo-` test and falls back to the literal. It exists
+  because the browser mints the session token and the Admin SDK verifies it, so both halves must
+  name the same project. The service account never goes here.
 - `.firebaserc` — default project: **`mi-arriendo-directo-mad`**.
 - `shared/firebase/analytics.ts` — deferred Analytics behind `isSupported()`; never pass
   personal data as event parameters.
@@ -98,14 +106,16 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/` | `LOGIN_ROUTE` | Login (email + password, Google). It is the site root. |
 | `/registro` | `SIGNUP_ROUTE` | Two-step signup: email → password. |
 | `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: there is a session but no profile yet. |
-| `/inicio` | `HOME_ROUTE` | User portal: greeting, **the rentals in course** and shortcuts. Destination after signing in. The card lists the open processes with the stage each one is on — it used to read a `contracts` collection nothing writes, so it told somebody with three open processes that they had nothing. |
+| `/inicio` | `HOME_ROUTE` | User portal: greeting, **the contracts in course** and shortcuts. Destination after signing in. The card lists the open processes with the stage each one is on — it used to read a `contracts` collection nothing writes, so it told somebody with three open processes that they had nothing. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
 | `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
 | — | — | Publishing requires the **matrícula inmobiliaria**, and it is stored beside the street in `properties/{id}/private/location`, never in the public document: with that number anyone can pull the certificate and read the address off it, so publishing it would publish the address by the back door. Validated loosely — the circle is two or three digits and the separator is written every way — because the only real check is against the registry, which this product does not do. |
 | `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
 | `/postularme/<slug>` | `applyToPropertyRoute(slug)` | Where a tenant applies. Needs a complete profile; redirects to the process if one is already open. |
-| `/arriendos` | `RENTALS_ROUTE` | Every rental the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. It is called "Arriendos" in the menu and titled "Gestión de arriendos". **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
-| `/arriendos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
+| `/contratos` | `CONTRACTS_ROUTE` | Every process the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. **It is called "Contratos" because that is what it produces** — everything up to the first canon is the negotiation that *ends* in a signed contract, and the tenancy that runs afterwards is a different thing with a different lifetime. **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
+| `/contratos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
+| `/arriendos` | `RENTALS_ROUTE` | The tenancies in course, on either side. This is the **other half of the product**: `/contratos` is the negotiation that ends in a signed contract, and this is the year that follows it. The question it answers is not "¿vamos a hacer esto?" but "¿está pagado este mes?". The forward that used to live here was a **307 written in the page and never a 301 nor a rule in `next.config.ts`**, precisely so this page could replace it — a permanent redirect would have been cached against it, and a `next.config.ts` rule resolves before routing and would shadow the route. |
+| `/arriendos/<id>` | `rentalRoute(id)` | One tenancy: the term, where the canon goes, and every month of it. **The id is the application's**: one process produces one tenancy, so `/contratos/<id>` and `/arriendos/<id>` are two halves of one story under one key. A non-party — or an id whose process has not reached `active` yet — is **forwarded to `/contratos/<id>`**, which is both the privacy answer and what keeps every notification sent before the rename working: they all point at `/arriendos/<id>#etapa-…`. |
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
 | `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
@@ -258,7 +268,7 @@ risk of leaving a field unconnected.
 | `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. Its ids are generated: two can share a page (yours and your reference's), and with fixed ids `label for=` resolves to the first, so typing in one filled the other. |
 | `shared/shell/app-shell.tsx` | `AppShell`: the frame of every product screen — menu and content. A page brings only its heading and its body. |
 | `shared/shell/app-nav.tsx` | `AppNav`: the `NAV` list itself, shared by the two surfaces that show it. **It is a Client Component**: it passes icon components to `NavItem`. |
-| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the menu always visible from `lg` up, narrow by default, widened with the arrow. |
+| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the menu always visible from `lg` up, narrow by default, widened with the arrow. The width also picks the mark: the full lockup when open, the icon alone when collapsed — **both on the light chip**, because half of either one is `#330852` against a `#2d124d` panel, which is contrast 1.05 and therefore not dim but absent. The chip goes away when a reversed logo exists, not before. |
 | `shared/shell/sidebar-state.ts` | The cookie that remembers that width. Read on the server so the first paint is already right. |
 | `shared/shell/app-drawer.tsx` | `AppDrawer`: below `lg`, the bar with the hamburger plus the same menu in a drawer. Owns the open state. |
 | `shared/ui/nav-item.tsx` | `NavItem`: a menu entry. Without `href` it renders disabled with a "Pronto" badge. `activeOn` marks the section on routes that do not hang off its path; `shortLabel` is what the narrow rail shows instead of a name too long to sit under an icon. |
@@ -331,9 +341,10 @@ exist **in Production** - it lived only in `.env.local` for a while, so the rout
 refused every tick that reached it. It is stored **Sensitive**, which is unreadable after creation
 and redacted from build logs; that is not the same restriction as the one behind
 `public-config.ts`, whose problem is that `NEXT_PUBLIC_*` is inlined at **build** time and a
-sensitive value is not there to inline. A Route Handler reads `process.env` at request time. The
-way to know is to call the endpoint after a deploy: 401 on a wrong secret means it arrived, 503
-means it did not.
+sensitive value is not there to inline. A Route Handler reads `process.env` at request time, and
+that is **verified**: with the secret stored Sensitive, `GET /api/cron/interview-reminders` on
+production answers **401** to a wrong bearer, not 503. The way to check it again after any change
+to that variable is exactly that call - 401 means it arrived, 503 means it did not.
 
 `dueReminder()` holds the rules and is unit-tested: only a **confirmed** interview is reminded (a
 proposal nobody accepted is not an appointment); nothing is sent once the call has started; and
@@ -579,6 +590,101 @@ says out loud that something happens off the platform, and the next stage added 
   declared to them and a later edit cannot rewrite it. `tenantProfiles` is readable by its owner
   alone — not by a landlord with an open application — and is never listable.
 
+## The tenancy (`features/lease`)
+
+`/contratos` is the negotiation that **ends** in a signed contract. This is the year that follows
+it, and the question it answers is not "¿vamos a hacer esto?" but "¿está pagado este mes?". It is a
+separate domain because it has a separate lifetime: nine stages happen once, twelve canons happen
+twelve times.
+
+`leases/{leaseId}` with **`leaseId == applicationId`** — one process produces one tenancy, so a
+second identifier would be a second thing that can disagree with the first (the same reasoning as
+`propertySlugs/{slug}`, whose document id *is* the slug). It could not live on the application
+document either: `LiveApplication` subscribes to that one, so a canon paid in month seven would wake
+both parties and re-render a nine-stage page that has not changed since March.
+
+**The tenancy opens when the landlord advances the process to `active`**, in `advanceApplication` —
+nothing here advances by itself, and that stage is not a resting place, it is the day the months
+start. `startLease()` never throws and is idempotent through `create()`: the stage has already moved,
+and a tenancy that failed to open is a screen the next attempt fixes, while a rolled-back advance is
+not. Landing on `active` notifies `lease_started`, not `stage_advanced`: the news is that there is
+now a page with the months on it.
+
+**The first canon is the first month.** The landlord confirmed it before the process could reach
+`active`, so `startLease` carries the receipt *and* the verdict verbatim onto `periods/{first}`.
+Without that the tenant would open this screen and be asked to pay a month they had just paid, and
+the only record of having paid it would be on the other page. The payout comes across for the same
+reason: asking again on day one is asking for something the process already has.
+
+**The calendar is derived, the months are documents.** `leaseSchedule()` computes every month from
+`startDate` and `months`; `leases/{id}/periods/{YYYY-MM}` exists only once something happened in that
+month. Writing twelve documents up front would need a second job to write the next twelve, and a gap
+in that job is a month nobody can pay. **The period id IS the month**, which is what makes a monthly
+charge idempotent rather than a thing to remember. `amount` and `dueDate` are stored on the document
+anyway: a month that has been paid keeps the figure it was paid against.
+
+**The aggregate is computed from the periods, never kept as counters.** Six to twelve documents are
+one query, and a counter is a second source of truth — the day a verdict is corrected by hand, the
+counter and the documents disagree and there is no way to tell which is lying.
+
+**There is no `ended` state, and that is the honest answer rather than a missing feature.** *Ley 820
+de 2003* renews a residential lease for an equal term unless a party gives notice in the form and
+within the time the law sets out — so "the months are up" is not "it ended", and a product that
+showed a tenancy as finished on its anniversary would be telling both parties something the law says
+is false. `leaseTermState()` answers `upcoming` / `running` / `renewed`, and the schedule **grows by
+a whole term** the day after one runs out, so the module keeps working past the end date instead of
+silently stopping. Ending one on purpose is **not built**: the notice, its deadline, who may give it
+and what it costs need a lawyer's reading before they are written in code, because getting it wrong
+ends somebody's housing or somebody's income.
+
+**This product does not move the money here either**, exactly as at the first canon: the landlord
+says where, the tenant transfers from their own bank and uploads the proof, the landlord confirms it
+arrived. Whether the money landed is something only the person whose account it is can say, and no
+screenshot substitutes for it — a transfer can be reversed, mistyped or sent to the wrong key and
+still photograph well. **The account details never leave in a notification**: an email carrying
+somebody's account number is the shape of every payment scam there is, and ours would arrive from a
+domain the tenant trusts. The bell says the account changed; the account is read on the page.
+
+`Payout`, `PaymentReceipt`, `ReceiptVerdict`, `payoutShape`, `receiptFileProblem` and `payoutSchema`
+are **reused from `@/features/application/client`, not copied**. They are literally the same thing,
+and two copies of a ninety-line discriminated union are two things that can drift — the first to
+drift would be the field the landlord confirms against. If a third domain needs them they belong in
+`shared/`; with two, a cross-module import of a public entry is the boundary working as designed.
+
+**The month that needs something comes out of the list and sits above it**, with the one cyan button
+on the page. `focusMonth()` picks it, and it reads the same list from each side: for the tenant the
+oldest **overdue** month wins (the debt to clear is the one that has been sitting longest), for the
+landlord a receipt **waiting for an answer** does, because that is what they came here to do. The
+rest of the months are the record: rows that fold open, with their controls in `brand`, because a
+tenant three months behind still has to be able to pay the other two.
+
+Two rules carried over from the first canon, because they were right there. A **verdict belongs to
+the receipt it judged** — `verdictApplies()` — so uploading a corrected receipt does not leave
+"rechazado" standing with nothing to fix. And **the record is read from the document, the link from
+the signed URL**: signing can fail (a deleted file, Cloud Storage down, an environment with no
+service account) and the first version of the panel hung the whole block off the signature, so a
+failure took the filename, the amount, the date *and the verdict* off the screen with it. What is
+lost when a URL cannot be signed is being able to open the file, and nothing else.
+
+**Both queries in `listLeasesFor` need a composite index**, and this is the one gap the whole
+verification bar has: **the emulator the drivers run against does not enforce composite indexes at
+all.** A missing one passes `pnpm verify`, `pnpm build`, `pnpm test:rules` and all thirty-five
+drivers, and then answers `9 FAILED_PRECONDITION` on production — which is exactly what happened the
+first time `/arriendos` was opened there. So: **a new `where(...).orderBy(...)` means a new entry in
+`firestore.indexes.json` and a `firebase deploy --only firestore:indexes`, in the same change.**
+`features/lease/data/lease-indexes.test.ts` pins the pair so a query added without its index fails in
+`pnpm test` instead of on somebody's screen; it is worth copying that guard for the next collection.
+
+**Every month carries `data-month` and `data-state`.** They are how a driver asks the product what
+state a month ended in instead of recomputing it: an assertion that restates the rule is a second
+copy of the rule, and the copy nobody looks at is this one.
+
+**Not built, and deliberately so for now**: incidents (`periods` has a sibling `incidents` in the
+agreed shape), the daily reminder cron that would tell the tenant a canon is due, the IPC raise at
+renewal, and the closing described above. A landlord recording "me pagó en efectivo" without a tenant
+receipt is not built either — the flow is symmetric with the first canon on purpose. `/arriendos`
+also does **not** mark the property `rented`, which the process does not do at `active` either.
+
 ## Notifications and email (`features/notification`)
 
 Every movement of a process tells the person who did **not** cause it, twice: the bell in the
@@ -586,7 +692,7 @@ top bar, and an email. Both use the same copy, derived from the notification's `
 than stored with it, so fixing a confusing sentence fixes the ones already sent.
 
 The email carries what the bell cannot: an **absolute link straight to the stage**,
-`/arriendos/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
+`/contratos/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
 the step it is about instead of at the top of a page with nine of them.
 
 **Email goes out through Resend**, over its REST API — no SDK, because sending is a `POST` with
@@ -671,6 +777,9 @@ rules or keeping two versions of every screen, so the subscription reads one fie
 - A tenant's documents live where a landlord cannot read them, so uploading calls
   `touchApplicationDocuments()` — one timestamp on the application — and that is what turns "a
   file arrived" into a live update on the other screen.
+- The **tenancy page** watches its own `leases/{id}` document, not its months: a subscription per
+  month would be twelve listeners for a page somebody has open for a minute, so a write inside a
+  month nudges its parent's `updatedAt`. Same trick, one level down.
 - Both hooks fail quietly: a denied or dropped subscription logs and stops updating. No live
   updates is a lesser problem than a broken screen.
 - **`networkidle` no longer happens.** A Firestore subscription keeps a connection open, so any
@@ -689,7 +798,9 @@ violation.
 The menu shows Facturación and Ajustes **disabled**, with a "Pronto"
 badge, instead of linking to a 404. To activate one: create the route and add its `href` to
 the `NAV` array in `shared/shell/app-nav.tsx` — the one list both surfaces render, so the
-sidebar and the drawer cannot disagree about what the product contains.
+sidebar and the drawer cannot disagree about what the product contains. **Arriendos was the
+last one activated**, and that is exactly what the disabled entry was for: a menu that stopped
+at "Contratos" said the year after a signature did not exist.
 
 **The menu has two shapes and one content.** From `lg` up it is a fixed sidebar, always
 visible: a wide screen has the room, and hiding the sections behind a click there costs one on
@@ -737,7 +848,7 @@ Client Component; everything else there is a plain link.
 Every screen behind a session reads Firestore before it can render, so a click used to look like
 a click that did nothing. `app/(app)/loading.tsx` answers instantly with a skeleton in the shape
 of the page - the menu and the bell stay interactive, because they live in the layout - and
-`app/(app)/arriendos/[id]/loading.tsx` does the same in the shape of the process page.
+`app/(app)/contratos/[id]/loading.tsx` does the same in the shape of the process page.
 
 **A `loading.tsx` covers a segment and everything under it, and a boundary above a route turns
 its `notFound()` into a `200` with the not-found page streamed inside.** The headers are already
@@ -748,7 +859,7 @@ flushed by the time the page says "this does not exist". That is why:
   catalog streams from a `<Suspense>` **inside** its own page instead, so the heading appears at
   once and only the part waiting on Firestore is replaced by a skeleton. A missing property still
   answers a true 404, and there is a driver assertion pinned on it.
-- The **private** ones keep theirs. `/arriendos/<id>` now answers `200` to a stranger with the
+- The **private** ones keep theirs. `/contratos/<id>` now answers `200` to a stranger with the
   same not-found page a made-up id gets, which is what the privacy property was ever about: the
   two are indistinguishable. These pages are `noindex`, so the status costs nothing.
 
@@ -774,11 +885,24 @@ pnpm build         # 9s — anything in app/, next.config.ts, proxy.ts, a 'use c
                    #      a new import of shared/firebase/admin.ts. The only check that catches a
                    #      server-only module reaching the browser.
 pnpm test:rules    # 9s — firestore.rules, storage.rules, firestore.indexes.json, tests/rules/.
-                   #      Mandatory when it applies. Needs JDK 21+.
+                   #      Mandatory when it applies. Needs JDK 21+. It does NOT check indexes:
+                   #      the emulator ignores them, so a missing composite index is invisible to
+                   #      every command here and only fails on production. A new
+                   #      where(...).orderBy(...) needs its entry in firestore.indexes.json and
+                   #      `firebase deploy --only firestore:indexes` in the same change.
 pnpm e2e --since   # ~15s per driver — the browser level. Reads `git diff --name-only` and runs
                    #      only the drivers whose paths it touches (tests/e2e/manifest.mjs).
 pnpm typegen       # 3s — only when a route moved or was renamed (see below).
 ```
+
+**The e2e dev server has its own output directory**, `.next-e2e`, from `NEXT_DIST_DIR` in
+`.env.e2e` (`distDir` in `next.config.ts`). That is not tidiness: `next dev` keeps its lock inside
+`distDir`, so with both servers on `.next` the second to start refuses to boot — "you can access the
+existing server at http://localhost:3000" — and every driver dies on `ERR_CONNECTION_REFUSED`, which
+reads as a broken app rather than a busy port. It also stops `pnpm build` from pulling `.next` out
+from under a running e2e server mid-run. Two consequences worth knowing: `.next-e2e/**` is in
+eslint's `globalIgnores` (without it `pnpm verify` walks a second copy of every bundled dependency),
+and `pnpm build` while the e2e server is up wants `NEXT_DIST_DIR=.next-build`.
 
 **`pnpm e2e` is the level that catches what compiles and still does not work.** The soft 404 a
 `loading.tsx` causes was found there and could not have been found anywhere else. It needs
@@ -802,7 +926,7 @@ After moving or renaming a route: `rm -rf .next && pnpm typegen`, or `tsc` fails
 generated types with an error that has nothing to do with your change.
 
 ## Security Rules tests
-`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (75 cases, every rule
+`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (86 cases, every rule
 with a mandatory negative case). It needs **JDK 21+**, and **the script puts it on the PATH
 itself** — `/opt/homebrew/opt/openjdk@21/bin` is prepended in `package.json`, because Homebrew's
 `openjdk@21` is *keg-only*: it is not registered with `/usr/libexec/java_home`, so `java` resolves

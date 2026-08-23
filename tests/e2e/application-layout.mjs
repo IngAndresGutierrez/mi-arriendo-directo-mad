@@ -1,12 +1,11 @@
 /** El resumen de la postulación: tres datos con su rótulo, legibles de un vistazo. */
 import { chromium } from "playwright";
-import { BASE, MONTHS, config, fixtures, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fixtures, MONTHS, ok, settled } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
 
 async function cuenta(email) {
-  await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-    { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+  await createAccount(API_KEY, email);
 }
 async function entrar(b, email, nombre) {
   const p = await (await b.newContext({ viewport: { width: 1100, height: 1000 } })).newPage();
@@ -79,7 +78,7 @@ await inq.getByLabel("Teléfono de tu referencia").fill("3009876543");
 const enUnMes = new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10);
 await inq.getByLabel("Cuándo te mudarías").fill(enUnMes);
 await inq.getByRole("button", { name: /Enviar postulación/i }).click();
-await inq.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 40000 });
+await inq.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 40000 });
 await settled(inq);
 const proceso = inq.url();
 ok("postulación creada", new URL(proceso).pathname);

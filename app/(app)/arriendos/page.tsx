@@ -1,96 +1,122 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { FileTextIcon } from "lucide-react";
+import { CalendarClockIcon, TriangleAlertIcon } from "lucide-react";
 
-import { ApplicationCard, listApplicationsFor } from "@/features/application";
+import { LeaseCard, listLeasesFor, listPeriods } from "@/features/lease";
 import { requireCompleteProfile } from "@/features/profile";
-import { PROPERTIES_ROUTE, TENANT_PROFILE_ROUTE } from "@/shared/auth/routes";
+import {
+  CONTRACTS_ROUTE,
+  PROPERTIES_ROUTE,
+  RENTALS_ROUTE,
+  SUPPORT_ROUTE,
+} from "@/shared/auth/routes";
+import { bogotaToday } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
 
 export const metadata: Metadata = {
-  title: "Gestión de arriendos",
-  description: "Tus arriendos en curso y los procesos que ya se cerraron, etapa por etapa.",
+  title: "Arriendos",
+  description: "Los arriendos en curso, mes a mes: lo que se pagó y lo que falta.",
 };
 
-export default async function ContractPage() {
+/**
+ * The tenancies someone is part of, on either side.
+ *
+ * This is the other half of the product. `/contratos` is the negotiation that ends in a signed
+ * contract; this is the year that follows it, and the question it answers is not "¿vamos a hacer
+ * esto?" but "¿está pagado este mes?".
+ *
+ * The URL used to forward here to `/contratos`, because the nine-stage process lived at this path
+ * and every notification sent up to then pointed at it. That is why the forward was a 307 written in
+ * the page and never a rule in `next.config.ts`: this file is the one that had to replace it.
+ */
+export default async function RentalsPage() {
   const user = await requireCompleteProfile();
-  const applications = await listApplicationsFor(user.uid);
+  const listing = await listLeasesFor(user.uid);
+  const leases = listing.ok ? listing.leases : [];
 
-  const open = applications.filter((application) => application.status === "open");
-  const closed = applications.filter((application) => application.status !== "open");
+  /*
+   * The months of every tenancy, in parallel. Awaited one after another this would be one round trip
+   * per tenancy before the page could render — and the aggregate is computed from the months rather
+   * than kept as a counter, precisely so there is no second number that can disagree with them.
+   */
+  const periods = await Promise.all(leases.map((lease) => listPeriods(lease.id)));
+  // Read once, on the server, and passed down: a browser clock is the one thing on this page that
+  // neither party controls, and "vencido" is a word that has to mean the same for both of them.
+  const today = bogotaToday(new Date());
 
   return (
     <div className="mx-auto w-full max-w-5xl">
       <h1 className="text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
-        Gestión de arriendos
+        Arriendos
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        Cada arriendo, de la postulación a la firma. Aquí lo ven las dos partes.
+        Los arriendos que ya están andando, mes a mes. Aquí lo ven las dos partes.
       </p>
 
-      {applications.length === 0 ? (
+      {!listing.ok ? (
+        /*
+          **"No pudimos" y "no tienes" son dos respuestas distintas**, y confundirlas es el peor bug
+          que este producto ya envió una vez: la tarjeta de inicio leía una colección que nada
+          escribía y le decía "todavía no tienes contratos" a alguien con tres procesos abiertos. Un
+          fallo de lectura no se dibuja como un vacío.
+
+          Tampoco como una pantalla de error de Next: la causa normal es un índice compuesto recién
+          desplegado, que existe y tarda unos minutos en poder usarse — una ventana que trae consigo
+          *cada* índice nuevo que este producto añada.
+        */
+        <div
+          role="alert"
+          className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border px-6 py-14 text-center"
+        >
+          <TriangleAlertIcon className="size-8 text-status-pending" aria-hidden="true" />
+          <div className="max-w-md space-y-1">
+            <p className="font-medium text-foreground">No pudimos cargar tus arriendos</p>
+            <p className="text-sm text-muted-foreground">
+              Fue un problema nuestro, no tuyo, y no le pasó nada a tu información. Vuelve a cargar
+              la página en un momento; si sigue igual, escríbenos.
+            </p>
+          </div>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button asChild variant="accent" size="xl">
+              <Link href={RENTALS_ROUTE}>Volver a intentar</Link>
+            </Button>
+            <Button asChild variant="outline" size="xl">
+              <Link href={SUPPORT_ROUTE}>Escribir a soporte</Link>
+            </Button>
+          </div>
+        </div>
+      ) : leases.length === 0 ? (
         <div className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border px-6 py-14 text-center">
-          <FileTextIcon className="size-8 text-muted-foreground" aria-hidden="true" />
+          <CalendarClockIcon className="size-8 text-muted-foreground" aria-hidden="true" />
           <p className="max-w-md text-sm text-muted-foreground">
-            Todavía no hay ningún arriendo en curso. Empieza postulándote a un inmueble, o espera
-            a que alguien se postule a los tuyos.
+            Todavía no tienes ningún arriendo en curso. Un arriendo empieza aquí cuando el proceso
+            llega a su última etapa y el propietario confirma el primer canon.
           </p>
           <div className="flex flex-wrap justify-center gap-2">
-            <Button asChild variant="accent" size="lg">
-              <Link href={PROPERTIES_ROUTE}>Ver inmuebles</Link>
+            <Button asChild variant="accent" size="xl">
+              <Link href={CONTRACTS_ROUTE}>Ver mis contratos</Link>
             </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href={TENANT_PROFILE_ROUTE}>Llenar mi perfil de inquilino</Link>
+            <Button asChild variant="outline" size="xl">
+              <Link href={PROPERTIES_ROUTE}>Ver inmuebles</Link>
             </Button>
           </div>
         </div>
       ) : (
-        <div className="mt-8 space-y-8">
-          {open.length > 0 && (
-            <section aria-labelledby="open-heading" className="space-y-4">
-              <h2
-                id="open-heading"
-                className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-              >
-                Arriendos en curso ({open.length})
-              </h2>
-              {/*
-                Uno por fila: la barra de nueve etapas y la frase de "siguiente paso" son lo que
-                trae a alguien a esta pantalla, y en media columna la barra deja de leerse.
-              */}
-              <ul className="space-y-4">
-                {open.map((application) => (
-                  <ApplicationCard
-                    key={application.id}
-                    application={application}
-                    viewerUid={user.uid}
-                  />
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {closed.length > 0 && (
-            <section aria-labelledby="closed-heading" className="space-y-4">
-              <h2
-                id="closed-heading"
-                className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-              >
-                Procesos cerrados ({closed.length})
-              </h2>
-              {/* Ya no hay nada que hacer en ellos: caben de dos en dos y no compiten con los abiertos. */}
-              <ul className="grid gap-4 lg:grid-cols-2">
-                {closed.map((application) => (
-                  <ApplicationCard
-                    key={application.id}
-                    application={application}
-                    viewerUid={user.uid}
-                  />
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
+        /*
+          Uno por fila: la barra del término y los dos números que importan — pagados y sin pagar —
+          dejan de leerse en media columna, y son justo lo que trae a alguien a esta pantalla.
+        */
+        <ul className="mt-8 space-y-4">
+          {leases.map((lease, index) => (
+            <LeaseCard
+              key={lease.id}
+              lease={lease}
+              periods={periods[index] ?? []}
+              viewerUid={user.uid}
+              today={today}
+            />
+          ))}
+        </ul>
       )}
     </div>
   );

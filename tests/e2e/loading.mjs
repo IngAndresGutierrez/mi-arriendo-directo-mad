@@ -3,13 +3,12 @@
  * marcada mientras llega. Se fuerza la lentitud retrasando la respuesta del servidor.
  */
 import { chromium } from "playwright";
-import { BASE, MONTHS, config, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, MONTHS, ok, settled } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
 const email = `load-${STAMP}@miarriendodirecto.test`;
 
-await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+await createAccount(API_KEY, email);
 
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1280, height: 900 } })).newPage();
@@ -53,10 +52,10 @@ await p.route("**/*", async (route) => {
 });
 
 // ---------- dentro del producto ----------
-await p.getByRole("link", { name: "Arriendos", exact: true }).first().click();
+await p.getByRole("link", { name: "Contratos", exact: true }).first().click();
 const cargando = p.getByRole("status", { name: /Cargando/ });
 await cargando.first().waitFor({ timeout: 5000 });
-ok("al ir a Arriendos aparece el esqueleto de inmediato");
+ok("al ir a Contratos aparece el esqueleto de inmediato");
 /*
  * Con esqueleto de ruta el spinner del menú no llega a verse, y así debe ser: la navegación se
  * confirma en cuanto aparece el esqueleto, que es una señal mejor. El spinner queda para las
@@ -64,9 +63,9 @@ ok("al ir a Arriendos aparece el esqueleto de inmediato");
  */
 ok("y la opción del menú no necesita spinner: el esqueleto ya respondió");
 await p.screenshot({ path: `${SHOT_DIR}/cargando-arriendos.png`, fullPage: false });
-await p.waitForURL(/\/arriendos$/, { timeout: 25000 });
+await p.waitForURL(/\/contratos$/, { timeout: 25000 });
 await settled(p);
-await p.waitForFunction(() => document.body.innerText.includes("Gestión de arriendos"), null, { timeout: 25000 });
+await p.waitForFunction(() => document.body.innerText.includes("Contratos"), null, { timeout: 25000 });
 if (await p.getByRole("status", { name: /Cargando/ }).count()) throw new Error("el esqueleto se queda pegado");
 ok("y desaparece cuando llega el contenido");
 

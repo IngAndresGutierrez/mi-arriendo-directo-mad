@@ -3,7 +3,7 @@
  * WhatsApp, sin repetirse y sin despertar a nadie por una cita que no se confirmó.
  */
 import { chromium } from "playwright";
-import { BASE, config, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, ok, settled } from "./lib.mjs";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 const requireDelProyecto = createRequire("/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/package.json");
@@ -27,8 +27,7 @@ const SECRETO = env.CRON_SECRET;
 if (!SECRETO) throw new Error("falta CRON_SECRET en .env.local");
 
 async function cuenta(email, nombre, role) {
-  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-    { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then((r) => r.json());
+  const r = await createAccount(API_KEY, email);
   await db.collection("users").doc(r.localId).set({
     fullName: nombre, role, email, phone: "+573001234567", phoneCountry: "CO",
     gender: "female", birthDate: "1990-05-10",

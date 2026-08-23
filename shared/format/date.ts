@@ -60,12 +60,53 @@ export function formatBogotaDateTime(value: string): string {
   const instant = instantOf(value);
   if (Number.isNaN(instant.getTime())) return "";
 
-  return new Intl.DateTimeFormat("es-CO", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: TIME_ZONE,
-  }).format(instant);
+  return normalizeSpaces(
+    new Intl.DateTimeFormat("es-CO", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      timeZone: TIME_ZONE,
+    }).format(instant),
+  );
+}
+
+/**
+ * Every kind of invisible space `Intl` might emit, flattened to a plain one.
+ *
+ * **This is a hydration fix, not typography.** `es-CO` writes an afternoon as `3:52 p. m.`, and the
+ * space before `p. m.` is a *narrow no-break* space (U+202F) in some ICU builds and an ordinary one
+ * in others — so Node and the browser can format the same instant into two strings that are
+ * identical on screen and different to React. It shows up as a hydration mismatch whose diff prints
+ * two lines that look exactly alike, which is the most confusing possible way to be told about it.
+ *
+ * It surfaced the day a timestamp was rendered **unfolded** in a Client Component: the stage panels
+ * had been hiding theirs behind a collapsed panel, so it was never in the server's HTML to disagree
+ * with. That is why the fix belongs here and not in the component that happened to find it.
+ */
+function normalizeSpaces(value: string): string {
+  return value.replace(/[\u202f\u00a0]/g, " ");
+}
+
+/**
+ * Today's date in Bogotá, as `YYYY-MM-DD`.
+ *
+ * **It receives the instant instead of reading the clock**, for the same reason the greeting does:
+ * a function that calls `new Date()` cannot be tested without waiting for tomorrow. And it is
+ * Bogotá's day and not the server's, because on Vercel the clock is UTC — at 8 p.m. here it is
+ * already the next day there, and a canon due "today" would be reported late a few hours early.
+ *
+ * `en-CA` is not a locale choice, it is the shortest way to get ISO order out of `Intl`: it
+ * formats as `2026-09-15`, which is exactly the shape the rest of this module parses.
+ */
+const ISO_IN_BOGOTA = new Intl.DateTimeFormat("en-CA", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+  timeZone: TIME_ZONE,
+});
+
+export function bogotaToday(now: Date): string {
+  return ISO_IN_BOGOTA.format(now);
 }

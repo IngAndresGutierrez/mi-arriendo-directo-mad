@@ -137,6 +137,34 @@
           "order": "ASCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "leases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "tenantUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "leases",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "landlordUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "createdAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

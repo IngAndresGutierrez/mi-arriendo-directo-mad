@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, MONTHS, config, fillBirthdate, fixtures, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fillBirthdate, fixtures, MONTHS, ok, settled } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
 
@@ -16,8 +16,7 @@ async function listingPathOf(page, title) {
   return href;
 }
 const email = `manage-${STAMP}@miarriendodirecto.test`;
-const su = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+const su = await createAccount(API_KEY, email);
 console.log("UID=" + su.localId);
 
 const b = await chromium.launch();
@@ -89,7 +88,7 @@ const clip = await p.evaluate(() => navigator.clipboard.readText());
 // producto a partir del título, así que replicarlo aquí sería mantener dos veces la misma
 // regla — y al añadir el stamp al título, la copia de la prueba se quedó vieja.
 if (clip !== publishedUrl) throw new Error(`copió ${clip}, esperaba ${publishedUrl}`);
-ok("copia el enlace al portapapeles", clip.replace("http://localhost:3000", ""));
+ok("copia el enlace al portapapeles", clip.replace(BASE, ""));
 await p.screenshot({ path: `${SHOT_DIR}/mis-inmuebles.png`, fullPage: true });
 
 // --- editar ---

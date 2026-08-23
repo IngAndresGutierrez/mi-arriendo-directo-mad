@@ -62,6 +62,13 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    /*
+     * The e2e dev server's output, which is a *separate* directory precisely so it can run beside an
+     * ordinary `pnpm dev` (see `distDir` in `next.config.ts`). This line is not optional: listing
+     * only `.next/**` left eslint walking a second copy of every bundled dependency, and `pnpm
+     * verify` started reporting `/* eslint-env *\/` warnings from inside `node_modules` chunks.
+     */
+    ".next-e2e/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

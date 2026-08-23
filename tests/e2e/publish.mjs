@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, MONTHS, config, fillBirthdate, fixtures, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fillBirthdate, fixtures, MONTHS, settled } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -9,8 +9,7 @@ const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
 const email = `publish-check-${STAMP}@miarriendodirecto.test`;
 const password = "ClaveDePrueba1";
 
-const su = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email, password, returnSecureToken: true }) }).then(r => r.json());
+const su = await createAccount(API_KEY, email);
 if (!su.localId) throw new Error("signUp: " + JSON.stringify(su).slice(0, 200));
 console.log("UID=" + su.localId);
 

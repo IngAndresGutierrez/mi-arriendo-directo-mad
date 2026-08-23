@@ -23,6 +23,9 @@ export const PROPERTY_ID = "property-1";
 export const APPLICATION_ID = "application-1";
 export const CONTRACT_ID = "contract-1";
 export const NOTIFICATION_ID = "notification-1";
+/** The tenancy: its id **is** the application's, so one process produces one of these. */
+export const LEASE_ID = APPLICATION_ID;
+export const PERIOD_ID = "2026-09";
 
 export async function createTestEnvironment(): Promise<RulesTestEnvironment> {
   return initializeTestEnvironment({
@@ -194,6 +197,53 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       createdAt: new Date(),
     });
 
+
+    /*
+     * The tenancy that starts after the ninth stage, with one month of it. `leases/{leaseId}` has
+     * the application's id, so a second identifier cannot disagree with the first.
+     */
+    await db.doc(`leases/${LEASE_ID}`).set({
+      propertyId: PROPERTY_ID,
+      propertySlug: "apartamento-en-chapinero-bogota",
+      propertyTitle: "Apartamento en Chapinero",
+      propertyCity: "Bogotá",
+      landlordUid: UID_LANDLORD,
+      tenantUid: UID_TENANT,
+      tenantName: "Ana Uno Pérez",
+      monthlyCost: 1_800_000,
+      startDate: "2026-09-15",
+      months: 12,
+      payout: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    await db.doc(`leases/${LEASE_ID}/periods/${PERIOD_ID}`).set({
+      amount: 1_800_000,
+      dueDate: "2026-09-15",
+      receipt: null,
+      verdict: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // A second tenancy, somebody else's: without it an unfiltered `list` would only ever find the
+    // reader's own and the rule would look stricter than it is.
+    await db.doc("leases/lease-someone-else").set({
+      propertyId: "property-other",
+      propertySlug: "casa-en-laureles-medellin",
+      propertyTitle: "Casa en Laureles",
+      propertyCity: "Medellín",
+      landlordUid: UID_THIRD_PARTY,
+      tenantUid: "uid-other-tenant",
+      tenantName: "Otro Inquilino",
+      monthlyCost: 2_000_000,
+      startDate: "2026-05-01",
+      months: 6,
+      payout: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
 
     await db.doc(`contracts/${CONTRACT_ID}`).set({
       propertyId: PROPERTY_ID,

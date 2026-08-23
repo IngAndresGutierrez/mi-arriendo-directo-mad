@@ -22,8 +22,28 @@ export const PUBLISH_PROPERTY_ROUTE = "/inmuebles/publicar";
 /** A landlord's own listings, with their management actions. */
 export const MY_PROPERTIES_ROUTE = "/mis-inmuebles";
 
-/** The rental process: its nine stages, for whichever side of it you are on. */
+/**
+ * The nine-stage process, for whichever side of it you are on.
+ *
+ * It is called "Contratos" because that is what it produces: everything from the application to
+ * the first canon is the negotiation that *ends* in a signed contract. What happens afterwards —
+ * the months, the payments, the incidents — is the rental itself, and that is `RENTALS_ROUTE`.
+ */
+export const CONTRACTS_ROUTE = "/contratos";
+
+/**
+ * The tenancy once it is running: month by month, and the whole of it.
+ *
+ * `/arriendos` lists them and `/arriendos/<id>` is one of them, month by month. A tenancy's id
+ * **is** its application's: one process produces one tenancy, so `/contratos/<id>` and
+ * `/arriendos/<id>` are the two halves of the same story under the same key.
+ */
 export const RENTALS_ROUTE = "/arriendos";
+
+/** One tenancy: its months, and the whole of it. Keyed by id, like the process it came from. */
+export function rentalRoute(id: string): string {
+  return `${RENTALS_ROUTE}/${id}`;
+}
 
 /** The tenant's reusable dossier. */
 export const TENANT_PROFILE_ROUTE = "/perfil-inquilino";
@@ -38,15 +58,9 @@ export const SUPPORT_ROUTE = "/soporte";
 export function editPropertyRoute(id: string): string {
   return `${MY_PROPERTIES_ROUTE}/${id}/editar`;
 }
-/**
- * Public detail of one property: the slug alone, with no id appended.
- *
- * A random-looking code at the end of a link reads as untrustworthy where these get shared —
- * a Facebook group, a WhatsApp chat — so the slug is reserved to be unique and resolves on its
- * own. Links that still carry an id keep working: the page redirects them here.
- */
+/** One process and its nine stages. Keyed by id: it is private to its two parties. */
 export function applicationRoute(id: string): string {
-  return `${RENTALS_ROUTE}/${id}`;
+  return `${CONTRACTS_ROUTE}/${id}`;
 }
 
 /** Where a tenant applies to a listing. The slug, never an id: it is a link people paste. */
@@ -54,6 +68,13 @@ export function applyToPropertyRoute(slug: string): string {
   return `/postularme/${slug}`;
 }
 
+/**
+ * Public detail of one property: the slug alone, with no id appended.
+ *
+ * A random-looking code at the end of a link reads as untrustworthy where these get shared —
+ * a Facebook group, a WhatsApp chat — so the slug is reserved to be unique and resolves on its
+ * own. Links that still carry an id keep working: the page redirects them here.
+ */
 export function propertyDetailRoute(slug: string): string {
   return `${PROPERTIES_ROUTE}/${slug}`;
 }

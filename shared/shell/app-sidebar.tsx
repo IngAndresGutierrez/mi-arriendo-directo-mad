@@ -6,6 +6,7 @@ import Link from "next/link";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 
 import { HOME_ROUTE } from "@/shared/auth/routes";
+import { Logo } from "@/shared/brand/logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
 
@@ -59,20 +60,33 @@ export function AppSidebar({ defaultCollapsed }: { readonly defaultCollapsed: bo
           className="flex shrink-0 items-center rounded-xl focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
         >
           {/*
-            The wordmark is purple on transparent and would vanish against the panel, so on
-            this surface the brand is the icon mark on a light chip. Until a reversed logo
-            exists, this is how it stays legible.
+            Both marks are half purple (#330852) on transparent, and the panel is purple
+            (#2d124d): "miarriendo" against it is contrast 1.05, which is not dim, it is
+            absent. So on this surface the brand always sits on a light chip. Until a
+            reversed logo exists, this is what keeps it legible.
+
+            Which mark goes in the chip is the only thing the width decides: opened there is
+            room for the full lockup, and collapsed there is room for the icon alone.
           */}
-          <span className="flex size-11 items-center justify-center rounded-xl bg-brand-panel-foreground">
-            <Image
-              src="/isotipo.png"
-              alt="miarriendoDIRECTO.com"
-              width={1254}
-              height={1254}
-              preload
-              sizes="32px"
-              className="h-auto w-8"
-            />
+          <span
+            className={cn(
+              "flex items-center justify-center rounded-xl bg-brand-panel-foreground",
+              collapsed ? "size-11" : "px-3 py-2",
+            )}
+          >
+            {collapsed ? (
+              <Image
+                src="/isotipo.png"
+                alt="miarriendoDIRECTO.com"
+                width={1254}
+                height={1254}
+                preload
+                sizes="32px"
+                className="h-auto w-8"
+              />
+            ) : (
+              <Logo width={132} preload />
+            )}
           </span>
         </Link>
 

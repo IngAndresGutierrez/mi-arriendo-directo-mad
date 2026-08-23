@@ -5,14 +5,46 @@ consequence a user actually receives. They are not unit tests — `pnpm test` co
 and schemas; this level exists for what compiles and still does not work.
 
 ```bash
-pnpm dev                       # in another terminal; these need a server on :3000
-export $(grep NEXT_PUBLIC_FIREBASE_API_KEY .env.local | xargs)
+pnpm emulators                 # terminal 1: auth, firestore and storage, on demo-mad-e2e
+pnpm dev:e2e                   # terminal 2: the app pointed at them, on :3100
+pnpm e2e:env --since           # terminal 3: only what the working tree touches — start here
 
-pnpm e2e --since               # only what the working tree touches — start here
-pnpm e2e loading catalog       # by name
-pnpm e2e --list                # what would run, without running it
-pnpm e2e                       # all of them
+pnpm e2e:env loading catalog   # by name
+pnpm e2e --list                # what would run, without running it (writes nothing)
+pnpm e2e:env                   # all of them
 ```
+
+Nothing above needs a secret or any setup on a fresh clone: `.env.e2e` is committed, and it
+points at the emulators.
+
+## They run against the emulators, and the runner refuses otherwise
+
+The drivers **write for real**: they publish listings, create accounts and upload files. Pointed
+at the deployed project they do all of that *in production*, and that is not hypothetical — it
+put **306 fake listings in the public catalogue**, 329 applications and 644 auth accounts, and
+took a morning to undo.
+
+So `run.mjs` refuses to start unless `FIREBASE_PROJECT_ID` names a `demo-` project. That prefix is
+not a convention: the Firebase SDKs **refuse to contact any real backend** for such a project, so
+a run cannot reach production even if every other variable is wrong. `--against-real` is the
+escape hatch, spelled out loud enough that nobody types it by accident.
+
+Two details that follow from it:
+
+- **The e2e server is on :3100, not :3000.** Next 16 allows only one dev server per directory, so
+  it replaces an ordinary `pnpm dev` rather than sitting beside it — but the different port means
+  that if you forget and start the ordinary one, the drivers fail to connect instead of quietly
+  writing to the real project. Every driver goes through `BASE`; four used to hardcode
+  `localhost:3000` and the port change is what found them.
+- **The emulator loads `firestore.rules` from the working tree.** Until now the drivers ran against
+  whatever was *deployed*, so a rules change was unverified at this level until after a deploy.
+
+### The emulator starts empty, and that is the point
+
+Several drivers used to lean on listings other drivers had left in the shared database — a
+driver that passes because of somebody else's leftovers is a driver that passes for the wrong
+reason. On a fresh emulator each one has to seed what it needs. `header` is the first that showed
+this, waiting for a catalogue link that nothing had published.
 
 ## Why they are in git
 
@@ -83,9 +115,13 @@ son cientos de correos contra el tope de **100 al día** del plan gratuito de Re
 cuota una vez, y el síntoma no es obvio: Resend responde **429 `daily_quota_exceeded`** y
 `requestSignatureCode` reporta un fallo de envío real, que es lo correcto pero se lee como un bug.
 
+**`.env.e2e` ya lo trae vacío**, así que `pnpm dev:e2e` no puede gastar cuota ni por olvido — que
+es la única forma en que se agotó. Si necesitas el log del servidor (`contract` lo lee para sacar
+el código):
+
 ```bash
-RESEND_API_KEY= pnpm dev > /tmp/dev.log 2>&1 &
-E2E_DEV_LOG=/tmp/dev.log pnpm e2e
+pnpm dev:e2e > /tmp/dev.log 2>&1 &
+E2E_DEV_LOG=/tmp/dev.log pnpm e2e:env
 ```
 
 Sin clave, `sendEmail` escribe el asunto en el log y sigue — el contrato que Resend y WhatsApp

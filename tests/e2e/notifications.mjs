@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, config, fixtures, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -21,8 +21,7 @@ async function listingPathOf(page, title) {
 const ownerEmail = `delivered+owner-${STAMP}@resend.dev`;
 const tenantEmail = `delivered+renter-${STAMP}@resend.dev`;
 for (const email of [ownerEmail, tenantEmail]) {
-  await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-    { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+  await createAccount(API_KEY, email);
 }
 const b = await chromium.launch();
 const problems = [];
@@ -84,7 +83,7 @@ await tenant.getByLabel("Qué relación tienen").fill("Jefe directo");
 await tenant.getByLabel("Teléfono de tu referencia").fill("3009876543");
 await tenant.getByLabel("Cuándo te mudarías").fill("2026-10-01");
 await tenant.getByRole("button", { name: /Enviar postulación/i }).click();
-await tenant.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 40000 });
+await tenant.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 40000 });
 await settled(tenant);
 const processUrl = tenant.url();
 const applicationId = new URL(processUrl).pathname.split("/").pop();
@@ -107,7 +106,7 @@ await owner.screenshot({ path: `${SHOT_DIR}/campana.png` });
 
 // El enlace lleva a la etapa, no al principio de la página.
 const href = await panel.locator("li a").first().getAttribute("href");
-if (href !== `/arriendos/${applicationId}#etapa-submitted`) throw new Error("el enlace no apunta a la etapa: " + href);
+if (href !== `/contratos/${applicationId}#etapa-submitted`) throw new Error("el enlace no apunta a la etapa: " + href);
 await panel.locator("li a").first().click();
 await owner.waitForURL(/#etapa-submitted$/, { timeout: 20000 });
 await settled(owner);
@@ -127,7 +126,7 @@ if (!(await bell(owner).getAttribute("aria-label")).includes("ninguna sin leer")
 ok("abrirla la marca como leída y el contador se apaga");
 
 // Avanzar avisa al inquilino, y el texto es una tarea, no un estado.
-await owner.goto(BASE + `/arriendos/${applicationId}`, { waitUntil: "domcontentloaded" });
+await owner.goto(BASE + `/contratos/${applicationId}`, { waitUntil: "domcontentloaded" });
 await settled(owner);
 await owner.getByRole("button", { name: /Continuar a/ }).click();
 await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 9"), null, { timeout: 20000 });
@@ -143,7 +142,7 @@ await tenantPanel.waitFor({ state: "visible" });
 const advanced = await tenantPanel.locator("li a").first().innerText();
 if (!/documentos/i.test(advanced)) throw new Error("avanzar a datos no pide documentos: " + advanced);
 const tenantHref = await tenantPanel.locator("li a").first().getAttribute("href");
-if (tenantHref !== `/arriendos/${applicationId}#etapa-tenant-data`) throw new Error("no apunta a la etapa nueva: " + tenantHref);
+if (tenantHref !== `/contratos/${applicationId}#etapa-tenant-data`) throw new Error("no apunta a la etapa nueva: " + tenantHref);
 ok("avanzar a 'Datos y documentos' le pide documentos al inquilino", tenantHref);
 
 // Rechazar avisa al inquilino.

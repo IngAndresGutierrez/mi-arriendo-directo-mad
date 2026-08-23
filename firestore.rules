@@ -280,6 +280,54 @@ service cloud.firestore {
       }
     }
 
+    // -------------------------------- leases --------------------------------
+    // The tenancy, once it is running: `leases/{leaseId}` with `leaseId == applicationId`.
+    //
+    // Read-only for its two parties, exactly like the application. Every write is a Server Action
+    // with the Admin SDK, and that is not belt-and-braces: the rules that have to hold — the month
+    // has to be on the tenancy's own schedule, a verdict belongs to the receipt it judged, the
+    // landlord confirms and the tenant uploads — are relationships between documents and dates,
+    // which is the one thing a `firestore.rules` file cannot ask about. A rule that enforced half
+    // of them would be a rule somebody trusts.
+    //
+    // `list` is bounded and filtered per side, the same shape as applications: a tenancy is
+    // private to the two people in it, and an unfiltered sweep would be a list of who is renting
+    // what.
+    match /leases/{leaseId} {
+      allow get:  if isLeaseTenant() || isLeaseLandlord() || isAdmin();
+      allow list: if isAdmin()
+                  || (isSignedIn()
+                      && request.query.limit <= 50
+                      && (isLeaseTenant() || isLeaseLandlord()));
+
+      allow create, update, delete: if false;   // Server Actions only
+
+      function isLeaseTenant() {
+        return isSignedIn() && current().tenantUid == uid();
+      }
+      function isLeaseLandlord() {
+        return isSignedIn() && current().landlordUid == uid();
+      }
+
+      // One month. The document id IS the month, which is what makes a monthly charge idempotent.
+      //
+      // The parties have to be read from the parent: inside this match `resource` is the period,
+      // which carries no uid. That is one `get` per request, which is why the period document does
+      // not denormalize them — the alternative is a copy of both uids on every month, and a copy
+      // that could disagree with the tenancy it belongs to.
+      //
+      // Parentheses are not optional: `&&` binds tighter than `||`.
+      match /periods/{period} {
+        allow get, list: if isAdmin() || (isSignedIn() && isParentLeaseParty());
+        allow create, update, delete: if false;  // Server Actions only
+
+        function isParentLeaseParty() {
+          let lease = get(/databases/$(database)/documents/leases/$(leaseId)).data;
+          return lease.tenantUid == uid() || lease.landlordUid == uid();
+        }
+      }
+    }
+
     // -------------------------- contracts and payments ----------------------
     // Read-only for the parties. The backend writes them through the Admin SDK.
     match /contracts/{contractId} {

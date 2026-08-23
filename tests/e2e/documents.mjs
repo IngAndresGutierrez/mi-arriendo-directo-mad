@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, config, fixtures, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2, pdf: PDF } = fixtures();
@@ -22,8 +22,7 @@ const suAcordeonAbrir = (pagina) => abrirPanel(pagina, "etapa-tenant-data");
 const ownerEmail = `owner-${STAMP}@miarriendodirecto.test`;
 const tenantEmail = `renter-${STAMP}@miarriendodirecto.test`;
 for (const email of [ownerEmail, tenantEmail]) {
-  await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-    { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+  await createAccount(API_KEY, email);
 }
 const b = await chromium.launch();
 const problems = [];
@@ -66,7 +65,7 @@ await tenant.getByLabel("Qué relación tienen").fill("Jefe directo");
 await tenant.getByLabel("Teléfono de tu referencia").fill("3009876543");
 await tenant.getByLabel("Cuándo te mudarías").fill("2026-10-01");
 await tenant.getByRole("button", { name: /Enviar postulación/i }).click();
-await tenant.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 40000 });
+await tenant.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 40000 });
 await settled(tenant);
 const processUrl = tenant.url();
 ok("postulación creada");

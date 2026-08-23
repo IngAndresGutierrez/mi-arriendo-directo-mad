@@ -19,8 +19,10 @@ export const COVERS = {
   header: ["shared/shell/account-menu", "app/(public)/", "shared/shell/"],
 
   // The public catalog.
-  catalog: ["app/(public)/inmuebles", "features/property/domain/catalog", "features/property/validations/catalog"],
-  facets: ["app/(public)/inmuebles", "features/property/domain/catalog"],
+  // `features/property/ui/` belongs here as much as it does to `lightbox`: `PropertyCard` *is*
+  // the catalogue's unit, so a change to the card that only selected `lightbox` was a real miss.
+  catalog: ["app/(public)/inmuebles", "features/property/ui/", "features/property/domain/catalog", "features/property/validations/catalog"],
+  facets: ["app/(public)/inmuebles", "features/property/ui/", "features/property/domain/catalog"],
   pagination: ["app/(public)/inmuebles", "features/property/domain/catalog"],
   "listing-scroll": ["app/(public)/inmuebles", "shared/shell/"],
   lightbox: ["app/(public)/inmuebles", "features/property/ui/"],
@@ -40,15 +42,15 @@ export const COVERS = {
   amount: ["shared/format/money", "features/property/validations"],
 
   // The rental process.
-  apply: ["features/application/", "app/(app)/arriendos", "app/(app)/postularme"],
-  documents: ["features/tenant-profile/", "features/application/", "app/(app)/arriendos"],
+  apply: ["features/application/", "app/(app)/contratos", "app/(app)/postularme"],
+  documents: ["features/tenant-profile/", "features/application/", "app/(app)/contratos"],
   interview: ["features/application/domain/interview", "features/application/validations/interview", "features/application/ui/"],
   guarantee: [
     "features/application/domain/guarantee",
     "features/application/validations/guarantee",
     "features/application/actions/guarantee",
     "features/application/ui/",
-    "app/(app)/arriendos",
+    "app/(app)/contratos",
     "features/tenant-profile/domain/tenant-profile",
   ],
   withdraw: ["features/application/"],
@@ -58,7 +60,7 @@ export const COVERS = {
     "features/application/actions/payout",
     "features/application/ui/first-payment-panel",
     "features/application/ui/stage-actions",
-    "app/(app)/arriendos",
+    "app/(app)/contratos",
   ],
   contract: [
     "features/application/domain/contract",
@@ -67,20 +69,30 @@ export const COVERS = {
     "features/application/ui/contract-panel",
     "features/application/ui/stage-actions",
     "shared/format/bytes",
-    "app/(app)/arriendos",
+    "app/(app)/contratos",
   ],
   reminders: ["app/api/cron/", "features/application/domain/interview", "features/notification/"],
+
+  // La tenencia: lo que corre después de la novena etapa.
+  rental: [
+    "features/lease/",
+    "app/(app)/arriendos",
+    "features/application/actions/advance",
+    "shared/format/date",
+  ],
   notifications: ["features/notification/", "shared/lib/site-url"],
 
   // Layout assertions: alignment, no horizontal scrolling at 390px, the active nav entry.
-  "actions-layout": ["features/application/ui/", "app/(app)/arriendos"],
-  "application-layout": ["features/profile/", "app/(auth)/", "shared/form/"],
+  "actions-layout": ["features/application/ui/", "app/(app)/contratos"],
+  // Its subject is the application summary on the process page, not the profile forms: the
+  // entry it used to carry was another driver's, so renaming the section never selected it.
+  "application-layout": ["features/application/", "app/(app)/contratos"],
   "birthdate-layout": ["shared/form/", "features/profile/"],
-  "rentals-layout": ["app/(app)/arriendos", "shared/shell/"],
+  "rentals-layout": ["app/(app)/contratos", "shared/shell/"],
 };
 
 /** Drivers that need a landlord, a tenant and a property, so they are the slow ones. */
-export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw"];
+export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental"];
 
 /**
  * Rutas tan transversales que cualquier cambio en ellas selecciona **todos** los drivers.
@@ -97,6 +109,19 @@ export const SLOW = ["documents", "apply", "interview", "guarantee", "notificati
 export const SELECTS_EVERY_DRIVER = [
   "shared/ui/",
   "shared/form/",
+  /*
+   * `shared/format/` por la misma razón, y la lección se pagó dos veces.
+   *
+   * El dinero y las fechas salen en todas las pantallas del producto, y aquí estaban mapeados a mano
+   * a un driver cada uno: `shared/format/money` a `amount`, `shared/format/date` a `contract`.
+   * Normalizar el espacio fino que `Intl` mete antes de "p. m." — un fallo de hidratación real —
+   * seleccionaba dieciséis drivers y dejaba fuera `contract`, `interview`, `guarantee` y
+   * `first-payment`, que son justo los cuatro paneles que muestran una hora.
+   *
+   * Un primitivo compartido no se mapea a una lista: la lista está mal el día que alguien usa el
+   * módulo en un sitio nuevo, y ese día nadie se acuerda de venir a esta línea.
+   */
+  "shared/format/",
   "app/globals.css",
   "app/layout.tsx",
 ];

@@ -78,6 +78,30 @@ if (sinceArg) {
 console.log(`${selected.length}/${ALL.length} drivers (${why}): ${selected.join(" ")}\n`);
 if (list) process.exit(0);
 
+/*
+ * The drivers publish listings, create accounts and upload files. Run against the real project
+ * they do it *in production* — which is exactly what happened: 306 fake listings in the public
+ * catalogue, 644 auth accounts, and a morning spent deleting them.
+ *
+ * So the target has to be a `demo-` project, and the check lives here rather than in a README:
+ * the guard that has to be remembered is the guard that fails. `--against-real` is the escape
+ * hatch, spelled out loud enough that nobody types it by accident.
+ */
+const REAL = process.argv.includes("--against-real");
+const PROJECT = process.env.FIREBASE_PROJECT_ID;
+if (!REAL && !PROJECT?.startsWith("demo-")) {
+  console.error(
+    `se niega a correr contra el proyecto "${PROJECT ?? "(sin definir)"}".\n\n` +
+      "Los drivers escriben de verdad: publican inmuebles, crean cuentas y suben archivos.\n" +
+      "Contra el proyecto real eso ensucia producción, y ya pasó una vez.\n\n" +
+      "  pnpm emulators     # una terminal\n" +
+      "  pnpm dev:e2e       # otra\n" +
+      "  pnpm e2e:env       # y los drivers aquí\n\n" +
+      "Si de verdad quieres el proyecto real: --against-real",
+  );
+  process.exit(2);
+}
+
 const API_KEY = process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? process.env.E2E_API_KEY;
 if (!API_KEY) {
   console.error(
@@ -101,6 +125,8 @@ const run = (name) =>
       env: {
         ...process.env,
         E2E_API_KEY: API_KEY,
+        // `lib.mjs` refuses a non-demo project on its own; this is how `--against-real` reaches it.
+        ...(REAL ? { E2E_AGAINST_REAL: "1" } : {}),
         E2E_STAMP: `${name}-${STAMP}`,
         E2E_SHOT_DIR: SHOT_DIR,
       },
