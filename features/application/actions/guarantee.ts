@@ -10,7 +10,11 @@ import { adminDb } from "@/shared/firebase/admin";
 
 import { getApplicationFor } from "../data/application";
 import { GUARANTEE_PROVIDER } from "../domain/guarantee";
-import { guaranteePolicySchema, guaranteeRequestSchema } from "../validations/guarantee";
+import {
+  guaranteePolicySchema,
+  guaranteeProgressSchema,
+  guaranteeRequestSchema,
+} from "../validations/guarantee";
 
 export type GuaranteeActionResult =
   | { readonly ok: true }
@@ -84,6 +88,7 @@ export async function recordGuaranteeRequested(
         requestedAt: new Date().toISOString(),
         activeAt: null,
         policyNumber: "",
+        tenantLink: parsed.data.tenantLink,
         note: parsed.data.note,
       },
       updatedAt: FieldValue.serverTimestamp(),
@@ -129,6 +134,9 @@ export async function recordGuaranteePolicy(
         requestedAt: current?.requestedAt ?? new Date().toISOString(),
         activeAt: new Date().toISOString(),
         policyNumber: parsed.data.policyNumber,
+        // Preserved: the tenant may still need it, and issuing the policy is not a reason to
+        // take away the link they were sent.
+        tenantLink: current?.tenantLink ?? "",
         note: parsed.data.note || current?.note || "",
       },
       updatedAt: FieldValue.serverTimestamp(),
@@ -140,6 +148,91 @@ export async function recordGuaranteePolicy(
     "guarantee_active",
     `Póliza ${parsed.data.policyNumber} de ${GUARANTEE_PROVIDER.name}.`,
   );
+
+  revalidatePath(applicationRoute(applicationId));
+  return { ok: true };
+}
+
+/**
+ * The link and the note, saved as they are typed.
+ *
+ * There is no button behind this: the panel had five, and two of them were a submit for a single
+ * field. A field that saves itself is one control instead of two, and it cannot be left filled
+ * but unsaved — which is the failure a submit button invites when the next thing you do is switch
+ * to another tab to finish on Sura's site.
+ *
+ * Its own action, and not part of `recordGuaranteeRequested`, because of when it happens: the
+ * quoter produces the link at the end, often after the landlord already said they had applied,
+ * and reusing that action would overwrite `requestedAt` with a time later than the truth.
+ *
+ * **The notification is gated on the link appearing, not on the save.** An auto-saving field
+ * fires as often as somebody edits a note, and a bell that rings on every keystroke is a bell
+ * nobody reads by the time the one that matters arrives. What the tenant needs to know is that
+ * they now have something to do; a landlord fixing a typo in a note is not that.
+ */
+export async function saveGuaranteeProgress(
+  applicationId: string,
+  input: unknown,
+): Promise<GuaranteeActionResult> {
+  const context = await landlordOn(applicationId);
+  if (!context.ok) return { ok: false, message: context.error };
+
+  const parsed = guaranteeProgressSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Revisa el enlace." };
+  }
+
+  const current = context.application.guarantee;
+  /*
+   * Se avisa en las **transiciones**, no en los guardados. Un campo que se guarda solo escribe
+   * tantas veces como alguien corrija una nota, y una campana que suena en cada tecla es una
+   * campana que nadie lee cuando llega la que importa. Las dos transiciones que sí son noticia
+   * ocurren una sola vez cada una: que la póliza pasó a estar solicitada, y que ya hay un enlace
+   * con el que el inquilino puede hacer su parte.
+   */
+  const becameRequested = !current?.requestedAt;
+  const linkIsNew = Boolean(parsed.data.tenantLink) && parsed.data.tenantLink !== current?.tenantLink;
+
+  await adminDb()
+    .collection("applications")
+    .doc(applicationId)
+    .update({
+      guarantee: {
+        /*
+         * Guardar cualquiera de los dos es decir que la póliza ya se solicitó: sin esto, un
+         * propietario que pega el enlace primero dejaría la etapa en "sin solicitar" mientras el
+         * inquilino ya tiene algo que hacer.
+         */
+        requestedAt: current?.requestedAt ?? new Date().toISOString(),
+        activeAt: current?.activeAt ?? null,
+        policyNumber: current?.policyNumber ?? "",
+        // Un guardado que solo trae nota no debe borrar el enlace, ni al revés.
+        tenantLink: parsed.data.tenantLink || current?.tenantLink || "",
+        note: parsed.data.note || current?.note || "",
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+  /*
+   * El enlace nunca va en la notificación: es una credencial, el correo lo llevaría a una bandeja
+   * que no controlamos, y el inquilino llega en un clic desde la página.
+   */
+  if (linkIsNew) {
+    await tell(
+      { ...context.application, id: applicationId },
+      context.uid,
+      "guarantee_requested",
+      `Ya puedes continuar tu parte del seguro con ${GUARANTEE_PROVIDER.name} desde la etapa de la garantía.`,
+    );
+  } else if (becameRequested) {
+    await tell(
+      { ...context.application, id: applicationId },
+      context.uid,
+      "guarantee_requested",
+      parsed.data.note ||
+        `Es con ${GUARANTEE_PROVIDER.name}, sin codeudor. Puede que te escriban para completar el estudio.`,
+    );
+  }
 
   revalidatePath(applicationRoute(applicationId));
   return { ok: true };

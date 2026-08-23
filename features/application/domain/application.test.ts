@@ -79,13 +79,16 @@ describe("the nine stages", () => {
   it("marks as unbuilt only the stages with nothing behind them yet", () => {
     expect(isUnbuilt("submitted")).toBe(false);
     expect(isUnbuilt("active")).toBe(false);
-    expect(isUnbuilt("contract_signature")).toBe(true);
     // The documents stage is built now: files are uploaded and previewed in the product.
     expect(isUnbuilt("tenant_data")).toBe(false);
-    // Checking records is not: no source can be queried from here yet.
     // Construidas: expedientes tiene su panel de consultas y la entrevista se agenda aquí.
     expect(isUnbuilt("background_check")).toBe(false);
     expect(isUnbuilt("interview")).toBe(false);
+    // La garantía se toma en Sura y la firma en ZapSign, y las dos guardan aquí su resultado.
+    expect(isUnbuilt("guarantee")).toBe(false);
+    expect(isUnbuilt("contract_signature")).toBe(false);
+    // Lo único que sigue sin interfaz propia: el primer canon.
+    expect(isUnbuilt("first_payment")).toBe(true);
   });
 });
 

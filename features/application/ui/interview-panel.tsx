@@ -144,7 +144,7 @@ export function InterviewPanel({
         isLandlord &&
         !readOnly &&
         state === "proposed" && (
-          <Button type="button" variant="outline" size="lg" onClick={() => setProposing(true)}>
+          <Button type="button" variant="outline" size="xl" onClick={() => setProposing(true)}>
             <CalendarClockIcon aria-hidden="true" />
             Proponer otro horario
           </Button>
@@ -206,7 +206,12 @@ function Appointment({
         ofrecerlo invita a intentarlo el día equivocado.
       */}
       {interview.link && confirmed && (
-        <Button asChild variant="outline" size="lg">
+        /*
+          El único cian de esta vista, y con razón: es la acción con hora. Como `outline` apenas
+          tenía borde sobre el fondo del panel y se leía como una nota al pie, siendo lo que da
+          sentido a la etapa. El formulario de la conclusión, que se ve a la vez, va en morado.
+        */
+        <Button asChild variant="accent" size="xl">
           <a href={interview.link} target="_blank" rel="noopener noreferrer">
             <VideoIcon aria-hidden="true" />
             Entrar a la videollamada
@@ -274,10 +279,10 @@ function TenantAnswer({
           onChange={(event) => setNote(event.target.value)}
         />
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="lg" disabled={pending} onClick={() => onDecline(note)}>
+          <Button type="button" variant="outline" size="xl" disabled={pending} onClick={() => onDecline(note)}>
             Enviar y pedir otro horario
           </Button>
-          <Button type="button" variant="ghost" size="lg" disabled={pending} onClick={() => setAsking(false)}>
+          <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={() => setAsking(false)}>
             Cancelar
           </Button>
         </div>
@@ -287,11 +292,11 @@ function TenantAnswer({
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <Button type="button" variant="accent" size="lg" disabled={pending} onClick={onConfirm}>
+      <Button type="button" variant="accent" size="xl" disabled={pending} onClick={onConfirm}>
         <CheckIcon aria-hidden="true" />
         {pending ? "Confirmando…" : "Confirmar el horario"}
       </Button>
-      <Button type="button" variant="ghost" size="lg" disabled={pending} onClick={() => setAsking(true)}>
+      <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={() => setAsking(true)}>
         No puedo a esa hora
       </Button>
     </div>
@@ -406,7 +411,7 @@ function ProposeForm({
         <Button
           type="button"
           variant="accent"
-          size="lg"
+          size="xl"
           disabled={pending || !day || !time}
           onClick={() => onSubmit({ day, time, channel, link, note })}
         >
@@ -414,7 +419,7 @@ function ProposeForm({
           {pending ? "Enviando…" : "Proponer y avisar al inquilino"}
         </Button>
         {onCancel && (
-          <Button type="button" variant="ghost" size="lg" disabled={pending} onClick={onCancel}>
+          <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={onCancel}>
             Cancelar
           </Button>
         )}
@@ -464,8 +469,14 @@ function FeedbackForm({
 
       <Button
         type="button"
-        variant="accent"
-        size="lg"
+        /*
+          `brand`, no `accent`: este formulario se ve al mismo tiempo que "Entrar a la
+          videollamada", y en cian le quitaba el protagonismo justo a la acción con hora. Escribir
+          la conclusión desbloquea la etapa, pero se puede hacer después; la llamada no.
+          Un solo cian por vista.
+        */
+        variant="brand"
+        size="xl"
         disabled={pending || note.trim().length < 10}
         onClick={() => onSubmit({ result, note })}
       >

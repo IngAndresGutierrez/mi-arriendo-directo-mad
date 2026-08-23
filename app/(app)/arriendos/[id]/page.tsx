@@ -12,6 +12,12 @@ import {
   guaranteeState,
   GuaranteePanel,
   GUARANTEE_STATE_LABELS,
+  ContractPanel,
+  contractBlocker,
+  contractBlockerMessage,
+  contractState,
+  withContractUrl,
+  CONTRACT_STATE_LABELS,
   interviewBlocker,
   interviewBlockerMessage,
   interviewState,
@@ -38,7 +44,8 @@ import {
 } from "@/features/tenant-profile";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
 import { stageAnchor } from "@/features/notification";
-import { getPropertyLocation } from "@/features/property";
+import { getOwnedProperty, getPropertyLocation } from "@/features/property";
+import { DOCUMENT_TYPE_LABELS } from "@/features/tenant-profile/client";
 import { RENTALS_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatLongDate } from "@/shared/format/date";
 import { formatCOP } from "@/shared/format/money";
@@ -107,12 +114,46 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
    * certificado de tradición y lee la dirección — así que se lee aquí, del dueño, y no se le
    * pasa nunca al inquilino.
    */
-  const [tenantAccount, location] = await Promise.all([
-    isLandlord && application.stage === "guarantee" ? getProfile(application.tenantUid) : null,
-    isLandlord && application.stage === "guarantee"
-      ? getPropertyLocation(application.propertyId, user.uid)
-      : null,
+  /*
+   * El contrato firmado, con un enlace válido una hora. Se lee siempre que exista y no solo en
+   * su etapa: es el documento del arriendo y ambas partes van a volver a buscarlo después.
+   */
+  const contract = await withContractUrl(application.contract);
+  const contractLeft =
+    application.stage === "contract_signature" ? contractBlocker(application.contract) : null;
+
+  const onGuarantee = isLandlord && application.stage === "guarantee";
+  /*
+   * El inmueble se lee además del anuncio congelado en la postulación porque el cotizador pide el
+   * arriendo y la administración por separado — la postulación solo guarda el total — y pide el
+   * departamento, que tampoco está ahí. Las tres lecturas van en paralelo: son independientes.
+   */
+  const [tenantAccount, location, property] = await Promise.all([
+    onGuarantee ? getProfile(application.tenantUid) : null,
+    onGuarantee ? getPropertyLocation(application.propertyId, user.uid) : null,
+    onGuarantee ? getOwnedProperty(application.propertyId, user.uid) : null,
   ]);
+
+  /*
+   * La hoja de datos del cotizador, resuelta aquí: el panel es un Client Component y lo que
+   * necesita son nueve valores, no dos objetos de dominio. El tipo de documento va ya como su
+   * etiqueta en español para que el módulo de la postulación no tenga que importar el dominio del
+   * perfil del inquilino solo para traducir una palabra.
+   */
+  const quote =
+    onGuarantee && property
+      ? {
+          rent: property.rent,
+          adminFee: property.adminFee,
+          leaseMonths: application.leaseMonths,
+          department: property.area.department,
+          city: property.area.city,
+          address: location?.line ?? "",
+          tenantName: tenantAccount?.fullName ?? application.tenantName,
+          tenantDocumentType: DOCUMENT_TYPE_LABELS[application.dossier.documentType],
+          tenantDocumentNumber: application.dossier.documentNumber,
+        }
+      : undefined;
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -226,7 +267,9 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
                   ? interviewBlockerMessage(interviewLeft, isLandlord)
                   : guaranteeLeft
                     ? guaranteeBlockerMessage(guaranteeLeft, isLandlord)
-                    : null
+                    : contractLeft
+                      ? contractBlockerMessage(contractLeft, isLandlord)
+                      : null
           }
           // The stage's own card, which is where its work lives.
           resolveAt={stageAnchor(application.stage)}
@@ -286,7 +329,20 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
                   isLandlord={isLandlord}
                   tenantEmail={tenantAccount?.email}
                   registryNumber={location?.registryNumber}
+                  quote={quote}
                   readOnly={past("guarantee")}
+                />
+              ),
+            },
+            contract_signature: {
+              title: "Firma del contrato",
+              meta: CONTRACT_STATE_LABELS[contractState(application.contract)],
+              content: (
+                <ContractPanel
+                  applicationId={application.id}
+                  contract={contract}
+                  isLandlord={isLandlord}
+                  readOnly={past("contract_signature")}
                 />
               ),
             },

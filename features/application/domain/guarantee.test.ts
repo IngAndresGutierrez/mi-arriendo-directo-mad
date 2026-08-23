@@ -7,7 +7,9 @@ import {
   GUARANTEE_COVERAGES,
   GUARANTEE_LIMIT_NOTE,
   GUARANTEE_MAX_MONTHS,
+  GUARANTEE_PLAN,
   GUARANTEE_PROVIDER,
+  isProviderLink,
   type Guarantee,
 } from "./guarantee";
 
@@ -15,6 +17,7 @@ const REQUESTED: Guarantee = {
   requestedAt: "2026-09-01T15:00:00.000Z",
   activeAt: null,
   policyNumber: "",
+  tenantLink: "",
   note: "",
 };
 
@@ -83,5 +86,50 @@ describe("what the product promises", () => {
     expect(GUARANTEE_MAX_MONTHS).toBe(12);
     expect(GUARANTEE_LIMIT_NOTE).toContain("12 meses");
     expect(GUARANTEE_LIMIT_NOTE).toContain("vigente");
+  });
+});
+
+describe("isProviderLink", () => {
+  const LINK =
+    "https://ecomm.sura.co/seguros/hogar/arriendo/inquilino/resumen-proceso?quoteId=E0SGqCQ%2Bmoew";
+
+  it("accepts the link Sura's quoter produces", () => {
+    expect(isProviderLink(LINK)).toBe(true);
+  });
+
+  it("accepts the bare domain and any subdomain of it", () => {
+    expect(isProviderLink("https://sura.co/algo")).toBe(true);
+    expect(isProviderLink("https://otro.sura.co/algo")).toBe(true);
+  });
+
+  it("tolerates the whitespace that comes with a paste", () => {
+    expect(isProviderLink(`  ${LINK}  `)).toBe(true);
+  });
+
+  /*
+   * The one that matters: this is the check standing between a tenant and whatever a landlord
+   * pasted. A hostname that merely *contains* the domain is not the domain.
+   */
+  it("rejects a host that only looks like Sura's", () => {
+    expect(isProviderLink("https://sura.co.example.com/phishing")).toBe(false);
+    expect(isProviderLink("https://notsura.co/phishing")).toBe(false);
+    expect(isProviderLink("https://example.com/?x=sura.co")).toBe(false);
+  });
+
+  it("rejects anything that is not https", () => {
+    expect(isProviderLink("http://ecomm.sura.co/algo")).toBe(false);
+    expect(isProviderLink("javascript:alert(1)")).toBe(false);
+    expect(isProviderLink("data:text/html,<script>alert(1)</script>")).toBe(false);
+  });
+
+  it("rejects what is not a URL at all", () => {
+    expect(isProviderLink("")).toBe(false);
+    expect(isProviderLink("ecomm.sura.co/sin-esquema")).toBe(false);
+  });
+});
+
+describe("GUARANTEE_PLAN", () => {
+  it("names the tier the panel tells the landlord to pick", () => {
+    expect(GUARANTEE_PLAN).toBe("Plus");
   });
 });

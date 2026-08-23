@@ -214,6 +214,15 @@ pnpm e2e --list           # what would run, without running it
 pnpm e2e                  # all 32, before reporting a feature done
 ```
 
+**A shared primitive maps to everything, not to a list.** `manifest.mjs` also has
+`SELECTS_EVERY_DRIVER`: touch `shared/ui/`, `shared/form/`, `app/globals.css` or `app/layout.tsx`
+and `--since` selects the whole corpus. That exists because of a real miss — resizing the buttons
+in six stage panels edits `shared/ui/button.tsx`, which is on every screen in the product, and
+`--since` picked twelve drivers because the manifest happened to list only the two `shared/ui/`
+components somebody had thought to map. Ten minutes of drivers costs less than a regression in a
+button that appears everywhere. **Never map a shared primitive to a hand-written list of drivers**:
+the list is wrong the day someone uses the component somewhere new.
+
 **`--since` is the default move, not `pnpm e2e`.** `tests/e2e/manifest.mjs` maps each driver to
 the paths it covers; adding the skeletons selects 14 drivers instead of all 32, and leaves out
 `interview`, `guarantee`, `reminders` and `session`, which no `loading.tsx` can affect. **A new

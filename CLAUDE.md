@@ -193,6 +193,43 @@ external, installed with `npx skills add` and versioned in `.agents/skills/`. In
 | `frontend-design` | visual hierarchy, typography, composition (**not** for picking colors: the palette is fixed) |
 | `vercel-react-best-practices` | performance: waterfalls, bundle, RSC, re-renders |
 
+## Button emphasis: one cyan per view
+
+The stage panels drifted twice and both drifts made the same page unreadable, in opposite
+directions.
+
+**First, the size.** `size="lg"` is `h-9 px-2.5` — in this design system that is a *small* button.
+The brand CTA is `size="xl"` (`h-11 px-4 rounded-xl`), which is what `SubmitButton`, the property
+CTA and the advance button use, and it is what matches an `h-11` input. Twenty-seven buttons across
+the six stage panels were on `lg`, so every action *inside* a stage was smaller than the button that
+leaves it. They are all `xl` now.
+
+**Then, the colour.** With only `outline` available for anything secondary — a border the same grey
+as every card edge — real actions were being promoted to `accent`, and the guarantee panel ended up
+with three cyan buttons. Three CTAs is none.
+
+So there are three levels, and the rule is **one `accent` per view**:
+
+| Variant | For |
+| --- | --- |
+| `accent` | the one action of that view. Cyan. If two are on screen at once, one of them is wrong. |
+| `brand` | a real control that is not that one. Brand purple on the border and the label. |
+| `outline` / `ghost` | furniture: cancel, dismiss, a row-level copy button. |
+
+`brand` uses **`--brand-panel`, never `--primary`**: in dark mode `--primary` *is* the cyan, so a
+`border-primary` secondary button would end up competing with the very CTA it defers to. The same
+trap applies to `status-current`, which is cyan too — the guarantee panel's "elige el plan Plus"
+note used it and formed a cyan block with the button beneath it, besides claiming to be a process
+state when it is an instruction.
+
+**And prefer removing a button to recolouring it.** The guarantee panel had five; it has three.
+Two of them were a submit for a single field, so the field saves itself: `saveGuaranteeProgress`
+runs 800 ms after typing stops, which also cannot leave a link filled-but-unsaved at the moment the
+landlord switches to Sura's tab. A field that saves itself needs to *say* so — there is no button
+to go quiet — and it must **notify on transitions, not on saves**: an auto-saving note would
+otherwise ring the tenant's bell on every keystroke, so the two once-only events are "the policy
+became requested" and "a link appeared".
+
 ## Naming conventions
 - **Everything in English**: variables, functions, types, components, props, files, comments,
   test names, Firestore collections and fields, custom claims and their values.
@@ -392,10 +429,25 @@ about it from a phone call would mean finding out last about something that is a
 deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
 is what stands in for it, and a test asserts the word never comes back.
 
-Three of the nine are `UNBUILT_STAGES` - `guarantee`, `contract_signature`, `first_payment`:
-visible, described, with no interface of their own yet.
-They are shown rather than hidden because a tenant needs to know what is coming, and the screen
-says out loud that those happen off the platform for now.
+**`contract_signature` is built, and it is signed off the platform.** Each landlord signs on
+**their own ZapSign account**, on its free tier — five documents a month, no card — and the signed
+PDF comes back here. The account and the quota are theirs: counting their documents or holding an
+API token of theirs would be this product taking on a cost and a secret to save them one upload.
+The panel links straight at ZapSign's *new document* screen rather than its home page, and says out
+loud that the step is external and free, because "firma digital" reads as something with a price
+until somebody says otherwise.
+
+**The signed file is the one artefact a court would ask for**, so it is the most private thing in
+the process. It goes up **through a Server Action**, not from the browser to the bucket like the
+photos and the tenant's documents: `contracts/**` is closed to every client in `storage.rules` and
+stays closed, because the rule that has to hold is "the landlord *of this application*, on *this*
+stage" and Security Rules cannot ask that without reading the application. Both parties then read
+it through a URL signed for the hour — a permanent URL is one forward away from being public.
+
+**And this is what finally gives the advance button a reason at this stage.** Until the contract is
+there, `contractBlocker` blocks and the button says why. `first_payment` is the only stage left in
+`UNBUILT_STAGES`: it is shown rather than hidden because a tenant needs to know what is coming, and
+the screen says out loud that it happens off the platform for now.
 
 - **Both sides read the same screen**, so the stage copy exists twice: `STAGE_DESCRIPTIONS` for
   the tenant, `STAGE_DESCRIPTIONS_LANDLORD` for the landlord. The sentence that tells the tenant

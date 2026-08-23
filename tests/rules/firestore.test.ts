@@ -273,6 +273,31 @@ describe("applications", () => {
     await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "withdrawn" }));
   });
 
+  /*
+   * The signature stage is gated on the signed contract existing, so `contract` is now a field
+   * that would move the process if a client could write it. Neither party may: the file goes
+   * through the Server Action, which is the only place that can check "the landlord of *this*
+   * application, on *this* stage".
+   */
+  it("neither party can claim the contract is signed from the client", async () => {
+    const signed = {
+      contract: {
+        path: "contracts/forged/whatever.pdf",
+        fileName: "whatever.pdf",
+        contentType: "application/pdf",
+        bytes: 10,
+        uploadedAt: "2026-09-20T15:00:00.000Z",
+        note: "",
+      },
+    };
+    await assertFails(
+      updateDoc(doc(actingAs(env, UID_TENANT, "tenant"), `applications/${APPLICATION_ID}`), signed),
+    );
+    await assertFails(
+      updateDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `applications/${APPLICATION_ID}`), signed),
+    );
+  });
+
   it("the landlord cannot advance or reject it from the client either", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { stage: "tenant_data" }));

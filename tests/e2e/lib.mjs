@@ -295,3 +295,53 @@ export function fixtures() {
   if (!existsSync(files.pdf)) writeFileSync(files.pdf, PDF, "latin1");
   return files;
 }
+
+// ---------------------------------------------------------------------------
+// El Admin SDK, para los drivers que necesitan poner un proceso en una etapa concreta.
+//
+// Estaba copiado dentro de un driver con la ruta absoluta del checkout de quien lo escribió, así
+// que no funcionaba en ningún otro. Aquí las rutas salen de la ubicación de este fichero.
+// ---------------------------------------------------------------------------
+import { createRequire } from "node:module";
+import { readFileSync as readEnvFile } from "node:fs";
+import { dirname, join as joinPath } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const REPO = joinPath(dirname(fileURLToPath(import.meta.url)), "..", "..");
+let adminApp = null;
+
+/** Firestore con el Admin SDK. Inicializa una sola vez por proceso. */
+export function adminDb() {
+  const require = createRequire(joinPath(REPO, "package.json"));
+  const { cert, initializeApp, getApps } = require("firebase-admin/app");
+  const { getFirestore } = require("firebase-admin/firestore");
+
+  if (!adminApp) {
+    const env = Object.fromEntries(
+      readEnvFile(joinPath(REPO, ".env.local"), "utf8")
+        .split("\n")
+        .filter((line) => line.includes("=") && !line.startsWith("#"))
+        .map((line) => [
+          line.slice(0, line.indexOf("=")),
+          line.slice(line.indexOf("=") + 1).replace(/^"|"$/g, ""),
+        ]),
+    );
+    adminApp = getApps().length
+      ? getApps()[0]
+      : initializeApp({
+          credential: cert({
+            projectId: env.FIREBASE_PROJECT_ID,
+            clientEmail: env.FIREBASE_CLIENT_EMAIL,
+            privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+          }),
+        });
+  }
+
+  return getFirestore(adminApp);
+}
+
+/** `FieldValue`, para los `serverTimestamp()` de los drivers. */
+export function adminFieldValue() {
+  const require = createRequire(joinPath(REPO, "package.json"));
+  return require("firebase-admin/firestore").FieldValue;
+}

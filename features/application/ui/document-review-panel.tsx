@@ -168,7 +168,7 @@ export function DocumentReviewPanel({
                     <Button
                       type="button"
                       variant="outline"
-                      size="lg"
+                      size="xl"
                       disabled={saving === document.id}
                       onClick={() => judge(document.id, "approved")}
                       aria-label={`Aprobar ${DOCUMENT_LABELS[document.kind]}`}
@@ -181,7 +181,7 @@ export function DocumentReviewPanel({
                     <Button
                       type="button"
                       variant="destructive"
-                      size="lg"
+                      size="xl"
                       disabled={saving === document.id}
                       onClick={() => setRejecting(rejecting === document.id ? null : document.id)}
                       aria-label={`Rechazar ${DOCUMENT_LABELS[document.kind]}`}
@@ -217,7 +217,7 @@ export function DocumentReviewPanel({
                     <Button
                       type="button"
                       variant="destructive"
-                      size="lg"
+                      size="xl"
                       disabled={saving === document.id}
                       onClick={() => judge(document.id, "rejected", note)}
                     >
@@ -226,7 +226,7 @@ export function DocumentReviewPanel({
                     <Button
                       type="button"
                       variant="ghost"
-                      size="lg"
+                      size="xl"
                       disabled={saving === document.id}
                       onClick={() => {
                         setRejecting(null);

@@ -30,7 +30,14 @@ async function cuenta(email) {
     { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
 }
 async function entrar(email, nombre) {
-  const p = await (await b.newContext({ viewport: { width: 1100, height: 1000 } })).newPage();
+  // `clipboard-read` porque la hoja del cotizador se verifica por lo que llega al portapapeles,
+  // no por lo que se ve en la fila: es ahí donde importa que el monto vaya sin formato.
+  const p = await (
+    await b.newContext({
+      viewport: { width: 1100, height: 1000 },
+      permissions: ["clipboard-read", "clipboard-write"],
+    })
+  ).newPage();
   p.on("pageerror", (e) => problemas.push(`${nombre}: ${e}`));
   await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
   await settled(p);
@@ -61,8 +68,11 @@ await settled(p);
 const dueñoEmail = `entdueno-${STAMP}@miarriendodirecto.test`;
 const inqEmail = `entinq-${STAMP}@miarriendodirecto.test`;
 await cuenta(dueñoEmail); await cuenta(inqEmail);
+// El nombre va en una constante porque la hoja del cotizador lo asserta más abajo: escribirlo
+// dos veces es cómo la aserción acabó buscando el nombre de otro driver.
+const INQ_NOMBRE = "Carlos Inquilino Ramírez";
 const dueño = await entrar(dueñoEmail, "Ana Propietaria Pérez");
-const inq = await entrar(inqEmail, "Carlos Inquilino Ramírez");
+const inq = await entrar(inqEmail, INQ_NOMBRE);
 
 // ---------- un proceso hasta la etapa de la entrevista ----------
 await dueño.goto(BASE + "/inmuebles/publicar", { waitUntil: "domcontentloaded" });
@@ -142,9 +152,66 @@ if ((await cotizar.getAttribute("href")) !== "https://ecomm.sura.co/seguros/hoga
 if ((await cotizar.getAttribute("target")) !== "_blank") throw new Error("no abre en otra pestaña");
 ok("y ofrece cotizar en Sura, en otra pestaña");
 
-if (!visto.includes(inqEmail)) throw new Error("no le da el correo del inquilino");
-if (!visto.includes("050-123456")) throw new Error("no le da la matrícula inmobiliaria");
-ok("le entrega los dos datos que pide el formulario", "correo del inquilino y matrícula");
+/*
+ * El correo y la matrícula se comprobaban aquí, sobre el `body`. Ahora viven en el diálogo con
+ * los otros ocho datos, así que se verifican más abajo, dentro de él — que además es donde se
+ * puede afirmar que están *en la hoja* y no simplemente en algún sitio de la página.
+ */
+
+// ---------- el plan, a la vista sin abrir nada ----------
+/*
+ * Fuera del diálogo a propósito: es la única instrucción de la etapa y esconderla detrás de un
+ * clic es como no darla. Se comprueba antes de abrir nada.
+ */
+if (!/Elige siempre el plan Plus/i.test(visto)) throw new Error("el plan Plus no está a la vista");
+ok("el plan Plus se lee sin abrir nada");
+
+// ---------- la hoja de datos, dentro del diálogo ----------
+await dueño.getByRole("button", { name: /Ver los datos del cotizador/i }).click();
+const hoja = dueño.getByRole("dialog");
+await hoja.waitFor({ state: "visible", timeout: 15000 });
+/*
+ * Se lee dentro del diálogo, no en el `body`: "Caldas", "Manizales" y el monto también salen en
+ * la tarjeta del inmueble, así que buscarlos en toda la página pasaría aunque la hoja estuviera
+ * vacía.
+ */
+const enLaHoja = await hoja.innerText();
+for (const [que, valor] of [
+  ["el arriendo", "1.800.000"],
+  ["la duración", "meses"],
+  ["el departamento", "Caldas"],
+  ["la ciudad", "Manizales"],
+  ["la dirección", "Calle 60 #10-20"],
+  ["la matrícula", "050-123456"],
+  ["el nombre del inquilino", INQ_NOMBRE],
+  ["el tipo de documento", "Cédula de ciudadanía"],
+  ["el número de documento", "1053812345"],
+  ["el correo del inquilino", inqEmail],
+]) {
+  if (!enLaHoja.includes(valor)) throw new Error(`la hoja no trae ${que}: ${valor}`);
+}
+ok("la hoja trae los diez datos del cotizador", "inmueble e inquilino");
+
+/*
+ * Lo que importa no es que el monto se vea bonito, es que lo que llega al portapapeles sea
+ * pegable en un campo numérico: `$ 1.800.000` lo rechaza. Se asserta el portapapeles, no el texto.
+ */
+await hoja
+  .locator('[data-slot="copy-row"]', { hasText: "Valor mensual del arrendamiento" })
+  .getByRole("button", { name: /Copiar/i })
+  .click();
+const copiado = await dueño.evaluate(() => navigator.clipboard.readText());
+if (copiado !== "1800000") throw new Error(`copió "${copiado}", esperaba los dígitos sin formato`);
+ok("el monto se muestra formateado y se copia sin puntos ni signo", `"1.800.000" → "${copiado}"`);
+
+// Copiar no cierra el diálogo: si lo cerrara habría que reabrirlo por cada uno de los diez.
+if (!(await hoja.isVisible())) throw new Error("copiar cerró el diálogo");
+ok("copiar no cierra el diálogo");
+
+await dueño.screenshot({ path: `${SHOT_DIR}/poliza-datos.png`, fullPage: true });
+await dueño.keyboard.press("Escape");
+await hoja.waitFor({ state: "hidden", timeout: 10000 });
+ok("y se cierra con Escape");
 await dueño.screenshot({ path: `${SHOT_DIR}/poliza.png`, fullPage: true });
 
 // ---------- el inquilino ve lo mismo, menos la matrícula ----------
@@ -159,8 +226,14 @@ if (suyo.includes("Cotizar en Sura")) throw new Error("al inquilino le ofrecen c
 ok("el inquilino ve las coberturas, no la matrícula ni el botón de cotizar");
 
 // ---------- solicitada: sigue bloqueado ----------
+/*
+ * Sin botón: el campo se guarda solo al dejar de escribir. Escribir la nota es lo que dice "ya la
+ * solicité", así que el estado pasa a "En estudio" sin que nadie pulse nada — que es exactamente
+ * lo que se comprueba aquí. Antes había un submit para este único campo.
+ */
 await dueño.locator("#guarantee-request-note").fill("Ya la solicité, están estudiando el caso.");
-await dueño.getByRole("button", { name: /Ya la solicité/i }).click();
+await dueño.waitForFunction(() => /Guardado\./.test(document.body.innerText), null, { timeout: 20000 });
+ok("la nota se guarda sola, sin botón");
 await dueño.waitForFunction(() => document.body.innerText.includes("En estudio"), null, { timeout: 20000 });
 if ((await dueño.getByRole("button", { name: /Continuar a/i }).first().getAttribute("aria-disabled")) !== "true") {
   throw new Error("una solicitud en estudio deja avanzar");
@@ -175,6 +248,65 @@ if (!(await inq.evaluate(() => document.body.innerText)).includes("Están tramit
 }
 ok("al inquilino le avisan de que la están tramitando");
 await inq.keyboard.press("Escape");
+
+// ---------- el enlace para el inquilino, ya en estudio ----------
+/*
+ * Va después de "Ya la solicité" porque guardar el enlace también marca la póliza como
+ * solicitada: si fuese antes, el campo de la nota ya no estaría y el driver estaría probando
+ * un camino que el producto no ofrece.
+ */
+const campoEnlace = dueño.locator("#guarantee-tenant-link");
+const abrirPanel = async (pagina) => {
+  await pagina.getByRole("button", { name: /Póliza de arrendamiento/i }).first().click();
+};
+
+/*
+ * Este enlace lo pega el propietario y lo abre el inquilino, desde una página en la que confía.
+ * Sin botón, la protección ya no se ve en un control deshabilitado, así que lo que se comprueba es
+ * lo que de verdad importa: que un host ajeno **no se guarde**. Se recarga para preguntárselo al
+ * servidor y no a la pantalla.
+ */
+await campoEnlace.fill("https://sura.co.example.com/phishing");
+await dueño.waitForTimeout(2000);
+await dueño.reload({ waitUntil: "domcontentloaded" });
+await settled(dueño);
+await abrirPanel(dueño);
+if ((await dueño.locator("#guarantee-tenant-link").inputValue()).includes("example.com")) {
+  throw new Error("guardó un enlace que no es de Sura");
+}
+ok("un enlace que solo parece de Sura no se guarda");
+
+const ENLACE = "https://ecomm.sura.co/seguros/hogar/arriendo/inquilino/resumen-proceso?quoteId=E0SGqCQ";
+await dueño.locator("#guarantee-tenant-link").fill(ENLACE);
+await dueño.waitForFunction(() => /Guardado\./.test(document.body.innerText), null, { timeout: 25000 });
+ok("el enlace de Sura se guarda solo, sin botón");
+
+// Y quedó guardado de verdad, no solo dicho en pantalla.
+await dueño.reload({ waitUntil: "domcontentloaded" });
+await settled(dueño);
+await abrirPanel(dueño);
+if ((await dueño.locator("#guarantee-tenant-link").inputValue()) !== ENLACE) {
+  throw new Error("el enlace no sobrevivió a la recarga");
+}
+ok("y sobrevive a la recarga");
+
+/*
+ * La pantalla del inquilino se cargó antes de que el propietario pegara el enlace. La página se
+ * refresca sola con la suscripción, pero aquí se recarga a propósito para no depender de cuándo
+ * llegue: lo que se está probando es el enlace, no el tiempo de propagación. Y hay que volver a
+ * abrir el panel, porque arrancan plegados.
+ */
+await inq.reload({ waitUntil: "domcontentloaded" });
+await settled(inq);
+await inq.getByRole("button", { name: /Póliza de arrendamiento/i }).first().click();
+
+const suEnlace = inq.getByRole("link", { name: /Continuar en Sura/i });
+if (!(await suEnlace.count())) throw new Error("al inquilino no le ofrecen continuar su parte");
+if ((await suEnlace.getAttribute("href")) !== ENLACE) {
+  throw new Error("el enlace del inquilino no es el que pegó el propietario: " + (await suEnlace.getAttribute("href")));
+}
+if ((await suEnlace.getAttribute("target")) !== "_blank") throw new Error("no abre en otra pestaña");
+ok("y tiene su propio enlace para continuar en Sura, el que pegó el propietario");
 
 // ---------- expedida: avanza ----------
 await dueño.locator("#guarantee-policy").fill("AR-99123");

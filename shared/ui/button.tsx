@@ -16,6 +16,23 @@ const buttonVariants = cva(
           "bg-accent font-semibold text-accent-foreground hover:bg-[color-mix(in_oklch,var(--accent),var(--foreground)_10%)]",
         outline:
           "border-border bg-background hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:border-input dark:bg-input/30 dark:hover:bg-input/50",
+        /*
+         * MAD UI: the emphasis level between `outline` and `accent`.
+         *
+         * A stage panel has several real actions and only one of them is *the* action. With only
+         * neutral `outline` available the rest read as furniture — a border the same grey as every
+         * card edge — so they were being promoted to `accent`, and three cyan buttons in one panel
+         * is the same problem upside down: nothing stands out.
+         *
+         * This one carries the brand purple on the border and the label, so it is clearly a
+         * control and just as clearly not the cyan CTA.
+         *
+         * `brand-panel`, not `primary`: in dark mode `--primary` *is* the cyan, so a
+         * `border-primary` here would end up competing with the very button it is meant to defer
+         * to. `--brand-panel` is purple in both themes, which is why it exists.
+         */
+        brand:
+          "border-brand-panel/40 bg-background text-brand-panel hover:border-brand-panel hover:bg-brand-panel/[0.06] dark:border-brand-panel-muted/40 dark:bg-transparent dark:text-brand-panel-muted dark:hover:bg-brand-panel-muted/10",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
         ghost:

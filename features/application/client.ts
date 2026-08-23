@@ -38,7 +38,16 @@ export {
   type Interview,
 } from "./domain/interview";
 export {
+  contractState,
+  isPdfContract,
+  CONTRACT_PROVIDER,
+  CONTRACT_STATE_LABELS,
+  type SignedContract,
+} from "./domain/contract";
+export {
   guaranteeState,
+  isProviderLink,
+  GUARANTEE_PLAN,
   GUARANTEE_PROVIDER,
   GUARANTEE_STATE_LABELS,
   type Guarantee,

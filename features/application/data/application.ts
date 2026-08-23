@@ -2,9 +2,13 @@ import "server-only";
 
 import { cache } from "react";
 
-import { adminDb } from "@/shared/firebase/admin";
+import { adminDb, adminStorage } from "@/shared/firebase/admin";
 
 import type { Application, ApplicationDoc } from "../domain/application";
+import type { SignedContract } from "../domain/contract";
+
+/** An hour: long enough to read and download, short enough that a forwarded link dies. */
+const CONTRACT_LINK_TTL_MS = 60 * 60 * 1000;
 
 type Snapshot = { id: string; exists: boolean; data: () => Record<string, unknown> | undefined };
 
@@ -40,8 +44,15 @@ function toApplication(snapshot: Snapshot): Application | null {
     ),
     // Written by `proposeInterview`; absent on every application older than that stage.
     interview: doc.interview ?? null,
-    // Written by `recordGuaranteeRequested`; absent on every application older than that stage.
-    guarantee: doc.guarantee ?? null,
+    /*
+     * Written by `recordGuaranteeRequested`; absent on every application older than that stage.
+     * `tenantLink` is defaulted here rather than trusted: it arrived after the stage shipped, so
+     * a guarantee recorded before it has no such field and the type would be claiming a string
+     * that is `undefined`.
+     */
+    guarantee: doc.guarantee ? { ...doc.guarantee, tenantLink: doc.guarantee.tenantLink ?? "" } : null,
+    // Written by `uploadSignedContract`; absent on every application older than that stage.
+    contract: doc.contract ?? null,
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };
@@ -112,3 +123,30 @@ export const getTenantApplicationTo = cache(
     return first ? toApplication(first as unknown as Snapshot) : null;
   },
 );
+
+/**
+ * The signed contract with a link that works for the next hour, or `null`.
+ *
+ * `contracts/**` is closed to every client in `storage.rules`, so the only way either party reads
+ * this file is a URL signed here. That is deliberate: a lease is the most private document in the
+ * process, and a permanent URL is one forward away from being public.
+ */
+export async function withContractUrl(
+  contract: SignedContract | null,
+): Promise<(SignedContract & { readonly url: string }) | null> {
+  if (!contract?.path) return null;
+
+  try {
+    const [url] = await adminStorage()
+      .bucket()
+      .file(contract.path)
+      .getSignedUrl({ action: "read", expires: Date.now() + CONTRACT_LINK_TTL_MS });
+
+    return { ...contract, url };
+  } catch (error) {
+    // A record whose file is gone must not take the whole page down with it.
+    console.error(`could not sign ${contract.path}:`, error);
+
+    return null;
+  }
+}

@@ -37,6 +37,10 @@ So: one `lib.mjs`, and a change in how the app answers a navigation is one edit.
 - **No `throw`, not a test.** Throwaway probes — bisecting a layout, printing an LCP, taking one
   screenshot — belong in the session scratchpad and stay there.
 - **A new driver needs an entry in `manifest.mjs`**, or `--since` will never select it.
+- **Un primitivo compartido se mapea a todo, no a una lista.** `SELECTS_EVERY_DRIVER` cubre
+  `shared/ui/`, `shared/form/`, `app/globals.css` y `app/layout.tsx`: cambiar un botón que sale en
+  cada pantalla tiene que seleccionar el corpus entero, y una lista escrita a mano queda mal el día
+  que alguien usa el componente en un sitio nuevo.
 - **Never weaken an assertion to make it pass.** If the harness could not reproduce the
   condition, the fix is a better wait, not a smaller claim.
 - **Self-sufficient.** A driver creates what it needs and is handed nothing: config comes from

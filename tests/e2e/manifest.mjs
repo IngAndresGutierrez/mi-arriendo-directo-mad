@@ -43,8 +43,24 @@ export const COVERS = {
   apply: ["features/application/", "app/(app)/arriendos", "app/(app)/postularme"],
   documents: ["features/tenant-profile/", "features/application/", "app/(app)/arriendos"],
   interview: ["features/application/domain/interview", "features/application/validations/interview", "features/application/ui/"],
-  guarantee: ["features/application/domain/guarantee", "features/application/validations/guarantee", "features/application/ui/"],
+  guarantee: [
+    "features/application/domain/guarantee",
+    "features/application/validations/guarantee",
+    "features/application/actions/guarantee",
+    "features/application/ui/",
+    "app/(app)/arriendos",
+    "features/tenant-profile/domain/tenant-profile",
+  ],
   withdraw: ["features/application/"],
+  contract: [
+    "features/application/domain/contract",
+    "features/application/validations/contract",
+    "features/application/actions/contract",
+    "features/application/ui/contract-panel",
+    "features/application/ui/stage-actions",
+    "shared/format/bytes",
+    "app/(app)/arriendos",
+  ],
   reminders: ["app/api/cron/", "features/application/domain/interview", "features/notification/"],
   notifications: ["features/notification/", "shared/lib/site-url"],
 
@@ -58,7 +74,30 @@ export const COVERS = {
 /** Drivers that need a landlord, a tenant and a property, so they are the slow ones. */
 export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw"];
 
+/**
+ * Rutas tan transversales que cualquier cambio en ellas selecciona **todos** los drivers.
+ *
+ * `shared/ui/` es la razón por la que esto existe: pasar los 27 botones de los paneles de `lg` a
+ * `xl` y añadir una variante toca un fichero que está en todas las pantallas del producto, y
+ * `--since` seleccionaba doce drivers porque el manifiesto solo mapeaba los dos componentes de
+ * `shared/ui/` que alguien se había acordado de listar. Un primitivo compartido no se puede mapear
+ * a una lista: se mapea a todo.
+ *
+ * Sí, correr los 32 cuesta unos diez minutos. Perderse una regresión en un botón que sale en cada
+ * pantalla cuesta más.
+ */
+export const SELECTS_EVERY_DRIVER = [
+  "shared/ui/",
+  "shared/form/",
+  "app/globals.css",
+  "app/layout.tsx",
+];
+
 export function driversFor(changedPaths) {
+  if (changedPaths.some((path) => SELECTS_EVERY_DRIVER.some((prefix) => path.startsWith(prefix)))) {
+    return Object.keys(COVERS).sort();
+  }
+
   const hit = new Set();
   for (const [driver, prefixes] of Object.entries(COVERS)) {
     if (changedPaths.some((path) => prefixes.some((prefix) => path.startsWith(prefix)))) {

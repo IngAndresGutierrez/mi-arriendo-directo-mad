@@ -35,6 +35,27 @@ export const GUARANTEE_COVERAGES = [
  * is a second copy to keep in step.
  */
 
+/**
+ * The plan to take out, and it is not a preference.
+ *
+ * Sura's quoter offers several tiers, and only this one answers for the administration fee and
+ * carries the home assistance the coverages above describe. A landlord who picks the cheaper tier
+ * discovers the difference on the month they need it, which is the worst possible moment, so the
+ * panel says it once, plainly, next to the button that opens the quoter.
+ */
+export const GUARANTEE_PLAN = "Plus";
+
+/**
+ * Where the tenant's link is allowed to point.
+ *
+ * The landlord pastes this link and the **tenant** is the one who clicks it, from a page they
+ * trust, about their own lease. Accepting any URL would turn that into a way to put an arbitrary
+ * destination in front of them — so the host is checked, not just the shape. The comparison is on
+ * the parsed hostname, never on the string: `sura.co.example.com` contains "sura.co" and is not
+ * Sura.
+ */
+export const GUARANTEE_LINK_HOST = "sura.co";
+
 /** Twelve months, and only while the policy is current and paid. */
 export const GUARANTEE_MAX_MONTHS = 12;
 
@@ -66,9 +87,39 @@ export type Guarantee = {
   readonly activeAt: string | null;
   /** Sura's policy number. Empty until it exists. */
   readonly policyNumber: string;
+  /**
+   * Sura's link for the tenant to continue the process, or empty.
+   *
+   * The quoter ends by producing a link tied to that quote, and Sura emails it to the tenant as
+   * well. It is kept here because an email is a thing that gets lost: the tenant should be able
+   * to find it on the page about their own rental, and the landlord should be able to see that
+   * they handed it over. It carries the quote's identifier, so it is treated as the credential it
+   * is — never logged and never put in a URL of ours.
+   */
+  readonly tenantLink: string;
   /** Anything worth leaving written down. Both sides read it. */
   readonly note: string;
 };
+
+/**
+ * Whether a URL is one of Sura's, decided on the parsed hostname.
+ *
+ * Pure and unit-tested because it is the whole of the protection: the tenant clicks whatever
+ * this returns `true` for.
+ */
+export function isProviderLink(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url.trim());
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol !== "https:") return false;
+
+  const host = parsed.hostname.toLowerCase();
+  return host === GUARANTEE_LINK_HOST || host.endsWith(`.${GUARANTEE_LINK_HOST}`);
+}
 
 export function guaranteeState(guarantee: Guarantee | null): GuaranteeState {
   if (!guarantee) return "none";

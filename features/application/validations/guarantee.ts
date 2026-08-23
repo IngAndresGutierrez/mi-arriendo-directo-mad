@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { GUARANTEE_PROVIDER, isProviderLink } from "../domain/guarantee";
+
 /**
  * The policy number, validated loosely on purpose.
  *
@@ -20,6 +22,42 @@ export const guaranteePolicySchema = z.object({
   note: z.string().trim().max(300, { error: "La nota es demasiado larga" }).default(""),
 });
 
+/**
+ * The link Sura hands back for the tenant to continue with.
+ *
+ * Optional, because the landlord may mark the policy as applied for before the quoter has
+ * produced it. What is not optional is where it points: the tenant clicks this from a page about
+ * their own rental, so the host is verified (`isProviderLink`) rather than the string merely
+ * checked for a shape. `.max` is generous — the quote identifier is long and percent-encoded.
+ */
+const tenantLinkField = z
+  .string()
+  .trim()
+  .max(600, { error: "El enlace es demasiado largo" })
+  .refine((value) => value === "" || isProviderLink(value), {
+    error: `El enlace tiene que ser de ${GUARANTEE_PROVIDER.name} y empezar por https://`,
+  })
+  .default("");
+
 export const guaranteeRequestSchema = z.object({
+  tenantLink: tenantLinkField,
   note: z.string().trim().max(300, { error: "La nota es demasiado larga" }).default(""),
 });
+
+/**
+ * The link and the note, saved together and on their own.
+ *
+ * One schema instead of two because the panel no longer has a button for either: the field saves
+ * itself when it changes. That removes the "empty submit" worry a button had — there is no submit
+ * — but it adds a different one, so at least one of the two must carry something. An auto-save
+ * that fires on an empty form would write a `requestedAt` for a landlord who only clicked into a
+ * field and left.
+ */
+export const guaranteeProgressSchema = z
+  .object({
+    tenantLink: tenantLinkField,
+    note: z.string().trim().max(300, { error: "La nota es demasiado larga" }).default(""),
+  })
+  .refine((value) => value.tenantLink !== "" || value.note !== "", {
+    error: "No hay nada que guardar",
+  });

@@ -2,6 +2,7 @@ import type { LeaseTerm } from "@/features/property/client";
 import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/client";
 
 import type { CheckResults } from "./background-check";
+import type { SignedContract } from "./contract";
 import type { Guarantee } from "./guarantee";
 import type { Interview } from "./interview";
 
@@ -97,7 +98,12 @@ export function stageDescription(stage: Stage, isLandlord: boolean): string {
  * their own — no upload, no signature, no payment. The landlord still advances past them, which
  * is how a process that happens over WhatsApp gets recorded here in the meantime.
  */
-export const UNBUILT_STAGES: readonly Stage[] = ["contract_signature", "first_payment"];
+/*
+ * `contract_signature` salió de aquí cuando la etapa pasó a tener trabajo propio: se firma en
+ * ZapSign, con la cuenta del propio propietario, y el PDF firmado se sube aquí. Lo que queda sin
+ * construir es el primer canon.
+ */
+export const UNBUILT_STAGES: readonly Stage[] = ["first_payment"];
 
 export function isUnbuilt(stage: Stage): boolean {
   return UNBUILT_STAGES.includes(stage);
@@ -180,6 +186,11 @@ export type ApplicationDoc = {
    * applies for it.
    */
   readonly guarantee: Guarantee | null;
+  /**
+   * The contract both parties signed, uploaded after signing it on the landlord's own ZapSign
+   * account. `null` until it is there — and until it is, the stage does not move.
+   */
+  readonly contract: SignedContract | null;
   readonly history: readonly StageEvent[];
   readonly createdAt: unknown;
   readonly updatedAt: unknown;

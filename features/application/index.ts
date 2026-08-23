@@ -81,13 +81,29 @@ export { remindUpcomingInterviews, type ReminderSweep } from "./actions/remind-i
 export {
   recordGuaranteePolicy,
   recordGuaranteeRequested,
+  saveGuaranteeProgress,
   type GuaranteeActionResult,
 } from "./actions/guarantee";
 export { GuaranteePanel } from "./ui/guarantee-panel";
+export { ContractPanel } from "./ui/contract-panel";
+export { uploadSignedContract, type ContractActionResult } from "./actions/contract";
+export { withContractUrl } from "./data/application";
+export {
+  contractBlocker,
+  contractBlockerMessage,
+  contractState,
+  isPdfContract,
+  CONTRACT_PROVIDER,
+  CONTRACT_STATE_LABELS,
+  CONTRACT_STEPS,
+  type SignedContract,
+} from "./domain/contract";
 export {
   guaranteeBlocker,
   guaranteeBlockerMessage,
   guaranteeState,
+  isProviderLink,
+  GUARANTEE_PLAN,
   GUARANTEE_PROVIDER,
   GUARANTEE_STATE_LABELS,
   type Guarantee,
