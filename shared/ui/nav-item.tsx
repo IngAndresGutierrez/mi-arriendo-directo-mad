@@ -1,8 +1,9 @@
 "use client";
 
 import type { ComponentType, SVGProps } from "react";
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
+import { Loader2Icon } from "lucide-react";
 
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
@@ -111,8 +112,28 @@ export function NavItem({
           : "text-brand-panel-muted hover:bg-white/5 hover:text-brand-panel-foreground",
       )}
     >
-      <Icon className="size-5 shrink-0" aria-hidden="true" />
+      <NavIcon Icon={Icon} />
       {shown}
     </Link>
+  );
+}
+
+/**
+ * The icon, or a spinner while this link's navigation is in flight.
+ *
+ * `useLinkStatus` only works inside a `<Link>`, which is why it is its own component. It answers
+ * the question a click on a slow connection leaves open — *did it register, and which one did I
+ * press?* — right where the finger was, instead of somewhere at the top of the screen.
+ *
+ * With a warm prefetch this never shows, and that is the point: it appears exactly when the
+ * navigation is actually waiting on something.
+ */
+function NavIcon({ Icon }: { readonly Icon: ComponentType<SVGProps<SVGSVGElement>> }) {
+  const { pending } = useLinkStatus();
+
+  return pending ? (
+    <Loader2Icon className="size-5 shrink-0 animate-spin" aria-hidden="true" />
+  ) : (
+    <Icon className="size-5 shrink-0" aria-hidden="true" />
   );
 }

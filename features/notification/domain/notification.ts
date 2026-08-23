@@ -16,6 +16,19 @@ export const NOTIFICATION_TYPES = [
   "documents_requested",
   "document_rejected",
   "check_findings",
+  "interview_proposed",
+  "interview_confirmed",
+  "interview_declined",
+  "interview_reminder_day",
+  "interview_reminder_soon",
+  "guarantee_requested",
+  "guarantee_active",
+  "contract_ready",
+  "contract_signed",
+  "payout_ready",
+  "receipt_uploaded",
+  "receipt_rejected",
+  "canon_confirmed",
   "application_approved",
   "application_rejected",
   "application_withdrawn",
@@ -56,6 +69,18 @@ export type Notification = Omit<NotificationDoc, "createdAt"> & {
  * A notification written a month ago renders with today's copy: fixing a confusing sentence
  * fixes every notification that already went out, instead of only the next one.
  */
+/**
+ * Ends a sentence without doubling the full stop.
+ *
+ * Spanish abbreviates times as "3:00 p. m." — with the period — so a body that appends its own
+ * lands on "3:00 p. m..", which reads like a typo because it is one.
+ */
+function sentence(text: string): string {
+  const trimmed = text.trim();
+
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 export function notificationCopy(
   notification: Pick<Notification, "type" | "stage" | "propertyTitle" | "actorName"> & {
     readonly detail?: string;
@@ -83,6 +108,95 @@ export function notificationCopy(
         body: notification.detail
           ? `${who} registró un hallazgo al revisar tus antecedentes para ${property}. ${notification.detail}`
           : `${who} registró un hallazgo al revisar tus antecedentes para ${property}.`,
+      };
+    case "interview_proposed":
+      return {
+        title: "Te proponen una hora para la entrevista",
+        body: notification.detail
+          ? `${who} propone ${notification.detail} para hablar sobre ${property}. Confírmala o pide otro horario.`
+          : `${who} propuso una hora para la entrevista de ${property}. Confírmala o pide otro horario.`,
+      };
+    case "interview_confirmed":
+      return {
+        title: "La entrevista quedó confirmada",
+        body: notification.detail
+          ? `${who} confirmó ${notification.detail} para la entrevista de ${property}.`
+          : `${who} confirmó la hora de la entrevista de ${property}.`,
+      };
+    case "interview_declined":
+      return {
+        title: "Ese horario no le sirve",
+        body: notification.detail
+          ? `${who} no puede en la hora propuesta para ${property}. ${notification.detail}`
+          : `${who} no puede en la hora propuesta para ${property}. Propón otra.`,
+      };
+    case "interview_reminder_day":
+      return {
+        title: "Mañana tienes la entrevista",
+        body: notification.detail
+          ? sentence(`Recuerda: la entrevista de ${property} es ${notification.detail}`)
+          : `Recuerda que mañana es la entrevista de ${property}.`,
+      };
+    case "interview_reminder_soon":
+      return {
+        title: "Tu entrevista empieza en 10 minutos",
+        body: notification.detail
+          ? `${sentence(`La entrevista de ${property} es ${notification.detail}`)} Ten el enlace a mano.`
+          : `La entrevista de ${property} empieza en 10 minutos. Ten el enlace a mano.`,
+      };
+    case "guarantee_requested":
+      return {
+        title: "Están tramitando la póliza de arrendamiento",
+        body: notification.detail
+          ? `${who} solicitó la póliza que respalda el arriendo de ${property}. ${notification.detail}`
+          : `${who} solicitó la póliza que respalda el arriendo de ${property}.`,
+      };
+    case "guarantee_active":
+      return {
+        title: "La póliza quedó activa",
+        body: notification.detail
+          ? `${sentence(`El arriendo de ${property} ya tiene su garantía: ${notification.detail}`)} Sigue la firma del contrato.`
+          : `El arriendo de ${property} ya tiene su póliza. Sigue la firma del contrato.`,
+      };
+    case "contract_ready":
+      return {
+        title: "Hay un contrato para firmar",
+        body: notification.detail
+          ? `${sentence(`${who} subió el contrato del arriendo de ${property}: ${notification.detail}`)} Léelo y fírmalo desde la etapa de la firma.`
+          : `${who} subió el contrato del arriendo de ${property}. Léelo y fírmalo desde la etapa de la firma.`,
+      };
+    case "contract_signed":
+      return {
+        title: "El contrato quedó firmado",
+        body: `El contrato del arriendo de ${property} ya está firmado por las dos partes. Sigue el primer canon.`,
+      };
+    case "payout_ready":
+      /*
+       * Sin datos de la cuenta. Un correo con el número de cuenta de alguien es la forma exacta de
+       * toda estafa de pagos que existe, y saldría de un dominio en el que el inquilino confía.
+       */
+      return {
+        title: "Ya puedes pagar el primer canon",
+        body: `${who} indicó por dónde recibir el primer canon del arriendo de ${property}. Los datos están en la etapa del primer canon.`,
+      };
+    case "receipt_uploaded":
+      return {
+        title: "Llegó el comprobante del primer canon",
+        body: notification.detail
+          ? `${sentence(`${who} subió el comprobante del primer canon de ${property}: ${notification.detail}`)} Revísalo y confirma si el dinero llegó.`
+          : `${who} subió el comprobante del primer canon de ${property}. Revísalo y confirma si el dinero llegó.`,
+      };
+    case "receipt_rejected":
+      return {
+        title: "Rechazaron el comprobante",
+        body: notification.detail
+          ? `${sentence(`${who} rechazó el comprobante del primer canon de ${property}: ${notification.detail}`)} Sube otro corrigiendo eso.`
+          : `${who} rechazó el comprobante del primer canon de ${property}. Sube otro.`,
+      };
+    case "canon_confirmed":
+      return {
+        title: "El propietario confirmó el primer canon",
+        body: `${who} confirmó que recibió el primer canon del arriendo de ${property}. Con eso el arriendo queda en curso.`,
       };
     case "documents_requested":
       return {

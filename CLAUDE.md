@@ -98,7 +98,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/` | `LOGIN_ROUTE` | Login (email + password, Google). It is the site root. |
 | `/registro` | `SIGNUP_ROUTE` | Two-step signup: email → password. |
 | `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: there is a session but no profile yet. |
-| `/inicio` | `HOME_ROUTE` | User portal: greeting, contracts and shortcuts. Destination after signing in. |
+| `/inicio` | `HOME_ROUTE` | User portal: greeting, **the rentals in course** and shortcuts. Destination after signing in. The card lists the open processes with the stage each one is on — it used to read a `contracts` collection nothing writes, so it told somebody with three open processes that they had nothing. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
 | `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
 | — | — | Publishing requires the **matrícula inmobiliaria**, and it is stored beside the street in `properties/{id}/private/location`, never in the public document: with that number anyone can pull the certificate and read the address off it, so publishing it would publish the address by the back door. Validated loosely — the circle is two or three digits and the separator is written every way — because the only real check is against the registry, which this product does not do. |
@@ -193,6 +193,43 @@ external, installed with `npx skills add` and versioned in `.agents/skills/`. In
 | `frontend-design` | visual hierarchy, typography, composition (**not** for picking colors: the palette is fixed) |
 | `vercel-react-best-practices` | performance: waterfalls, bundle, RSC, re-renders |
 
+## Button emphasis: one cyan per view
+
+The stage panels drifted twice and both drifts made the same page unreadable, in opposite
+directions.
+
+**First, the size.** `size="lg"` is `h-9 px-2.5` — in this design system that is a *small* button.
+The brand CTA is `size="xl"` (`h-11 px-4 rounded-xl`), which is what `SubmitButton`, the property
+CTA and the advance button use, and it is what matches an `h-11` input. Twenty-seven buttons across
+the six stage panels were on `lg`, so every action *inside* a stage was smaller than the button that
+leaves it. They are all `xl` now.
+
+**Then, the colour.** With only `outline` available for anything secondary — a border the same grey
+as every card edge — real actions were being promoted to `accent`, and the guarantee panel ended up
+with three cyan buttons. Three CTAs is none.
+
+So there are three levels, and the rule is **one `accent` per view**:
+
+| Variant | For |
+| --- | --- |
+| `accent` | the one action of that view. Cyan. If two are on screen at once, one of them is wrong. |
+| `brand` | a real control that is not that one. Brand purple on the border and the label. |
+| `outline` / `ghost` | furniture: cancel, dismiss, a row-level copy button. |
+
+`brand` uses **`--brand-panel`, never `--primary`**: in dark mode `--primary` *is* the cyan, so a
+`border-primary` secondary button would end up competing with the very CTA it defers to. The same
+trap applies to `status-current`, which is cyan too — the guarantee panel's "elige el plan Plus"
+note used it and formed a cyan block with the button beneath it, besides claiming to be a process
+state when it is an instruction.
+
+**And prefer removing a button to recolouring it.** The guarantee panel had five; it has three.
+Two of them were a submit for a single field, so the field saves itself: `saveGuaranteeProgress`
+runs 800 ms after typing stops, which also cannot leave a link filled-but-unsaved at the moment the
+landlord switches to Sura's tab. A field that saves itself needs to *say* so — there is no button
+to go quiet — and it must **notify on transitions, not on saves**: an auto-saving note would
+otherwise ring the tenant's bell on every keystroke, so the two once-only events are "the policy
+became requested" and "a link appeared".
+
 ## Naming conventions
 - **Everything in English**: variables, functions, types, components, props, files, comments,
   test names, Firestore collections and fields, custom claims and their values.
@@ -256,6 +293,58 @@ There is no separate "revisión de documentos" stage: reviewing them **is** stag
 one is approved or rejected. A stage repeating what the previous one settled is a stage everybody
 clicks through without reading.
 
+**`interview` is built, and it is the one stage that is mostly about agreeing on a time.** The
+landlord proposes a day, an hour and a channel - Google Meet, WhatsApp or a plain phone call, 30
+minutes - and the tenant **confirms**, which is what turns a proposal into an appointment: a time
+only one side knows is a time nobody shows up to, so the process does not move on without it. The
+tenant can also say the slot does not work, with a note; proposing again **replaces** the whole
+arrangement, because a confirmation belongs to the time it was given for. The **Meet link only
+appears once confirmed** - before that there is nothing to walk into, and offering it invites
+somebody to try on the wrong day. Afterwards the landlord writes down how it went (`went_well` /
+`with_reservations` plus a sentence), and **that is what unblocks the next stage**; like a records
+search, a reservation never blocks - what blocks is not having held the interview. The note is
+read by both, and the form says so, because a conclusion the other party cannot see is a decision
+made behind their back. The call happens off the platform: this product hosts no video, and the
+part that gets lost in a chat thread is the agreement about *when*, which is what it keeps.
+
+**Two reminders go out for a confirmed interview**: one **a day before** and one **ten minutes
+before**, to both parties, over the three channels at once - the bell, an email and a **WhatsApp**.
+Ten minutes before a call is exactly the moment when "they will see it when they open the app" is
+not good enough.
+
+Nobody clicks a reminder into existence, so a **Vercel Cron** wakes the server: `vercel.json`
+calls `GET /api/cron/interview-reminders` every five minutes, which is also the accuracy of the
+ten-minute one - it leaves on the first tick inside the window. The route **refuses to run without
+`CRON_SECRET`** and answers 401 to a wrong one: a job that messages every tenant with an interview
+is not something to leave open on a guessable path. Note that minute-level crons need a Vercel
+plan above Hobby, which caps them at one run a day.
+
+`dueReminder()` holds the rules and is unit-tested: only a **confirmed** interview is reminded (a
+proposal nobody accepted is not an appointment); nothing is sent once the call has started; and
+when both windows are open at once - an interview confirmed nine minutes before it begins - only
+the closest one is sent and the stale one is **written off**, because "manana tienes la entrevista"
+arriving ten minutes before it starts is worse than silence. What was sent is written on the
+interview *before* anything leaves: the sweep wakes up every five minutes, and the other order
+would cost the same reminder every five minutes until the call.
+
+**WhatsApp needs three things this repository cannot hold**: a WhatsApp Business phone number
+(`WHATSAPP_PHONE_NUMBER_ID`), its token (`WHATSAPP_TOKEN`) and a **template approved by Meta**
+(`WHATSAPP_TEMPLATE`, defaulting to `interview_reminder`). Business-initiated messages outside the
+24-hour window a person's own message opens cannot be free text, so the words live in the WhatsApp
+Business account and this project passes two parameters: the property and when the call is. Without
+credentials the message is logged and the other two channels still go out - the same contract as
+Resend without a key.
+
+**A phone on `notify()` is what says "this one also goes over WhatsApp".** Every other movement of
+a process is news, and news belongs in the bell and the inbox: a phone that buzzes for each of nine
+stages is a phone somebody mutes, and then the reminder arrives muted too.
+
+Times are stored as instants and shown in Colombian time. The form's two fields are read as
+Bogota wall time with a fixed `-05:00` - Colombia has no daylight saving, so that offset is exact
+all year - and `interviewWhen()` is the single formatter the panel, the bell and the email share:
+for the one fact this stage exists to carry, three copies that could drift is the worst possible
+bug.
+
 **`tenant_data` is built.** The tenant uploads the documents their occupation calls for and both
 sides see them previewed; the landlord approves or rejects each one, with a reason on a
 rejection. `background_check` cannot query anything — SIMIT, the RUNT and the Policía have no open API — so
@@ -312,13 +401,144 @@ live **on the application**, never on the document: a payslip approved by one la
 approved for the next, and a verdict written onto the tenant's profile would follow them
 everywhere.
 
+**`guarantee` is built, and in this first phase it is one product**: Sura's *seguro de
+arrendamiento digital*, taken out online at `ecomm.sura.co/seguros/hogar/arriendo/cotizador`, which
+**needs no co-signer** - producing a relative who owns property is the requirement that stops most
+applications in Colombia, and this whole product exists so the process does not stop. The stage is
+called "Poliza de arrendamiento" in the timeline for the same reason.
+
+The policy is bought on Sura's site: this product does not sell insurance, is not a broker and
+takes nothing for pointing at it. What the panel does is the part that *is* its job - say what the
+policy answers for (rent on default, administration fees, home assistance), state the ceiling (12
+months, and only while the policy is current and paid), hand the landlord the two things Sura's
+form asks for **with a copy button** - the tenant's email and the registry number, both already on
+that screen - and keep the record of what was taken out.
+
+Two rules. The **registry number never reaches the tenant's side** of this panel, for the reason
+it lives outside the public document: with it anyone pulls the certificate and reads the address
+off it. And **"ya la solicité" does not unblock the stage** - only a policy number does. A
+requested policy is a wait, and signing a contract on a study the insurer may still refuse leaves
+the landlord with nothing behind it. `requested` exists as its own state anyway, because Sura's
+study takes days and both sides need somewhere to look during them.
+
+The tenant reads the same coverages and the same state, and is told that Sura may write to them to
+complete the study: it is their default the policy insures and their inbox it reaches, so learning
+about it from a phone call would mean finding out last about something that is about them.
+
 **There is no deposit stage, and there must never be one.** Ley 820 de 2003 forbids cash
 deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
 is what stands in for it, and a test asserts the word never comes back.
 
-Six of the nine are `UNBUILT_STAGES`: visible, described, with no interface of their own yet.
-They are shown rather than hidden because a tenant needs to know what is coming, and the screen
-says out loud that those happen off the platform for now.
+**`contract_signature` is built, and the signature is ours.** Nobody creates an account anywhere
+and nothing leaves the product: the landlord uploads the contract, and each party signs it here
+with a **one-time code sent to the channel they already verified** — their account's email or their
+profile's WhatsApp. There is no provider, and that is a deliberate reading of the law rather than a
+shortcut: **Ley 820 de 2003, art. 3** says a residential lease *"puede ser verbal o escrito"*, so a
+signature is not what makes it valid. It is evidence, and the bar is how well the evidence holds.
+
+**Decreto 2364 de 2012** is what that bar is made of. It calls an electronic signature *confiable*
+when the creation data belongs exclusively to the signer and any later alteration is detectable;
+when the method is agreed between the parties there is a presumption in its favour, **but the party
+that provides the method has to be able to prove it is sound — and that party is us**. So each
+requirement has a place in the code, not a paragraph in a policy:
+
+| Requirement | Where it lives |
+| --- | --- |
+| The parties agreed the method | `acceptedClauseAt` + `clauseVersion`, recorded when the code is *requested* — the agreement has to precede the mechanism, not accompany its result |
+| Creation data exclusive to the signer | the code goes to the channel on their **profile**, never to an address typed at signing time, plus the session's own uid |
+| Alteration detectable | `documentHash` — every signature binds to the SHA-256 of the exact file, so **replacing the contract voids the signatures by itself**, with no cleanup |
+| We can prove it | `signedAt`, `ip`, `userAgent` and the masked channel, kept on the application and read by **both** parties |
+
+What it is **not** is a *firma digital* with an ONAC-accredited certificate, which carries a
+stronger statutory presumption. The difference is probative weight, not validity; revisit it for
+high-value leases. The clause wording is the piece that deserves a lawyer's eye, because the
+presumption rests on it.
+
+**The challenge lives in its own collection, `signatureChallenges`, and no client can read it.**
+Not on the application document, and this is the whole point: both parties may read that document,
+and a SHA-256 of six digits falls to a million guesses — so the tenant could recover the landlord's
+code and sign as them. The explicit closure at the end of `firestore.rules` denies every undeclared
+path, and a rules test pins that so nobody declares it higher up by accident. The code itself is
+salted and hashed; it is never stored or logged in the clear.
+
+Five attempts, ten minutes, and a wrong code **costs an attempt** — a counter nothing decrements is
+not a limit. A code issued for one file does not work after the file changes, and asking for a new
+one replaces the challenge, which resets the counter with it.
+
+**A channel that cannot deliver is not offered.** `availableSignatureChannels()` decides, and it
+lives beside `deliver` so the screen and the sending cannot drift. Email always works — with no
+`RESEND_API_KEY` the code goes to the server log, which is how the flow is exercised locally.
+WhatsApp appears only once `WHATSAPP_OTP_TEMPLATE` names a template **approved by Meta in the
+AUTHENTICATION category**: a business-initiated message outside the 24-hour window cannot be free
+text, so without it the option answered "no pudimos enviar el código" — and a control that fails is
+worse than one that is absent. With a single channel there is no radio group either: a question with
+one answer is not a question.
+
+**SMS was considered and rejected**, and not for effort: it needs a new provider with a per-message
+cost, its deliverability in Colombia is worse than WhatsApp's, and an SMS one-time code is *weaker* —
+SIM swap is the standard attack against exactly this. It would trade an administrative gate for a
+frailer channel with an invoice.
+
+**The signature is also drawn, and stamped where the landlord said.** On top of the code, each
+party can draw with the mouse or a finger, and the stroke is stamped onto the page at the box the
+landlord marked while looking at the rendered PDF. Three things make that work without breaking
+anything the code established:
+
+- **Coordinates are normalised 0..1**, never pixels. The landlord marks on a preview rendered at
+  whatever width their screen gave it; the stamping happens server-side against the real page box.
+  The spot's origin is the **top-left**, as the DOM sees it, and `pdf-lib` measures from the bottom
+  — that conversion happens once, in `stamp.ts`.
+- **The stamped PDF is derived and carries its own hash.** Stamping changes the bytes, so hashing it
+  as "the signed document" would invalidate the very signatures it displays. The original's hash
+  stays the anchor.
+- **Drawing is never the gate.** A canvas cannot be operated with a keyboard, and that is not fixed
+  by trying harder — so the stroke is optional and the code is what signs. Signing without drawing
+  is the same path, not a lesser one. A contract uploaded as a photo has no page to mark, and it is
+  signed exactly the same way.
+
+Two costs worth knowing. `pdfjs-dist` is **420 KB in its own chunk**, behind `next/dynamic` with no
+SSR, referenced by no `app/` entry — only the landlord, only on this stage, ever downloads it.
+And every string that reaches a PDF page goes through `drawableText` first: `pdf.save()` throws on a
+character WinAnsi cannot encode — an emoji in a property title is enough — and it throws from the
+line that writes the file, not from the one with the bad character.
+
+**`first_payment` is built, and this product does not move the money.** The landlord writes where to
+receive the canon — **Nequi, Daviplata, a Bre-B key, Bancolombia, Davivienda or another bank** — the
+tenant transfers from their own bank and uploads the proof, and the landlord confirms it arrived.
+Handling the money would make this a payment institution, with the licence and the custody that
+implies, and none of it would make the rent arrive any better than the transfer they already know
+how to make. What the stage keeps is what gets lost in a chat thread: where to pay, and the proof.
+
+Four rules there, each of which cost a decision:
+
+- **The account details never leave in a notification.** An email carrying somebody's account number
+  is the shape of every payment scam there is, and ours would arrive from a domain the tenant
+  trusts. The bell says there is a way to pay now; the *where* is read on the page, behind the
+  session. `payoutSummary` says so in its own doc, because it is the function somebody would reach
+  for when writing that email.
+- **The holder is its own field**, never read from the profile: the account may be a spouse's, an
+  agency's or a company's, and a tenant who transfers to a name that does not match the screen is a
+  tenant who thinks they have been scammed. The panel tells them to check it.
+- **A Bre-B key is validated loosely, on purpose.** It has five shapes — an `@alias`, a phone, an
+  email, a document number, a merchant code — and the only real check is against the directory the
+  banks share, which this product does not query. Rejecting a key that works is worse than accepting
+  one that does not: the second fails in their own bank, where it is visible. Same reasoning as the
+  registry number on a listing.
+- **A verdict belongs to the receipt it judged.** The same idea as a signature bound to a document
+  hash: a rejection older than the receipt on screen stops counting by itself, so uploading a
+  corrected receipt does not leave "rechazado" standing with nothing to fix. `verdictApplies` is one
+  comparison and it is unit-tested by weakening it.
+
+**Confirming does not close the process.** It unblocks the button and the landlord still presses it,
+like the eight stages before — nothing here advances by itself, and making the last stage the one
+exception would be the worst place to break that.
+
+The amount shown is `monthlyCost`, **labelled as the one from the application**. The contract governs
+the canon and this product does not read it, so presenting a figure as authoritative would be
+inventing one; the tenant states what they actually transferred and the landlord confirms.
+
+`UNBUILT_STAGES` is now **empty**, and the constant is kept rather than deleted: `isUnbuilt` is what
+says out loud that something happens off the platform, and the next stage added will need it.
 
 - **Both sides read the same screen**, so the stage copy exists twice: `STAGE_DESCRIPTIONS` for
   the tenant, `STAGE_DESCRIPTIONS_LANDLORD` for the landlord. The sentence that tells the tenant
@@ -354,11 +574,27 @@ The email carries what the bell cannot: an **absolute link straight to the stage
 the step it is about instead of at the top of a page with nine of them.
 
 **Email goes out through Resend**, over its REST API — no SDK, because sending is a `POST` with
-five fields. `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN` come from the Vercel integration; the
-`from` domain is derived from the second one rather than written by hand, because Resend answers
-**403** when it does not match a verified domain and nothing errors until a real email fails to
-leave. Without a key nothing breaks: the email is logged and the action carries on, which is
-what lets the flow be exercised locally without mailing anyone.
+five fields. The `from` domain is derived from `RESEND_EMAIL_DOMAIN` rather than written by hand,
+because Resend answers **403** when it does not match a verified domain and nothing errors until a
+real email fails to leave. Without a key nothing breaks: the email is logged and the action carries
+on, which is what lets the flow be exercised locally without mailing anyone.
+
+**Resend is a standalone account, not a Vercel Marketplace resource.** `RESEND_API_KEY` and
+`RESEND_EMAIL_DOMAIN` are set by hand in the project's Vercel environment (Development, Preview and
+Production) and in `.env.local`; `vercel integration list` finds no resource for it. Moving it to the
+Marketplace was considered and **rejected**: the env vars it would inject are already there, so the
+only gain is unified billing — and `vercel integration add` provisions a *new* Resend account whose
+API key does not carry this domain's verification. Production email would answer 403 and, as above,
+fail silently until the SPF/DKIM records were pointed at the new account. That is a DNS change with
+live rental processes waiting on notifications, traded for one invoice.
+
+**The plan matters, and it is the daily cap that bites.** Resend's free tier is 3,000 a month but
+**100 a day**; Pro at $20 removes the daily limit. A rental that reaches `active` walks nine stages
+and each movement notifies the other party, plus two reminders per confirmed interview — of the order
+of ten to fifteen emails per completed rental. A hundred a day is therefore seven to ten *processes
+moving*, platform-wide, which arrives sooner than it sounds. **Driver runs must not spend that
+quota**: see `tests/e2e/README.md` — the dev server is started with `RESEND_API_KEY=` empty, and the
+day that was forgotten the free tier was exhausted by the test suite, not by users.
 
 The links are absolute and built from **the request's own origin** (`shared/lib/site-url.ts`),
 so an email produced on localhost links to localhost and one produced in production links to
@@ -480,30 +716,85 @@ The buttons live in `shared/shell/support-actions.tsx` and are rendered by **bot
 `/inicio` and the `/soporte` page, so the two surfaces cannot drift. Only the copy button is a
 Client Component; everything else there is a plain link.
 
+## Loading states, and the 404 they cost
+
+Every screen behind a session reads Firestore before it can render, so a click used to look like
+a click that did nothing. `app/(app)/loading.tsx` answers instantly with a skeleton in the shape
+of the page - the menu and the bell stay interactive, because they live in the layout - and
+`app/(app)/arriendos/[id]/loading.tsx` does the same in the shape of the process page.
+
+**A `loading.tsx` covers a segment and everything under it, and a boundary above a route turns
+its `notFound()` into a `200` with the not-found page streamed inside.** The headers are already
+flushed by the time the page says "this does not exist". That is why:
+
+- The **public** pages have none. A boundary over `/inmuebles` would also sit over
+  `/inmuebles/<slug>`, and a soft 404 on the one page search engines index is a real cost. The
+  catalog streams from a `<Suspense>` **inside** its own page instead, so the heading appears at
+  once and only the part waiting on Firestore is replaced by a skeleton. A missing property still
+  answers a true 404, and there is a driver assertion pinned on it.
+- The **private** ones keep theirs. `/arriendos/<id>` now answers `200` to a stranger with the
+  same not-found page a made-up id gets, which is what the privacy property was ever about: the
+  two are indistinguishable. These pages are `noindex`, so the status costs nothing.
+
+`NavItem` also shows a spinner in place of its icon while its own navigation is in flight
+(`useLinkStatus`). With a warm prefetch and a route-level fallback it never appears, and that is
+correct - the skeleton is the better signal. It is there for the cold case, where the navigation
+really is blocked on the network.
+
 ## Verification commands
 ```bash
-pnpm typegen       # next typegen — regenerates the route types (PageProps, LayoutProps)
-pnpm typecheck     # tsc --noEmit
-pnpm lint          # eslint, module boundaries included
-pnpm arch          # dependency-cruiser: cycles and forbidden arrows between layers
-pnpm build         # next build
-pnpm test          # unit: schemas and pure logic, colocated in features/ and shared/
-pnpm test:rules    # security rules against the emulator (tests/rules/) — needs JDK 21+
+pnpm verify        # arch → typecheck → lint → test, cheapest first, stops at the first failure (14s)
+pnpm verify:all    # the above + build + test:rules — the whole bar (32s)
 ```
+
+**`pnpm verify` runs after every change, with no decision about whether it applies**: `arch` is 1s
+and `typecheck` is 2s, so deciding costs more than running. It includes the **whole** unit suite
+rather than the files you touched, because its job is to tell you what your change broke elsewhere.
+
+Only three checks are worth a decision, keyed on `git diff --name-only`:
+
+```bash
+pnpm build         # 9s — anything in app/, next.config.ts, proxy.ts, a 'use client' boundary, or
+                   #      a new import of shared/firebase/admin.ts. The only check that catches a
+                   #      server-only module reaching the browser.
+pnpm test:rules    # 9s — firestore.rules, storage.rules, firestore.indexes.json, tests/rules/.
+                   #      Mandatory when it applies. Needs JDK 21+.
+pnpm e2e --since   # ~15s per driver — the browser level. Reads `git diff --name-only` and runs
+                   #      only the drivers whose paths it touches (tests/e2e/manifest.mjs).
+pnpm typegen       # 3s — only when a route moved or was renamed (see below).
+```
+
+**`pnpm e2e` is the level that catches what compiles and still does not work.** The soft 404 a
+`loading.tsx` causes was found there and could not have been found anywhere else. It needs
+`pnpm dev` running and the Firebase web key on the environment:
+
+```bash
+export $(grep NEXT_PUBLIC_FIREBASE_API_KEY .env.local | xargs)
+```
+
+Use `--since`, not the bare command: adding the skeletons selects 14 drivers of 32 and leaves out
+`interview`, `guarantee`, `reminders` and `session`, which no `loading.tsx` can touch. Running all
+32 for a change that cannot affect them is how a session spends seventeen minutes fixing its own
+test harness. `tests/e2e/README.md` has the rest, including why they live in git now.
+
+The number to watch is not how many commands ran, it is the **test count**: a green suite of 25
+untouched files is green whether or not you tested what you just built. If a change added a
+schema, a pure function or a state transition, `pnpm test`'s count must have gone up — and if it
+did not, that belongs in the report by name.
 
 After moving or renaming a route: `rm -rf .next && pnpm typegen`, or `tsc` fails on the
 generated types with an error that has nothing to do with your change.
 
 ## Security Rules tests
-`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (59 cases, every rule
-with a mandatory negative case). It needs **JDK 21+**; Homebrew's `openjdk@21` is *keg-only*,
-so it has to go on the PATH:
+`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (75 cases, every rule
+with a mandatory negative case). It needs **JDK 21+**, and **the script puts it on the PATH
+itself** — `/opt/homebrew/opt/openjdk@21/bin` is prepended in `package.json`, because Homebrew's
+`openjdk@21` is *keg-only*: it is not registered with `/usr/libexec/java_home`, so `java` resolves
+to whatever older JDK is installed and `firebase-tools` refuses to boot. The prefix is a no-op
+where that directory does not exist (Linux, CI), which is why `verify:all` runs anywhere.
 
-```bash
-export JAVA_HOME=/opt/homebrew/opt/openjdk@21
-export PATH="$JAVA_HOME/bin:$PATH"        # persist it in ~/.zshrc if you use it often
-pnpm test:rules
-```
+No `export` is needed any more. If you install the JDK somewhere else, that path in
+`package.json` is the one place to change.
 
 Every new or modified rule is tested here before `firebase deploy`. When you add a
 collection, add its access-denied test too.

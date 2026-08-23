@@ -276,7 +276,7 @@ export function DocumentChecklist({
                 <Button
                   type="button"
                   variant="outline"
-                  size="lg"
+                  size="xl"
                   disabled={busy || room <= 0}
                   onClick={() => inputs.current[requirement.kind]?.click()}
                 >

@@ -273,6 +273,90 @@ describe("applications", () => {
     await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { status: "withdrawn" }));
   });
 
+  /*
+   * The signature stage is gated on the signed contract existing, so `contract` is now a field
+   * that would move the process if a client could write it. Neither party may: the file goes
+   * through the Server Action, which is the only place that can check "the landlord of *this*
+   * application, on *this* stage".
+   */
+  it("neither party can claim the contract is signed from the client", async () => {
+    const signed = {
+      contract: {
+        path: "contracts/forged/whatever.pdf",
+        fileName: "whatever.pdf",
+        contentType: "application/pdf",
+        bytes: 10,
+        uploadedAt: "2026-09-20T15:00:00.000Z",
+        note: "",
+      },
+    };
+    await assertFails(
+      updateDoc(doc(actingAs(env, UID_TENANT, "tenant"), `applications/${APPLICATION_ID}`), signed),
+    );
+    await assertFails(
+      updateDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `applications/${APPLICATION_ID}`), signed),
+    );
+  });
+
+  /*
+   * El reto de firma vive en su propia colección justamente porque las dos partes pueden leer el
+   * documento de la postulación, y el hash de un código de seis dígitos se rompe con un millón de
+   * intentos: guardarlo ahí dejaría a una parte firmar como la otra. Esto fija que ningún cliente
+   * la alcanza — la clausura explícita del final de las reglas es lo que lo garantiza, y este test
+   * es lo que avisa si alguien declara la colección más arriba sin darse cuenta.
+   */
+  it("nobody can read or write a signature challenge from the client", async () => {
+    const id = `${APPLICATION_ID}_tenant`;
+    for (const [uid, role] of [
+      [UID_TENANT, "tenant"],
+      [UID_LANDLORD, "landlord"],
+      [UID_THIRD_PARTY, "tenant"],
+    ] as const) {
+      const db = actingAs(env, uid, role);
+      await assertFails(getDoc(doc(db, `signatureChallenges/${id}`)));
+      await assertFails(setDoc(doc(db, `signatureChallenges/${id}`), { codeHash: "x" }));
+      await assertFails(getDocs(collection(db, "signatureChallenges")));
+    }
+    await assertFails(getDoc(doc(anonymous(env), `signatureChallenges/${id}`)));
+  });
+
+  /*
+   * El primer canon añade dos cosas que moverían el proceso si un cliente pudiera escribirlas: los
+   * datos de cobro y, sobre todo, **el veredicto** — que es lo único que cierra la etapa. Un
+   * inquilino que pudiera escribir `confirmed` cerraría el arriendo sin que el dinero llegara.
+   */
+  it("neither party can write the payout or forge the receipt verdict", async () => {
+    const forged = {
+      firstPayment: {
+        payout: {
+          method: "nequi",
+          phone: "+573001234567",
+          key: "",
+          accountType: "",
+          accountNumber: "",
+          bankName: "",
+          holderName: "Quien Sea",
+          holderDocument: "CC 1",
+          note: "",
+        },
+        receipt: null,
+        verdict: { status: "confirmed", at: "2026-10-01T16:00:00.000Z", reason: "" },
+      },
+    };
+    for (const [uid, role] of [
+      [UID_TENANT, "tenant"],
+      [UID_LANDLORD, "landlord"],
+    ] as const) {
+      const db = actingAs(env, uid, role);
+      await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), forged));
+      await assertFails(
+        updateDoc(doc(db, `applications/${APPLICATION_ID}`), {
+          "firstPayment.verdict": { status: "confirmed", at: "2026-10-01T16:00:00.000Z", reason: "" },
+        }),
+      );
+    }
+  });
+
   it("the landlord cannot advance or reject it from the client either", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { stage: "tenant_data" }));

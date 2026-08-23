@@ -206,6 +206,13 @@ describe("validateAvailableFrom", () => {
     if (!r.ok) expect(r.error).toContain("pasado");
   });
 
+  it("reads today in Colombia, not on the server's clock", () => {
+    // 03:00 UTC on the 23rd is still 22:00 on the 22nd in Bogotá, so the 22nd is today.
+    const madrugada = new Date("2026-08-23T03:00:00Z");
+    expect(validateAvailableFrom("2026-08-22", madrugada).ok).toBe(true);
+    expect(validateAvailableFrom("2026-08-21", madrugada).ok).toBe(false);
+  });
+
   it(`rejects more than ${MAX_MONTHS_AHEAD} months ahead`, () => {
     expect(validateAvailableFrom("2027-10-01", today).ok).toBe(false);
   });

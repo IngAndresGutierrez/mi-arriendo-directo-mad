@@ -10,7 +10,10 @@ import { adminDb } from "@/shared/firebase/admin";
 import { resolveSiteUrl } from "@/shared/lib/site-url";
 
 import { renderNotificationEmail } from "../domain/email";
+import { interviewReminderMessage } from "../domain/whatsapp";
+import { notificationCopy } from "../domain/notification";
 import { sendEmail } from "./send-email";
+import { sendWhatsApp, whatsAppTemplate } from "./send-whatsapp";
 import type { NotificationType } from "../domain/notification";
 import type { Stage } from "@/features/application/client";
 
@@ -42,6 +45,14 @@ export type NotifyInput = {
   readonly actorName: string;
   /** Only for the types that need it: which document, and what was wrong with it. */
   readonly detail?: string;
+  /**
+   * E.164, and only for what is worth a WhatsApp: a reminder minutes before a call.
+   *
+   * Passing a phone is what says "this one also goes out over WhatsApp". Every other movement of
+   * a process is news, and news belongs in the bell and the inbox — a phone that buzzes for each
+   * of nine stages is a phone somebody mutes, and then the reminder arrives muted too.
+   */
+  readonly recipientPhone?: string | null;
 };
 
 /**
@@ -75,6 +86,19 @@ export async function notify(input: NotifyInput): Promise<void> {
   } catch (error) {
     // Logged, not thrown: see above. The id is enough to find it in the process.
     console.error(`notify failed for application ${input.applicationId}:`, error);
+  }
+
+  if (input.recipientPhone) {
+    const { template, locale } = whatsAppTemplate();
+    const message = interviewReminderMessage({
+      to: input.recipientPhone,
+      propertyTitle: input.propertyTitle,
+      // The bell's own words for this notification, so the three channels say one thing.
+      when: input.detail || notificationCopy(input).body,
+      template,
+      locale,
+    });
+    after(() => sendWhatsApp(message));
   }
 
   // A profile with no email address sends nothing, and says nothing about it.

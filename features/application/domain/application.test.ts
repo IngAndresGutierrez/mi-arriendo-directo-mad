@@ -18,6 +18,7 @@ import {
   STAGE_LABELS,
   type Application,
   type Stage,
+  UNBUILT_STAGES,
 } from "./application";
 
 const at = (stage: Stage, status: Application["status"] = "open") => ({ stage, status });
@@ -69,21 +70,31 @@ describe("the nine stages", () => {
    * tells the tenant to wait for a call is the sentence that tells the landlord to make it.
    */
   it("does not tell the landlord to wait for the landlord", () => {
-    expect(stageDescription("interview", false)).toMatch(/El propietario te contactará/);
-    expect(stageDescription("interview", true)).toMatch(/Contáctalo/);
+    expect(stageDescription("interview", false)).toMatch(/El propietario propondrá/);
+    expect(stageDescription("interview", true)).toMatch(/Propón una fecha/);
     for (const stage of STAGES) {
       expect(stageDescription(stage, true)).not.toMatch(/El propietario te/);
     }
   });
 
-  it("marks as unbuilt only the stages with nothing behind them yet", () => {
+  /*
+   * Ya no queda ninguna: las nueve etapas tienen trabajo en el producto. El test se queda para que
+   * añadir una etapa sin interfaz obligue a declararla, en vez de que aparezca vacía sin que nadie
+   * lo diga.
+   */
+  it("no marks any stage as unbuilt: the nine have work in the product now", () => {
     expect(isUnbuilt("submitted")).toBe(false);
     expect(isUnbuilt("active")).toBe(false);
-    expect(isUnbuilt("contract_signature")).toBe(true);
     // The documents stage is built now: files are uploaded and previewed in the product.
     expect(isUnbuilt("tenant_data")).toBe(false);
-    // Checking records is not: no source can be queried from here yet.
-    expect(isUnbuilt("background_check")).toBe(true);
+    // Construidas: expedientes tiene su panel de consultas y la entrevista se agenda aquí.
+    expect(isUnbuilt("background_check")).toBe(false);
+    expect(isUnbuilt("interview")).toBe(false);
+    // La garantía se toma en Sura, la firma se hace aquí y el primer canon se paga entre ellos.
+    expect(isUnbuilt("guarantee")).toBe(false);
+    expect(isUnbuilt("contract_signature")).toBe(false);
+    expect(isUnbuilt("first_payment")).toBe(false);
+    expect(UNBUILT_STAGES).toHaveLength(0);
   });
 });
 

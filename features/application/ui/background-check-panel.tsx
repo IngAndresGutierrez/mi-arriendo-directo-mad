@@ -126,7 +126,7 @@ export function BackgroundCheckPanel({
           <Button
             type="button"
             variant="accent"
-            size="lg"
+            size="xl"
             disabled={!accepted || pending}
             onClick={() =>
               start(async () => {
@@ -243,7 +243,7 @@ export function BackgroundCheckPanel({
                         <Button
                           type="button"
                           variant="outline"
-                          size="lg"
+                          size="xl"
                           disabled={saving === source.id}
                           onClick={() => record(source.id, "clean")}
                           aria-label={`Marcar ${source.name} sin hallazgos`}
@@ -255,7 +255,7 @@ export function BackgroundCheckPanel({
                         <Button
                           type="button"
                           variant="destructive"
-                          size="lg"
+                          size="xl"
                           disabled={saving === source.id}
                           onClick={() => setWriting(writing === source.id ? null : source.id)}
                           aria-label={`Anotar un hallazgo en ${source.name}`}
@@ -296,7 +296,7 @@ export function BackgroundCheckPanel({
                       <Button
                         type="button"
                         variant="destructive"
-                        size="lg"
+                        size="xl"
                         disabled={saving === source.id}
                         onClick={() => record(source.id, "findings", note)}
                       >
@@ -305,7 +305,7 @@ export function BackgroundCheckPanel({
                       <Button
                         type="button"
                         variant="ghost"
-                        size="lg"
+                        size="xl"
                         disabled={saving === source.id}
                         onClick={() => {
                           setWriting(null);

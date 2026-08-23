@@ -81,3 +81,13 @@ export function safeRedirect(value: string | string[] | undefined): string {
 
   return value;
 }
+
+/**
+ * The contract of one process, streamed from our own origin.
+ *
+ * Same-origin on purpose: the signature placer hands this to `pdf.js`, which fetches it, and a
+ * Storage bucket sends no CORS headers. See the route's own note.
+ */
+export function contractFileRoute(applicationId: string): string {
+  return `/api/arriendos/${applicationId}/contrato`;
+}

@@ -204,10 +204,14 @@ service cloud.firestore {
 Every new or modified rule is tested against the emulator before deploying:
 
 ```bash
-# the Firestore emulator needs JDK 21 or newer
-firebase emulators:exec --only firestore --project demo-mad "pnpm vitest run tests/rules"
+pnpm test:rules    # boots the emulator on project demo-mad-rules and runs tests/rules/ (~9s)
 firebase deploy --only firestore:rules,storage
 ```
+
+Use the script, never a hand-rolled `firebase emulators:exec`: it carries the right `--project`
+(`demo-mad-rules` — a different id starts an empty ruleset and every `assertFails` passes for the
+wrong reason) and it puts JDK 21 on the PATH, which the emulator requires and macOS does not
+resolve on its own.
 
 Tests with `@firebase/rules-unit-testing`, always covering the negative case:
 

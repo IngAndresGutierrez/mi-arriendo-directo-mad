@@ -183,13 +183,13 @@ export function ApplicationCard({
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        <Button asChild variant="outline" size="lg">
+        <Button asChild variant="outline" size="xl">
           <Link href={applicationRoute(application.id)}>
             <EyeIcon aria-hidden="true" />
             {isOpen ? "Ver el proceso" : "Ver el detalle"}
           </Link>
         </Button>
-        <Button asChild variant="ghost" size="lg">
+        <Button asChild variant="ghost" size="xl">
           <Link href={propertyDetailRoute(application.propertySlug)}>
             <BuildingIcon aria-hidden="true" />
             Ver el inmueble

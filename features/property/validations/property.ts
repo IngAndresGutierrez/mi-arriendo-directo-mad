@@ -174,22 +174,39 @@ export function validateAvailableFrom(
   value: string,
   reference: Date,
 ): { ok: true; date: Date } | { ok: false; error: string } {
-  const date = new Date(`${value}T00:00:00`);
+  if (!ISO_DAY.test(value)) {
+    return { ok: false, error: "Elige una fecha válida" };
+  }
+  // Midday UTC: read as midnight it lands on the previous day in Bogotá.
+  const date = new Date(`${value}T12:00:00Z`);
   if (Number.isNaN(date.getTime())) {
     return { ok: false, error: "Elige una fecha válida" };
   }
 
-  const today = new Date(reference);
-  today.setHours(0, 0, 0, 0);
-  if (date < today) {
+  /*
+   * "Today" is today **in Colombia**, on both sides, and the comparison is between two ISO days
+   * rather than two `Date`s. The old version built the date at local midnight and compared it to
+   * the server's local midnight, while the form filled the field with `toISOString()` — a UTC
+   * day. Whenever those two calendars disagreed, publishing failed with "la fecha no puede estar
+   * en el pasado" on a date the form had put there itself and nobody had touched.
+   */
+  const today = bogotaDay(reference);
+  if (value < today) {
     return { ok: false, error: "La fecha no puede estar en el pasado" };
   }
 
-  const limit = new Date(today);
-  limit.setMonth(limit.getMonth() + MAX_MONTHS_AHEAD);
-  if (date > limit) {
+  const limit = new Date(`${today}T12:00:00Z`);
+  limit.setUTCMonth(limit.getUTCMonth() + MAX_MONTHS_AHEAD);
+  if (value > limit.toISOString().slice(0, 10)) {
     return { ok: false, error: `Como máximo ${MAX_MONTHS_AHEAD} meses hacia adelante` };
   }
 
   return { ok: true, date };
+}
+
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** The calendar day in Bogotá for an instant, as `YYYY-MM-DD`. `en-CA` formats exactly that. */
+export function bogotaDay(instant: Date): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(instant);
 }

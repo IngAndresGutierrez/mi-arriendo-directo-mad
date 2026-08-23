@@ -5,7 +5,7 @@ import { HouseIcon, SparklesIcon } from "lucide-react";
 import { PROPERTIES_ROUTE } from "@/shared/auth/routes";
 import { SupportCard } from "@/shared/shell/support-card";
 
-import { ContractsCard, getUserContracts } from "@/features/contract";
+import { listApplicationsFor, RentalsCard } from "@/features/application";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
 import { firstName, greetingForHour, hourInProductTimeZone } from "@/shared/format/greeting";
 
@@ -18,10 +18,13 @@ export default async function HomePage() {
   const user = await requireCompleteProfile();
 
   // Independent reads: run them in parallel so the Firestore round trips do not chain.
-  const [profile, contracts] = await Promise.all([
+  const [profile, applications] = await Promise.all([
     getProfile(user.uid),
-    getUserContracts(user.uid),
+    listApplicationsFor(user.uid),
   ]);
+
+  // Only the ones still moving: a closed process belongs to the record, not to the home screen.
+  const open = applications.filter((application) => application.status === "open");
 
   // The greeting is computed in Colombian time, not the server's: on Vercel that would be
   // UTC, and at 8 p.m. in Bogotá it would say "Buenos días".
@@ -37,7 +40,7 @@ export default async function HomePage() {
 
       <div className="mt-8 grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_22rem]">
         <div className="space-y-5">
-          <ContractsCard contracts={contracts} />
+          <RentalsCard applications={open} viewerUid={user.uid} />
         </div>
 
         <aside className="space-y-4" aria-label="Atajos y ayuda">

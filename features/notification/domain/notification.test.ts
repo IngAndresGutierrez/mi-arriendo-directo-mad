@@ -17,6 +17,65 @@ const base = {
   applicationId: "app-1",
 };
 
+describe("guarantee copy", () => {
+  const base = { stage: "guarantee" as const, propertyTitle: "Apartaestudio en los Alcazares", actorName: "Ana" };
+
+  it("tells the tenant the policy is being studied, and that they may be written to", () => {
+    const copy = notificationCopy({
+      ...base,
+      type: "guarantee_requested",
+      detail: "Es con Sura, sin codeudor. Puede que te escriban para completar el estudio.",
+    });
+    expect(copy.body).toContain("Sura");
+    expect(copy.body).toContain("sin codeudor");
+  });
+
+  it("says what comes next once it is active", () => {
+    const copy = notificationCopy({ ...base, type: "guarantee_active", detail: "Póliza AR-99123 de Sura." });
+    expect(copy.title).toContain("activa");
+    expect(copy.body).toContain("AR-99123");
+    expect(copy.body).toContain("firma del contrato");
+    expect(copy.body).not.toContain("..");
+  });
+});
+
+describe("interview copy", () => {
+  const base = { stage: "interview" as const, propertyTitle: "Apartaestudio en los Alcazares", actorName: "Ana" };
+
+  it("names the time it is about, and says what to do with it", () => {
+    const copy = notificationCopy({
+      ...base,
+      type: "interview_proposed",
+      detail: "el jueves 10 de septiembre a las 3:00 p. m.",
+    });
+    expect(copy.title).toContain("entrevista");
+    expect(copy.body).toContain("jueves 10 de septiembre");
+    expect(copy.body).toContain("Confírmala");
+  });
+
+  it("still says something useful with no detail stored", () => {
+    const copy = notificationCopy({ ...base, type: "interview_confirmed" });
+    expect(copy.body).toContain("Apartaestudio en los Alcazares");
+  });
+
+  it("reminds the day before and minutes before, and they read differently", () => {
+    const cuando = "jueves 10 de septiembre, 3:00 p. m.";
+    const mañana = notificationCopy({ ...base, type: "interview_reminder_day", detail: cuando });
+    const yaCasi = notificationCopy({ ...base, type: "interview_reminder_soon", detail: cuando });
+    expect(mañana.title).toContain("Mañana");
+    expect(yaCasi.title).toContain("10 minutos");
+    expect(yaCasi.body).toContain("el enlace a mano");
+    expect(mañana.body).toContain(cuando);
+    // "3:00 p. m." ya trae su punto: el cuerpo no le pone otro.
+    expect(mañana.body).not.toContain("m..");
+    expect(yaCasi.body).not.toContain("m..");
+  });
+
+  it("asks the landlord for another time when the tenant cannot", () => {
+    expect(notificationCopy({ ...base, type: "interview_declined" }).body).toContain("Propón otra");
+  });
+});
+
 describe("notificationCopy", () => {
   it("writes a title and a body for every type", () => {
     for (const type of NOTIFICATION_TYPES) {
@@ -74,7 +133,7 @@ describe("notificationCopy", () => {
       "Entrevista con el propietario",
     );
     expect(notificationCopy({ ...base, type: "application_withdrawn", stage: "guarantee" }).body).toContain(
-      "Codeudor o póliza",
+      "Póliza de arrendamiento",
     );
   });
 });

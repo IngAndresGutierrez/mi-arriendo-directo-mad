@@ -2,6 +2,10 @@ import type { LeaseTerm } from "@/features/property/client";
 import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/client";
 
 import type { CheckResults } from "./background-check";
+import type { Contract } from "./contract";
+import type { FirstPayment } from "./payout";
+import type { Guarantee } from "./guarantee";
+import type { Interview } from "./interview";
 
 /**
  * The nine stages a rental goes through, in order.
@@ -37,7 +41,7 @@ export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
   tenant_data: "Datos y documentos del inquilino",
   background_check: "Validación de expedientes",
   interview: "Entrevista con el propietario",
-  guarantee: "Codeudor o póliza",
+  guarantee: "Póliza de arrendamiento",
   approved: "Postulación aprobada",
   contract_signature: "Firma del contrato",
   first_payment: "Primer canon",
@@ -56,8 +60,10 @@ export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
   tenant_data: "Sube tu documento de identidad y el soporte de tus ingresos.",
   background_check:
     "Con tu autorización se revisan tus antecedentes judiciales, multas de tránsito y sanciones disciplinarias.",
-  interview: "El propietario te contactará para conocerte, por llamada o en persona.",
-  guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
+  interview:
+    "El propietario propondrá una fecha para hablar 30 minutos contigo. Confírmala aquí y quedan cuadrados.",
+  guarantee:
+    "El propietario toma una póliza de arrendamiento con Sura. No necesitas codeudor.",
   approved: "El propietario aceptó tu postulación. Sigue la firma.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
   first_payment: "Paga el primer canon para recibir el inmueble.",
@@ -70,8 +76,10 @@ export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
   tenant_data: "Pídele su documento de identidad y el soporte de sus ingresos.",
   background_check:
     "Consulta sus antecedentes judiciales, de tránsito y disciplinarios, y marca el resultado.",
-  interview: "Contáctalo para conocerlo, por llamada o en persona.",
-  guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
+  interview:
+    "Propón una fecha para hablar 30 minutos con el inquilino y, después, escribe aquí cómo te fue.",
+  guarantee:
+    "Toma la póliza de arrendamiento con Sura — sin codeudor — y registra aquí su número.",
   approved: "Aceptaste la postulación. Sigue la firma del contrato.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
   first_payment: "Confirma que recibiste el primer canon.",
@@ -91,13 +99,15 @@ export function stageDescription(stage: Stage, isLandlord: boolean): string {
  * their own — no upload, no signature, no payment. The landlord still advances past them, which
  * is how a process that happens over WhatsApp gets recorded here in the meantime.
  */
-export const UNBUILT_STAGES: readonly Stage[] = [
-  "background_check",
-  "interview",
-  "guarantee",
-  "contract_signature",
-  "first_payment",
-];
+/*
+ * Vacío, y eso es la noticia: las nueve etapas tienen trabajo en el producto. `contract_signature`
+ * salió cuando la firma pasó a hacerse aquí, y `first_payment` cuando el propietario pudo decir por
+ * dónde recibir el canon y el inquilino subir su comprobante.
+ *
+ * Se conserva la constante en vez de borrarla: `isUnbuilt` se consulta en la interfaz para decir en
+ * voz alta que algo pasa fuera de la plataforma, y la próxima etapa que se añada la va a necesitar.
+ */
+export const UNBUILT_STAGES: readonly Stage[] = [];
 
 export function isUnbuilt(stage: Stage): boolean {
   return UNBUILT_STAGES.includes(stage);
@@ -167,6 +177,30 @@ export type ApplicationDoc = {
   readonly documentReviews: DocumentReviews;
   /** What each records search turned up, keyed by source. Written by the landlord. */
   readonly checkResults: CheckResults;
+  /**
+   * The interview: when, where, whether the tenant confirmed and how it went.
+   *
+   * `null` until the landlord proposes a time, and on every application made before this stage
+   * had an interface of its own.
+   */
+  readonly interview: Interview | null;
+  /**
+   * The rental insurance policy that stands in for a deposit — Ley 820 forbids those — and for a
+   * co-signer, which is the requirement that stops most applications. `null` until the landlord
+   * applies for it.
+   */
+  readonly guarantee: Guarantee | null;
+  /**
+   * The lease: the file, and each party's electronic signature over it. `null` until the landlord
+   * uploads it — and until both have signed, the stage does not move.
+   */
+  readonly contract: Contract | null;
+  /**
+   * The first canon: where the landlord wants it, the tenant's proof that they sent it, and the
+   * landlord's answer. `null` until the landlord says where. **This product does not move the
+   * money** — the transfer happens in their own banks.
+   */
+  readonly firstPayment: FirstPayment | null;
   readonly history: readonly StageEvent[];
   readonly createdAt: unknown;
   readonly updatedAt: unknown;

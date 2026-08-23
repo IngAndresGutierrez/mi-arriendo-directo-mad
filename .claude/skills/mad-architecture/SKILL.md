@@ -240,11 +240,8 @@ After **every** commit of the refactor, not once at the end:
 ```bash
 rm -rf .next          # the generated route types point at the old structure
 pnpm typegen          # next typegen — regenerates them in seconds, no full build
-pnpm typecheck
-pnpm lint             # boundary violations show up here
-pnpm arch             # cycles and forbidden arrows
-pnpm test             # and compare the COUNT with the pre-refactor one
-pnpm build
+pnpm verify           # arch → typecheck → lint → test; boundary violations show up in lint
+pnpm build            # a slice that broke a 'use client' boundary only shows up here
 ```
 
 And once the last slice is done, drive the app (the `run` skill): login, signup, onboarding and

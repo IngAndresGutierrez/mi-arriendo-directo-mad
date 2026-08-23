@@ -2,9 +2,14 @@ import "server-only";
 
 import { cache } from "react";
 
-import { adminDb } from "@/shared/firebase/admin";
+import { adminDb, adminStorage } from "@/shared/firebase/admin";
 
 import type { Application, ApplicationDoc } from "../domain/application";
+import type { ContractDocument, StampedContract } from "../domain/contract";
+import type { PaymentReceipt } from "../domain/payout";
+
+/** An hour: long enough to read and download, short enough that a forwarded link dies. */
+const CONTRACT_LINK_TTL_MS = 60 * 60 * 1000;
 
 type Snapshot = { id: string; exists: boolean; data: () => Record<string, unknown> | undefined };
 
@@ -38,6 +43,36 @@ function toApplication(snapshot: Snapshot): Application | null {
         { ...review, at: iso((review as { at?: unknown }).at) },
       ]),
     ),
+    // Written by `proposeInterview`; absent on every application older than that stage.
+    interview: doc.interview ?? null,
+    /*
+     * Written by `recordGuaranteeRequested`; absent on every application older than that stage.
+     * `tenantLink` is defaulted here rather than trusted: it arrived after the stage shipped, so
+     * a guarantee recorded before it has no such field and the type would be claiming a string
+     * that is `undefined`.
+     */
+    guarantee: doc.guarantee ? { ...doc.guarantee, tenantLink: doc.guarantee.tenantLink ?? "" } : null,
+    /*
+     * Written by `uploadContract`, and **normalised here rather than trusted**.
+     *
+     * `spots`, `signatures` and `stamped` each arrived after the stage first shipped, so a contract
+     * recorded before them has no such field — and the type says `spots` is an array. That gap threw
+     * `Cannot read properties of undefined (reading 'find')` out of a `contract?.spots.find(...)`
+     * whose optional chain guarded the wrong thing. Every consumer downstream can now trust the
+     * shape, which is the point of having one converter.
+     */
+    contract: doc.contract
+      ? {
+          ...doc.contract,
+          document: doc.contract.document ?? null,
+          signatures: doc.contract.signatures ?? [],
+          spots: doc.contract.spots ?? [],
+          stamped: doc.contract.stamped ?? null,
+          note: doc.contract.note ?? "",
+        }
+      : null,
+    // Written by `savePayout`; absent on every application older than that stage.
+    firstPayment: doc.firstPayment ?? null,
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };
@@ -108,3 +143,76 @@ export const getTenantApplicationTo = cache(
     return first ? toApplication(first as unknown as Snapshot) : null;
   },
 );
+
+/**
+ * The contract file with a link that works for the next hour, or `null`.
+ *
+ * `contracts/**` is closed to every client in `storage.rules`, so the only way either party reads
+ * this file is a URL signed here. That is deliberate: a lease is the most private document in the
+ * process, and a permanent URL is one forward away from being public.
+ */
+export async function withContractUrl(
+  document: ContractDocument | null,
+): Promise<(ContractDocument & { readonly url: string }) | null> {
+  if (!document?.path) return null;
+
+  try {
+    const [url] = await adminStorage()
+      .bucket()
+      .file(document.path)
+      .getSignedUrl({ action: "read", expires: Date.now() + CONTRACT_LINK_TTL_MS });
+
+    return { ...document, url };
+  } catch (error) {
+    // A record whose file is gone must not take the whole page down with it.
+    console.error(`could not sign ${document.path}:`, error);
+
+    return null;
+  }
+}
+
+/** The stamped PDF with a link that works for the next hour, or `null`. */
+export async function withStampedUrl(
+  stamped: StampedContract | null,
+): Promise<(StampedContract & { readonly url: string }) | null> {
+  if (!stamped?.path) return null;
+
+  try {
+    const [url] = await adminStorage()
+      .bucket()
+      .file(stamped.path)
+      .getSignedUrl({ action: "read", expires: Date.now() + CONTRACT_LINK_TTL_MS });
+
+    return { ...stamped, url };
+  } catch (error) {
+    console.error(`could not sign ${stamped.path}:`, error);
+
+    return null;
+  }
+}
+
+/**
+ * The transfer receipt with a link that works for the next hour, or `null`.
+ *
+ * `payments/**` is denied to every client by the explicit closure in `storage.rules`, so a URL
+ * signed here is the only way either party reads it — which is what it should be: a receipt carries
+ * account numbers and a name, and a permanent URL is one forward away from being public.
+ */
+export async function withReceiptUrl(
+  receipt: PaymentReceipt | null,
+): Promise<(PaymentReceipt & { readonly url: string }) | null> {
+  if (!receipt?.path) return null;
+
+  try {
+    const [url] = await adminStorage()
+      .bucket()
+      .file(receipt.path)
+      .getSignedUrl({ action: "read", expires: Date.now() + CONTRACT_LINK_TTL_MS });
+
+    return { ...receipt, url };
+  } catch (error) {
+    console.error(`could not sign ${receipt.path}:`, error);
+
+    return null;
+  }
+}
