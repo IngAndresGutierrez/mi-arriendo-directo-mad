@@ -7,6 +7,11 @@ import {
   checkProgress,
   checksBlocker,
   checksBlockerMessage,
+  guaranteeBlocker,
+  guaranteeBlockerMessage,
+  guaranteeState,
+  GuaranteePanel,
+  GUARANTEE_STATE_LABELS,
   interviewBlocker,
   interviewBlockerMessage,
   interviewState,
@@ -31,8 +36,9 @@ import {
   withSignedUrls,
   DocumentChecklist,
 } from "@/features/tenant-profile";
-import { requireCompleteProfile } from "@/features/profile";
+import { getProfile, requireCompleteProfile } from "@/features/profile";
 import { stageAnchor } from "@/features/notification";
+import { getPropertyLocation } from "@/features/property";
 import { RENTALS_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatLongDate } from "@/shared/format/date";
 import { formatCOP } from "@/shared/format/money";
@@ -90,6 +96,23 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
   // of the conversation. A stage that moves on without those is a stage nobody held.
   const interviewLeft =
     application.stage === "interview" ? interviewBlocker(application.interview) : null;
+
+  // Y la garantía: sin póliza expedida no se firma, que es de lo que responde esta etapa.
+  const guaranteeLeft =
+    application.stage === "guarantee" ? guaranteeBlocker(application.guarantee) : null;
+
+  /*
+   * Lo que Sura pide, y solo para el propietario: el correo del inquilino y la matrícula. La
+   * matrícula vive fuera del documento público a propósito — con ella cualquiera saca el
+   * certificado de tradición y lee la dirección — así que se lee aquí, del dueño, y no se le
+   * pasa nunca al inquilino.
+   */
+  const [tenantAccount, location] = await Promise.all([
+    isLandlord && application.stage === "guarantee" ? getProfile(application.tenantUid) : null,
+    isLandlord && application.stage === "guarantee"
+      ? getPropertyLocation(application.propertyId, user.uid)
+      : null,
+  ]);
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -201,7 +224,9 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
                 ? checksBlockerMessage(checksLeft, isLandlord)
                 : interviewLeft
                   ? interviewBlockerMessage(interviewLeft, isLandlord)
-                  : null
+                  : guaranteeLeft
+                    ? guaranteeBlockerMessage(guaranteeLeft, isLandlord)
+                    : null
           }
           // The stage's own card, which is where its work lives.
           resolveAt={stageAnchor(application.stage)}
@@ -248,6 +273,20 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
                   interview={application.interview}
                   isLandlord={isLandlord}
                   readOnly={past("interview")}
+                />
+              ),
+            },
+            guarantee: {
+              title: "Póliza de arrendamiento",
+              meta: GUARANTEE_STATE_LABELS[guaranteeState(application.guarantee)],
+              content: (
+                <GuaranteePanel
+                  applicationId={application.id}
+                  guarantee={application.guarantee}
+                  isLandlord={isLandlord}
+                  tenantEmail={tenantAccount?.email}
+                  registryNumber={location?.registryNumber}
+                  readOnly={past("guarantee")}
                 />
               ),
             },

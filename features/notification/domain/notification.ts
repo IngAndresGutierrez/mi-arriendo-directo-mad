@@ -21,6 +21,8 @@ export const NOTIFICATION_TYPES = [
   "interview_declined",
   "interview_reminder_day",
   "interview_reminder_soon",
+  "guarantee_requested",
+  "guarantee_active",
   "application_approved",
   "application_rejected",
   "application_withdrawn",
@@ -135,6 +137,20 @@ export function notificationCopy(
         body: notification.detail
           ? `${sentence(`La entrevista de ${property} es ${notification.detail}`)} Ten el enlace a mano.`
           : `La entrevista de ${property} empieza en 10 minutos. Ten el enlace a mano.`,
+      };
+    case "guarantee_requested":
+      return {
+        title: "Están tramitando la póliza de arrendamiento",
+        body: notification.detail
+          ? `${who} solicitó la póliza que respalda el arriendo de ${property}. ${notification.detail}`
+          : `${who} solicitó la póliza que respalda el arriendo de ${property}.`,
+      };
+    case "guarantee_active":
+      return {
+        title: "La póliza quedó activa",
+        body: notification.detail
+          ? `${sentence(`El arriendo de ${property} ya tiene su garantía: ${notification.detail}`)} Sigue la firma del contrato.`
+          : `El arriendo de ${property} ya tiene su póliza. Sigue la firma del contrato.`,
       };
     case "documents_requested":
       return {

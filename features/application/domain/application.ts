@@ -2,6 +2,7 @@ import type { LeaseTerm } from "@/features/property/client";
 import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/client";
 
 import type { CheckResults } from "./background-check";
+import type { Guarantee } from "./guarantee";
 import type { Interview } from "./interview";
 
 /**
@@ -38,7 +39,7 @@ export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
   tenant_data: "Datos y documentos del inquilino",
   background_check: "Validación de expedientes",
   interview: "Entrevista con el propietario",
-  guarantee: "Codeudor o póliza",
+  guarantee: "Póliza de arrendamiento",
   approved: "Postulación aprobada",
   contract_signature: "Firma del contrato",
   first_payment: "Primer canon",
@@ -59,7 +60,8 @@ export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
     "Con tu autorización se revisan tus antecedentes judiciales, multas de tránsito y sanciones disciplinarias.",
   interview:
     "El propietario propondrá una fecha para hablar 30 minutos contigo. Confírmala aquí y quedan cuadrados.",
-  guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
+  guarantee:
+    "El propietario toma una póliza de arrendamiento con Sura. No necesitas codeudor.",
   approved: "El propietario aceptó tu postulación. Sigue la firma.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
   first_payment: "Paga el primer canon para recibir el inmueble.",
@@ -74,7 +76,8 @@ export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
     "Consulta sus antecedentes judiciales, de tránsito y disciplinarios, y marca el resultado.",
   interview:
     "Propón una fecha para hablar 30 minutos con el inquilino y, después, escribe aquí cómo te fue.",
-  guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
+  guarantee:
+    "Toma la póliza de arrendamiento con Sura — sin codeudor — y registra aquí su número.",
   approved: "Aceptaste la postulación. Sigue la firma del contrato.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
   first_payment: "Confirma que recibiste el primer canon.",
@@ -94,11 +97,7 @@ export function stageDescription(stage: Stage, isLandlord: boolean): string {
  * their own — no upload, no signature, no payment. The landlord still advances past them, which
  * is how a process that happens over WhatsApp gets recorded here in the meantime.
  */
-export const UNBUILT_STAGES: readonly Stage[] = [
-  "guarantee",
-  "contract_signature",
-  "first_payment",
-];
+export const UNBUILT_STAGES: readonly Stage[] = ["contract_signature", "first_payment"];
 
 export function isUnbuilt(stage: Stage): boolean {
   return UNBUILT_STAGES.includes(stage);
@@ -175,6 +174,12 @@ export type ApplicationDoc = {
    * had an interface of its own.
    */
   readonly interview: Interview | null;
+  /**
+   * The rental insurance policy that stands in for a deposit — Ley 820 forbids those — and for a
+   * co-signer, which is the requirement that stops most applications. `null` until the landlord
+   * applies for it.
+   */
+  readonly guarantee: Guarantee | null;
   readonly history: readonly StageEvent[];
   readonly createdAt: unknown;
   readonly updatedAt: unknown;

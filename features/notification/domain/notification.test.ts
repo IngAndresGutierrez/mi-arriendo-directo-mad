@@ -17,6 +17,28 @@ const base = {
   applicationId: "app-1",
 };
 
+describe("guarantee copy", () => {
+  const base = { stage: "guarantee" as const, propertyTitle: "Apartaestudio en los Alcazares", actorName: "Ana" };
+
+  it("tells the tenant the policy is being studied, and that they may be written to", () => {
+    const copy = notificationCopy({
+      ...base,
+      type: "guarantee_requested",
+      detail: "Es con Sura, sin codeudor. Puede que te escriban para completar el estudio.",
+    });
+    expect(copy.body).toContain("Sura");
+    expect(copy.body).toContain("sin codeudor");
+  });
+
+  it("says what comes next once it is active", () => {
+    const copy = notificationCopy({ ...base, type: "guarantee_active", detail: "Póliza AR-99123 de Sura." });
+    expect(copy.title).toContain("activa");
+    expect(copy.body).toContain("AR-99123");
+    expect(copy.body).toContain("firma del contrato");
+    expect(copy.body).not.toContain("..");
+  });
+});
+
 describe("interview copy", () => {
   const base = { stage: "interview" as const, propertyTitle: "Apartaestudio en los Alcazares", actorName: "Ana" };
 
@@ -111,7 +133,7 @@ describe("notificationCopy", () => {
       "Entrevista con el propietario",
     );
     expect(notificationCopy({ ...base, type: "application_withdrawn", stage: "guarantee" }).body).toContain(
-      "Codeudor o póliza",
+      "Póliza de arrendamiento",
     );
   });
 });

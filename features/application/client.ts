@@ -37,3 +37,9 @@ export {
   INTERVIEW_STATE_LABELS,
   type Interview,
 } from "./domain/interview";
+export {
+  guaranteeState,
+  GUARANTEE_PROVIDER,
+  GUARANTEE_STATE_LABELS,
+  type Guarantee,
+} from "./domain/guarantee";

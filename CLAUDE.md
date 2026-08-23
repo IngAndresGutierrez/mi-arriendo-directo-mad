@@ -364,6 +364,30 @@ live **on the application**, never on the document: a payslip approved by one la
 approved for the next, and a verdict written onto the tenant's profile would follow them
 everywhere.
 
+**`guarantee` is built, and in this first phase it is one product**: Sura's *seguro de
+arrendamiento digital*, taken out online at `ecomm.sura.co/seguros/hogar/arriendo/cotizador`, which
+**needs no co-signer** - producing a relative who owns property is the requirement that stops most
+applications in Colombia, and this whole product exists so the process does not stop. The stage is
+called "Poliza de arrendamiento" in the timeline for the same reason.
+
+The policy is bought on Sura's site: this product does not sell insurance, is not a broker and
+takes nothing for pointing at it. What the panel does is the part that *is* its job - say what the
+policy answers for (rent on default, administration fees, home assistance), state the ceiling (12
+months, and only while the policy is current and paid), hand the landlord the two things Sura's
+form asks for **with a copy button** - the tenant's email and the registry number, both already on
+that screen - and keep the record of what was taken out.
+
+Two rules. The **registry number never reaches the tenant's side** of this panel, for the reason
+it lives outside the public document: with it anyone pulls the certificate and reads the address
+off it. And **"ya la solicité" does not unblock the stage** - only a policy number does. A
+requested policy is a wait, and signing a contract on a study the insurer may still refuse leaves
+the landlord with nothing behind it. `requested` exists as its own state anyway, because Sura's
+study takes days and both sides need somewhere to look during them.
+
+The tenant reads the same coverages and the same state, and is told that Sura may write to them to
+complete the study: it is their default the policy insures and their inbox it reaches, so learning
+about it from a phone call would mean finding out last about something that is about them.
+
 **There is no deposit stage, and there must never be one.** Ley 820 de 2003 forbids cash
 deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
 is what stands in for it, and a test asserts the word never comes back.

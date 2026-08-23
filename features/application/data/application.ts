@@ -40,6 +40,8 @@ function toApplication(snapshot: Snapshot): Application | null {
     ),
     // Written by `proposeInterview`; absent on every application older than that stage.
     interview: doc.interview ?? null,
+    // Written by `recordGuaranteeRequested`; absent on every application older than that stage.
+    guarantee: doc.guarantee ?? null,
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };

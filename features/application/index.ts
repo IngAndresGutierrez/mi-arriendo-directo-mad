@@ -78,3 +78,17 @@ export {
   type InterviewChannel,
 } from "./domain/interview";
 export { remindUpcomingInterviews, type ReminderSweep } from "./actions/remind-interviews";
+export {
+  recordGuaranteePolicy,
+  recordGuaranteeRequested,
+  type GuaranteeActionResult,
+} from "./actions/guarantee";
+export { GuaranteePanel } from "./ui/guarantee-panel";
+export {
+  guaranteeBlocker,
+  guaranteeBlockerMessage,
+  guaranteeState,
+  GUARANTEE_PROVIDER,
+  GUARANTEE_STATE_LABELS,
+  type Guarantee,
+} from "./domain/guarantee";
