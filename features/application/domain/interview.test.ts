@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   channelNeedsLink,
+  dueReminder,
   MEET_CREATE_URL,
   interviewBlocker,
   interviewBlockerMessage,
@@ -139,5 +140,41 @@ describe("interviewWhen", () => {
 describe("MEET_CREATE_URL", () => {
   it("is Google's shortcut for a new meeting, over https", () => {
     expect(MEET_CREATE_URL).toBe("https://meet.new");
+  });
+});
+
+describe("dueReminder", () => {
+  const at = "2026-09-10T20:00:00.000Z";
+  const confirmed: Interview = { ...PROPOSED, at, confirmedAt: "2026-09-01T10:00:00.000Z" };
+  const minutesBefore = (minutes: number) => new Date(new Date(at).getTime() - minutes * 60_000);
+
+  it("does not remind about a proposal nobody confirmed", () => {
+    expect(dueReminder({ ...PROPOSED, at }, minutesBefore(30))).toBeNull();
+  });
+
+  it("does not remind two days out", () => {
+    expect(dueReminder(confirmed, minutesBefore(48 * 60))).toBeNull();
+  });
+
+  it("reminds the day before once inside its window", () => {
+    expect(dueReminder(confirmed, minutesBefore(23 * 60))?.send).toBe("day_before");
+  });
+
+  it("does not repeat one already sent", () => {
+    const sent = { ...confirmed, remindersSent: ["day_before"] };
+    expect(dueReminder(sent, minutesBefore(23 * 60))).toBeNull();
+    expect(dueReminder(sent, minutesBefore(9))?.send).toBe("ten_minutes");
+  });
+
+  it("sends only the closest one, and writes off the stale one", () => {
+    // Confirmed nine minutes before it starts: both windows are open at once.
+    const result = dueReminder(confirmed, minutesBefore(9));
+    expect(result?.send).toBe("ten_minutes");
+    expect(result?.alsoMark).toEqual(["day_before"]);
+  });
+
+  it("stops once the call has started", () => {
+    expect(dueReminder(confirmed, new Date(at))).toBeNull();
+    expect(dueReminder(confirmed, new Date(new Date(at).getTime() + 60_000))).toBeNull();
   });
 });

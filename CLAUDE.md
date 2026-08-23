@@ -270,6 +270,38 @@ read by both, and the form says so, because a conclusion the other party cannot 
 made behind their back. The call happens off the platform: this product hosts no video, and the
 part that gets lost in a chat thread is the agreement about *when*, which is what it keeps.
 
+**Two reminders go out for a confirmed interview**: one **a day before** and one **ten minutes
+before**, to both parties, over the three channels at once - the bell, an email and a **WhatsApp**.
+Ten minutes before a call is exactly the moment when "they will see it when they open the app" is
+not good enough.
+
+Nobody clicks a reminder into existence, so a **Vercel Cron** wakes the server: `vercel.json`
+calls `GET /api/cron/interview-reminders` every five minutes, which is also the accuracy of the
+ten-minute one - it leaves on the first tick inside the window. The route **refuses to run without
+`CRON_SECRET`** and answers 401 to a wrong one: a job that messages every tenant with an interview
+is not something to leave open on a guessable path. Note that minute-level crons need a Vercel
+plan above Hobby, which caps them at one run a day.
+
+`dueReminder()` holds the rules and is unit-tested: only a **confirmed** interview is reminded (a
+proposal nobody accepted is not an appointment); nothing is sent once the call has started; and
+when both windows are open at once - an interview confirmed nine minutes before it begins - only
+the closest one is sent and the stale one is **written off**, because "manana tienes la entrevista"
+arriving ten minutes before it starts is worse than silence. What was sent is written on the
+interview *before* anything leaves: the sweep wakes up every five minutes, and the other order
+would cost the same reminder every five minutes until the call.
+
+**WhatsApp needs three things this repository cannot hold**: a WhatsApp Business phone number
+(`WHATSAPP_PHONE_NUMBER_ID`), its token (`WHATSAPP_TOKEN`) and a **template approved by Meta**
+(`WHATSAPP_TEMPLATE`, defaulting to `interview_reminder`). Business-initiated messages outside the
+24-hour window a person's own message opens cannot be free text, so the words live in the WhatsApp
+Business account and this project passes two parameters: the property and when the call is. Without
+credentials the message is logged and the other two channels still go out - the same contract as
+Resend without a key.
+
+**A phone on `notify()` is what says "this one also goes over WhatsApp".** Every other movement of
+a process is news, and news belongs in the bell and the inbox: a phone that buzzes for each of nine
+stages is a phone somebody mutes, and then the reminder arrives muted too.
+
 Times are stored as instants and shown in Colombian time. The form's two fields are read as
 Bogota wall time with a fixed `-05:00` - Colombia has no daylight saving, so that offset is exact
 all year - and `interviewWhen()` is the single formatter the panel, the bell and the email share:

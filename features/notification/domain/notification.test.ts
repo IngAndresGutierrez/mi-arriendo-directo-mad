@@ -36,6 +36,19 @@ describe("interview copy", () => {
     expect(copy.body).toContain("Apartaestudio en los Alcazares");
   });
 
+  it("reminds the day before and minutes before, and they read differently", () => {
+    const cuando = "jueves 10 de septiembre, 3:00 p. m.";
+    const mañana = notificationCopy({ ...base, type: "interview_reminder_day", detail: cuando });
+    const yaCasi = notificationCopy({ ...base, type: "interview_reminder_soon", detail: cuando });
+    expect(mañana.title).toContain("Mañana");
+    expect(yaCasi.title).toContain("10 minutos");
+    expect(yaCasi.body).toContain("el enlace a mano");
+    expect(mañana.body).toContain(cuando);
+    // "3:00 p. m." ya trae su punto: el cuerpo no le pone otro.
+    expect(mañana.body).not.toContain("m..");
+    expect(yaCasi.body).not.toContain("m..");
+  });
+
   it("asks the landlord for another time when the tenant cannot", () => {
     expect(notificationCopy({ ...base, type: "interview_declined" }).body).toContain("Propón otra");
   });

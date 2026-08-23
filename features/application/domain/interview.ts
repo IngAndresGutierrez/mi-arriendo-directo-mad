@@ -79,7 +79,69 @@ export type Interview = {
   /** Why that time did not work. The landlord reads it before proposing again. */
   readonly declineNote: string;
   readonly feedback: InterviewFeedback | null;
+  /**
+   * Which reminders already went out, by id.
+   *
+   * Kept on the interview and not in a queue somewhere: the sweep runs every few minutes, and
+   * without a record of what was sent it would remind the same two people every time it woke up.
+   */
+  readonly remindersSent?: readonly string[];
 };
+
+/**
+ * When to remind, and how the reminder reads.
+ *
+ * Two of them, because they answer different questions: the day before is "reserve the time",
+ * ten minutes before is "open the link now". A single reminder has to choose which of those it
+ * is, and whichever it chooses is the one somebody needed the other of.
+ */
+export const INTERVIEW_REMINDERS = [
+  { id: "day_before", minutesBefore: 24 * 60 },
+  { id: "ten_minutes", minutesBefore: 10 },
+] as const;
+
+export type InterviewReminderId = (typeof INTERVIEW_REMINDERS)[number]["id"];
+
+/**
+ * Which reminder to send now, if any — and which stale ones to write off with it.
+ *
+ * Only a **confirmed** interview is reminded: a proposal nobody accepted is not an appointment,
+ * and reminding somebody of a time they never agreed to is noise about nothing.
+ *
+ * The most imminent one wins. An interview confirmed twenty minutes before it starts has both
+ * windows open at once, and "mañana tienes la entrevista" arriving ten minutes before it begins
+ * is worse than silence — so the earlier ones are marked as handled without being sent, which is
+ * also what stops them from firing late on the next sweep.
+ *
+ * Nothing is sent once the call has started: at that point a reminder is an interruption, and
+ * the two of them either made it or did not.
+ */
+export function dueReminder(
+  interview: Interview | null,
+  now: Date,
+): { readonly send: InterviewReminderId; readonly alsoMark: readonly InterviewReminderId[] } | null {
+  if (!interview?.confirmedAt) return null;
+
+  const at = new Date(interview.at).getTime();
+  if (Number.isNaN(at) || now.getTime() >= at) return null;
+
+  const sent = new Set(interview.remindersSent ?? []);
+  const due = INTERVIEW_REMINDERS.filter(
+    (reminder) => !sent.has(reminder.id) && now.getTime() >= at - reminder.minutesBefore * 60_000,
+  );
+  if (due.length === 0) return null;
+
+  // Smallest window = closest to the call = the one worth someone's attention.
+  const closest = due.reduce((best, candidate) =>
+    candidate.minutesBefore < best.minutesBefore ? candidate : best,
+  );
+
+  return {
+    send: closest.id,
+    alsoMark: due.filter((reminder) => reminder.id !== closest.id).map((reminder) => reminder.id),
+  };
+}
+
 
 /** Where the arrangement stands, for the header line and for what to render. */
 export type InterviewState = "none" | "proposed" | "declined" | "confirmed" | "done";

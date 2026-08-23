@@ -19,6 +19,8 @@ export const NOTIFICATION_TYPES = [
   "interview_proposed",
   "interview_confirmed",
   "interview_declined",
+  "interview_reminder_day",
+  "interview_reminder_soon",
   "application_approved",
   "application_rejected",
   "application_withdrawn",
@@ -59,6 +61,18 @@ export type Notification = Omit<NotificationDoc, "createdAt"> & {
  * A notification written a month ago renders with today's copy: fixing a confusing sentence
  * fixes every notification that already went out, instead of only the next one.
  */
+/**
+ * Ends a sentence without doubling the full stop.
+ *
+ * Spanish abbreviates times as "3:00 p. m." — with the period — so a body that appends its own
+ * lands on "3:00 p. m..", which reads like a typo because it is one.
+ */
+function sentence(text: string): string {
+  const trimmed = text.trim();
+
+  return /[.!?]$/.test(trimmed) ? trimmed : `${trimmed}.`;
+}
+
 export function notificationCopy(
   notification: Pick<Notification, "type" | "stage" | "propertyTitle" | "actorName"> & {
     readonly detail?: string;
@@ -107,6 +121,20 @@ export function notificationCopy(
         body: notification.detail
           ? `${who} no puede en la hora propuesta para ${property}. ${notification.detail}`
           : `${who} no puede en la hora propuesta para ${property}. Propón otra.`,
+      };
+    case "interview_reminder_day":
+      return {
+        title: "Mañana tienes la entrevista",
+        body: notification.detail
+          ? sentence(`Recuerda: la entrevista de ${property} es ${notification.detail}`)
+          : `Recuerda que mañana es la entrevista de ${property}.`,
+      };
+    case "interview_reminder_soon":
+      return {
+        title: "Tu entrevista empieza en 10 minutos",
+        body: notification.detail
+          ? `${sentence(`La entrevista de ${property} es ${notification.detail}`)} Ten el enlace a mano.`
+          : `La entrevista de ${property} empieza en 10 minutos. Ten el enlace a mano.`,
       };
     case "documents_requested":
       return {
