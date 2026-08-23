@@ -23,6 +23,7 @@ export const NOTIFICATION_TYPES = [
   "interview_reminder_soon",
   "guarantee_requested",
   "guarantee_active",
+  "contract_ready",
   "contract_signed",
   "application_approved",
   "application_rejected",
@@ -153,12 +154,17 @@ export function notificationCopy(
           ? `${sentence(`El arriendo de ${property} ya tiene su garantía: ${notification.detail}`)} Sigue la firma del contrato.`
           : `El arriendo de ${property} ya tiene su póliza. Sigue la firma del contrato.`,
       };
+    case "contract_ready":
+      return {
+        title: "Hay un contrato para firmar",
+        body: notification.detail
+          ? `${sentence(`${who} subió el contrato del arriendo de ${property}: ${notification.detail}`)} Léelo y fírmalo desde la etapa de la firma.`
+          : `${who} subió el contrato del arriendo de ${property}. Léelo y fírmalo desde la etapa de la firma.`,
+      };
     case "contract_signed":
       return {
         title: "El contrato quedó firmado",
-        body: notification.detail
-          ? `${sentence(`${who} subió el contrato firmado del arriendo de ${property}: ${notification.detail}`)} Puedes leerlo desde la etapa de la firma.`
-          : `${who} subió el contrato firmado del arriendo de ${property}. Puedes leerlo desde la etapa de la firma.`,
+        body: `El contrato del arriendo de ${property} ya está firmado por las dos partes. Sigue el primer canon.`,
       };
     case "documents_requested":
       return {

@@ -75,6 +75,25 @@ no basta si lo siguiente es interactuar.** `settled()` dice que el esqueleto se 
 dice que hay alguien escuchando. Rellenar un campo antes de eso escribe en un input muerto, y el
 síntoma no se parece en nada a la causa.
 
+## `contract` necesita el servidor sin clave de correo
+
+El driver de la firma tiene que leer el código de un solo uso, y el código va al correo. Sin
+`RESEND_API_KEY`, este proyecto **registra el asunto en el log** en vez de enviarlo — y el asunto
+lleva el código. Así que ese driver se corre así:
+
+```bash
+RESEND_API_KEY= pnpm dev > /tmp/dev.log 2>&1 &
+E2E_DEV_LOG=/tmp/dev.log pnpm e2e contract
+```
+
+Con la clave puesta el código sí sale por correo y el log solo trae el resultado del envío, así que
+el driver no lo encuentra y falla diciéndolo. No es un fallo del producto: es que en ese modo la
+verificación tendría que leer la bandeja de pruebas del proveedor.
+
+Y ojo con la cuota: Resend responde **429 `daily_quota_exceeded`** cuando se agota la del día, y
+entonces `requestSignatureCode` reporta un fallo de envío real — que es lo correcto, porque esa
+persona no va a recibir nada.
+
 ## Límite de Identity Toolkit
 
 Cada driver crea sus cuentas contra `accounts:signUp`. Encadenar muchas corridas seguidas —o

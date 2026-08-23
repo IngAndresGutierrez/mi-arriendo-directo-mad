@@ -2,7 +2,7 @@ import type { LeaseTerm } from "@/features/property/client";
 import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/client";
 
 import type { CheckResults } from "./background-check";
-import type { SignedContract } from "./contract";
+import type { Contract } from "./contract";
 import type { Guarantee } from "./guarantee";
 import type { Interview } from "./interview";
 
@@ -187,10 +187,10 @@ export type ApplicationDoc = {
    */
   readonly guarantee: Guarantee | null;
   /**
-   * The contract both parties signed, uploaded after signing it on the landlord's own ZapSign
-   * account. `null` until it is there — and until it is, the stage does not move.
+   * The lease: the file, and each party's electronic signature over it. `null` until the landlord
+   * uploads it — and until both have signed, the stage does not move.
    */
-  readonly contract: SignedContract | null;
+  readonly contract: Contract | null;
   readonly history: readonly StageEvent[];
   readonly createdAt: unknown;
   readonly updatedAt: unknown;

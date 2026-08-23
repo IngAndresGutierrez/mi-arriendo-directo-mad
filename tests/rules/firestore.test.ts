@@ -298,6 +298,28 @@ describe("applications", () => {
     );
   });
 
+  /*
+   * El reto de firma vive en su propia colección justamente porque las dos partes pueden leer el
+   * documento de la postulación, y el hash de un código de seis dígitos se rompe con un millón de
+   * intentos: guardarlo ahí dejaría a una parte firmar como la otra. Esto fija que ningún cliente
+   * la alcanza — la clausura explícita del final de las reglas es lo que lo garantiza, y este test
+   * es lo que avisa si alguien declara la colección más arriba sin darse cuenta.
+   */
+  it("nobody can read or write a signature challenge from the client", async () => {
+    const id = `${APPLICATION_ID}_tenant`;
+    for (const [uid, role] of [
+      [UID_TENANT, "tenant"],
+      [UID_LANDLORD, "landlord"],
+      [UID_THIRD_PARTY, "tenant"],
+    ] as const) {
+      const db = actingAs(env, uid, role);
+      await assertFails(getDoc(doc(db, `signatureChallenges/${id}`)));
+      await assertFails(setDoc(doc(db, `signatureChallenges/${id}`), { codeHash: "x" }));
+      await assertFails(getDocs(collection(db, "signatureChallenges")));
+    }
+    await assertFails(getDoc(doc(anonymous(env), `signatureChallenges/${id}`)));
+  });
+
   it("the landlord cannot advance or reject it from the client either", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { stage: "tenant_data" }));

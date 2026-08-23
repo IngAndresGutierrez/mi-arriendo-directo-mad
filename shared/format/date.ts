@@ -47,3 +47,25 @@ export function formatLongDate(value: string): string {
     timeZone: TIME_ZONE,
   }).format(instant);
 }
+
+/**
+ * `15 oct 2026, 3:42 p. m.` — for a moment that has to be pinned down, not just recognised.
+ *
+ * A signature's timestamp is evidence, so the minute matters and the time zone is the whole point:
+ * on Vercel the clock is UTC, and a signature taken at 8 p.m. in Bogotá would otherwise be recorded
+ * as the next day. Lives here rather than in the stage that needed it first, because the moment a
+ * second screen shows the same instant, two formatters are two things that can drift.
+ */
+export function formatBogotaDateTime(value: string): string {
+  const instant = instantOf(value);
+  if (Number.isNaN(instant.getTime())) return "";
+
+  return new Intl.DateTimeFormat("es-CO", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: TIME_ZONE,
+  }).format(instant);
+}

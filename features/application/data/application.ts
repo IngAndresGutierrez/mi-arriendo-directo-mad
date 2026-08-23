@@ -5,7 +5,7 @@ import { cache } from "react";
 import { adminDb, adminStorage } from "@/shared/firebase/admin";
 
 import type { Application, ApplicationDoc } from "../domain/application";
-import type { SignedContract } from "../domain/contract";
+import type { ContractDocument, StampedContract } from "../domain/contract";
 
 /** An hour: long enough to read and download, short enough that a forwarded link dies. */
 const CONTRACT_LINK_TTL_MS = 60 * 60 * 1000;
@@ -51,7 +51,7 @@ function toApplication(snapshot: Snapshot): Application | null {
      * that is `undefined`.
      */
     guarantee: doc.guarantee ? { ...doc.guarantee, tenantLink: doc.guarantee.tenantLink ?? "" } : null,
-    // Written by `uploadSignedContract`; absent on every application older than that stage.
+    // Written by `uploadContract`; absent on every application older than that stage.
     contract: doc.contract ?? null,
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
@@ -125,27 +125,47 @@ export const getTenantApplicationTo = cache(
 );
 
 /**
- * The signed contract with a link that works for the next hour, or `null`.
+ * The contract file with a link that works for the next hour, or `null`.
  *
  * `contracts/**` is closed to every client in `storage.rules`, so the only way either party reads
  * this file is a URL signed here. That is deliberate: a lease is the most private document in the
  * process, and a permanent URL is one forward away from being public.
  */
 export async function withContractUrl(
-  contract: SignedContract | null,
-): Promise<(SignedContract & { readonly url: string }) | null> {
-  if (!contract?.path) return null;
+  document: ContractDocument | null,
+): Promise<(ContractDocument & { readonly url: string }) | null> {
+  if (!document?.path) return null;
 
   try {
     const [url] = await adminStorage()
       .bucket()
-      .file(contract.path)
+      .file(document.path)
       .getSignedUrl({ action: "read", expires: Date.now() + CONTRACT_LINK_TTL_MS });
 
-    return { ...contract, url };
+    return { ...document, url };
   } catch (error) {
     // A record whose file is gone must not take the whole page down with it.
-    console.error(`could not sign ${contract.path}:`, error);
+    console.error(`could not sign ${document.path}:`, error);
+
+    return null;
+  }
+}
+
+/** The stamped PDF with a link that works for the next hour, or `null`. */
+export async function withStampedUrl(
+  stamped: StampedContract | null,
+): Promise<(StampedContract & { readonly url: string }) | null> {
+  if (!stamped?.path) return null;
+
+  try {
+    const [url] = await adminStorage()
+      .bucket()
+      .file(stamped.path)
+      .getSignedUrl({ action: "read", expires: Date.now() + CONTRACT_LINK_TTL_MS });
+
+    return { ...stamped, url };
+  } catch (error) {
+    console.error(`could not sign ${stamped.path}:`, error);
 
     return null;
   }

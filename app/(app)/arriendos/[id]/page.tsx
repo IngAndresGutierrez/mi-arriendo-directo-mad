@@ -17,6 +17,7 @@ import {
   contractBlockerMessage,
   contractState,
   withContractUrl,
+  withStampedUrl,
   CONTRACT_STATE_LABELS,
   interviewBlocker,
   interviewBlockerMessage,
@@ -118,7 +119,14 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
    * El contrato firmado, con un enlace válido una hora. Se lee siempre que exista y no solo en
    * su etapa: es el documento del arriendo y ambas partes van a volver a buscarlo después.
    */
-  const contract = await withContractUrl(application.contract);
+  const [contract, stampedContract] = await Promise.all([
+    withContractUrl(application.contract?.document ?? null),
+    /*
+     * El PDF derivado, con su propio enlace de una hora. Es lo que las partes descargan, así que se
+     * lee siempre que exista y no solo en su etapa.
+     */
+    withStampedUrl(application.contract?.stamped ?? null),
+  ]);
   const contractLeft =
     application.stage === "contract_signature" ? contractBlocker(application.contract) : null;
 
@@ -340,7 +348,9 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
               content: (
                 <ContractPanel
                   applicationId={application.id}
-                  contract={contract}
+                  contract={application.contract}
+                  document={contract}
+                  stamped={stampedContract}
                   isLandlord={isLandlord}
                   readOnly={past("contract_signature")}
                 />

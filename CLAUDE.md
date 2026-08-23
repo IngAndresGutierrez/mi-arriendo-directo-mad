@@ -429,25 +429,66 @@ about it from a phone call would mean finding out last about something that is a
 deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
 is what stands in for it, and a test asserts the word never comes back.
 
-**`contract_signature` is built, and it is signed off the platform.** Each landlord signs on
-**their own ZapSign account**, on its free tier — five documents a month, no card — and the signed
-PDF comes back here. The account and the quota are theirs: counting their documents or holding an
-API token of theirs would be this product taking on a cost and a secret to save them one upload.
-The panel links straight at ZapSign's *new document* screen rather than its home page, and says out
-loud that the step is external and free, because "firma digital" reads as something with a price
-until somebody says otherwise.
+**`contract_signature` is built, and the signature is ours.** Nobody creates an account anywhere
+and nothing leaves the product: the landlord uploads the contract, and each party signs it here
+with a **one-time code sent to the channel they already verified** — their account's email or their
+profile's WhatsApp. There is no provider, and that is a deliberate reading of the law rather than a
+shortcut: **Ley 820 de 2003, art. 3** says a residential lease *"puede ser verbal o escrito"*, so a
+signature is not what makes it valid. It is evidence, and the bar is how well the evidence holds.
 
-**The signed file is the one artefact a court would ask for**, so it is the most private thing in
-the process. It goes up **through a Server Action**, not from the browser to the bucket like the
-photos and the tenant's documents: `contracts/**` is closed to every client in `storage.rules` and
-stays closed, because the rule that has to hold is "the landlord *of this application*, on *this*
-stage" and Security Rules cannot ask that without reading the application. Both parties then read
-it through a URL signed for the hour — a permanent URL is one forward away from being public.
+**Decreto 2364 de 2012** is what that bar is made of. It calls an electronic signature *confiable*
+when the creation data belongs exclusively to the signer and any later alteration is detectable;
+when the method is agreed between the parties there is a presumption in its favour, **but the party
+that provides the method has to be able to prove it is sound — and that party is us**. So each
+requirement has a place in the code, not a paragraph in a policy:
 
-**And this is what finally gives the advance button a reason at this stage.** Until the contract is
-there, `contractBlocker` blocks and the button says why. `first_payment` is the only stage left in
-`UNBUILT_STAGES`: it is shown rather than hidden because a tenant needs to know what is coming, and
-the screen says out loud that it happens off the platform for now.
+| Requirement | Where it lives |
+| --- | --- |
+| The parties agreed the method | `acceptedClauseAt` + `clauseVersion`, recorded when the code is *requested* — the agreement has to precede the mechanism, not accompany its result |
+| Creation data exclusive to the signer | the code goes to the channel on their **profile**, never to an address typed at signing time, plus the session's own uid |
+| Alteration detectable | `documentHash` — every signature binds to the SHA-256 of the exact file, so **replacing the contract voids the signatures by itself**, with no cleanup |
+| We can prove it | `signedAt`, `ip`, `userAgent` and the masked channel, kept on the application and read by **both** parties |
+
+What it is **not** is a *firma digital* with an ONAC-accredited certificate, which carries a
+stronger statutory presumption. The difference is probative weight, not validity; revisit it for
+high-value leases. The clause wording is the piece that deserves a lawyer's eye, because the
+presumption rests on it.
+
+**The challenge lives in its own collection, `signatureChallenges`, and no client can read it.**
+Not on the application document, and this is the whole point: both parties may read that document,
+and a SHA-256 of six digits falls to a million guesses — so the tenant could recover the landlord's
+code and sign as them. The explicit closure at the end of `firestore.rules` denies every undeclared
+path, and a rules test pins that so nobody declares it higher up by accident. The code itself is
+salted and hashed; it is never stored or logged in the clear.
+
+Five attempts, ten minutes, and a wrong code **costs an attempt** — a counter nothing decrements is
+not a limit. A code issued for one file does not work after the file changes, and asking for a new
+one replaces the challenge, which resets the counter with it.
+
+**The signature is also drawn, and stamped where the landlord said.** On top of the code, each
+party can draw with the mouse or a finger, and the stroke is stamped onto the page at the box the
+landlord marked while looking at the rendered PDF. Three things make that work without breaking
+anything the code established:
+
+- **Coordinates are normalised 0..1**, never pixels. The landlord marks on a preview rendered at
+  whatever width their screen gave it; the stamping happens server-side against the real page box.
+  The spot's origin is the **top-left**, as the DOM sees it, and `pdf-lib` measures from the bottom
+  — that conversion happens once, in `stamp.ts`.
+- **The stamped PDF is derived and carries its own hash.** Stamping changes the bytes, so hashing it
+  as "the signed document" would invalidate the very signatures it displays. The original's hash
+  stays the anchor.
+- **Drawing is never the gate.** A canvas cannot be operated with a keyboard, and that is not fixed
+  by trying harder — so the stroke is optional and the code is what signs. Signing without drawing
+  is the same path, not a lesser one. A contract uploaded as a photo has no page to mark, and it is
+  signed exactly the same way.
+
+Two costs worth knowing. `pdfjs-dist` is **420 KB in its own chunk**, behind `next/dynamic` with no
+SSR, referenced by no `app/` entry — only the landlord, only on this stage, ever downloads it.
+And every string that reaches a PDF page goes through `drawableText` first: `pdf.save()` throws on a
+character WinAnsi cannot encode — an emoji in a property title is enough — and it throws from the
+line that writes the file, not from the one with the bad character.
+
+`first_payment` is the only stage left in
 
 - **Both sides read the same screen**, so the stage copy exists twice: `STAGE_DESCRIPTIONS` for
   the tenant, `STAGE_DESCRIPTIONS_LANDLORD` for the landlord. The sentence that tells the tenant

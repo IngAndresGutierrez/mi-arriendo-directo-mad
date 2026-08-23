@@ -86,17 +86,43 @@ export {
 } from "./actions/guarantee";
 export { GuaranteePanel } from "./ui/guarantee-panel";
 export { ContractPanel } from "./ui/contract-panel";
-export { uploadSignedContract, type ContractActionResult } from "./actions/contract";
-export { withContractUrl } from "./data/application";
 export {
+  removeContract,
+  saveSignatureSpots,
+  uploadContract,
+  type ContractActionResult,
+} from "./actions/contract";
+export {
+  confirmSignature,
+  requestSignatureCode,
+  type SignatureActionResult,
+} from "./actions/signature";
+export { withContractUrl, withStampedUrl } from "./data/application";
+export {
+  challengeProblem,
+  challengeProblemMessage,
   contractBlocker,
   contractBlockerMessage,
+  contractFileProblem,
   contractState,
-  isPdfContract,
-  CONTRACT_PROVIDER,
+  hasSigned,
+  maskChannel,
+  replacingVoids,
+  validSignatures,
+  CONTRACT_CONTENT_TYPES,
+  CONTRACT_PARTIES,
+  CONTRACT_PARTY_LABELS,
   CONTRACT_STATE_LABELS,
-  CONTRACT_STEPS,
-  type SignedContract,
+  OTP_LENGTH,
+  SIGNATURE_CHANNELS,
+  SIGNATURE_CHANNEL_LABELS,
+  SIGNATURE_CLAUSE,
+  SIGNATURE_CLAUSE_VERSION,
+  type Contract,
+  type ContractDocument,
+  type ContractParty,
+  type ContractSignature,
+  type SignatureChannel,
 } from "./domain/contract";
 export {
   guaranteeBlocker,
