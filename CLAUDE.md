@@ -600,8 +600,23 @@ pnpm build         # 9s — anything in app/, next.config.ts, proxy.ts, a 'use c
                    #      server-only module reaching the browser.
 pnpm test:rules    # 9s — firestore.rules, storage.rules, firestore.indexes.json, tests/rules/.
                    #      Mandatory when it applies. Needs JDK 21+.
+pnpm e2e --since   # ~15s per driver — the browser level. Reads `git diff --name-only` and runs
+                   #      only the drivers whose paths it touches (tests/e2e/manifest.mjs).
 pnpm typegen       # 3s — only when a route moved or was renamed (see below).
 ```
+
+**`pnpm e2e` is the level that catches what compiles and still does not work.** The soft 404 a
+`loading.tsx` causes was found there and could not have been found anywhere else. It needs
+`pnpm dev` running and the Firebase web key on the environment:
+
+```bash
+export $(grep NEXT_PUBLIC_FIREBASE_API_KEY .env.local | xargs)
+```
+
+Use `--since`, not the bare command: adding the skeletons selects 14 drivers of 32 and leaves out
+`interview`, `guarantee`, `reminders` and `session`, which no `loading.tsx` can touch. Running all
+32 for a change that cannot affect them is how a session spends seventeen minutes fixing its own
+test harness. `tests/e2e/README.md` has the rest, including why they live in git now.
 
 The number to watch is not how many commands ran, it is the **test count**: a green suite of 25
 untouched files is green whether or not you tested what you just built. If a change added a

@@ -14,6 +14,7 @@
     "typecheck": "tsc --noEmit",
     "arch": "depcruise app features shared --config .dependency-cruiser.cjs",
     "verify": "pnpm arch && pnpm typecheck && pnpm lint && pnpm test",
+    "e2e": "node tests/e2e/run.mjs",
     "verify:all": "pnpm verify && pnpm build && pnpm test:rules",
     "test": "vitest run features shared",
     "test:rules": "PATH=\"/opt/homebrew/opt/openjdk@21/bin:$PATH\" firebase emulators:exec --only firestore --project demo-mad-rules \"vitest run tests/rules\""
@@ -42,6 +43,7 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "dependency-cruiser": "^16.10.4",
+    "playwright": "^1.58.0",
     "eslint": "^9",
     "eslint-config-next": "16.3.2",
     "tailwindcss": "^4",

@@ -192,23 +192,149 @@ passes on `PERMISSION_DENIED`, so an error of another kind will not give you a f
 you doubt the suite would catch something, **weaken the rule on purpose and confirm the test
 fails** before trusting it.
 
-**c) The real flow in a browser**
-Boot the app and **drive it**; compiling is not verifying. Use the `run` skill. The Playwright
-driver lives in the session scratchpad (`npm i playwright` in a separate directory so
-`package.json` is untouched). For every feature, drive at least:
+**c) The real flow in a browser — `tests/e2e/`, `pnpm e2e`**
+Boot the app and **drive it**; compiling is not verifying. Use the `run` skill.
+
+**The drivers live in `tests/e2e/` and are in git.** They used to be written fresh into the
+session scratchpad, and it cost exactly what you would expect: 57 files in `/tmp`, no shared
+helper, `settled()` copy-pasted into every one, and three separate sweeping rewrites of all of
+them the day a `loading.tsx` landed — none of it reviewable, because none of it was in a diff.
+Two of those copies had silently stopped watching the console at all.
+
+So: `playwright` is a `devDependency` now, every driver imports its helpers from
+`tests/e2e/lib.mjs`, and **a change in how the app answers a navigation is one edit in that
+file**. Write a new driver as a file in `tests/e2e/`, never in the scratchpad. Throwaway probes
+— bisecting a layout, printing an LCP, taking one screenshot — still belong in the scratchpad,
+and they stay there: if it has no `throw`, it is not a test.
+
+```bash
+pnpm e2e --since          # only the drivers the working tree touches — start here
+pnpm e2e loading catalog  # by name
+pnpm e2e --list           # what would run, without running it
+pnpm e2e                  # all 32, before reporting a feature done
+```
+
+**`--since` is the default move, not `pnpm e2e`.** `tests/e2e/manifest.mjs` maps each driver to
+the paths it covers; adding the skeletons selects 14 drivers instead of all 32, and leaves out
+`interview`, `guarantee`, `reminders` and `session`, which no `loading.tsx` can affect. **A new
+driver needs an entry in that manifest** or `--since` will never select it — `pnpm e2e --since`
+saying "nada que manejar" about a change you know is risky means the manifest is wrong, not that
+there is nothing to drive.
+
+For every feature, drive at least:
 
 - the happy path end to end, and **assert on the real consequence** (cookie created, document
   written, final URL), not just that some text appears;
 - one failure path (bad credentials, no permission, validation);
-- 390px wide, checking there is no horizontal scrolling;
-- console with no `pageerror`.
+- 390px wide, checking there is no horizontal scrolling (`assertNoHorizontalScroll`);
+- console with no `pageerror` (`assertQuiet`).
 
-Two traps while driving: scope your selectors to the form (`form [role="alert"]`) because the
-`next dev` overlay also uses `role="alert"`; and wait for the button to return to its idle
-state before reading the result, or you will capture the screen mid-submit.
+Three traps while driving. Scope your selectors to the form (`form [role="alert"]`) because the
+`next dev` overlay also uses `role="alert"`. Wait for the button to return to its idle state
+before reading the result, or you will capture the screen mid-submit. And **call `settled()`
+after every navigation**: a `loading.tsx` answers before the content does, so asserting the
+instant a URL resolves asserts the skeleton.
 
 If the feature touches real data, create the test data with the Admin SDK and **delete it when
-you are done**, in the same step.
+you are done**, in the same step. One-off admin scripts go in the scratchpad, never the repo
+root: `.c.mjs` and `verify-*.mjs` are gitignored because one of them got committed once, holding
+service-account credentials and a loop that deletes accounts.
+
+### When a driver fails, it is two questions, not one
+
+The failure loop is where a session runs away. The rule:
+
+1. **Is the product wrong, or is the driver wrong?** Answer this out loud before touching
+   either. A driver that broke the moment you changed the product is evidence, not noise.
+2. **Fix the product first.** Only if the driver is genuinely asserting something that is no
+   longer true do you touch the driver — and then the edit goes in the report, by name, with
+   what it used to assert and what it asserts now.
+3. **Never weaken an assertion to make it pass.** If your own harness could not reproduce the
+   condition (a throttle that did not bite, a race), the honest fix is a better wait, not a
+   smaller claim. Deleting the assertion is the one move that makes the suite unable to fail.
+4. **Two patch-and-rerun cycles, then stop and report.** If a third is needed, the harness is
+   what is wrong, and grinding on it is how seventeen minutes disappear. Say what is red and
+   why, and let the user decide.
+
+If a change genuinely needs the same edit in more than two drivers, that edit belongs in
+`tests/e2e/lib.mjs`. A sweep across many drivers is the signal that a helper is missing.
+
+**And the corollary: an edit in `lib.mjs` is an edit to every driver.** `settled()` runs dozens
+of times per driver, so anything put inside it is paid dozens of times. Adding a one-line
+`addStyleTag` there to neutralise the dev overlay took `documents` from 74s to 104s and pushed it
+past a 30s wait — a green driver turned red, and the cause was in a file its own diff never
+touched. Per-page setup belongs behind a `WeakSet` guard or in `addInitScript`, never in the
+per-navigation path. **After touching `lib.mjs`, re-run the slowest driver, not the fastest**:
+`documents` is the one with the tightest timing budget.
+
+### Don't restate a product rule inside a driver
+
+The other way these break is a driver that hard-codes what the product computes. Three did:
+`manage-properties` asserted a literal slug (`casa-amplia-con-patio-en-palermo-manizales`),
+`publish` matched the whole expected slug with a regex, and `facets` compared card counts against
+a total from the heading. Each was really a second copy of a product rule — slug composition,
+page size — so making property titles unique per run broke all three at once, in files whose
+own diff was one word.
+
+**Ask the product for the value instead.** `manage-properties` now clicks "Copiar enlace" and
+compares the clipboard with the URL the listing actually resolves to, so it asserts *this link
+works*, not *I guessed the slug right*. `publish` asserts what the rule actually promises — only
+`[a-z0-9-]`, the city at the end, and no opaque id glued on — instead of the exact string.
+`facets` counts only what its own run published, which is what makes a count meaningful over a
+catalogue other drivers also write to.
+
+The tell: if an assertion would have to change when a product constant changes
+(`CATALOG_PAGE_SIZE`, the slug format), it is duplicating the rule rather than checking it.
+
+### Selectors: scope them, and match what the product exposes
+
+The same accumulation breaks loose selectors. `pagination` looked for
+`getByRole("link", { name: /Siguiente|2/ }).first()` across the whole page: fine on an empty
+catalogue, and then as soon as a listing's accessible name contained a "2", the click went to a
+property and the wait for `page=2` never arrived. The pager is a `<nav aria-label="Paginación">`,
+so scope to it and use the label the product actually renders — "Siguientes", plural.
+
+Two habits that avoid this whole class:
+
+- **Scope before you match.** `getByRole("navigation", { name: "Paginación" })` then the link
+  inside it. `.first()` over an unscoped locator is a guess about document order.
+- **Match the accessible name, and check which attribute carries it.** `documents` counted
+  pending buttons with `/^Aprobar /` against `textContent`, but the visible text is just
+  "Aprobar" — the document name lives in `aria-label`. The count came back zero on the first
+  pass, the approve loop exited immediately, and the driver failed later at a wait that looked
+  unrelated. `getByRole({ name })` reads the accessible name; `textContent` does not.
+
+### `settled()` is not `hydrated()`
+
+After a `reload()` or a `goto()`, `settled()` only says the skeleton is gone — `hydrated()` is
+what says someone is listening.
+
+**But do not add `hydrated()` after every navigation.** Most interactions do not need it:
+Playwright retries actionability, so a `fill` or a `click` that arrives early simply lands a
+moment later. What cannot be retried is a **fire-and-forget event on an element that was already
+actionable** — above all `setInputFiles`, which sets the files and dispatches `change` exactly
+once. If React has not attached its handler yet, that event is gone and there is nothing left to
+retry. One driver in the suite has this shape; a sweep would slow the other 31 for nothing.
+
+That is exactly what produced the most expensive false positive in this suite. `session.mjs`
+sets a file on the photo input right after a reload; without the hydration wait the `change`
+event was dispatched into a page with no listener. No upload, no error, the wait timed out — and
+the symptom looked precisely like a broken `ensureClientSession()`. It was reported as a product
+bug and written into `CLAUDE.md` as one, and that claim had to be retracted. Instrumenting the
+uploader with four `console.log`s showed the whole chain completing through `uploadBytes`: the
+product had been fine the entire time.
+
+**Before blaming the product, prove the driver reached it.** A few `console.log`s in the
+component under suspicion, read through `page.on("console")`, answers in one run what an
+afternoon of reasoning about the SDK will not. Take them out afterwards.
+
+### Wait for the consequence, never for a duration
+
+`documents` had `waitForTimeout(1500)` after each verdict, standing in for "the list finished
+redrawing". Under load that was not enough: a click landed before the redraw, a verdict was lost,
+and "Continuar a" never enabled — 73s green, 104s red, the only flaky driver in the suite. It now
+waits for the number of pending approve buttons to drop. A fixed sleep in a driver is a race with
+the timer set to whatever was long enough on the machine that wrote it.
 
 ---
 
@@ -240,12 +366,14 @@ These are the only checks worth a decision, and the decision is `git diff --name
 | --- | --- | --- |
 | `pnpm build` | 9s | anything in `app/`, `next.config.ts`, `proxy.ts`, a `'use client'` boundary, or a new import of `shared/firebase/admin.ts`. It is the only check that catches a `server-only` module reaching the browser and a route that fails to prerender. |
 | `pnpm test:rules` | 9s | `firestore.rules`, `storage.rules`, `firestore.indexes.json`, or `tests/rules/`. **Mandatory, not optional, when it applies.** The script puts JDK 21 on the PATH itself; no `export` needed. |
+| `pnpm e2e --since` | ~20s/driver | anything a driver covers (`tests/e2e/manifest.mjs`). This is the level that catches what compiles and still does not work — the soft 404 a `loading.tsx` causes was found here and nowhere else. |
 | `pnpm typegen` | 3s | a route **moved or was renamed**. Then it is `rm -rf .next && pnpm typegen` first, or `tsc` fails on generated `PageProps` with an error unrelated to your change. |
 
 Before reporting a feature finished, run everything once regardless:
 
 ```bash
 pnpm verify:all    # verify + build + test:rules — ~32s for the entire bar
+pnpm e2e           # and the browser drivers, all 32
 ```
 
 ### What the number to watch actually is

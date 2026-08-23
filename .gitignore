@@ -53,3 +53,6 @@ firebase-export-*/
 /.c.mjs
 /verify-*.mjs
 /driver/
+
+# e2e screenshots and generated upload fixtures
+/.e2e-shots/
