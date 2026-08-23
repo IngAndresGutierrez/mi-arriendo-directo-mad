@@ -25,6 +25,16 @@ export const INTERVIEW_CHANNEL_LABELS: Readonly<Record<InterviewChannel, string>
   phone: "Llamada telefónica",
 };
 
+/**
+ * Where a Meet is created.
+ *
+ * `meet.new` is Google's own shortcut: it opens a fresh meeting and hands over its link, which is
+ * exactly the errand the landlord has to run before they can fill in the field below. Asking
+ * somebody to "pega el enlace" without saying where the link comes from is asking them to go and
+ * find out on their own.
+ */
+export const MEET_CREATE_URL = "https://meet.new";
+
 /** Only a Meet has something to paste; the other two happen on numbers both already have. */
 export function channelNeedsLink(channel: InterviewChannel): boolean {
   return channel === "meet";

@@ -33,6 +33,7 @@ import {
   INTERVIEW_MINUTES,
   INTERVIEW_RESULTS,
   INTERVIEW_RESULT_LABELS,
+  MEET_CREATE_URL,
   type Interview,
   type InterviewChannel,
 } from "../domain/interview";
@@ -371,7 +372,20 @@ function ProposeForm({
             onChange={(event) => setLink(event.target.value)}
           />
           <p className="text-sm text-muted-foreground">
-            Créala en Google Meet y pega aquí el enlace. El inquilino lo verá al confirmar.
+            {/*
+              El enlace de crearla, no solo la instrucción: la reunión se hace en Google y volver
+              con su enlace es el trámite que hay que hacer antes de poder llenar el campo.
+            */}
+            <a
+              href={MEET_CREATE_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none dark:text-foreground"
+            >
+              Crear la reunión en Google Meet
+              <ExternalLinkIcon className="size-3.5" aria-hidden="true" />
+            </a>{" "}
+            y pega aquí el enlace. El inquilino lo verá al confirmar.
           </p>
         </div>
       )}

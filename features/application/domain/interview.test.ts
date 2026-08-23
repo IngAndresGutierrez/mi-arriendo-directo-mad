@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   channelNeedsLink,
+  MEET_CREATE_URL,
   interviewBlocker,
   interviewBlockerMessage,
   interviewEndsAt,
@@ -132,5 +133,11 @@ describe("interviewWhen", () => {
 
   it("says nothing for a value that is not a date", () => {
     expect(interviewWhen({ at: "el jueves" })).toBe("");
+  });
+});
+
+describe("MEET_CREATE_URL", () => {
+  it("is Google's shortcut for a new meeting, over https", () => {
+    expect(MEET_CREATE_URL).toBe("https://meet.new");
   });
 });
