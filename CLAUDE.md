@@ -331,9 +331,10 @@ exist **in Production** - it lived only in `.env.local` for a while, so the rout
 refused every tick that reached it. It is stored **Sensitive**, which is unreadable after creation
 and redacted from build logs; that is not the same restriction as the one behind
 `public-config.ts`, whose problem is that `NEXT_PUBLIC_*` is inlined at **build** time and a
-sensitive value is not there to inline. A Route Handler reads `process.env` at request time. The
-way to know is to call the endpoint after a deploy: 401 on a wrong secret means it arrived, 503
-means it did not.
+sensitive value is not there to inline. A Route Handler reads `process.env` at request time, and
+that is **verified**: with the secret stored Sensitive, `GET /api/cron/interview-reminders` on
+production answers **401** to a wrong bearer, not 503. The way to check it again after any change
+to that variable is exactly that call - 401 means it arrived, 503 means it did not.
 
 `dueReminder()` holds the rules and is unit-tested: only a **confirmed** interview is reminded (a
 proposal nobody accepted is not an appointment); nothing is sent once the call has started; and
