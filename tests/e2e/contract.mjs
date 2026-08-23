@@ -27,6 +27,41 @@ async function firmar(pagina, quien) {
   }
   const antes = readFileSync(registro, "utf8").length;
 
+  /*
+   * Sin `WHATSAPP_OTP_TEMPLATE` configurado, WhatsApp no debe ni aparecer: ofrecer un canal que
+   * responde "no pudimos enviar el código" es peor que no ofrecerlo. Y con un solo canal tampoco hay
+   * grupo de radios — una pregunta de una sola respuesta no es una pregunta.
+   */
+  /*
+   * Un canal que no puede entregar no se ofrece. Se comprueba por **control**, no por texto: la
+   * cláusula legal dice "en mi correo o WhatsApp verificado", así que buscar esa frase en el
+   * `innerText` la encontraba ahí y daba un falso positivo.
+   */
+  const sinPlantillaWhatsApp = !process.env.WHATSAPP_OTP_TEMPLATE;
+  const sinTwilio = !(
+    process.env.TWILIO_ACCOUNT_SID &&
+    process.env.TWILIO_AUTH_TOKEN &&
+    process.env.TWILIO_FROM_NUMBER
+  );
+  if (sinPlantillaWhatsApp && (await pagina.getByRole("radio", { name: /WhatsApp/i }).count())) {
+    throw new Error("ofrece WhatsApp sin plantilla configurada");
+  }
+  if (sinTwilio && (await pagina.getByRole("radio", { name: /mensaje de texto/i }).count())) {
+    throw new Error("ofrece SMS sin Twilio configurado");
+  }
+  if (sinPlantillaWhatsApp && sinTwilio) {
+    // Con un único canal no hay grupo de radios: una pregunta de una sola respuesta no es una pregunta.
+    if (await pagina.getByRole("radio").count()) {
+      throw new Error("muestra un grupo de radios con un solo canal disponible");
+    }
+    if (!/Te mandamos el código a tu correo electrónico verificado/.test(
+      await pagina.evaluate(() => document.body.innerText),
+    )) {
+      throw new Error("con un solo canal no dice a dónde va el código");
+    }
+    ok(`a ${quien} solo le ofrecen el correo, y le dicen a dónde va`);
+  }
+
   await pagina.getByRole("checkbox").last().check();
   await pagina.getByRole("button", { name: /Mandarme el código para firmar/i }).click();
   await pagina.waitForFunction(

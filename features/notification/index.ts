@@ -20,6 +20,7 @@ export { markNotificationsRead } from "./actions/mark-read";
  * una credencial que bloquea a quien no la recibe.
  */
 export { sendEmail } from "./actions/send-email";
+export { sendSms } from "./actions/send-sms";
 export { sendWhatsApp } from "./actions/send-whatsapp";
 export { type WhatsAppTemplateMessage } from "./domain/whatsapp";
 export { NotificationBell } from "./ui/notification-bell";

@@ -75,7 +75,24 @@ no basta si lo siguiente es interactuar.** `settled()` dice que el esqueleto se 
 dice que hay alguien escuchando. Rellenar un campo antes de eso escribe en un input muerto, y el
 síntoma no se parece en nada a la causa.
 
-## `contract` necesita el servidor sin clave de correo
+## Los drivers se corren con el servidor SIN clave de correo
+
+**Siempre, no solo para `contract`.** Cada movimiento de etapa manda un correo de verdad — hay 15
+llamadas a `notify()` — y un proceso recorre nueve etapas. Doce drivers, unas cuantas veces al día,
+son cientos de correos contra el tope de **100 al día** del plan gratuito de Resend. Ya agotó la
+cuota una vez, y el síntoma no es obvio: Resend responde **429 `daily_quota_exceeded`** y
+`requestSignatureCode` reporta un fallo de envío real, que es lo correcto pero se lee como un bug.
+
+```bash
+RESEND_API_KEY= pnpm dev > /tmp/dev.log 2>&1 &
+E2E_DEV_LOG=/tmp/dev.log pnpm e2e
+```
+
+Sin clave, `sendEmail` escribe el asunto en el log y sigue — el contrato que Resend y WhatsApp
+tienen en todo el producto. No se pierde cobertura: lo que el driver verifica es que la
+notificación **se produjo**, no que Resend la aceptó.
+
+## `contract` además lo necesita para leer el código
 
 El driver de la firma tiene que leer el código de un solo uso, y el código va al correo. Sin
 `RESEND_API_KEY`, este proyecto **registra el asunto en el log** en vez de enviarlo — y el asunto

@@ -246,7 +246,7 @@ export async function removeContract(applicationId: string): Promise<ContractAct
   const paths = [
     contract.document.path,
     contract.stamped?.path,
-    ...contract.signatures.map((signature) => signature.strokePath),
+    ...(contract.signatures ?? []).map((signature) => signature.strokePath),
   ].filter((path): path is string => Boolean(path));
 
   await Promise.all(

@@ -41,16 +41,28 @@ export const CONTRACT_PARTY_LABELS: Readonly<Record<ContractParty, string>> = {
 /**
  * Where the one-time code is sent.
  *
- * Only channels this product has already verified for that person: the email came with their
- * account, the phone with their profile. Sending a code to an address typed at signing time would
- * prove the signer controls *that address*, which is not the same as being the party.
+ * Only channels already **on record** for that person, never one typed at signing time: a code sent
+ * to an address given at that moment would prove the signer controls *that address*, which is not
+ * the same as being the party.
+ *
+ * "On record" is not the same as verified, and the difference is real. The **email is verified** —
+ * `sendEmailVerification` runs at signup. The **phone is not**: it is typed into the profile form
+ * and stored, and nothing has ever checked that its owner received anything. So the copy says "que
+ * registraste", not "verificado", and the clause says the same. Verifying it with Firebase Phone
+ * Auth would make the phone channels genuinely stronger and is worth doing; until then, saying so
+ * would be claiming an assurance this product does not have.
+ *
+ * They are **not equivalent in strength**, and the order here is the order of preference. An SMS
+ * code is the weakest — SIM swap is the standard attack against exactly this — so it exists because
+ * it was asked for, is offered only when configured, and is never the default.
  */
-export const SIGNATURE_CHANNELS = ["email", "whatsapp"] as const;
+export const SIGNATURE_CHANNELS = ["email", "whatsapp", "sms"] as const;
 export type SignatureChannel = (typeof SIGNATURE_CHANNELS)[number];
 
 export const SIGNATURE_CHANNEL_LABELS: Readonly<Record<SignatureChannel, string>> = {
   email: "correo electrónico",
   whatsapp: "WhatsApp",
+  sms: "mensaje de texto",
 };
 
 /**
@@ -60,12 +72,22 @@ export const SIGNATURE_CHANNEL_LABELS: Readonly<Record<SignatureChannel, string>
  * collected under different wording was agreed to different words. Bumping this is how a change of
  * wording stops applying backwards to signatures already taken.
  */
-export const SIGNATURE_CLAUSE_VERSION = 1;
+/**
+ * Bumped to 2 because version 1 said something that was not true.
+ *
+ * It read "en mi correo o WhatsApp **verificado**", and this product verifies the email at signup
+ * but has never verified a phone — it is typed into a form and stored. A clause is what the
+ * presumption in Decreto 2364 rests on, so a signature collected under a sentence that overstates
+ * the method is worse than one collected under a modest sentence that holds. Signatures already
+ * taken keep `clauseVersion: 1`, which is exactly what versioning it was for.
+ */
+export const SIGNATURE_CLAUSE_VERSION = 2;
 
 export const SIGNATURE_CLAUSE =
-  "Acepto firmar este contrato por medios electrónicos. Entiendo que el código que recibo en mi " +
-  "correo o WhatsApp verificado equivale a mi firma, que queda registrado el momento exacto en " +
-  "que firmo, y que el documento firmado no puede modificarse después sin que se detecte.";
+  "Acepto firmar este contrato por medios electrónicos. Entiendo que el código que recibo en el " +
+  "correo o el número que registré en mi perfil equivale a mi firma, que queda registrado el " +
+  "momento exacto en que firmo, y que el documento firmado no puede modificarse después sin que " +
+  "se detecte.";
 
 /** Six digits: short enough to read off a phone, long enough not to be guessed in five tries. */
 export const OTP_LENGTH = 6;
@@ -202,7 +224,12 @@ export function spotFor(
   contract: Contract | null,
   party: ContractParty,
 ): SignatureSpot | null {
-  return contract?.spots.find((spot) => spot.party === party) ?? null;
+  /*
+   * `?? []` además del converter: esto es una función pura que cualquiera puede llamar con un objeto
+   * armado a mano —un test, una acción, un documento viejo— y el fallo que produce es un crash de
+   * render, no un valor raro.
+   */
+  return (contract?.spots ?? []).find((spot) => spot.party === party) ?? null;
 }
 
 /**
@@ -251,7 +278,7 @@ export function validSignatures(contract: Contract | null): readonly ContractSig
   const hash = contract?.document?.sha256;
   if (!contract || !hash) return [];
 
-  return contract.signatures.filter((signature) => signature.documentHash === hash);
+  return (contract.signatures ?? []).filter((signature) => signature.documentHash === hash);
 }
 
 export function hasSigned(contract: Contract | null, party: ContractParty): boolean {

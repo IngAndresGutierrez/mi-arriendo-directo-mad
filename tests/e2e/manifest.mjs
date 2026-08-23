@@ -52,6 +52,14 @@ export const COVERS = {
     "features/tenant-profile/domain/tenant-profile",
   ],
   withdraw: ["features/application/"],
+  "first-payment": [
+    "features/application/domain/payout",
+    "features/application/validations/payout",
+    "features/application/actions/payout",
+    "features/application/ui/first-payment-panel",
+    "features/application/ui/stage-actions",
+    "app/(app)/arriendos",
+  ],
   contract: [
     "features/application/domain/contract",
     "features/application/validations/contract",

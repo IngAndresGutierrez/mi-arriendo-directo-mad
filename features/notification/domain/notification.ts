@@ -25,6 +25,10 @@ export const NOTIFICATION_TYPES = [
   "guarantee_active",
   "contract_ready",
   "contract_signed",
+  "payout_ready",
+  "receipt_uploaded",
+  "receipt_rejected",
+  "canon_confirmed",
   "application_approved",
   "application_rejected",
   "application_withdrawn",
@@ -165,6 +169,34 @@ export function notificationCopy(
       return {
         title: "El contrato quedó firmado",
         body: `El contrato del arriendo de ${property} ya está firmado por las dos partes. Sigue el primer canon.`,
+      };
+    case "payout_ready":
+      /*
+       * Sin datos de la cuenta. Un correo con el número de cuenta de alguien es la forma exacta de
+       * toda estafa de pagos que existe, y saldría de un dominio en el que el inquilino confía.
+       */
+      return {
+        title: "Ya puedes pagar el primer canon",
+        body: `${who} indicó por dónde recibir el primer canon del arriendo de ${property}. Los datos están en la etapa del primer canon.`,
+      };
+    case "receipt_uploaded":
+      return {
+        title: "Llegó el comprobante del primer canon",
+        body: notification.detail
+          ? `${sentence(`${who} subió el comprobante del primer canon de ${property}: ${notification.detail}`)} Revísalo y confirma si el dinero llegó.`
+          : `${who} subió el comprobante del primer canon de ${property}. Revísalo y confirma si el dinero llegó.`,
+      };
+    case "receipt_rejected":
+      return {
+        title: "Rechazaron el comprobante",
+        body: notification.detail
+          ? `${sentence(`${who} rechazó el comprobante del primer canon de ${property}: ${notification.detail}`)} Sube otro corrigiendo eso.`
+          : `${who} rechazó el comprobante del primer canon de ${property}. Sube otro.`,
+      };
+    case "canon_confirmed":
+      return {
+        title: "El propietario confirmó el primer canon",
+        body: `${who} confirmó que recibió el primer canon del arriendo de ${property}. Con eso el arriendo queda en curso.`,
       };
     case "documents_requested":
       return {

@@ -4,7 +4,7 @@ import { FieldValue } from "firebase-admin/firestore";
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 
-import { notify, sendEmail, sendWhatsApp } from "@/features/notification";
+import { notify, sendEmail, sendSms, sendWhatsApp } from "@/features/notification";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
 import { applicationRoute } from "@/shared/auth/routes";
 import { adminDb, adminStorage } from "@/shared/firebase/admin";
@@ -19,13 +19,18 @@ import {
   maskChannel,
   CONTRACT_PARTY_LABELS,
   OTP_LENGTH,
+  SIGNATURE_CHANNEL_LABELS,
   OTP_MAX_ATTEMPTS,
   SIGNATURE_CLAUSE_VERSION,
   type ContractParty,
   type ContractSignature,
   type SignatureChannel,
 } from "../domain/contract";
-import { signatureCodeEmail, signatureCodeWhatsAppParameters } from "../domain/signature-code";
+import {
+  signatureCodeEmail,
+  signatureCodeWhatsAppParameters,
+  OTP_MINUTES,
+} from "../domain/signature-code";
 import {
   signatureConfirmSchema,
   signatureRequestSchema,
@@ -111,6 +116,38 @@ async function partyOn(applicationId: string) {
 }
 
 /**
+ * Which channels can actually deliver a code right now.
+ *
+ * **Lives beside `deliver`, on purpose.** The panel must not offer a channel that will answer "no
+ * pudimos enviar el código": offering a control that fails is worse than not offering it. But if the
+ * screen decided availability on its own, the two would drift — so the one rule is here, in the same
+ * module that does the sending, and both the page and `deliver` read it.
+ *
+ * Email always works: with no `RESEND_API_KEY` the code is written to the server log, which is how
+ * this flow is exercised locally. WhatsApp needs **its own template approved by Meta** in the
+ * AUTHENTICATION category — a business-initiated message outside the 24-hour window cannot be free
+ * text — so it appears only once `WHATSAPP_OTP_TEMPLATE` names one.
+ */
+export async function availableSignatureChannels(): Promise<readonly SignatureChannel[]> {
+  const channels: SignatureChannel[] = ["email"];
+
+  if (process.env.WHATSAPP_OTP_TEMPLATE?.trim()) channels.push("whatsapp");
+  /*
+   * SMS necesita las tres, no una: sin el número de origen Twilio no sabe de parte de quién manda, y
+   * un canal a medio configurar es el que falla justo cuando alguien lo elige.
+   */
+  if (
+    process.env.TWILIO_ACCOUNT_SID?.trim() &&
+    process.env.TWILIO_AUTH_TOKEN?.trim() &&
+    process.env.TWILIO_FROM_NUMBER?.trim()
+  ) {
+    channels.push("sms");
+  }
+
+  return channels;
+}
+
+/**
  * Sends the code that will act as this party's signature.
  *
  * **The clause is accepted here, not when the code is entered.** Decreto 2364's presumption rests
@@ -143,6 +180,18 @@ export async function requestSignatureCode(
    */
   const profile = await getProfile(context.uid);
   const channel: SignatureChannel = parsed.data.channel;
+
+  /*
+   * Otra vez aquí, y no solo en la pantalla: lo que llega es una petición, no una promesa sobre lo
+   * que el formulario ofrecía. Un cliente que manda `whatsapp` sin plantilla configurada recibe una
+   * frase clara en vez de un envío que se pierde.
+   */
+  if (!(await availableSignatureChannels()).includes(channel)) {
+    return {
+      ok: false,
+      message: "Ese canal no está disponible todavía. Pide el código por correo.",
+    };
+  }
   const destination = channel === "email" ? profile?.email : profile?.phone;
 
   if (!destination) {
@@ -150,8 +199,8 @@ export async function requestSignatureCode(
       ok: false,
       message:
         channel === "whatsapp"
-          ? "No tenemos tu teléfono verificado. Elige el correo o agrégalo en tu perfil."
-          : "No tenemos tu correo verificado.",
+          ? "No tenemos un teléfono en tu perfil. Elige el correo o agrégalo en tu perfil."
+          : "No tenemos tu correo.",
     };
   }
 
@@ -206,9 +255,9 @@ export async function requestSignatureCode(
     return {
       ok: false,
       message:
-        channel === "whatsapp"
-          ? "No pudimos enviar el código por WhatsApp. Intenta por correo."
-          : "No pudimos enviar el código. Inténtalo de nuevo en un momento.",
+        channel === "email"
+          ? "No pudimos enviar el código. Inténtalo de nuevo en un momento."
+          : `No pudimos enviar el código por ${SIGNATURE_CHANNEL_LABELS[channel]}. Intenta por correo.`,
     };
   }
 
@@ -245,6 +294,20 @@ async function deliver(
     }
 
     return (await sendEmail({ to: destination, ...copy })) ? "delivered" : "failed";
+  }
+
+  if (channel === "sms") {
+    /*
+     * El mismo texto del correo, en una línea. Sin enlace, por la misma razón: un mensaje de firma
+     * con algo que pulsar enseña a aceptar phishing, y en SMS es peor todavía porque no hay remitente
+     * que se pueda verificar.
+     */
+    return (await sendSms({
+      to: destination,
+      body: `${values.code} es tu código para firmar el contrato de ${values.propertyTitle}. Vence en ${OTP_MINUTES} minutos y solo sirve una vez. No lo compartas.`,
+    }))
+      ? "delivered"
+      : "failed";
   }
 
   const template = process.env.WHATSAPP_OTP_TEMPLATE?.trim();

@@ -320,6 +320,43 @@ describe("applications", () => {
     await assertFails(getDoc(doc(anonymous(env), `signatureChallenges/${id}`)));
   });
 
+  /*
+   * El primer canon añade dos cosas que moverían el proceso si un cliente pudiera escribirlas: los
+   * datos de cobro y, sobre todo, **el veredicto** — que es lo único que cierra la etapa. Un
+   * inquilino que pudiera escribir `confirmed` cerraría el arriendo sin que el dinero llegara.
+   */
+  it("neither party can write the payout or forge the receipt verdict", async () => {
+    const forged = {
+      firstPayment: {
+        payout: {
+          method: "nequi",
+          phone: "+573001234567",
+          key: "",
+          accountType: "",
+          accountNumber: "",
+          bankName: "",
+          holderName: "Quien Sea",
+          holderDocument: "CC 1",
+          note: "",
+        },
+        receipt: null,
+        verdict: { status: "confirmed", at: "2026-10-01T16:00:00.000Z", reason: "" },
+      },
+    };
+    for (const [uid, role] of [
+      [UID_TENANT, "tenant"],
+      [UID_LANDLORD, "landlord"],
+    ] as const) {
+      const db = actingAs(env, uid, role);
+      await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), forged));
+      await assertFails(
+        updateDoc(doc(db, `applications/${APPLICATION_ID}`), {
+          "firstPayment.verdict": { status: "confirmed", at: "2026-10-01T16:00:00.000Z", reason: "" },
+        }),
+      );
+    }
+  });
+
   it("the landlord cannot advance or reject it from the client either", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(updateDoc(doc(db, `applications/${APPLICATION_ID}`), { stage: "tenant_data" }));

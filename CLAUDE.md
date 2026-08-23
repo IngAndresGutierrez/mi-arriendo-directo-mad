@@ -465,6 +465,20 @@ Five attempts, ten minutes, and a wrong code **costs an attempt** — a counter 
 not a limit. A code issued for one file does not work after the file changes, and asking for a new
 one replaces the challenge, which resets the counter with it.
 
+**A channel that cannot deliver is not offered.** `availableSignatureChannels()` decides, and it
+lives beside `deliver` so the screen and the sending cannot drift. Email always works — with no
+`RESEND_API_KEY` the code goes to the server log, which is how the flow is exercised locally.
+WhatsApp appears only once `WHATSAPP_OTP_TEMPLATE` names a template **approved by Meta in the
+AUTHENTICATION category**: a business-initiated message outside the 24-hour window cannot be free
+text, so without it the option answered "no pudimos enviar el código" — and a control that fails is
+worse than one that is absent. With a single channel there is no radio group either: a question with
+one answer is not a question.
+
+**SMS was considered and rejected**, and not for effort: it needs a new provider with a per-message
+cost, its deliverability in Colombia is worse than WhatsApp's, and an SMS one-time code is *weaker* —
+SIM swap is the standard attack against exactly this. It would trade an administrative gate for a
+frailer channel with an invoice.
+
 **The signature is also drawn, and stamped where the landlord said.** On top of the code, each
 party can draw with the mouse or a finger, and the stroke is stamped onto the page at the box the
 landlord marked while looking at the rendered PDF. Three things make that work without breaking
@@ -488,7 +502,43 @@ And every string that reaches a PDF page goes through `drawableText` first: `pdf
 character WinAnsi cannot encode — an emoji in a property title is enough — and it throws from the
 line that writes the file, not from the one with the bad character.
 
-`first_payment` is the only stage left in
+**`first_payment` is built, and this product does not move the money.** The landlord writes where to
+receive the canon — **Nequi, Daviplata, a Bre-B key, Bancolombia, Davivienda or another bank** — the
+tenant transfers from their own bank and uploads the proof, and the landlord confirms it arrived.
+Handling the money would make this a payment institution, with the licence and the custody that
+implies, and none of it would make the rent arrive any better than the transfer they already know
+how to make. What the stage keeps is what gets lost in a chat thread: where to pay, and the proof.
+
+Four rules there, each of which cost a decision:
+
+- **The account details never leave in a notification.** An email carrying somebody's account number
+  is the shape of every payment scam there is, and ours would arrive from a domain the tenant
+  trusts. The bell says there is a way to pay now; the *where* is read on the page, behind the
+  session. `payoutSummary` says so in its own doc, because it is the function somebody would reach
+  for when writing that email.
+- **The holder is its own field**, never read from the profile: the account may be a spouse's, an
+  agency's or a company's, and a tenant who transfers to a name that does not match the screen is a
+  tenant who thinks they have been scammed. The panel tells them to check it.
+- **A Bre-B key is validated loosely, on purpose.** It has five shapes — an `@alias`, a phone, an
+  email, a document number, a merchant code — and the only real check is against the directory the
+  banks share, which this product does not query. Rejecting a key that works is worse than accepting
+  one that does not: the second fails in their own bank, where it is visible. Same reasoning as the
+  registry number on a listing.
+- **A verdict belongs to the receipt it judged.** The same idea as a signature bound to a document
+  hash: a rejection older than the receipt on screen stops counting by itself, so uploading a
+  corrected receipt does not leave "rechazado" standing with nothing to fix. `verdictApplies` is one
+  comparison and it is unit-tested by weakening it.
+
+**Confirming does not close the process.** It unblocks the button and the landlord still presses it,
+like the eight stages before — nothing here advances by itself, and making the last stage the one
+exception would be the worst place to break that.
+
+The amount shown is `monthlyCost`, **labelled as the one from the application**. The contract governs
+the canon and this product does not read it, so presenting a figure as authoritative would be
+inventing one; the tenant states what they actually transferred and the landlord confirms.
+
+`UNBUILT_STAGES` is now **empty**, and the constant is kept rather than deleted: `isUnbuilt` is what
+says out loud that something happens off the platform, and the next stage added will need it.
 
 - **Both sides read the same screen**, so the stage copy exists twice: `STAGE_DESCRIPTIONS` for
   the tenant, `STAGE_DESCRIPTIONS_LANDLORD` for the landlord. The sentence that tells the tenant
@@ -524,11 +574,27 @@ The email carries what the bell cannot: an **absolute link straight to the stage
 the step it is about instead of at the top of a page with nine of them.
 
 **Email goes out through Resend**, over its REST API — no SDK, because sending is a `POST` with
-five fields. `RESEND_API_KEY` and `RESEND_EMAIL_DOMAIN` come from the Vercel integration; the
-`from` domain is derived from the second one rather than written by hand, because Resend answers
-**403** when it does not match a verified domain and nothing errors until a real email fails to
-leave. Without a key nothing breaks: the email is logged and the action carries on, which is
-what lets the flow be exercised locally without mailing anyone.
+five fields. The `from` domain is derived from `RESEND_EMAIL_DOMAIN` rather than written by hand,
+because Resend answers **403** when it does not match a verified domain and nothing errors until a
+real email fails to leave. Without a key nothing breaks: the email is logged and the action carries
+on, which is what lets the flow be exercised locally without mailing anyone.
+
+**Resend is a standalone account, not a Vercel Marketplace resource.** `RESEND_API_KEY` and
+`RESEND_EMAIL_DOMAIN` are set by hand in the project's Vercel environment (Development, Preview and
+Production) and in `.env.local`; `vercel integration list` finds no resource for it. Moving it to the
+Marketplace was considered and **rejected**: the env vars it would inject are already there, so the
+only gain is unified billing — and `vercel integration add` provisions a *new* Resend account whose
+API key does not carry this domain's verification. Production email would answer 403 and, as above,
+fail silently until the SPF/DKIM records were pointed at the new account. That is a DNS change with
+live rental processes waiting on notifications, traded for one invoice.
+
+**The plan matters, and it is the daily cap that bites.** Resend's free tier is 3,000 a month but
+**100 a day**; Pro at $20 removes the daily limit. A rental that reaches `active` walks nine stages
+and each movement notifies the other party, plus two reminders per confirmed interview — of the order
+of ten to fifteen emails per completed rental. A hundred a day is therefore seven to ten *processes
+moving*, platform-wide, which arrives sooner than it sounds. **Driver runs must not spend that
+quota**: see `tests/e2e/README.md` — the dev server is started with `RESEND_API_KEY=` empty, and the
+day that was forgotten the free tier was exhausted by the test suite, not by users.
 
 The links are absolute and built from **the request's own origin** (`shared/lib/site-url.ts`),
 so an email produced on localhost links to localhost and one produced in production links to

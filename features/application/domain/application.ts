@@ -3,6 +3,7 @@ import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/c
 
 import type { CheckResults } from "./background-check";
 import type { Contract } from "./contract";
+import type { FirstPayment } from "./payout";
 import type { Guarantee } from "./guarantee";
 import type { Interview } from "./interview";
 
@@ -99,11 +100,14 @@ export function stageDescription(stage: Stage, isLandlord: boolean): string {
  * is how a process that happens over WhatsApp gets recorded here in the meantime.
  */
 /*
- * `contract_signature` salió de aquí cuando la etapa pasó a tener trabajo propio: se firma en
- * ZapSign, con la cuenta del propio propietario, y el PDF firmado se sube aquí. Lo que queda sin
- * construir es el primer canon.
+ * Vacío, y eso es la noticia: las nueve etapas tienen trabajo en el producto. `contract_signature`
+ * salió cuando la firma pasó a hacerse aquí, y `first_payment` cuando el propietario pudo decir por
+ * dónde recibir el canon y el inquilino subir su comprobante.
+ *
+ * Se conserva la constante en vez de borrarla: `isUnbuilt` se consulta en la interfaz para decir en
+ * voz alta que algo pasa fuera de la plataforma, y la próxima etapa que se añada la va a necesitar.
  */
-export const UNBUILT_STAGES: readonly Stage[] = ["first_payment"];
+export const UNBUILT_STAGES: readonly Stage[] = [];
 
 export function isUnbuilt(stage: Stage): boolean {
   return UNBUILT_STAGES.includes(stage);
@@ -191,6 +195,12 @@ export type ApplicationDoc = {
    * uploads it — and until both have signed, the stage does not move.
    */
   readonly contract: Contract | null;
+  /**
+   * The first canon: where the landlord wants it, the tenant's proof that they sent it, and the
+   * landlord's answer. `null` until the landlord says where. **This product does not move the
+   * money** — the transfer happens in their own banks.
+   */
+  readonly firstPayment: FirstPayment | null;
   readonly history: readonly StageEvent[];
   readonly createdAt: unknown;
   readonly updatedAt: unknown;

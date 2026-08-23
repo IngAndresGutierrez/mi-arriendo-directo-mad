@@ -33,9 +33,10 @@ describe("contractNoteSchema", () => {
 describe("signatureRequestSchema", () => {
   const valid = { channel: "email", acceptedClause: true, clauseVersion: SIGNATURE_CLAUSE_VERSION };
 
-  it("accepts a request on a verified channel with the clause accepted", () => {
-    expect(signatureRequestSchema.safeParse(valid).success).toBe(true);
-    expect(signatureRequestSchema.safeParse({ ...valid, channel: "whatsapp" }).success).toBe(true);
+  it("accepts a request on any verified channel with the clause accepted", () => {
+    for (const channel of ["email", "whatsapp", "sms"]) {
+      expect(signatureRequestSchema.safeParse({ ...valid, channel }).success).toBe(true);
+    }
   });
 
   /*
@@ -46,9 +47,15 @@ describe("signatureRequestSchema", () => {
     expect(signatureRequestSchema.safeParse({ ...valid, acceptedClause: false }).success).toBe(false);
   });
 
-  it("refuses a channel this product does not verify", () => {
-    expect(signatureRequestSchema.safeParse({ ...valid, channel: "sms" }).success).toBe(false);
-    expect(signatureRequestSchema.safeParse({ ...valid, channel: "" }).success).toBe(false);
+  /*
+   * El esquema dice qué canales existen; *cuáles están disponibles* lo decide el servidor con
+   * `availableSignatureChannels`, porque depende de las credenciales configuradas. Son dos
+   * preguntas distintas y esta es la primera.
+   */
+  it("refuses a channel this product does not have at all", () => {
+    for (const channel of ["telegram", "paloma", ""]) {
+      expect(signatureRequestSchema.safeParse({ ...valid, channel }).success).toBe(false);
+    }
   });
 
   /* Una pestaña vieja no debe registrar consentimiento a una redacción que ya no existe. */

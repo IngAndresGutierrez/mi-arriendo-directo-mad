@@ -295,6 +295,27 @@ describe("la cláusula que sostiene la presunción", () => {
   it("está versionada", () => {
     expect(SIGNATURE_CLAUSE_VERSION).toBeGreaterThanOrEqual(1);
   });
+
+  /*
+   * La v1 decía "en mi correo o WhatsApp **verificado**", y este producto verifica el correo al
+   * registrarse pero **nunca ha verificado un teléfono**: se escribe en el formulario del perfil y
+   * se guarda. La cláusula es el texto en el que se apoya la presunción del Decreto 2364, así que
+   * afirmar una garantía que no existe es peor que una frase modesta que sí se sostiene.
+   *
+   * Esto se rompe el día que alguien vuelva a escribir "verificado" junto al teléfono — y el día que
+   * se verifique de verdad con Firebase Phone Auth, este test es el recordatorio de actualizarlo.
+   */
+  it("no afirma que el teléfono esté verificado, porque no lo está", () => {
+    expect(SIGNATURE_CLAUSE).not.toMatch(/WhatsApp verificado/i);
+    expect(SIGNATURE_CLAUSE).not.toMatch(/tel[ée]fono verificado/i);
+    expect(SIGNATURE_CLAUSE).not.toMatch(/n[úu]mero verificado/i);
+    // Y sí dice de dónde sale el canal: de lo que la persona registró.
+    expect(SIGNATURE_CLAUSE).toMatch(/registr/i);
+  });
+
+  it("subió de versión al corregirse, para no aplicar hacia atrás", () => {
+    expect(SIGNATURE_CLAUSE_VERSION).toBeGreaterThanOrEqual(2);
+  });
 });
 
 const spot = (party: ContractParty): SignatureSpot => ({
@@ -389,5 +410,45 @@ describe("spotProblem", () => {
   it("rechaza NaN e infinito, que es lo que da una división por cero en el visor", () => {
     expect(spotProblem({ ...valido, x: Number.NaN })).toMatch(/posición/);
     expect(spotProblem({ ...valido, height: Number.POSITIVE_INFINITY })).toMatch(/posición/);
+  });
+});
+
+/*
+ * El fallo real: un contrato guardado antes de que existieran `spots`, `signatures` o `stamped`
+ * llega sin esos campos, y `contract?.spots.find(...)` protegía `contract` y no `spots`. Reventaba
+ * al renderizar la etapa con `Cannot read properties of undefined (reading 'find')`.
+ *
+ * El converter los normaliza, pero estas son funciones puras que cualquiera puede llamar con un
+ * objeto armado a mano, así que aquí se fija que sobreviven la forma vieja.
+ */
+describe("un contrato guardado antes de los campos nuevos", () => {
+  // Deliberadamente incompleto: es la forma que hay en la base.
+  const viejo = {
+    document: {
+      path: "contracts/abc/contrato.pdf",
+      fileName: "contrato.pdf",
+      contentType: "application/pdf",
+      bytes: 1000,
+      sha256: HASH,
+      uploadedAt: "2026-09-01T10:00:00.000Z",
+    },
+    note: "",
+  } as unknown as Contract;
+
+  it("no revienta al buscar el recuadro de una parte", () => {
+    expect(() => spotFor(viejo, "landlord")).not.toThrow();
+    expect(spotFor(viejo, "landlord")).toBeNull();
+  });
+
+  it("no revienta al contar las firmas válidas", () => {
+    expect(() => validSignatures(viejo)).not.toThrow();
+    expect(validSignatures(viejo)).toHaveLength(0);
+  });
+
+  it("y el resto del dominio lo lee como lo que es: sin firmar", () => {
+    expect(contractState(viejo)).toBe("awaiting_signatures");
+    expect(contractBlocker(viejo)).toBe("awaiting_both");
+    expect(spotsReady(viejo)).toBe(false);
+    expect(replacingVoids(viejo)).toBe(0);
   });
 });

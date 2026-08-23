@@ -18,6 +18,7 @@ import {
   STAGE_LABELS,
   type Application,
   type Stage,
+  UNBUILT_STAGES,
 } from "./application";
 
 const at = (stage: Stage, status: Application["status"] = "open") => ({ stage, status });
@@ -76,7 +77,12 @@ describe("the nine stages", () => {
     }
   });
 
-  it("marks as unbuilt only the stages with nothing behind them yet", () => {
+  /*
+   * Ya no queda ninguna: las nueve etapas tienen trabajo en el producto. El test se queda para que
+   * añadir una etapa sin interfaz obligue a declararla, en vez de que aparezca vacía sin que nadie
+   * lo diga.
+   */
+  it("no marks any stage as unbuilt: the nine have work in the product now", () => {
     expect(isUnbuilt("submitted")).toBe(false);
     expect(isUnbuilt("active")).toBe(false);
     // The documents stage is built now: files are uploaded and previewed in the product.
@@ -84,11 +90,11 @@ describe("the nine stages", () => {
     // Construidas: expedientes tiene su panel de consultas y la entrevista se agenda aquí.
     expect(isUnbuilt("background_check")).toBe(false);
     expect(isUnbuilt("interview")).toBe(false);
-    // La garantía se toma en Sura y la firma en ZapSign, y las dos guardan aquí su resultado.
+    // La garantía se toma en Sura, la firma se hace aquí y el primer canon se paga entre ellos.
     expect(isUnbuilt("guarantee")).toBe(false);
     expect(isUnbuilt("contract_signature")).toBe(false);
-    // Lo único que sigue sin interfaz propia: el primer canon.
-    expect(isUnbuilt("first_payment")).toBe(true);
+    expect(isUnbuilt("first_payment")).toBe(false);
+    expect(UNBUILT_STAGES).toHaveLength(0);
   });
 });
 

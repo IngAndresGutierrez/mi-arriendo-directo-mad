@@ -12,7 +12,14 @@ import {
   guaranteeState,
   GuaranteePanel,
   GUARANTEE_STATE_LABELS,
+  availableSignatureChannels,
   ContractPanel,
+  FirstPaymentPanel,
+  firstPaymentBlocker,
+  firstPaymentBlockerMessage,
+  firstPaymentState,
+  withReceiptUrl,
+  FIRST_PAYMENT_STATE_LABELS,
   contractBlocker,
   contractBlockerMessage,
   contractState,
@@ -119,14 +126,18 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
    * El contrato firmado, con un enlace válido una hora. Se lee siempre que exista y no solo en
    * su etapa: es el documento del arriendo y ambas partes van a volver a buscarlo después.
    */
-  const [contract, stampedContract] = await Promise.all([
+  const [contract, stampedContract, receipt, signatureChannels] = await Promise.all([
     withContractUrl(application.contract?.document ?? null),
     /*
      * El PDF derivado, con su propio enlace de una hora. Es lo que las partes descargan, así que se
      * lee siempre que exista y no solo en su etapa.
      */
     withStampedUrl(application.contract?.stamped ?? null),
+    withReceiptUrl(application.firstPayment?.receipt ?? null),
+    availableSignatureChannels(),
   ]);
+  const paymentLeft =
+    application.stage === "first_payment" ? firstPaymentBlocker(application.firstPayment) : null;
   const contractLeft =
     application.stage === "contract_signature" ? contractBlocker(application.contract) : null;
 
@@ -277,7 +288,9 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
                     ? guaranteeBlockerMessage(guaranteeLeft, isLandlord)
                     : contractLeft
                       ? contractBlockerMessage(contractLeft, isLandlord)
-                      : null
+                      : paymentLeft
+                        ? firstPaymentBlockerMessage(paymentLeft, isLandlord)
+                        : null
           }
           // The stage's own card, which is where its work lives.
           resolveAt={stageAnchor(application.stage)}
@@ -342,6 +355,20 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
                 />
               ),
             },
+            first_payment: {
+              title: "Primer canon",
+              meta: FIRST_PAYMENT_STATE_LABELS[firstPaymentState(application.firstPayment)],
+              content: (
+                <FirstPaymentPanel
+                  applicationId={application.id}
+                  payment={application.firstPayment}
+                  receipt={receipt}
+                  monthlyCost={application.monthlyCost}
+                  isLandlord={isLandlord}
+                  readOnly={past("first_payment")}
+                />
+              ),
+            },
             contract_signature: {
               title: "Firma del contrato",
               meta: CONTRACT_STATE_LABELS[contractState(application.contract)],
@@ -351,6 +378,7 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
                   contract={application.contract}
                   document={contract}
                   stamped={stampedContract}
+                  channels={signatureChannels}
                   isLandlord={isLandlord}
                   readOnly={past("contract_signature")}
                 />

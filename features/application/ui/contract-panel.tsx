@@ -75,6 +75,7 @@ export function ContractPanel({
   document: file,
   stamped,
   isLandlord,
+  channels,
   readOnly = false,
 }: {
   readonly applicationId: string;
@@ -85,6 +86,13 @@ export function ContractPanel({
   /** El PDF derivado que las partes descargan, con su enlace de una hora. */
   readonly stamped: (StampedContract & { readonly url: string }) | null;
   readonly isLandlord: boolean;
+  /**
+   * Los canales que de verdad pueden entregar un código, decididos en el servidor.
+   *
+   * No se ofrece uno que va a fallar: WhatsApp necesita su plantilla aprobada por Meta, y mostrar el
+   * radio sin ella era ofrecer un control que responde "no pudimos enviar el código".
+   */
+  readonly channels: readonly (typeof SIGNATURE_CHANNELS)[number][];
   readonly readOnly?: boolean;
 }) {
   const router = useRouter();
@@ -93,7 +101,7 @@ export function ContractPanel({
   const [note, setNote] = useState(contract?.note ?? "");
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const [channel, setChannel] = useState<(typeof SIGNATURE_CHANNELS)[number]>("email");
+  const [channel, setChannel] = useState<(typeof SIGNATURE_CHANNELS)[number]>(channels[0] ?? "email");
   const [acceptedClause, setAcceptedClause] = useState(false);
   const [code, setCode] = useState("");
   /** Adónde se mandó el código, enmascarado, o `null` mientras no se ha pedido. */
@@ -322,23 +330,39 @@ export function ContractPanel({
                 <span>{SIGNATURE_CLAUSE}</span>
               </label>
 
-              <fieldset className="space-y-2">
-                <legend className="text-sm font-medium text-foreground">
-                  ¿Por dónde te mandamos el código?
-                </legend>
-                {SIGNATURE_CHANNELS.map((option) => (
-                  <label key={option} className="flex items-center gap-2 text-sm">
-                    <input
-                      type="radio"
-                      name="signature-channel"
-                      className="size-4 accent-[var(--brand-panel)]"
-                      checked={channel === option}
-                      onChange={() => setChannel(option)}
-                    />
-                    <span>Mi {SIGNATURE_CHANNEL_LABELS[option]} verificado</span>
-                  </label>
-                ))}
-              </fieldset>
+              {/*
+                Con un solo canal no hay elección que ofrecer: un grupo de radios de un elemento es
+                una pregunta cuya respuesta ya está dada. Se dice a dónde va y se acabó.
+              */}
+              {channels.length > 1 ? (
+                <fieldset className="space-y-2">
+                  <legend className="text-sm font-medium text-foreground">
+                    ¿Por dónde te mandamos el código?
+                  </legend>
+                  {channels.map((option) => (
+                    <label key={option} className="flex items-center gap-2 text-sm">
+                      <input
+                        type="radio"
+                        name="signature-channel"
+                        className="size-4 accent-[var(--brand-panel)]"
+                        checked={channel === option}
+                        onChange={() => setChannel(option)}
+                      />
+                      <span>
+                        {option === "email"
+                          ? "Mi correo electrónico verificado"
+                          : `Mi ${SIGNATURE_CHANNEL_LABELS[option]}, al número que registré`}
+                      </span>
+                    </label>
+                  ))}
+                </fieldset>
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  {channel === "email"
+                    ? "Te mandamos el código a tu correo electrónico verificado."
+                    : `Te mandamos el código por ${SIGNATURE_CHANNEL_LABELS[channel]}, al número que registraste.`}
+                </p>
+              )}
 
               <Button
                 type="button"

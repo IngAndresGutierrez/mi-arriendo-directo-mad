@@ -52,7 +52,7 @@ export async function stampContract(input: {
     const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
     for (const signature of signatures) {
-      const spot = contract.spots.find((each) => each.party === signature.party);
+      const spot = (contract.spots ?? []).find((each) => each.party === signature.party);
       if (!spot || !signature.strokePath) continue;
 
       const pages = pdf.getPages();

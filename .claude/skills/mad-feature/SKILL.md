@@ -244,6 +244,14 @@ before reading the result, or you will capture the screen mid-submit. And **call
 after every navigation**: a `loading.tsx` answers before the content does, so asserting the
 instant a URL resolves asserts the skeleton.
 
+**Run the dev server with `RESEND_API_KEY=` empty.** Every stage movement sends a real email —
+fifteen `notify()` calls — and a process walks nine stages, so a full driver run is dozens of
+messages against Resend's **100 a day** on the free tier. It has already exhausted it once, and the
+symptom is misleading: Resend answers `429 daily_quota_exceeded`, `requestSignatureCode` reports a
+genuine delivery failure, and it reads like a product bug. Without the key `sendEmail` logs the
+subject and carries on, which loses no coverage — the driver asserts the notification *happened*,
+not that Resend accepted it.
+
 If the feature touches real data, create the test data with the Admin SDK and **delete it when
 you are done**, in the same step. One-off admin scripts go in the scratchpad, never the repo
 root: `.c.mjs` and `verify-*.mjs` are gitignored because one of them got committed once, holding
