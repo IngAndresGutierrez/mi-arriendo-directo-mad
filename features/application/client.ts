@@ -30,3 +30,10 @@ export {
   type CheckSourceId,
   type CheckStatus,
 } from "./domain/background-check";
+export {
+  interviewState,
+  interviewWhen,
+  INTERVIEW_MINUTES,
+  INTERVIEW_STATE_LABELS,
+  type Interview,
+} from "./domain/interview";

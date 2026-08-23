@@ -38,6 +38,8 @@ function toApplication(snapshot: Snapshot): Application | null {
         { ...review, at: iso((review as { at?: unknown }).at) },
       ]),
     ),
+    // Written by `proposeInterview`; absent on every application older than that stage.
+    interview: doc.interview ?? null,
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };

@@ -69,8 +69,8 @@ describe("the nine stages", () => {
    * tells the tenant to wait for a call is the sentence that tells the landlord to make it.
    */
   it("does not tell the landlord to wait for the landlord", () => {
-    expect(stageDescription("interview", false)).toMatch(/El propietario te contactará/);
-    expect(stageDescription("interview", true)).toMatch(/Contáctalo/);
+    expect(stageDescription("interview", false)).toMatch(/El propietario propondrá/);
+    expect(stageDescription("interview", true)).toMatch(/Propón una fecha/);
     for (const stage of STAGES) {
       expect(stageDescription(stage, true)).not.toMatch(/El propietario te/);
     }
@@ -83,7 +83,9 @@ describe("the nine stages", () => {
     // The documents stage is built now: files are uploaded and previewed in the product.
     expect(isUnbuilt("tenant_data")).toBe(false);
     // Checking records is not: no source can be queried from here yet.
-    expect(isUnbuilt("background_check")).toBe(true);
+    // Construidas: expedientes tiene su panel de consultas y la entrevista se agenda aquí.
+    expect(isUnbuilt("background_check")).toBe(false);
+    expect(isUnbuilt("interview")).toBe(false);
   });
 });
 

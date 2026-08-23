@@ -16,6 +16,9 @@ export const NOTIFICATION_TYPES = [
   "documents_requested",
   "document_rejected",
   "check_findings",
+  "interview_proposed",
+  "interview_confirmed",
+  "interview_declined",
   "application_approved",
   "application_rejected",
   "application_withdrawn",
@@ -83,6 +86,27 @@ export function notificationCopy(
         body: notification.detail
           ? `${who} registró un hallazgo al revisar tus antecedentes para ${property}. ${notification.detail}`
           : `${who} registró un hallazgo al revisar tus antecedentes para ${property}.`,
+      };
+    case "interview_proposed":
+      return {
+        title: "Te proponen una hora para la entrevista",
+        body: notification.detail
+          ? `${who} propone ${notification.detail} para hablar sobre ${property}. Confírmala o pide otro horario.`
+          : `${who} propuso una hora para la entrevista de ${property}. Confírmala o pide otro horario.`,
+      };
+    case "interview_confirmed":
+      return {
+        title: "La entrevista quedó confirmada",
+        body: notification.detail
+          ? `${who} confirmó ${notification.detail} para la entrevista de ${property}.`
+          : `${who} confirmó la hora de la entrevista de ${property}.`,
+      };
+    case "interview_declined":
+      return {
+        title: "Ese horario no le sirve",
+        body: notification.detail
+          ? `${who} no puede en la hora propuesta para ${property}. ${notification.detail}`
+          : `${who} no puede en la hora propuesta para ${property}. Propón otra.`,
       };
     case "documents_requested":
       return {

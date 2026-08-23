@@ -256,6 +256,26 @@ There is no separate "revisión de documentos" stage: reviewing them **is** stag
 one is approved or rejected. A stage repeating what the previous one settled is a stage everybody
 clicks through without reading.
 
+**`interview` is built, and it is the one stage that is mostly about agreeing on a time.** The
+landlord proposes a day, an hour and a channel - Google Meet, WhatsApp or a plain phone call, 30
+minutes - and the tenant **confirms**, which is what turns a proposal into an appointment: a time
+only one side knows is a time nobody shows up to, so the process does not move on without it. The
+tenant can also say the slot does not work, with a note; proposing again **replaces** the whole
+arrangement, because a confirmation belongs to the time it was given for. The **Meet link only
+appears once confirmed** - before that there is nothing to walk into, and offering it invites
+somebody to try on the wrong day. Afterwards the landlord writes down how it went (`went_well` /
+`with_reservations` plus a sentence), and **that is what unblocks the next stage**; like a records
+search, a reservation never blocks - what blocks is not having held the interview. The note is
+read by both, and the form says so, because a conclusion the other party cannot see is a decision
+made behind their back. The call happens off the platform: this product hosts no video, and the
+part that gets lost in a chat thread is the agreement about *when*, which is what it keeps.
+
+Times are stored as instants and shown in Colombian time. The form's two fields are read as
+Bogota wall time with a fixed `-05:00` - Colombia has no daylight saving, so that offset is exact
+all year - and `interviewWhen()` is the single formatter the panel, the bell and the email share:
+for the one fact this stage exists to carry, three copies that could drift is the worst possible
+bug.
+
 **`tenant_data` is built.** The tenant uploads the documents their occupation calls for and both
 sides see them previewed; the landlord approves or rejects each one, with a reason on a
 rejection. `background_check` cannot query anything — SIMIT, the RUNT and the Policía have no open API — so
@@ -316,7 +336,8 @@ everywhere.
 deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
 is what stands in for it, and a test asserts the word never comes back.
 
-Six of the nine are `UNBUILT_STAGES`: visible, described, with no interface of their own yet.
+Three of the nine are `UNBUILT_STAGES` - `guarantee`, `contract_signature`, `first_payment`:
+visible, described, with no interface of their own yet.
 They are shown rather than hidden because a tenant needs to know what is coming, and the screen
 says out loud that those happen off the platform for now.
 

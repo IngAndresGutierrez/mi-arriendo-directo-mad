@@ -7,6 +7,11 @@ import {
   checkProgress,
   checksBlocker,
   checksBlockerMessage,
+  interviewBlocker,
+  interviewBlockerMessage,
+  interviewState,
+  InterviewPanel,
+  INTERVIEW_STATE_LABELS,
   closedAtLabel,
   stageIndex,
   getApplicationFor,
@@ -80,6 +85,11 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
     application.stage === "background_check"
       ? checksBlocker(application.checksAuthorizedAt, application.checkResults)
       : null;
+
+  // And the interview has three: a time proposed, the tenant's confirmation, and what came out
+  // of the conversation. A stage that moves on without those is a stage nobody held.
+  const interviewLeft =
+    application.stage === "interview" ? interviewBlocker(application.interview) : null;
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -189,7 +199,9 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
               ? documentsBlockerMessage(blocker, isLandlord)
               : checksLeft
                 ? checksBlockerMessage(checksLeft, isLandlord)
-                : null
+                : interviewLeft
+                  ? interviewBlockerMessage(interviewLeft, isLandlord)
+                  : null
           }
           // The stage's own card, which is where its work lives.
           resolveAt={stageAnchor(application.stage)}
@@ -224,6 +236,18 @@ export default async function ApplicationPage(props: PageProps<"/arriendos/[id]"
                   // Nudges the application so the landlord's screen learns a file arrived.
                   onChanged={touchApplicationDocuments.bind(null, application.id)}
                   readOnly={past("tenant_data")}
+                />
+              ),
+            },
+            interview: {
+              title: "Entrevista con el propietario",
+              meta: INTERVIEW_STATE_LABELS[interviewState(application.interview)],
+              content: (
+                <InterviewPanel
+                  applicationId={application.id}
+                  interview={application.interview}
+                  isLandlord={isLandlord}
+                  readOnly={past("interview")}
                 />
               ),
             },

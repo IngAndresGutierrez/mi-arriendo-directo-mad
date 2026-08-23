@@ -2,6 +2,7 @@ import type { LeaseTerm } from "@/features/property/client";
 import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/client";
 
 import type { CheckResults } from "./background-check";
+import type { Interview } from "./interview";
 
 /**
  * The nine stages a rental goes through, in order.
@@ -56,7 +57,8 @@ export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
   tenant_data: "Sube tu documento de identidad y el soporte de tus ingresos.",
   background_check:
     "Con tu autorización se revisan tus antecedentes judiciales, multas de tránsito y sanciones disciplinarias.",
-  interview: "El propietario te contactará para conocerte, por llamada o en persona.",
+  interview:
+    "El propietario propondrá una fecha para hablar 30 minutos contigo. Confírmala aquí y quedan cuadrados.",
   guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
   approved: "El propietario aceptó tu postulación. Sigue la firma.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
@@ -70,7 +72,8 @@ export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
   tenant_data: "Pídele su documento de identidad y el soporte de sus ingresos.",
   background_check:
     "Consulta sus antecedentes judiciales, de tránsito y disciplinarios, y marca el resultado.",
-  interview: "Contáctalo para conocerlo, por llamada o en persona.",
+  interview:
+    "Propón una fecha para hablar 30 minutos con el inquilino y, después, escribe aquí cómo te fue.",
   guarantee: "Definan juntos la garantía: un codeudor o una póliza de arrendamiento.",
   approved: "Aceptaste la postulación. Sigue la firma del contrato.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
@@ -92,8 +95,6 @@ export function stageDescription(stage: Stage, isLandlord: boolean): string {
  * is how a process that happens over WhatsApp gets recorded here in the meantime.
  */
 export const UNBUILT_STAGES: readonly Stage[] = [
-  "background_check",
-  "interview",
   "guarantee",
   "contract_signature",
   "first_payment",
@@ -167,6 +168,13 @@ export type ApplicationDoc = {
   readonly documentReviews: DocumentReviews;
   /** What each records search turned up, keyed by source. Written by the landlord. */
   readonly checkResults: CheckResults;
+  /**
+   * The interview: when, where, whether the tenant confirmed and how it went.
+   *
+   * `null` until the landlord proposes a time, and on every application made before this stage
+   * had an interface of its own.
+   */
+  readonly interview: Interview | null;
   readonly history: readonly StageEvent[];
   readonly createdAt: unknown;
   readonly updatedAt: unknown;

@@ -17,6 +17,30 @@ const base = {
   applicationId: "app-1",
 };
 
+describe("interview copy", () => {
+  const base = { stage: "interview" as const, propertyTitle: "Apartaestudio en los Alcazares", actorName: "Ana" };
+
+  it("names the time it is about, and says what to do with it", () => {
+    const copy = notificationCopy({
+      ...base,
+      type: "interview_proposed",
+      detail: "el jueves 10 de septiembre a las 3:00 p. m.",
+    });
+    expect(copy.title).toContain("entrevista");
+    expect(copy.body).toContain("jueves 10 de septiembre");
+    expect(copy.body).toContain("Confírmala");
+  });
+
+  it("still says something useful with no detail stored", () => {
+    const copy = notificationCopy({ ...base, type: "interview_confirmed" });
+    expect(copy.body).toContain("Apartaestudio en los Alcazares");
+  });
+
+  it("asks the landlord for another time when the tenant cannot", () => {
+    expect(notificationCopy({ ...base, type: "interview_declined" }).body).toContain("Propón otra");
+  });
+});
+
 describe("notificationCopy", () => {
   it("writes a title and a body for every type", () => {
     for (const type of NOTIFICATION_TYPES) {
