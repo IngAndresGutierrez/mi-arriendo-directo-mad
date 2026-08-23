@@ -316,8 +316,24 @@ Nobody clicks a reminder into existence, so a **Vercel Cron** wakes the server: 
 calls `GET /api/cron/interview-reminders` every five minutes, which is also the accuracy of the
 ten-minute one - it leaves on the first tick inside the window. The route **refuses to run without
 `CRON_SECRET`** and answers 401 to a wrong one: a job that messages every tenant with an interview
-is not something to leave open on a guessable path. Note that minute-level crons need a Vercel
-plan above Hobby, which caps them at one run a day.
+is not something to leave open on a guessable path.
+
+**This cron is why the project is on Vercel Pro.** Hobby's minimum interval is *once a day*, and an
+expression that would run more often does not degrade quietly - it **fails the deployment**, so the
+whole product stops shipping over a five-minute schedule. Hobby is also ±59 min imprecise, which
+would make even the day-before reminder approximate and the ten-minute one impossible. And the
+plan was coming anyway: Hobby's fair-use terms restrict it to *"non-commercial, personal use
+only"*, and this is a product with contracts and rent in it. The cron was simply the first thing
+to hit the wall.
+
+Two things must be true in Vercel or the sweep is a 503 every five minutes. `CRON_SECRET` has to
+exist **in Production** - it lived only in `.env.local` for a while, so the route would have
+refused every tick that reached it. It is stored **Sensitive**, which is unreadable after creation
+and redacted from build logs; that is not the same restriction as the one behind
+`public-config.ts`, whose problem is that `NEXT_PUBLIC_*` is inlined at **build** time and a
+sensitive value is not there to inline. A Route Handler reads `process.env` at request time. The
+way to know is to call the endpoint after a deploy: 401 on a wrong secret means it arrived, 503
+means it did not.
 
 `dueReminder()` holds the rules and is unit-tested: only a **confirmed** interview is reminded (a
 proposal nobody accepted is not an appointment); nothing is sent once the call has started; and
