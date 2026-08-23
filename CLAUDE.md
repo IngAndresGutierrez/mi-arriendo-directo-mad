@@ -98,7 +98,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/` | `LOGIN_ROUTE` | Login (email + password, Google). It is the site root. |
 | `/registro` | `SIGNUP_ROUTE` | Two-step signup: email → password. |
 | `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: there is a session but no profile yet. |
-| `/inicio` | `HOME_ROUTE` | User portal: greeting, contracts and shortcuts. Destination after signing in. |
+| `/inicio` | `HOME_ROUTE` | User portal: greeting, **the rentals in course** and shortcuts. Destination after signing in. The card lists the open processes with the stage each one is on — it used to read a `contracts` collection nothing writes, so it told somebody with three open processes that they had nothing. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
 | `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
 | — | — | Publishing requires the **matrícula inmobiliaria**, and it is stored beside the street in `properties/{id}/private/location`, never in the public document: with that number anyone can pull the certificate and read the address off it, so publishing it would publish the address by the back door. Validated loosely — the circle is two or three digits and the separator is written every way — because the only real check is against the registry, which this product does not do. |

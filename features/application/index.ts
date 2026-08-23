@@ -37,6 +37,7 @@ export {
 } from "./actions/advance";
 export { ApplicationForm } from "./ui/application-form";
 export { ApplicationCard } from "./ui/application-card";
+export { RentalsCard } from "./ui/rentals-card";
 export { DossierSummary } from "./ui/dossier-summary";
 export { StageActions } from "./ui/stage-actions";
 export { StageTimeline } from "./ui/stage-timeline";
