@@ -46,3 +46,10 @@ firebase-debug.log
 firestore-debug.log
 firebase-export-*/
 .firebase/
+
+# agent scratch scripts — throwaway drivers and one-off admin scripts belong in the
+# session scratchpad, never in the repo root. `.c.mjs` reads .env.local and deletes
+# accounts; `verify-login.mjs` was committed this way once already.
+/.c.mjs
+/verify-*.mjs
+/driver/

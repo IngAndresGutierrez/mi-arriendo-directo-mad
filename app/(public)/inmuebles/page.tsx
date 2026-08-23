@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import Link from "next/link";
 import { ChevronLeftIcon, ChevronRightIcon, HouseIcon } from "lucide-react";
 
@@ -17,6 +18,7 @@ import {
 } from "@/features/property";
 import { PROPERTIES_ROUTE } from "@/shared/auth/routes";
 import { Button } from "@/shared/ui/button";
+import { LoadingScreen, Skeleton } from "@/shared/ui/skeleton";
 
 type CatalogProps = PageProps<"/inmuebles">;
 
@@ -40,15 +42,16 @@ export async function generateMetadata(props: CatalogProps): Promise<Metadata> {
 export default async function CatalogPage(props: CatalogProps) {
   const filters = parseCatalogFilters(await props.searchParams);
 
-  // One read; the filtering, counting, sorting and paging happen over it. `CATALOG_MAX_SCAN`
-  // explains why, and when that stops being the right shape.
-  const published = await listAvailableProperties();
-  const facets = countFacets(published, filters);
-  const page = paginate(sortProperties(filterProperties(published, filters), filters.sort), filters.page);
-
+  /*
+   * The heading renders at once and the catalog itself streams in behind a `Suspense`.
+   *
+   * Not a `loading.tsx`: that file covers a segment **and its children**, so the one that would
+   * serve this list would also sit above `/inmuebles/<slug>` — and a boundary above a route turns
+   * its `notFound()` into a 200 with the not-found page streamed inside, which for the one public
+   * page search engines index is a soft 404. In here it costs nothing and reaches only the part
+   * that is actually waiting on Firestore.
+   */
   return (
-    // `h-full` + `overflow-hidden` desde lg: el alto lo pone la ventana y el que se desplaza es
-    // el listado, no la página. El encabezado, los filtros y la paginación se quedan quietos.
     <div className="lg:flex lg:h-full lg:flex-col lg:overflow-hidden">
       <h1 className="text-3xl font-semibold tracking-tight text-balance text-primary sm:text-4xl dark:text-foreground">
         {filters.city ? `Arriendos en ${filters.city}` : "Encuentra tu próximo hogar"}
@@ -58,7 +61,23 @@ export default async function CatalogPage(props: CatalogProps) {
         inmobiliaria.
       </p>
 
-      <div className="mt-8 grid items-start gap-6 lg:mt-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-stretch">
+      <Suspense key={catalogQuery(filters)} fallback={<CatalogSkeleton />}>
+        <CatalogResults filters={filters} />
+      </Suspense>
+    </div>
+  );
+}
+
+/** The part that reads Firestore, so the heading above it does not have to wait for it. */
+async function CatalogResults({ filters }: { readonly filters: ReturnType<typeof parseCatalogFilters> }) {
+  // One read; the filtering, counting, sorting and paging happen over it. `CATALOG_MAX_SCAN`
+  // explains why, and when that stops being the right shape.
+  const published = await listAvailableProperties();
+  const facets = countFacets(published, filters);
+  const page = paginate(sortProperties(filterProperties(published, filters), filters.sort), filters.page);
+
+  return (
+    <div className="mt-8 grid items-start gap-6 lg:mt-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-stretch">
         {/* From `lg` the facets have a column; below that they are behind the toolbar's button. */}
         <aside
           aria-label="Filtros"
@@ -128,8 +147,24 @@ export default async function CatalogPage(props: CatalogProps) {
             </nav>
           )}
         </div>
-      </div>
     </div>
+  );
+}
+
+/** The catalog's shape while it loads: the facets column and a few cards. */
+function CatalogSkeleton() {
+  return (
+    <LoadingScreen label="Cargando los inmuebles…">
+      <div className="mt-8 grid items-start gap-6 lg:mt-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
+        <Skeleton className="hidden h-96 w-full rounded-2xl lg:block" />
+        <div className="space-y-5">
+          <Skeleton className="h-24 w-full rounded-2xl" />
+          {[0, 1, 2].map((card) => (
+            <Skeleton key={card} className="h-52 w-full rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    </LoadingScreen>
   );
 }
 

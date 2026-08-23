@@ -216,15 +216,53 @@ you are done**, in the same step.
 
 Do not report the feature as finished without this:
 
+### The always-run gate
+
 ```bash
-pnpm typegen       # after moving or renaming routes; otherwise tsc fails on PageProps
-pnpm typecheck     # tsc --noEmit, clean
-pnpm lint          # eslint, no warnings — module boundaries included
-pnpm arch          # dependency-cruiser: cycles and forbidden arrows
-pnpm build         # compiles
-pnpm test          # unit (if you touched schemas or logic)
-pnpm test:rules    # rules (if you touched firestore.rules or storage.rules)
+pnpm verify        # arch → typecheck → lint → test, cheapest first, stops at the first failure
 ```
+
+**Run it after every change, without deciding whether it applies.** It costs 14 seconds on the
+whole repo and less when something is broken, because it is ordered so the cheapest check fails
+first. Do not skip a piece of it to save time: `arch` is 1s, `typecheck` is 2s. The thinking about
+whether to run them costs more than running them.
+
+Note that `pnpm test` inside it runs the **whole** unit suite, not the files you touched, and that
+is deliberate. The suite is 7 seconds and its job is to tell you what your change broke somewhere
+else — `vitest related` cannot answer that question. Use `pnpm vitest <path>` while iterating on
+one schema if you like; `pnpm verify` is still what says you are done.
+
+### The two conditional ones
+
+These are the only checks worth a decision, and the decision is `git diff --name-only`:
+
+| Command | Cost | Run it when the diff touches |
+| --- | --- | --- |
+| `pnpm build` | 9s | anything in `app/`, `next.config.ts`, `proxy.ts`, a `'use client'` boundary, or a new import of `shared/firebase/admin.ts`. It is the only check that catches a `server-only` module reaching the browser and a route that fails to prerender. |
+| `pnpm test:rules` | 9s | `firestore.rules`, `storage.rules`, `firestore.indexes.json`, or `tests/rules/`. **Mandatory, not optional, when it applies.** The script puts JDK 21 on the PATH itself; no `export` needed. |
+| `pnpm typegen` | 3s | a route **moved or was renamed**. Then it is `rm -rf .next && pnpm typegen` first, or `tsc` fails on generated `PageProps` with an error unrelated to your change. |
+
+Before reporting a feature finished, run everything once regardless:
+
+```bash
+pnpm verify:all    # verify + build + test:rules — ~32s for the entire bar
+```
+
+### What the number to watch actually is
+
+Optimizing *which commands run* buys back seconds. The failure this bar exists to prevent is a
+feature that ships with nothing asserting it works, and no command tells you that — a green
+`pnpm test` on 25 untouched files is green whether or not you wrote a test for what you just built.
+
+So the check that belongs in the report is a count:
+
+```bash
+pnpm vitest run features shared 2>&1 | grep Tests    # before your change, and after
+```
+
+**The number must have gone up if you added a schema, a pure function or a state transition.** If
+it did not, name the thing you built and say why it has no test — "it is all UI" is a real answer;
+silence is not. The same rule with `pnpm test:rules` for a new collection.
 
 Plus: the app running and the flow driven, screenshots you actually looked at, and the test data
 deleted.

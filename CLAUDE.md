@@ -533,30 +533,70 @@ The buttons live in `shared/shell/support-actions.tsx` and are rendered by **bot
 `/inicio` and the `/soporte` page, so the two surfaces cannot drift. Only the copy button is a
 Client Component; everything else there is a plain link.
 
+## Loading states, and the 404 they cost
+
+Every screen behind a session reads Firestore before it can render, so a click used to look like
+a click that did nothing. `app/(app)/loading.tsx` answers instantly with a skeleton in the shape
+of the page - the menu and the bell stay interactive, because they live in the layout - and
+`app/(app)/arriendos/[id]/loading.tsx` does the same in the shape of the process page.
+
+**A `loading.tsx` covers a segment and everything under it, and a boundary above a route turns
+its `notFound()` into a `200` with the not-found page streamed inside.** The headers are already
+flushed by the time the page says "this does not exist". That is why:
+
+- The **public** pages have none. A boundary over `/inmuebles` would also sit over
+  `/inmuebles/<slug>`, and a soft 404 on the one page search engines index is a real cost. The
+  catalog streams from a `<Suspense>` **inside** its own page instead, so the heading appears at
+  once and only the part waiting on Firestore is replaced by a skeleton. A missing property still
+  answers a true 404, and there is a driver assertion pinned on it.
+- The **private** ones keep theirs. `/arriendos/<id>` now answers `200` to a stranger with the
+  same not-found page a made-up id gets, which is what the privacy property was ever about: the
+  two are indistinguishable. These pages are `noindex`, so the status costs nothing.
+
+`NavItem` also shows a spinner in place of its icon while its own navigation is in flight
+(`useLinkStatus`). With a warm prefetch and a route-level fallback it never appears, and that is
+correct - the skeleton is the better signal. It is there for the cold case, where the navigation
+really is blocked on the network.
+
 ## Verification commands
 ```bash
-pnpm typegen       # next typegen — regenerates the route types (PageProps, LayoutProps)
-pnpm typecheck     # tsc --noEmit
-pnpm lint          # eslint, module boundaries included
-pnpm arch          # dependency-cruiser: cycles and forbidden arrows between layers
-pnpm build         # next build
-pnpm test          # unit: schemas and pure logic, colocated in features/ and shared/
-pnpm test:rules    # security rules against the emulator (tests/rules/) — needs JDK 21+
+pnpm verify        # arch → typecheck → lint → test, cheapest first, stops at the first failure (14s)
+pnpm verify:all    # the above + build + test:rules — the whole bar (32s)
 ```
+
+**`pnpm verify` runs after every change, with no decision about whether it applies**: `arch` is 1s
+and `typecheck` is 2s, so deciding costs more than running. It includes the **whole** unit suite
+rather than the files you touched, because its job is to tell you what your change broke elsewhere.
+
+Only three checks are worth a decision, keyed on `git diff --name-only`:
+
+```bash
+pnpm build         # 9s — anything in app/, next.config.ts, proxy.ts, a 'use client' boundary, or
+                   #      a new import of shared/firebase/admin.ts. The only check that catches a
+                   #      server-only module reaching the browser.
+pnpm test:rules    # 9s — firestore.rules, storage.rules, firestore.indexes.json, tests/rules/.
+                   #      Mandatory when it applies. Needs JDK 21+.
+pnpm typegen       # 3s — only when a route moved or was renamed (see below).
+```
+
+The number to watch is not how many commands ran, it is the **test count**: a green suite of 25
+untouched files is green whether or not you tested what you just built. If a change added a
+schema, a pure function or a state transition, `pnpm test`'s count must have gone up — and if it
+did not, that belongs in the report by name.
 
 After moving or renaming a route: `rm -rf .next && pnpm typegen`, or `tsc` fails on the
 generated types with an error that has nothing to do with your change.
 
 ## Security Rules tests
-`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (59 cases, every rule
-with a mandatory negative case). It needs **JDK 21+**; Homebrew's `openjdk@21` is *keg-only*,
-so it has to go on the PATH:
+`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (75 cases, every rule
+with a mandatory negative case). It needs **JDK 21+**, and **the script puts it on the PATH
+itself** — `/opt/homebrew/opt/openjdk@21/bin` is prepended in `package.json`, because Homebrew's
+`openjdk@21` is *keg-only*: it is not registered with `/usr/libexec/java_home`, so `java` resolves
+to whatever older JDK is installed and `firebase-tools` refuses to boot. The prefix is a no-op
+where that directory does not exist (Linux, CI), which is why `verify:all` runs anywhere.
 
-```bash
-export JAVA_HOME=/opt/homebrew/opt/openjdk@21
-export PATH="$JAVA_HOME/bin:$PATH"        # persist it in ~/.zshrc if you use it often
-pnpm test:rules
-```
+No `export` is needed any more. If you install the JDK somewhere else, that path in
+`package.json` is the one place to change.
 
 Every new or modified rule is tested here before `firebase deploy`. When you add a
 collection, add its access-denied test too.
