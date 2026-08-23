@@ -268,7 +268,7 @@ risk of leaving a field unconnected.
 | `shared/form/phone-field.tsx` | `PhoneField`: country selector + national number. Its ids are generated: two can share a page (yours and your reference's), and with fixed ids `label for=` resolves to the first, so typing in one filled the other. |
 | `shared/shell/app-shell.tsx` | `AppShell`: the frame of every product screen — menu and content. A page brings only its heading and its body. |
 | `shared/shell/app-nav.tsx` | `AppNav`: the `NAV` list itself, shared by the two surfaces that show it. **It is a Client Component**: it passes icon components to `NavItem`. |
-| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the menu always visible from `lg` up, narrow by default, widened with the arrow. |
+| `shared/shell/app-sidebar.tsx` | `AppSidebar`: the menu always visible from `lg` up, narrow by default, widened with the arrow. The width also picks the mark: the full lockup when open, the icon alone when collapsed — **both on the light chip**, because half of either one is `#330852` against a `#2d124d` panel, which is contrast 1.05 and therefore not dim but absent. The chip goes away when a reversed logo exists, not before. |
 | `shared/shell/sidebar-state.ts` | The cookie that remembers that width. Read on the server so the first paint is already right. |
 | `shared/shell/app-drawer.tsx` | `AppDrawer`: below `lg`, the bar with the hamburger plus the same menu in a drawer. Owns the open state. |
 | `shared/ui/nav-item.tsx` | `NavItem`: a menu entry. Without `href` it renders disabled with a "Pronto" badge. `activeOn` marks the section on routes that do not hang off its path; `shortLabel` is what the narrow rail shows instead of a name too long to sit under an icon. |
@@ -894,6 +894,15 @@ pnpm e2e --since   # ~15s per driver — the browser level. Reads `git diff --na
                    #      only the drivers whose paths it touches (tests/e2e/manifest.mjs).
 pnpm typegen       # 3s — only when a route moved or was renamed (see below).
 ```
+
+**The e2e dev server has its own output directory**, `.next-e2e`, from `NEXT_DIST_DIR` in
+`.env.e2e` (`distDir` in `next.config.ts`). That is not tidiness: `next dev` keeps its lock inside
+`distDir`, so with both servers on `.next` the second to start refuses to boot — "you can access the
+existing server at http://localhost:3000" — and every driver dies on `ERR_CONNECTION_REFUSED`, which
+reads as a broken app rather than a busy port. It also stops `pnpm build` from pulling `.next` out
+from under a running e2e server mid-run. Two consequences worth knowing: `.next-e2e/**` is in
+eslint's `globalIgnores` (without it `pnpm verify` walks a second copy of every bundled dependency),
+and `pnpm build` while the e2e server is up wants `NEXT_DIST_DIR=.next-build`.
 
 **`pnpm e2e` is the level that catches what compiles and still does not work.** The soft 404 a
 `loading.tsx` causes was found there and could not have been found anywhere else. It needs
