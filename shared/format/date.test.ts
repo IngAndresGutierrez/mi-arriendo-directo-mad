@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatBogotaDateTime, formatLongDate, formatShortDate } from "./date";
+import { bogotaToday, formatBogotaDateTime, formatLongDate, formatShortDate } from "./date";
 
 describe("formatShortDate", () => {
   it("writes a date-only value as the day it says", () => {
@@ -47,5 +47,33 @@ describe("formatBogotaDateTime", () => {
 
   it("returns empty for something that is not a date", () => {
     expect(formatBogotaDateTime("no soy una fecha")).toBe("");
+  });
+
+  /*
+   * Un fallo de hidratación, no tipografía: `es-CO` separa la hora de "p. m." con un espacio fino
+   * indivisible (U+202F) en algunas versiones de ICU y con uno normal en otras, así que Node y el
+   * navegador formatean el mismo instante en dos cadenas idénticas en pantalla y distintas para
+   * React. El diff imprime dos líneas que se ven exactamente iguales, que es la forma más confusa
+   * posible de enterarse.
+   */
+  it("emits no invisible spaces, so the server and the browser agree", () => {
+    const formatted = formatBogotaDateTime("2026-08-23T20:52:00.000Z");
+
+    expect(formatted).not.toMatch(/[\u202f\u00a0]/);
+    expect(formatted).toMatch(/3:52/);
+  });
+});
+
+describe("bogotaToday", () => {
+  it("gives the ISO date, ready to compare as a string", () => {
+    expect(bogotaToday(new Date("2026-09-15T18:00:00.000Z"))).toBe("2026-09-15");
+  });
+
+  /*
+   * La razón de existir: a las 8 de la noche en Bogotá ya es el día siguiente en UTC, y un canon
+   * "vencido hoy" se reportaría tarde unas horas antes de estarlo.
+   */
+  it("is Bogotá's day, not the server's", () => {
+    expect(bogotaToday(new Date("2026-09-16T02:30:00.000Z"))).toBe("2026-09-15");
   });
 });

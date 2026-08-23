@@ -34,11 +34,16 @@ export const CONTRACTS_ROUTE = "/contratos";
 /**
  * The tenancy once it is running: month by month, and the whole of it.
  *
- * **Not built yet.** Today `/arriendos` only forwards to `/contratos`, because this is where the
- * process used to live and every email already sent points here. The redirect is temporary on
- * purpose — see the page itself.
+ * `/arriendos` lists them and `/arriendos/<id>` is one of them, month by month. A tenancy's id
+ * **is** its application's: one process produces one tenancy, so `/contratos/<id>` and
+ * `/arriendos/<id>` are the two halves of the same story under the same key.
  */
 export const RENTALS_ROUTE = "/arriendos";
+
+/** One tenancy: its months, and the whole of it. Keyed by id, like the process it came from. */
+export function rentalRoute(id: string): string {
+  return `${RENTALS_ROUTE}/${id}`;
+}
 
 /** The tenant's reusable dossier. */
 export const TENANT_PROFILE_ROUTE = "/perfil-inquilino";

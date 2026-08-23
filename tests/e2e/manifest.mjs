@@ -72,6 +72,14 @@ export const COVERS = {
     "app/(app)/contratos",
   ],
   reminders: ["app/api/cron/", "features/application/domain/interview", "features/notification/"],
+
+  // La tenencia: lo que corre después de la novena etapa.
+  rental: [
+    "features/lease/",
+    "app/(app)/arriendos",
+    "features/application/actions/advance",
+    "shared/format/date",
+  ],
   notifications: ["features/notification/", "shared/lib/site-url"],
 
   // Layout assertions: alignment, no horizontal scrolling at 390px, the active nav entry.
@@ -84,7 +92,7 @@ export const COVERS = {
 };
 
 /** Drivers that need a landlord, a tenant and a property, so they are the slow ones. */
-export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw"];
+export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental"];
 
 /**
  * Rutas tan transversales que cualquier cambio en ellas selecciona **todos** los drivers.
@@ -101,6 +109,19 @@ export const SLOW = ["documents", "apply", "interview", "guarantee", "notificati
 export const SELECTS_EVERY_DRIVER = [
   "shared/ui/",
   "shared/form/",
+  /*
+   * `shared/format/` por la misma razón, y la lección se pagó dos veces.
+   *
+   * El dinero y las fechas salen en todas las pantallas del producto, y aquí estaban mapeados a mano
+   * a un driver cada uno: `shared/format/money` a `amount`, `shared/format/date` a `contract`.
+   * Normalizar el espacio fino que `Intl` mete antes de "p. m." — un fallo de hidratación real —
+   * seleccionaba dieciséis drivers y dejaba fuera `contract`, `interview`, `guarantee` y
+   * `first-payment`, que son justo los cuatro paneles que muestran una hora.
+   *
+   * Un primitivo compartido no se mapea a una lista: la lista está mal el día que alguien usa el
+   * módulo en un sitio nuevo, y ese día nadie se acuerda de venir a esta línea.
+   */
+  "shared/format/",
   "app/globals.css",
   "app/layout.tsx",
 ];

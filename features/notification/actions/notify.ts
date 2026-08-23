@@ -46,6 +46,13 @@ export type NotifyInput = {
   /** Only for the types that need it: which document, and what was wrong with it. */
   readonly detail?: string;
   /**
+   * `YYYY-MM`, on the notifications that are about one month of a tenancy.
+   *
+   * It is what the link needs — the anchor of one month inside a page with twelve of them — and it
+   * is also what lets the copy say "septiembre de 2026" instead of "un canon".
+   */
+  readonly period?: string;
+  /**
    * E.164, and only for what is worth a WhatsApp: a reminder minutes before a call.
    *
    * Passing a phone is what says "this one also goes out over WhatsApp". Every other movement of
@@ -80,6 +87,7 @@ export async function notify(input: NotifyInput): Promise<void> {
       actorName: input.actorName,
       // Firestore rejects `undefined`, and a notification with no detail simply has none.
       ...(input.detail ? { detail: input.detail } : {}),
+      ...(input.period ? { period: input.period } : {}),
       readAt: null,
       createdAt: FieldValue.serverTimestamp(),
     });

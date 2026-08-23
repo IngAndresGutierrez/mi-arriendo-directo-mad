@@ -18,6 +18,7 @@ import {
   HOME_ROUTE,
   MY_PROPERTIES_ROUTE,
   PUBLISH_PROPERTY_ROUTE,
+  RENTALS_ROUTE,
   SUPPORT_ROUTE,
   TENANT_PROFILE_ROUTE,
 } from "@/shared/auth/routes";
@@ -44,11 +45,11 @@ const NAV: readonly NavEntry[] = [
   },
   { label: "Contratos", icon: FileTextIcon, href: CONTRACTS_ROUTE },
   /*
-   * The tenancy itself has no route yet, and the entry is here disabled rather than absent:
-   * the process ending in a signed contract is only half of what this product is about, and a
-   * menu that stops at "Contratos" says the other half does not exist.
+   * The other half of the product: the tenancy that runs after the contract is signed. It was
+   * disabled here rather than absent for exactly this reason — a menu that stopped at "Contratos"
+   * said the year that follows a signature did not exist.
    */
-  { label: "Arriendos", icon: CalendarClockIcon },
+  { label: "Arriendos", icon: CalendarClockIcon, href: RENTALS_ROUTE },
   {
     label: "Perfil de inquilino",
     // Two words fit under an icon in the narrow rail; three do not.

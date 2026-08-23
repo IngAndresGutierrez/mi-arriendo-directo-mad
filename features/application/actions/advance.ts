@@ -3,9 +3,10 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 
+import { startLease } from "@/features/lease";
 import { notify, type NotificationType } from "@/features/notification";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
-import { applicationRoute, CONTRACTS_ROUTE } from "@/shared/auth/routes";
+import { applicationRoute, CONTRACTS_ROUTE, RENTALS_ROUTE } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
 
 import { getApplicationFor } from "../data/application";
@@ -22,6 +23,12 @@ import { canAdvance, canClose, nextStage, type Stage } from "../domain/applicati
 function typeForStage(stage: Stage): NotificationType {
   if (stage === "tenant_data") return "documents_requested";
   if (stage === "approved") return "application_approved";
+  /*
+   * `active` is the one advance that lands somewhere else. "Avanzaste a Arriendo en curso" would
+   * point back at the process, which from that moment has nothing left to do, and the thing the
+   * tenant needs to know is that there is now a page with the months on it.
+   */
+  if (stage === "active") return "lease_started";
 
   return "stage_advanced";
 }
@@ -65,6 +72,19 @@ export async function advanceApplication(id: string): Promise<StageResult> {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
+  /*
+   * Reaching the ninth stage opens the tenancy: `active` is not a resting place, it is the day the
+   * months start. It is a separate document (`leases/{id}`, same id) rather than more fields here,
+   * because `LiveApplication` subscribes to *this* document — a canon paid in month seven would
+   * otherwise wake both parties and re-render a nine-stage page that has not changed since March.
+   *
+   * `startLease` never throws and is idempotent: the stage has already moved, and a tenancy that
+   * failed to open is a screen the next attempt fixes, while a rolled-back advance is not.
+   */
+  if (target === "active") {
+    await startLease({ ...application, stage: target });
+  }
+
   const [landlord] = await Promise.all([getProfile(user.uid)]);
   const tenant = await getProfile(application.tenantUid);
 
@@ -80,6 +100,7 @@ export async function advanceApplication(id: string): Promise<StageResult> {
 
   revalidatePath(applicationRoute(id));
   revalidatePath(CONTRACTS_ROUTE);
+  if (target === "active") revalidatePath(RENTALS_ROUTE);
 
   return { ok: true, stage: target };
 }

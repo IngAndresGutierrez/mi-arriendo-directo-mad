@@ -31,6 +31,8 @@ import {
   PROPERTY_ID,
   APPLICATION_ID,
   NOTIFICATION_ID,
+  LEASE_ID,
+  PERIOD_ID,
   seed,
   UID_ADMIN,
   UID_TENANT,
@@ -502,6 +504,117 @@ describe("contracts and payments", () => {
         ),
       ),
     );
+  });
+});
+
+describe("leases", () => {
+  it("the tenant and the landlord read the tenancy; a third party does NOT", async () => {
+    await assertSucceeds(getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `leases/${LEASE_ID}`)));
+    await assertSucceeds(
+      getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `leases/${LEASE_ID}`)),
+    );
+    await assertFails(
+      getDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `leases/${LEASE_ID}`)),
+    );
+    await assertFails(getDoc(doc(anonymous(env), `leases/${LEASE_ID}`)));
+  });
+
+  it("nobody sweeps the whole collection", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertFails(getDocs(collection(db, "leases")));
+    await assertFails(getDocs(query(collection(db, "leases"), limit(1000))));
+  });
+
+  it("each side lists only their own", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant");
+    await assertSucceeds(
+      getDocs(query(collection(db, "leases"), where("tenantUid", "==", UID_TENANT), limit(20))),
+    );
+    // Somebody else's tenancy is in the emulator, so this is denied by the rule and not by
+    // the query coming back empty.
+    await assertFails(
+      getDocs(
+        query(collection(db, "leases"), where("tenantUid", "==", "uid-other-tenant"), limit(20)),
+      ),
+    );
+  });
+
+  /*
+   * La máquina no cabe en las reglas: el mes tiene que estar en el calendario de esta tenencia, un
+   * veredicto pertenece al comprobante que juzgó, y el propietario confirma mientras el inquilino
+   * sube. Todo eso son relaciones entre documentos y fechas.
+   */
+  it("no client writes a tenancy, not even its own parties", async () => {
+    for (const [uid, role] of [
+      [UID_TENANT, "tenant"],
+      [UID_LANDLORD, "landlord"],
+    ] as const) {
+      const db = actingAs(env, uid, role);
+      await assertFails(updateDoc(doc(db, `leases/${LEASE_ID}`), { monthlyCost: 1 }));
+      await assertFails(setDoc(doc(db, "leases/lease-invented"), { tenantUid: uid }));
+      await assertFails(deleteDoc(doc(db, `leases/${LEASE_ID}`)));
+    }
+  });
+
+  describe("its months", () => {
+    it("both parties read a month; a third party does NOT", async () => {
+      await assertSucceeds(
+        getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `leases/${LEASE_ID}/periods/${PERIOD_ID}`)),
+      );
+      await assertSucceeds(
+        getDoc(
+          doc(actingAs(env, UID_LANDLORD, "landlord"), `leases/${LEASE_ID}/periods/${PERIOD_ID}`),
+        ),
+      );
+      await assertFails(
+        getDoc(
+          doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `leases/${LEASE_ID}/periods/${PERIOD_ID}`),
+        ),
+      );
+    });
+
+    it("both parties list the months, and a stranger cannot", async () => {
+      await assertSucceeds(
+        getDocs(collection(actingAs(env, UID_TENANT, "tenant"), `leases/${LEASE_ID}/periods`)),
+      );
+      await assertFails(
+        getDocs(collection(actingAs(env, UID_THIRD_PARTY, "tenant"), `leases/${LEASE_ID}/periods`)),
+      );
+    });
+
+    /*
+     * Lo que esto impide: que el inquilino se declare al día, o que el propietario escriba un
+     * rechazo sin comprobante que rechazar.
+     */
+    it("neither party marks a month paid from the client", async () => {
+      const tenant = actingAs(env, UID_TENANT, "tenant");
+      await assertFails(
+        updateDoc(doc(tenant, `leases/${LEASE_ID}/periods/${PERIOD_ID}`), {
+          verdict: { status: "confirmed", at: new Date().toISOString(), reason: "" },
+        }),
+      );
+      await assertFails(
+        setDoc(doc(tenant, `leases/${LEASE_ID}/periods/2026-10`), { amount: 0, dueDate: "2026-10-15" }),
+      );
+
+      const landlord = actingAs(env, UID_LANDLORD, "landlord");
+      await assertFails(
+        updateDoc(doc(landlord, `leases/${LEASE_ID}/periods/${PERIOD_ID}`), {
+          verdict: { status: "rejected", at: new Date().toISOString(), reason: "No llegó." },
+        }),
+      );
+      await assertFails(deleteDoc(doc(landlord, `leases/${LEASE_ID}/periods/${PERIOD_ID}`)));
+    });
+
+    /*
+     * Las partes se leen del padre, así que una tenencia que no existe no puede prestar acceso a
+     * los meses que alguien invente debajo de ella.
+     */
+    it("a month under a tenancy that does not exist is denied", async () => {
+      await assertFails(
+        getDoc(doc(actingAs(env, UID_TENANT, "tenant"), "leases/lease-invented/periods/2026-09")),
+      );
+    });
   });
 });
 

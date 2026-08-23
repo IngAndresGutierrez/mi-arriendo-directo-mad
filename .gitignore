@@ -58,3 +58,6 @@ firebase-export-*/
 
 # e2e screenshots and generated upload fixtures
 /.e2e-shots/
+
+# The e2e dev server keeps its own output, so it can run beside an ordinary `pnpm dev`.
+/.next-e2e/

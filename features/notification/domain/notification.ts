@@ -1,5 +1,6 @@
 import { STAGE_LABELS, type Stage } from "@/features/application/client";
-import { applicationRoute } from "@/shared/auth/routes";
+import { periodAnchor, periodLabel } from "@/features/lease/client";
+import { applicationRoute, rentalRoute } from "@/shared/auth/routes";
 
 /**
  * What happened. One type per movement of a rental process, from the point of view of whoever
@@ -32,6 +33,17 @@ export const NOTIFICATION_TYPES = [
   "application_approved",
   "application_rejected",
   "application_withdrawn",
+  /*
+   * The tenancy, which is a different place: these point at `/arriendos/<id>`, not at the
+   * nine-stage process. See `LEASE_NOTIFICATION_TYPES` — the destination is derived from the type
+   * for the same reason the words are, so a notification written last month lands where that
+   * screen lives today.
+   */
+  "lease_started",
+  "canon_payout_changed",
+  "canon_receipt_uploaded",
+  "canon_receipt_rejected",
+  "canon_paid",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -52,6 +64,14 @@ export type NotificationDoc = {
    * reader has to narrow, for a sentence that differs by a clause.
    */
   readonly detail?: string;
+  /**
+   * Which month, `YYYY-MM`, on the notifications that are about one.
+   *
+   * It is here rather than parsed out of `detail` because it is what the link needs: the anchor of
+   * one month inside a page with twelve of them. Optional, like `detail`, and absent on every
+   * notification about the process rather than the tenancy.
+   */
+  readonly period?: string;
   /** ISO 8601, or `null` while unread. */
   readonly readAt: string | null;
   readonly createdAt: unknown;
@@ -84,10 +104,13 @@ function sentence(text: string): string {
 export function notificationCopy(
   notification: Pick<Notification, "type" | "stage" | "propertyTitle" | "actorName"> & {
     readonly detail?: string;
+    readonly period?: string;
   },
 ): { readonly title: string; readonly body: string } {
   const who = notification.actorName || "Alguien";
   const property = notification.propertyTitle;
+  // `septiembre de 2026`, on the notifications that are about one month. Empty on the rest.
+  const month = notification.period ? periodLabel(notification.period) : "";
 
   switch (notification.type) {
     case "application_received":
@@ -223,6 +246,43 @@ export function notificationCopy(
         title: `Avanzaste a "${STAGE_LABELS[notification.stage]}"`,
         body: `El proceso de ${property} pasó a la etapa "${STAGE_LABELS[notification.stage]}".`,
       };
+    case "lease_started":
+      return {
+        title: "Tu arriendo quedó en curso",
+        body: `El arriendo de ${property} ya está andando. En "Arriendos" vas a ver mes a mes lo que se paga y lo que falta.`,
+      };
+    case "canon_payout_changed":
+      /*
+       * Sin los datos de la cuenta, por lo mismo que el primer canon: un correo con el número de
+       * cuenta de alguien es la forma exacta de toda estafa de pagos que existe, y saldría de un
+       * dominio en el que el inquilino confía. Que hay datos nuevos se avisa; cuáles son se lee en
+       * la página, detrás de la sesión.
+       */
+      return {
+        title: "Cambiaron los datos para pagar el canon",
+        body: `${who} cambió por dónde recibe el canon de ${property}. Míralos en el arriendo antes de transferir el próximo mes.`,
+      };
+    case "canon_receipt_uploaded":
+      return {
+        title: "Llegó el comprobante del canon",
+        body: month
+          ? `${who} subió el comprobante del canon de ${month} de ${property}. Revísalo y confirma si el dinero llegó.`
+          : `${who} subió el comprobante de un canon de ${property}. Revísalo y confirma si el dinero llegó.`,
+      };
+    case "canon_receipt_rejected":
+      return {
+        title: "Rechazaron el comprobante del canon",
+        body: notification.detail
+          ? `${sentence(`${who} rechazó el comprobante del canon de ${month || property}: ${notification.detail}`)} Sube otro corrigiendo eso.`
+          : `${who} rechazó el comprobante del canon de ${month || property}. Sube otro.`,
+      };
+    case "canon_paid":
+      return {
+        title: "El propietario confirmó el canon",
+        body: month
+          ? `${who} confirmó que recibió el canon de ${month} de ${property}.`
+          : `${who} confirmó que recibió el canon de ${property}.`,
+      };
   }
 }
 
@@ -237,10 +297,43 @@ export function stageAnchor(stage: Stage): string {
   return `etapa-${stage.replace(/_/g, "-")}`;
 }
 
-/** Where a notification takes you: the process, at the stage it is about. */
+/**
+ * The notifications that are about the tenancy rather than about the process that produced it.
+ *
+ * **Derived from the type, not stored beside it** — the same choice the words already make. A
+ * notification written a month ago points wherever that screen lives today, and there is no second
+ * field that could disagree with the first about which of the two pages this one is about.
+ */
+const LEASE_NOTIFICATION_TYPES: readonly NotificationType[] = [
+  "lease_started",
+  "canon_payout_changed",
+  "canon_receipt_uploaded",
+  "canon_receipt_rejected",
+  "canon_paid",
+];
+
+export function isLeaseNotification(type: NotificationType): boolean {
+  return LEASE_NOTIFICATION_TYPES.includes(type);
+}
+
+/**
+ * Where a notification takes you.
+ *
+ * The process, at the stage it is about — or the tenancy, at the month it is about. Both ids are
+ * the same string: a lease id **is** its application id, so nothing extra has to be stored to know
+ * which document to open, only which page shows it.
+ */
 export function notificationPath(
-  notification: Pick<Notification, "applicationId" | "stage">,
+  notification: Pick<Notification, "applicationId" | "stage" | "type"> & {
+    readonly period?: string;
+  },
 ): string {
+  if (isLeaseNotification(notification.type)) {
+    const anchor = notification.period ? `#${periodAnchor(notification.period)}` : "";
+
+    return `${rentalRoute(notification.applicationId)}${anchor}`;
+  }
+
   return `${applicationRoute(notification.applicationId)}#${stageAnchor(notification.stage)}`;
 }
 
