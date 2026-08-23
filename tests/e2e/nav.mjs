@@ -1,12 +1,11 @@
 import { chromium } from "playwright";
-import { BASE, MONTHS, config, fillBirthdate, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fillBirthdate, MONTHS, ok, settled } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
 
 /** La fecha de nacimiento son tres campos: día, mes y año. */
 const email = `nav-${STAMP}@miarriendodirecto.test`;
-await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+await createAccount(API_KEY, email);
 
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
@@ -51,8 +50,9 @@ if (!visibles.includes("/mis-inmuebles")) throw new Error("las opciones no se le
 ok("las opciones se leen sin abrir nada", JSON.stringify(visibles));
 const soon = (await sidebar.locator('[aria-disabled="true"]').allTextContents())
   .map((t) => t.replace("Pronto", "").trim());
-// Soporte ya está construido: las futuras son dos.
-if (JSON.stringify(soon) !== JSON.stringify(["Facturación", "Ajustes"])) {
+// Soporte ya está construido; Arriendos entró cuando el proceso pasó a llamarse Contratos: la
+// negociación termina en un contrato firmado y el arriendo empieza después, sin ruta todavía.
+if (JSON.stringify(soon) !== JSON.stringify(["Arriendos", "Facturación", "Ajustes"])) {
   throw new Error("las secciones futuras cambiaron: " + JSON.stringify(soon));
 }
 ok("y las futuras se marcan 'Pronto'", JSON.stringify(soon));

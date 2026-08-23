@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, config, fixtures, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -19,8 +19,7 @@ async function listingPathOf(page, title) {
 const landlordEmail = `owner-${STAMP}@miarriendodirecto.test`;
 const tenantEmail = `renter-${STAMP}@miarriendodirecto.test`;
 for (const email of [landlordEmail, tenantEmail]) {
-  await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-    { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+  await createAccount(API_KEY, email);
 }
 
 const b = await chromium.launch();
@@ -95,7 +94,7 @@ await tenant.getByLabel("Teléfono de tu referencia").fill("3009876543");
 await tenant.getByLabel("Cuándo te mudarías").fill("2026-10-01");
 await tenant.getByLabel("Mensaje al propietario (opcional)").fill("Trabajo en Manizales hace tres años y busco algo cerca del centro.");
 await tenant.getByRole("button", { name: /Enviar postulación/i }).click();
-await tenant.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 40000 });
+await tenant.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 40000 });
 await settled(tenant);
 const processUrl = tenant.url();
 ok("la postulación se envía y abre el proceso", new URL(processUrl).pathname);
@@ -119,24 +118,24 @@ await tenant.goto(BASE + listingPath, { waitUntil: "domcontentloaded" });
 await settled(tenant);
 if (await tenant.getByRole("link", { name: "Postularme" }).count() > 0) throw new Error("ofrece postularse otra vez");
 await tenant.getByRole("link", { name: /Ver mi proceso/i }).click();
-await tenant.waitForURL(/\/arriendos\//, { timeout: 20000 });
+await tenant.waitForURL(/\/contratos\//, { timeout: 20000 });
 await settled(tenant);
 ok("con una postulación abierta, el anuncio lleva al proceso en vez de ofrecer otra");
 
 // Y entrar a mano a /postularme redirige al proceso.
 await tenant.goto(BASE + "/postularme/" + listingPath.split("/").pop(), { waitUntil: "domcontentloaded" });
 await settled(tenant);
-if (!/\/arriendos\//.test(tenant.url())) throw new Error("entrando a mano deja postularse dos veces: " + tenant.url());
+if (!/\/contratos\//.test(tenant.url())) throw new Error("entrando a mano deja postularse dos veces: " + tenant.url());
 ok("entrar a mano a /postularme redirige al proceso que ya existe");
 
 // ---------- el propietario lo ve y lo avanza ----------
-await owner.goto(BASE + "/arriendos", { waitUntil: "domcontentloaded" });
+await owner.goto(BASE + "/contratos", { waitUntil: "domcontentloaded" });
 await settled(owner);
 const ownerList = await owner.evaluate(() => document.body.innerText);
 if (!ownerList.includes("Ana Inquilina Pérez")) throw new Error("el propietario no ve quién se postuló");
-ok("el propietario ve la postulación en Arriendos", "con el nombre del inquilino");
+ok("el propietario ve la postulación en Contratos", "con el nombre del inquilino");
 await owner.getByRole("link", { name: /Ver el proceso/i }).first().click();
-await owner.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 20000 });
+await owner.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 20000 });
 await settled(owner);
 
 const ownerProcess = await owner.evaluate(() => document.body.innerText);
@@ -163,8 +162,7 @@ ok("el inquilino sigue sin ver la dirección exacta");
 
 // ---------- un tercero no ve nada ----------
 const thirdEmail = `nosy-${STAMP}@miarriendodirecto.test`;
-await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email: thirdEmail, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+await createAccount(API_KEY, thirdEmail);
 const nosy = await openSession(thirdEmail, "Curioso Tercero López");
 await nosy.goto(processUrl, { waitUntil: "domcontentloaded" });
 await settled(nosy);
@@ -175,7 +173,7 @@ await settled(nosy);
  * propiedad que se está comprobando.
  */
 const ajeno = await nosy.evaluate(() => document.body.innerText);
-await nosy.goto(BASE + "/arriendos/estoNoExisteJamas", { waitUntil: "domcontentloaded" });
+await nosy.goto(BASE + "/contratos/estoNoExisteJamas", { waitUntil: "domcontentloaded" });
 await settled(nosy);
 const inventado = await nosy.evaluate(() => document.body.innerText);
 if (ajeno.includes("Apartamento con balcón")) throw new Error("un tercero ve el proceso ajeno");
@@ -220,14 +218,14 @@ const afterRejectListing = await tenant.evaluate(() => document.body.innerText);
 if (!afterRejectListing.includes("no continuó con tu postulación")) throw new Error("no explica por qué no puede");
 ok("tras el rechazo, el anuncio no ofrece postularse y explica por qué");
 await tenant.getByRole("link", { name: /Ver mi postulación/i }).click();
-await tenant.waitForURL(/\/arriendos\//, { timeout: 20000 });
+await tenant.waitForURL(/\/contratos\//, { timeout: 20000 });
 await settled(tenant);
 ok("y ofrece volver a la postulación rechazada");
 
 // Entrar a mano al formulario tampoco: lleva al proceso, no a un rebote sin explicación.
 await tenant.goto(BASE + "/postularme/" + listingPath.split("/").pop(), { waitUntil: "domcontentloaded" });
 await settled(tenant);
-if (!/\/arriendos\//.test(tenant.url())) throw new Error("entrando a mano deja postularse otra vez: " + tenant.url());
+if (!/\/contratos\//.test(tenant.url())) throw new Error("entrando a mano deja postularse otra vez: " + tenant.url());
 ok("entrar a mano a /postularme lleva a la postulación, no al formulario");
 
 // ---------- móvil ----------

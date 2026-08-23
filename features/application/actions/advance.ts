@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 
 import { notify, type NotificationType } from "@/features/notification";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
-import { applicationRoute, RENTALS_ROUTE } from "@/shared/auth/routes";
+import { applicationRoute, CONTRACTS_ROUTE } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
 
 import { getApplicationFor } from "../data/application";
@@ -79,7 +79,7 @@ export async function advanceApplication(id: string): Promise<StageResult> {
   });
 
   revalidatePath(applicationRoute(id));
-  revalidatePath(RENTALS_ROUTE);
+  revalidatePath(CONTRACTS_ROUTE);
 
   return { ok: true, stage: target };
 }
@@ -149,7 +149,7 @@ async function close(
   });
 
   revalidatePath(applicationRoute(id));
-  revalidatePath(RENTALS_ROUTE);
+  revalidatePath(CONTRACTS_ROUTE);
 
   return { ok: true, stage: application.stage };
 }

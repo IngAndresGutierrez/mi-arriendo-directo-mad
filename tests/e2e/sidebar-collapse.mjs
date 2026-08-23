@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, MONTHS, config, fillBirthdate, fixtures, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fillBirthdate, fixtures, MONTHS, ok, settled } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
 
@@ -7,8 +7,7 @@ const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
 /** La fecha de nacimiento son tres campos: día, mes y año. */
 // Publicar termina en el listado: el enlace del anuncio sale de la tarjeta que acaba de aparecer.
 const email = `collapse-${STAMP}@miarriendodirecto.test`;
-await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+await createAccount(API_KEY, email);
 
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1440, height: 900 } });

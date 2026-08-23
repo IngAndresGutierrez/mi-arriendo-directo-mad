@@ -65,9 +65,17 @@ names this project started with.
 - `shared/firebase/public-config.ts` — the Firebase **web** config, hardcoded. Public by
   design: Next inlines every `NEXT_PUBLIC_*` into the browser bundle, so these values ship to
   every visitor and access control lives in the rules. They are in code because the server needs
-  them at request time too and this project's Vercel variables are sensitive ones that never
-  reach the Function; reading them from `process.env` returned 500 on every route. Each value
-  still honours an env override. The service account never goes here.
+  them at request time too, and this project's `NEXT_PUBLIC_*` variables in Vercel are marked
+  **Sensitive**, which is not there to inline at *build* time — reading them from `process.env`
+  returned 500 on every route. (A **Route Handler** does read a sensitive variable fine at request
+  time: see `CRON_SECRET`. The two are different moments, and conflating them is what made this
+  note wrong.) **There is deliberately no general env override**, contrary to what this said for a
+  while: an override that arrives empty wins over the literal — `"" ?? fallback` is `""` — and that
+  is how production threw `auth/invalid-api-key`. The **one** exception is the emulator, gated on
+  `NEXT_PUBLIC_FIREBASE_USE_EMULATOR=1` *and* a project id starting with `demo-`, neither of which
+  production sets; an empty value fails the `demo-` test and falls back to the literal. It exists
+  because the browser mints the session token and the Admin SDK verifies it, so both halves must
+  name the same project. The service account never goes here.
 - `.firebaserc` — default project: **`mi-arriendo-directo-mad`**.
 - `shared/firebase/analytics.ts` — deferred Analytics behind `isSupported()`; never pass
   personal data as event parameters.
@@ -98,14 +106,15 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/` | `LOGIN_ROUTE` | Login (email + password, Google). It is the site root. |
 | `/registro` | `SIGNUP_ROUTE` | Two-step signup: email → password. |
 | `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: there is a session but no profile yet. |
-| `/inicio` | `HOME_ROUTE` | User portal: greeting, **the rentals in course** and shortcuts. Destination after signing in. The card lists the open processes with the stage each one is on — it used to read a `contracts` collection nothing writes, so it told somebody with three open processes that they had nothing. |
+| `/inicio` | `HOME_ROUTE` | User portal: greeting, **the contracts in course** and shortcuts. Destination after signing in. The card lists the open processes with the stage each one is on — it used to read a `contracts` collection nothing writes, so it told somebody with three open processes that they had nothing. |
 | `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
 | `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
 | — | — | Publishing requires the **matrícula inmobiliaria**, and it is stored beside the street in `properties/{id}/private/location`, never in the public document: with that number anyone can pull the certificate and read the address off it, so publishing it would publish the address by the back door. Validated loosely — the circle is two or three digits and the separator is written every way — because the only real check is against the registry, which this product does not do. |
 | `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
 | `/postularme/<slug>` | `applyToPropertyRoute(slug)` | Where a tenant applies. Needs a complete profile; redirects to the process if one is already open. |
-| `/arriendos` | `RENTALS_ROUTE` | Every rental the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. It is called "Arriendos" in the menu and titled "Gestión de arriendos". **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
-| `/arriendos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
+| `/contratos` | `CONTRACTS_ROUTE` | Every process the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. **It is called "Contratos" because that is what it produces** — everything up to the first canon is the negotiation that *ends* in a signed contract, and the tenancy that runs afterwards is a different thing with a different lifetime. **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
+| `/contratos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
+| `/arriendos` | `RENTALS_ROUTE` | **Not built.** Where the tenancy will live once it is running: month by month, and the whole of it. Today both `/arriendos` and `/arriendos/<id>` only **forward** to `/contratos`, because this is where the process used to live and every notification already sent points here. The forward is a **307 written in the page, never a 301 and never in `next.config.ts`**: these URLs are coming back with a new meaning, a permanent redirect would be cached against the page that replaces them, and a rule in `next.config.ts` resolves before routing and would shadow the route the file becomes. |
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
 | `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
@@ -587,7 +596,7 @@ top bar, and an email. Both use the same copy, derived from the notification's `
 than stored with it, so fixing a confusing sentence fixes the ones already sent.
 
 The email carries what the bell cannot: an **absolute link straight to the stage**,
-`/arriendos/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
+`/contratos/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
 the step it is about instead of at the top of a page with nine of them.
 
 **Email goes out through Resend**, over its REST API — no SDK, because sending is a `POST` with
@@ -687,7 +696,7 @@ entry, allowed by eslint and dependency-cruiser alongside the index; anything de
 violation.
 
 ## Sections not built yet
-The menu shows Facturación and Ajustes **disabled**, with a "Pronto"
+The menu shows Arriendos, Facturación and Ajustes **disabled**, with a "Pronto"
 badge, instead of linking to a 404. To activate one: create the route and add its `href` to
 the `NAV` array in `shared/shell/app-nav.tsx` — the one list both surfaces render, so the
 sidebar and the drawer cannot disagree about what the product contains.
@@ -738,7 +747,7 @@ Client Component; everything else there is a plain link.
 Every screen behind a session reads Firestore before it can render, so a click used to look like
 a click that did nothing. `app/(app)/loading.tsx` answers instantly with a skeleton in the shape
 of the page - the menu and the bell stay interactive, because they live in the layout - and
-`app/(app)/arriendos/[id]/loading.tsx` does the same in the shape of the process page.
+`app/(app)/contratos/[id]/loading.tsx` does the same in the shape of the process page.
 
 **A `loading.tsx` covers a segment and everything under it, and a boundary above a route turns
 its `notFound()` into a `200` with the not-found page streamed inside.** The headers are already
@@ -749,7 +758,7 @@ flushed by the time the page says "this does not exist". That is why:
   catalog streams from a `<Suspense>` **inside** its own page instead, so the heading appears at
   once and only the part waiting on Firestore is replaced by a skeleton. A missing property still
   answers a true 404, and there is a driver assertion pinned on it.
-- The **private** ones keep theirs. `/arriendos/<id>` now answers `200` to a stranger with the
+- The **private** ones keep theirs. `/contratos/<id>` now answers `200` to a stranger with the
   same not-found page a made-up id gets, which is what the privacy property was ever about: the
   two are indistinguishable. These pages are `noindex`, so the status costs nothing.
 

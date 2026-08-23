@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 
 import { requireCompleteProfile } from "@/features/profile";
-import { RENTALS_ROUTE, TENANT_PROFILE_ROUTE } from "@/shared/auth/routes";
+import { CONTRACTS_ROUTE, TENANT_PROFILE_ROUTE } from "@/shared/auth/routes";
 import { adminDb, adminStorage } from "@/shared/firebase/admin";
 
 import { DOCUMENT_CONTENT_TYPES, DOCUMENT_KINDS, DOCUMENT_MAX_BYTES } from "../domain/documents";
@@ -55,7 +55,7 @@ export async function recordTenantDocument(input: unknown): Promise<DocumentResu
     .add({ ...parsed.data, uploadedAt: FieldValue.serverTimestamp() });
 
   revalidatePath(TENANT_PROFILE_ROUTE);
-  revalidatePath(RENTALS_ROUTE);
+  revalidatePath(CONTRACTS_ROUTE);
 
   return { ok: true };
 }
@@ -90,7 +90,7 @@ export async function deleteTenantDocument(documentId: string): Promise<Document
     .catch(() => undefined);
 
   revalidatePath(TENANT_PROFILE_ROUTE);
-  revalidatePath(RENTALS_ROUTE);
+  revalidatePath(CONTRACTS_ROUTE);
 
   return { ok: true };
 }

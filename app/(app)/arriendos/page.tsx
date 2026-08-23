@@ -1,97 +1,20 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-import { FileTextIcon } from "lucide-react";
+import { redirect } from "next/navigation";
 
-import { ApplicationCard, listApplicationsFor } from "@/features/application";
-import { requireCompleteProfile } from "@/features/profile";
-import { PROPERTIES_ROUTE, TENANT_PROFILE_ROUTE } from "@/shared/auth/routes";
-import { Button } from "@/shared/ui/button";
+import { CONTRACTS_ROUTE } from "@/shared/auth/routes";
 
-export const metadata: Metadata = {
-  title: "Gestión de arriendos",
-  description: "Tus arriendos en curso y los procesos que ya se cerraron, etapa por etapa.",
-};
-
-export default async function ContractPage() {
-  const user = await requireCompleteProfile();
-  const applications = await listApplicationsFor(user.uid);
-
-  const open = applications.filter((application) => application.status === "open");
-  const closed = applications.filter((application) => application.status !== "open");
-
-  return (
-    <div className="mx-auto w-full max-w-5xl">
-      <h1 className="text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
-        Gestión de arriendos
-      </h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Cada arriendo, de la postulación a la firma. Aquí lo ven las dos partes.
-      </p>
-
-      {applications.length === 0 ? (
-        <div className="mt-8 flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border px-6 py-14 text-center">
-          <FileTextIcon className="size-8 text-muted-foreground" aria-hidden="true" />
-          <p className="max-w-md text-sm text-muted-foreground">
-            Todavía no hay ningún arriendo en curso. Empieza postulándote a un inmueble, o espera
-            a que alguien se postule a los tuyos.
-          </p>
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button asChild variant="accent" size="lg">
-              <Link href={PROPERTIES_ROUTE}>Ver inmuebles</Link>
-            </Button>
-            <Button asChild variant="outline" size="lg">
-              <Link href={TENANT_PROFILE_ROUTE}>Llenar mi perfil de inquilino</Link>
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <div className="mt-8 space-y-8">
-          {open.length > 0 && (
-            <section aria-labelledby="open-heading" className="space-y-4">
-              <h2
-                id="open-heading"
-                className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-              >
-                Arriendos en curso ({open.length})
-              </h2>
-              {/*
-                Uno por fila: la barra de nueve etapas y la frase de "siguiente paso" son lo que
-                trae a alguien a esta pantalla, y en media columna la barra deja de leerse.
-              */}
-              <ul className="space-y-4">
-                {open.map((application) => (
-                  <ApplicationCard
-                    key={application.id}
-                    application={application}
-                    viewerUid={user.uid}
-                  />
-                ))}
-              </ul>
-            </section>
-          )}
-
-          {closed.length > 0 && (
-            <section aria-labelledby="closed-heading" className="space-y-4">
-              <h2
-                id="closed-heading"
-                className="text-xs font-semibold tracking-wider text-muted-foreground uppercase"
-              >
-                Procesos cerrados ({closed.length})
-              </h2>
-              {/* Ya no hay nada que hacer en ellos: caben de dos en dos y no compiten con los abiertos. */}
-              <ul className="grid gap-4 lg:grid-cols-2">
-                {closed.map((application) => (
-                  <ApplicationCard
-                    key={application.id}
-                    application={application}
-                    viewerUid={user.uid}
-                  />
-                ))}
-              </ul>
-            </section>
-          )}
-        </div>
-      )}
-    </div>
-  );
+/**
+ * The bridge from what this section used to be to what it is now.
+ *
+ * `/arriendos` used to hold the nine-stage process, which is really the negotiation that *ends*
+ * in a signed contract — so it is `/contratos` now, and the tenancy that starts afterwards is
+ * what will live here.
+ *
+ * **A 307, never a 301.** These URLs are coming back with a different meaning: this file is the
+ * one that will render the tenancy. A permanent redirect is cached by the browser more or less
+ * forever, so everyone who passed through it today would never reach the page that replaces it.
+ * For the same reason the redirect is here and not in `next.config.ts`: redirects are resolved
+ * before routing, so a rule there would shadow the route this file becomes.
+ */
+export default function RentalsBridge() {
+  redirect(CONTRACTS_ROUTE);
 }

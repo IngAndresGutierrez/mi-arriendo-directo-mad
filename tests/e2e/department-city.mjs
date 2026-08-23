@@ -1,12 +1,11 @@
 /** En completar-perfil, la ciudad depende del departamento: se abre vacía y se limpia al cambiarlo. */
 import { chromium } from "playwright";
-import { BASE, config, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, ok, settled } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
 const email = `depciudad-${STAMP}@miarriendodirecto.test`;
 
-await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+await createAccount(API_KEY, email);
 
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1100, height: 1000 } })).newPage();

@@ -11,6 +11,31 @@
  */
 import { chromium } from "playwright";
 
+/*
+ * ── The guard, and why it is here and not only in `run.mjs` ──────────────────────────────────
+ *
+ * Every driver publishes listings, creates accounts and uploads files. Pointed at the deployed
+ * project it does all of that **in production**, and that is not hypothetical: it put 306 fake
+ * listings in the public catalogue, 329 applications and 644 auth accounts.
+ *
+ * `run.mjs` refuses too, but a guard in the launcher only covers what the launcher launches. Run
+ * a driver by hand — `E2E_API_KEY=… node tests/e2e/nav.mjs` — and it went straight to the real
+ * Identity Toolkit. So the check belongs where the connection is made: this module is imported by
+ * all 34 of them, and throwing at module scope fires before a single line of driver code runs.
+ *
+ * The `demo-` prefix is not a convention. The Firebase SDKs refuse to contact any real backend for
+ * such a project, so the isolation holds even if every other variable is wrong.
+ */
+if (!process.env.E2E_AGAINST_REAL && !process.env.FIREBASE_PROJECT_ID?.startsWith("demo-")) {
+  throw new Error(
+    `los drivers escriben de verdad y FIREBASE_PROJECT_ID es "${process.env.FIREBASE_PROJECT_ID ?? "(sin definir)"}".\n` +
+      "Tiene que ser un proyecto demo-, o esto ensucia producción.\n\n" +
+      "  pnpm emulators   # una terminal\n" +
+      "  pnpm dev:e2e     # otra\n" +
+      "  pnpm e2e:env     # y los drivers aquí",
+  );
+}
+
 export const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 export const PASSWORD = "ClaveDePrueba1";
 
@@ -63,12 +88,31 @@ export async function hydrated(page, timeout = 20000) {
   );
 }
 
+/**
+ * Where the signup call goes.
+ *
+ * The Auth emulator serves the same Identity Toolkit shape under its own host and **ignores the
+ * API key**, which is why the emulated run needs no real one — and why it has no signup quota. The
+ * real endpoint answers `TOO_MANY_ATTEMPTS_TRY_LATER` after enough accounts, and that arrives
+ * looking like a product bug.
+ */
+function identityToolkit() {
+  const host = process.env.FIREBASE_AUTH_EMULATOR_HOST;
+
+  return host
+    ? `http://${host}/identitytoolkit.googleapis.com/v1`
+    : "https://identitytoolkit.googleapis.com/v1";
+}
+
 /** Creates the auth user straight against Identity Toolkit — faster than driving signup. */
 export async function createAccount(apiKey, email) {
   const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`,
+    `${identityToolkit()}/accounts:signUp?key=${apiKey}`,
     {
       method: "POST",
+      // The real endpoint tolerates a missing content-type; the Auth emulator answers
+      // `Invalid content-type: text/plain` and the run then fails at an unrelated wait.
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ email, password: PASSWORD, returnSecureToken: true }),
     },
   );
@@ -317,24 +361,41 @@ export function adminDb() {
   const { getFirestore } = require("firebase-admin/firestore");
 
   if (!adminApp) {
-    const env = Object.fromEntries(
-      readEnvFile(joinPath(REPO, ".env.local"), "utf8")
-        .split("\n")
-        .filter((line) => line.includes("=") && !line.startsWith("#"))
-        .map((line) => [
-          line.slice(0, line.indexOf("=")),
-          line.slice(line.indexOf("=") + 1).replace(/^"|"$/g, ""),
-        ]),
-    );
-    adminApp = getApps().length
-      ? getApps()[0]
-      : initializeApp({
-          credential: cert({
-            projectId: env.FIREBASE_PROJECT_ID,
-            clientEmail: env.FIREBASE_CLIENT_EMAIL,
-            privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-          }),
-        });
+    /** Read only when a real service account is what we need: an emulated run has no `.env.local`. */
+    const dotLocal = () =>
+      Object.fromEntries(
+        readEnvFile(joinPath(REPO, ".env.local"), "utf8")
+          .split("\n")
+          .filter((line) => line.includes("=") && !line.startsWith("#"))
+          .map((line) => [
+            line.slice(0, line.indexOf("=")),
+            line.slice(line.indexOf("=") + 1).replace(/^"|"$/g, ""),
+          ]),
+      );
+    /*
+     * Against the emulators there is no service account to present, and none is needed: the SDK
+     * routes itself off `FIRESTORE_EMULATOR_HOST` and the project id is the whole configuration.
+     * The `demo-` check is the same one the server makes — a driver that seeds straight into the
+     * real Firestore is exactly how the production catalogue ended up with 306 fake listings.
+     */
+    if (process.env.FIRESTORE_EMULATOR_HOST) {
+      const projectId = process.env.FIREBASE_PROJECT_ID;
+      if (!projectId?.startsWith("demo-")) {
+        throw new Error(`el emulador está apuntado a "${projectId}"; tiene que ser un demo-`);
+      }
+      adminApp = getApps().length ? getApps()[0] : initializeApp({ projectId });
+    } else {
+      const env = dotLocal();
+      adminApp = getApps().length
+        ? getApps()[0]
+        : initializeApp({
+            credential: cert({
+              projectId: env.FIREBASE_PROJECT_ID,
+              clientEmail: env.FIREBASE_CLIENT_EMAIL,
+              privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+            }),
+          });
+    }
   }
 
   return getFirestore(adminApp);

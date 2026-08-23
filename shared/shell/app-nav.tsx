@@ -4,6 +4,7 @@
 // cannot cross the Server → Client boundary.
 import {
   BuildingIcon,
+  CalendarClockIcon,
   CreditCardIcon,
   FileTextIcon,
   HouseIcon,
@@ -13,7 +14,7 @@ import {
 } from "lucide-react";
 
 import {
-  RENTALS_ROUTE,
+  CONTRACTS_ROUTE,
   HOME_ROUTE,
   MY_PROPERTIES_ROUTE,
   PUBLISH_PROPERTY_ROUTE,
@@ -41,7 +42,13 @@ const NAV: readonly NavEntry[] = [
     href: MY_PROPERTIES_ROUTE,
     activeOn: [PUBLISH_PROPERTY_ROUTE],
   },
-  { label: "Arriendos", icon: FileTextIcon, href: RENTALS_ROUTE },
+  { label: "Contratos", icon: FileTextIcon, href: CONTRACTS_ROUTE },
+  /*
+   * The tenancy itself has no route yet, and the entry is here disabled rather than absent:
+   * the process ending in a signed contract is only half of what this product is about, and a
+   * menu that stops at "Contratos" says the other half does not exist.
+   */
+  { label: "Arriendos", icon: CalendarClockIcon },
   {
     label: "Perfil de inquilino",
     // Two words fit under an icon in the narrow rail; three do not.

@@ -1,6 +1,6 @@
 // El otro lado de la moneda: quien se retira por su cuenta sí puede volver a postularse.
 import { chromium } from "playwright";
-import { BASE, config, fixtures, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -20,8 +20,7 @@ async function listingPathOf(page, title) {
 const ownerEmail = `owner-${STAMP}@miarriendodirecto.test`;
 const tenantEmail = `renter-${STAMP}@miarriendodirecto.test`;
 for (const email of [ownerEmail, tenantEmail]) {
-  await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-    { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+  await createAccount(API_KEY, email);
 }
 const b = await chromium.launch();
 // Estos dos drivers no vigilaban la consola: la copia local de openSession no la enganchaba.
@@ -70,7 +69,7 @@ async function apply() {
   await tenant.getByLabel("Cuándo te mudarías").fill("2026-10-01");
   await tenant.getByRole("button", { name: /Enviar postulación/i }).click();
   try {
-    await tenant.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 30000 });
+    await tenant.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 30000 });
     await settled(tenant);
   } catch {
     const alert = await tenant.locator("form p.text-destructive, form [role=\"alert\"]").allInnerTexts();

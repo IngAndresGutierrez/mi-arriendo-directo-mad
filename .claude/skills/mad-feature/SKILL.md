@@ -208,11 +208,24 @@ file**. Write a new driver as a file in `tests/e2e/`, never in the scratchpad. T
 and they stay there: if it has no `throw`, it is not a test.
 
 ```bash
-pnpm e2e --since          # only the drivers the working tree touches — start here
-pnpm e2e loading catalog  # by name
-pnpm e2e --list           # what would run, without running it
-pnpm e2e                  # all 32, before reporting a feature done
+pnpm emulators            # terminal 1 — auth, firestore, storage on demo-mad-e2e
+pnpm dev:e2e              # terminal 2 — the app pointed at them, on :3100
+pnpm e2e:env --since      # only the drivers the working tree touches — start here
+pnpm e2e:env loading catalog
+pnpm e2e --list           # what would run, without running it (writes nothing)
+pnpm e2e:env              # all of them, before reporting a feature done
 ```
+
+**`e2e:env`, not `e2e`.** The drivers publish listings, create accounts and upload files, and there
+is one Firebase project for everything — so pointed at the deployed config they do all of that *in
+production*. They did: 306 fake listings in the public catalogue and 644 auth accounts. `run.mjs`
+now **refuses to start** unless `FIREBASE_PROJECT_ID` names a `demo-` project, because the SDKs
+refuse to contact a real backend for one; the isolation is structural, not a thing to remember.
+`--against-real` exists and should essentially never be used.
+
+The emulator starts **empty**, which is a feature: a driver that passed because another driver had
+left a listing in the shared database was passing for the wrong reason. Each one seeds what it
+needs.
 
 **A shared primitive maps to everything, not to a list.** `manifest.mjs` also has
 `SELECTS_EVERY_DRIVER`: touch `shared/ui/`, `shared/form/`, `app/globals.css` or `app/layout.tsx`
@@ -226,7 +239,7 @@ the list is wrong the day someone uses the component somewhere new.
 **`--since` is the default move, not `pnpm e2e`.** `tests/e2e/manifest.mjs` maps each driver to
 the paths it covers; adding the skeletons selects 14 drivers instead of all 32, and leaves out
 `interview`, `guarantee`, `reminders` and `session`, which no `loading.tsx` can affect. **A new
-driver needs an entry in that manifest** or `--since` will never select it — `pnpm e2e --since`
+driver needs an entry in that manifest** or `--since` will never select it — `pnpm e2e:env --since`
 saying "nada que manejar" about a change you know is risky means the manifest is wrong, not that
 there is nothing to drive.
 
@@ -383,7 +396,7 @@ These are the only checks worth a decision, and the decision is `git diff --name
 | --- | --- | --- |
 | `pnpm build` | 9s | anything in `app/`, `next.config.ts`, `proxy.ts`, a `'use client'` boundary, or a new import of `shared/firebase/admin.ts`. It is the only check that catches a `server-only` module reaching the browser and a route that fails to prerender. |
 | `pnpm test:rules` | 9s | `firestore.rules`, `storage.rules`, `firestore.indexes.json`, or `tests/rules/`. **Mandatory, not optional, when it applies.** The script puts JDK 21 on the PATH itself; no `export` needed. |
-| `pnpm e2e --since` | ~20s/driver | anything a driver covers (`tests/e2e/manifest.mjs`). This is the level that catches what compiles and still does not work — the soft 404 a `loading.tsx` causes was found here and nowhere else. |
+| `pnpm e2e:env --since` | ~10s/driver | anything a driver covers (`tests/e2e/manifest.mjs`). This is the level that catches what compiles and still does not work — the soft 404 a `loading.tsx` causes was found here and nowhere else. |
 | `pnpm typegen` | 3s | a route **moved or was renamed**. Then it is `rm -rf .next && pnpm typegen` first, or `tsc` fails on generated `PageProps` with an error unrelated to your change. |
 
 Before reporting a feature finished, run everything once regardless:

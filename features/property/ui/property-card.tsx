@@ -96,7 +96,7 @@ export function PropertyCard({
           <span className="absolute top-3 left-3 flex flex-wrap gap-1.5">
             <Badge>{PROPERTY_TYPE_LABELS[property.type]}</Badge>
             {property.furnished && <Badge tone="accent">Amoblado</Badge>}
-            {property.petsAllowed && <Badge tone="accent">Acepta mascotas</Badge>}
+            {property.petsAllowed && <Badge>Acepta mascotas</Badge>}
           </span>
         </Link>
 

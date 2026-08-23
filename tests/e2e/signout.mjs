@@ -1,16 +1,13 @@
 import { join } from "node:path";
 import { chromium } from "playwright";
-import { config, settled } from "./lib.mjs";
+import { BASE, config, createAccount, settled } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp, shotDir: SHOT_DIR } = config();
 
 const email = `signout-check-${stamp}@miarriendodirecto.test`;
 const password = "ClaveDePrueba1";
 
-const signUp = await fetch(
-  `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email, password, returnSecureToken: true }) },
-).then((r) => r.json());
+const signUp = await createAccount(API_KEY, email);
 if (!signUp.localId) throw new Error("signUp: " + JSON.stringify(signUp));
 console.log("UID=" + signUp.localId);
 
@@ -31,7 +28,7 @@ const sessionCookie = async () =>
 
 try {
   await step("login lleva al onboarding", async () => {
-    await page.goto("http://localhost:3000/", { waitUntil: "domcontentloaded" });
+    await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
     await settled(page);
     await page.getByLabel("Correo electrónico").fill(email);
     await page.getByLabel("Contraseña").fill(password);
@@ -64,7 +61,7 @@ try {
   });
 
   await step("la sesion esta muerta: el onboarding ya no es accesible", async () => {
-    await page.goto("http://localhost:3000/registro/completar-perfil", { waitUntil: "domcontentloaded" });
+    await page.goto(BASE + "/registro/completar-perfil", { waitUntil: "domcontentloaded" });
     await settled(page);
     const path = new URL(page.url()).pathname;
     if (path !== "/") throw new Error("no redirigio al login, quedo en " + path);

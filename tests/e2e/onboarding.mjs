@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { chromium } from "playwright";
-import { MONTHS, config, fillBirthdate, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fillBirthdate, MONTHS, settled } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp, shotDir: SHOT_DIR } = config();
 
@@ -9,10 +9,7 @@ const email = `refactor-drive-${stamp}@miarriendodirecto.test`;
 const password = "ClaveDePrueba1";
 
 // Usuario de prueba por REST: no hace falta el Admin SDK para crearlo.
-const signUp = await fetch(
-  `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-  { method: "POST", body: JSON.stringify({ email, password, returnSecureToken: true }) },
-).then((r) => r.json());
+const signUp = await createAccount(API_KEY, email);
 if (!signUp.localId) throw new Error("signUp: " + JSON.stringify(signUp));
 console.log("UID=" + signUp.localId);
 
@@ -29,7 +26,7 @@ const step = async (label, fn) => {
 
 try {
   await step("login con el usuario nuevo", async () => {
-    await page.goto("http://localhost:3000/", { waitUntil: "domcontentloaded" });
+    await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
     await settled(page);
     await page.getByLabel("Correo electrónico").fill(email);
     await page.getByLabel("Contraseña").fill(password);

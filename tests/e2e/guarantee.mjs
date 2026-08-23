@@ -3,7 +3,7 @@
  * confirma, el propietario escribe la conclusión y solo entonces el proceso avanza.
  */
 import { chromium } from "playwright";
-import { BASE, MONTHS, config, fixtures, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fixtures, MONTHS, ok, settled } from "./lib.mjs";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 const requireDelProyecto = createRequire("/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/package.json");
@@ -26,8 +26,7 @@ const problemas = [];
 const b = await chromium.launch();
 
 async function cuenta(email) {
-  await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`,
-    { method: "POST", body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }) }).then(r => r.json());
+  await createAccount(API_KEY, email);
 }
 async function entrar(email, nombre) {
   // `clipboard-read` porque la hoja del cotizador se verifica por lo que llega al portapapeles,
@@ -111,7 +110,7 @@ await inq.getByLabel("Qué relación tienen").fill("Jefe directo");
 await inq.getByLabel("Teléfono de tu referencia").fill("3009876543");
 await inq.getByLabel("Cuándo te mudarías").fill(new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10));
 await inq.getByRole("button", { name: /Enviar postulación/i }).click();
-await inq.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 40000 });
+await inq.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 40000 });
 await settled(inq);
 const proceso = inq.url();
 ok("proceso creado", new URL(proceso).pathname);

@@ -22,8 +22,38 @@ import { getStorage, type Storage } from "firebase-admin/storage";
 
 import { FIREBASE_PUBLIC_CONFIG } from "./public-config";
 
+/**
+ * `true` when this process is pointed at the local emulator suite.
+ *
+ * The Admin SDK routes itself to the emulators off these variables, so what is left to decide is
+ * the **credential**: there is no service account for a project that only exists on this machine,
+ * and demanding one would make the emulator unusable from the server side.
+ */
+function emulated(): boolean {
+  return Boolean(process.env.FIRESTORE_EMULATOR_HOST || process.env.FIREBASE_AUTH_EMULATOR_HOST);
+}
+
 function createApp(): App {
   const projectId = process.env.FIREBASE_PROJECT_ID;
+
+  /*
+   * Against the emulators the project id is the whole configuration. It is expected to start with
+   * `demo-`, which is what makes the isolation structural rather than a matter of remembering: the
+   * SDKs refuse to contact any real backend for such a project, so a driver run cannot reach
+   * production even if every other variable is wrong. The e2e suite filled the real catalogue with
+   * 306 listings once, and this is the fix for that, not a convenience.
+   */
+  if (emulated()) {
+    if (!projectId?.startsWith("demo-")) {
+      throw new Error(
+        `The emulator hosts are set but FIREBASE_PROJECT_ID is "${projectId ?? "(empty)"}". ` +
+          "Point it at a demo- project: anything else risks writing to a real one.",
+      );
+    }
+
+    return initializeApp({ projectId, storageBucket: `${projectId}.firebasestorage.app` });
+  }
+
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL;
   const privateKey = process.env.FIREBASE_PRIVATE_KEY;
 

@@ -1,9 +1,9 @@
 /**
  * Siembra tres arriendos (uno en curso avanzado, uno en curso recién llegado, dos cerrados) y
- * fotografía /arriendos desde el lado del propietario y del inquilino.
+ * fotografía /contratos desde el lado del propietario y del inquilino.
  */
 import { chromium } from "playwright";
-import { BASE, config, settled } from "./lib.mjs";
+import { BASE, config, createAccount, settled } from "./lib.mjs";
 import { readFileSync } from "node:fs";
 // firebase-admin vive en el proyecto, playwright aquí: cada uno se resuelve desde su sitio.
 import { createRequire } from "node:module";
@@ -34,10 +34,7 @@ initializeApp({
 const db = getFirestore();
 
 async function cuenta(email) {
-  const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${API_KEY}`, {
-    method: "POST",
-    body: JSON.stringify({ email, password: "ClaveDePrueba1", returnSecureToken: true }),
-  }).then((r) => r.json());
+  const r = await createAccount(API_KEY, email);
   return r.localId;
 }
 
@@ -116,8 +113,8 @@ async function fotografiar(email, nombre) {
   await page.getByRole("button", { name: /Ingresar|Iniciar/i }).click();
   await page.waitForURL(/\/inicio/, { timeout: 25000 });
 await settled(page);
-  await page.getByRole("link", { name: "Arriendos", exact: true }).first().click();
-  await page.waitForURL(/\/arriendos$/, { timeout: 20000 });
+  await page.getByRole("link", { name: "Contratos", exact: true }).first().click();
+  await page.waitForURL(/\/contratos$/, { timeout: 20000 });
   await settled(page);
   await page.waitForSelector("h1", { timeout: 10000 });
   await page.screenshot({ path: `${SHOT_DIR}/arriendos-${nombre}.png`, fullPage: true });
@@ -135,7 +132,7 @@ await settled(page);
   });
   console.log(JSON.stringify(estado));
   const activa = await page.locator('nav [aria-current="page"]').first().innerText();
-  if (!/Arriendos/.test(activa)) throw new Error(`el menú marca "${activa}" en /arriendos`);
+  if (!/Contratos/.test(activa)) throw new Error(`el menú marca "${activa}" en /contratos`);
   const titulo = await page.locator("h1").innerText();
   console.log(`${nombre}: h1 = "${titulo}"`);
   await b.close();
