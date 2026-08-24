@@ -124,12 +124,38 @@ describe("stageState", () => {
     expect(stageState("interview", "interview")).toBe("current");
     expect(stageState("approved", "interview")).toBe("pending");
   });
+
+  /*
+   * La última no tiene "en curso": llegar a ella **es** haber terminado las nueve. Antes se quedaba
+   * "En curso" para siempre, diciendo que el proceso seguía cuando lo que sigue es el arriendo, que
+   * es otra cosa con su propia página. Un proceso que nunca se muestra terminado no se distingue de
+   * uno atascado en su último paso.
+   */
+  it("la última etapa se lee terminada en cuanto se llega a ella", () => {
+    expect(stageState("active", "active")).toBe("done");
+    expect(stageState("first_payment", "active")).toBe("done");
+  });
+
+  /* Y ninguna otra cambia: la etapa en la que está el proceso sigue siendo la que está en curso. */
+  it("y solo la última, no la anterior", () => {
+    expect(stageState("first_payment", "first_payment")).toBe("current");
+    expect(stageState("active", "first_payment")).toBe("pending");
+  });
 });
 
 describe("progress", () => {
+  /*
+   * "Paso 9 de 9" era cierto y aun así se leía como un paso pendiente. Llegar a la novena es haber
+   * terminado las nueve, y la insignia tiene que decir lo mismo que el estado de esa tarjeta.
+   */
+  it("la última no es un paso: es el proceso terminado", () => {
+    expect(stageProgressLabel("active")).toBe("Proceso completado");
+    expect(stageProgressLabel("active")).not.toMatch(/Paso/);
+  });
+
   it("counts from one, not from zero", () => {
     expect(stageProgressLabel("submitted")).toBe("Paso 1 de 9");
-    expect(stageProgressLabel("active")).toBe("Paso 9 de 9");
+    expect(stageProgressLabel("first_payment")).toBe("Paso 8 de 9");
   });
 
 describe("applicationCode", () => {

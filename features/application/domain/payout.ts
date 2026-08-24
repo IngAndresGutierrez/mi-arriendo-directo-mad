@@ -47,23 +47,35 @@ export const ACCOUNT_TYPE_LABELS: Readonly<Record<AccountType, string>> = {
  * true union: Firestore rejects `undefined`, and a document whose keys change with the method is a
  * document every reader has to narrow before touching. The union lives in the Zod schema, which is
  * where the narrowing belongs, and this function is what the form and the summary agree on.
+ *
+ * **The holder's document is only asked for a bank transfer**, and that is the one asymmetry here.
+ * Nequi and Daviplata are paid to a phone number and their app shows the recipient's name before
+ * the transfer is confirmed; a Bre-B key resolves to the account through the directory the banks
+ * share. In neither case does anybody type the recipient's document — asking for it collects an
+ * identity number that nothing on the other side will ever use, which is the definition of data we
+ * should not be holding. Registering an account in a Colombian bank *does* ask for it, so there it
+ * stays.
+ *
+ * The **name** is asked for every method, and for a different reason: it is what the tenant checks
+ * against what their own app shows before pressing send.
  */
 export function payoutShape(method: PayoutMethod): {
   readonly phone: boolean;
   readonly key: boolean;
   readonly account: boolean;
   readonly bankName: boolean;
+  readonly holderDocument: boolean;
 } {
   switch (method) {
     case "nequi":
     case "daviplata":
-      return { phone: true, key: false, account: false, bankName: false };
+      return { phone: true, key: false, account: false, bankName: false, holderDocument: false };
     case "breb":
-      return { phone: false, key: true, account: false, bankName: false };
+      return { phone: false, key: true, account: false, bankName: false, holderDocument: false };
     case "other_bank":
-      return { phone: false, key: false, account: true, bankName: true };
+      return { phone: false, key: false, account: true, bankName: true, holderDocument: true };
     default:
-      return { phone: false, key: false, account: true, bankName: false };
+      return { phone: false, key: false, account: true, bankName: false, holderDocument: true };
   }
 }
 
@@ -85,7 +97,12 @@ export type Payout = {
   /** Only for `other_bank`; the rest carry their name in the method. */
   readonly bankName: string;
   readonly holderName: string;
-  /** Type and number, as the landlord wrote it. */
+  /**
+   * Type and number, as the landlord wrote it, and **empty for Nequi, Daviplata and Bre-B**.
+   *
+   * See `payoutShape`: those three are paid to a phone or a key and nobody is asked for the
+   * recipient's document, so storing one would be keeping an identity number for nothing.
+   */
   readonly holderDocument: string;
   /** Anything the tenant needs to know. Both sides read it. */
   readonly note: string;

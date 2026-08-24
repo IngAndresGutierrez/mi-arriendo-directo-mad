@@ -54,7 +54,9 @@ export function useLiveRefresh(path: string, version: string): void {
         },
         // A denied or dropped subscription is not worth an error on screen: the page still works,
         // it just stops updating on its own.
-        (error) => console.error("live updates stopped:", error.message),
+        // El código además del mensaje: `permission-denied`, `failed-precondition` (índice) y
+        // `unauthenticated` se arreglan en sitios distintos, y el mensaje solo no los distingue.
+        (error) => console.error("live updates stopped:", error.code, error.message),
       );
     })();
 

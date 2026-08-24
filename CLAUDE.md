@@ -393,6 +393,25 @@ will not pay rent, and that decision is the landlord's. What blocks is not havin
 finding *is* notified, with its note; a clean result is not — four "no encontré nada" would make
 the bell useless on the day it matters.
 
+**The advance button is in two places, and it is one control.** `AdvanceButton` renders at the top,
+beside "Rechazar postulación", and again at the **foot of the stage being worked on** — the question
+"am I done with this step?" is answered at the end of the step, and scrolling back up past nine cards
+to press a button about what you just finished is a scroll that means nothing. Two rules keep the
+pair honest. The one at the top is **always** there and, when the stage is blocked, stays visible
+with the reason: that is where somebody goes to find out what is missing. The one at the foot renders
+**only when the step is done** — a card that ended in a disabled button would end in a "no" whose
+reason is already written above it — and the page decides that from the *same* `blockedBecause` it
+hands the top one, computed once, because two buttons that disagreed about whether the step is
+finished is exactly the incoherence a second button invites. This is also the one place where two
+`accent` buttons are legitimately on screen at once: they are not two calls to action competing for a
+decision, they are the same one within reach twice.
+
+Its stable handle is `data-slot="stage-actions"` on the top row, and a stage's card is
+`#etapa-<stage>`. A driver that matches `Continuar a` without scoping to one of them now finds two
+buttons and fails on ambiguity — which is how four drivers broke at once the day the second one
+landed. `advanceButton(page)` in `tests/e2e/lib.mjs` is the top one; `.first()` is a guess about
+document order, not a statement about which button you mean.
+
 **A finished stage keeps its panel**, folded shut and without its buttons. Looking up what was
 uploaded three stages ago is a normal thing to want, and a process that hides what was agreed the
 moment it moves on is a record nobody can audit. The buttons go because a control that no longer
@@ -506,10 +525,20 @@ cost, its deliverability in Colombia is worse than WhatsApp's, and an SMS one-ti
 SIM swap is the standard attack against exactly this. It would trade an administrative gate for a
 frailer channel with an invoice.
 
-**The signature is also drawn, and stamped where the landlord said.** On top of the code, each
-party can draw with the mouse or a finger, and the stroke is stamped onto the page at the box the
-landlord marked while looking at the rendered PDF. Three things make that work without breaking
-anything the code established:
+**The signature is also drawn, and both parties have to draw it.** On top of the code, each party
+draws with the mouse or a finger, and the stroke is stamped onto the page at the box the landlord
+marked while looking at the rendered PDF. It is **required of both**, tenant included: what signs is
+still the code, and the drawing is what makes the PDF they keep read as a signed contract instead of
+a document they have to explain. `strokeRequired(contract, party)` is the rule — true exactly when
+the stroke has somewhere to go, a PDF with a box marked for that party — and `confirmSignature`
+enforces it, so a client that posts a code with no stroke is refused before the code is even
+compared. **The pad is visible from the first step**, beside the clause and the "mándame el código"
+button, and not inside the step that asks for the code: it lived there while it was optional, which
+meant somebody opening the stage saw no canvas anywhere and the mandatory half of the errand was
+hidden behind the next click — reported, exactly, as "no veo la opción para dibujar la firma". One
+instance, not one per step: two canvases would share the same `stroke` and the second would come up
+blank with the sign button already enabled. Four things make that work without breaking anything the
+code established:
 
 - **Coordinates are normalised 0..1**, never pixels. The landlord marks on a preview rendered at
   whatever width their screen gave it; the stamping happens server-side against the real page box.
@@ -518,10 +547,23 @@ anything the code established:
 - **The stamped PDF is derived and carries its own hash.** Stamping changes the bytes, so hashing it
   as "the signed document" would invalidate the very signatures it displays. The original's hash
   stays the anchor.
-- **Drawing is never the gate.** A canvas cannot be operated with a keyboard, and that is not fixed
-  by trying harder — so the stroke is optional and the code is what signs. Signing without drawing
-  is the same path, not a lesser one. A contract uploaded as a photo has no page to mark, and it is
-  signed exactly the same way.
+- **Marking the boxes is now a gate, and it used to be the opposite.** While the drawing was
+  optional a contract with no spots was signable and the stroke simply had nowhere to go; with both
+  parties required to draw, nobody signs until the landlord has marked where. `contractBlocker`
+  answers `no_spots` until then and the panel does not offer the form — offering it would be
+  offering a control that the server will refuse. The two signatures are checked *before* the boxes,
+  which is what keeps a contract signed under the old rule signed.
+- **A canvas cannot be operated with a keyboard, and the answer is a keyboard path, not an
+  exemption.** This was the reason the drawing stayed optional for a long time, and it was a real
+  reason: making it a gate with nothing else on offer shuts out anybody who cannot draw, on the one
+  screen where that means they cannot rent. So the pad has **"Usar mi nombre como firma"**, which
+  draws the signer's name — from their profile, never typed in, so the stroke and the name on record
+  cannot disagree — into the same canvas and produces the same PNG through the same `onChange`. It
+  is not a lesser path: same stamping, same audit trail. A driver presses it with `press("Enter")`
+  precisely so nobody can quietly turn the requirement back into an exclusion.
+- **A contract that is not a PDF is the one case where the stroke is not required**, because there
+  is no page to stamp. No new upload can be an image, so this only ever applies to one stored
+  before that rule.
 
 Two costs worth knowing. `pdfjs-dist` is **420 KB in its own chunk**, behind `next/dynamic` with no
 SSR, referenced by no `app/` entry — only the landlord, only on this stage, ever downloads it.
@@ -546,6 +588,19 @@ Four rules there, each of which cost a decision:
 - **The holder is its own field**, never read from the profile: the account may be a spouse's, an
   agency's or a company's, and a tenant who transfers to a name that does not match the screen is a
   tenant who thinks they have been scammed. The panel tells them to check it.
+- **Their identity document is asked only for a bank transfer**, and this is the one asymmetry in
+  `payoutShape`. Nequi and Daviplata are paid to a phone number and their app shows the recipient's
+  name before the transfer is confirmed; a Bre-B key resolves through the directory the banks share.
+  Nobody types the recipient's document in any of the three, so asking for it collected an identity
+  number nothing on the other side would ever use — and the cheapest way not to leak a piece of
+  personal data is not to hold it. Registering an account in a Colombian bank does ask for it, so
+  there it stays. `holderDocument` is the field, empty for the three; the *name* stays required
+  everywhere, because that is what the tenant checks before pressing send.
+- **The amount the tenant declares is typed with thousands separators**, through the same
+  `AmountField` the listing's rent uses: `1800000` and `18000000` are told apart by counting zeros,
+  and a zero too many here declares ten times the canon in the very field the landlord compares
+  against their bank. What leaves the component is raw digits — the separators are presentation, and
+  `Number("1.800.000")` is `NaN`. The monthly canon in `/arriendos` uses it too.
 - **A Bre-B key is validated loosely, on purpose.** It has five shapes — an `@alias`, a phone, an
   email, a document number, a merchant code — and the only real check is against the directory the
   banks share, which this product does not query. Rejecting a key that works is worse than accepting
@@ -563,6 +618,40 @@ exception would be the worst place to break that.
 The amount shown is `monthlyCost`, **labelled as the one from the application**. The contract governs
 the canon and this product does not read it, so presenting a figure as authoritative would be
 inventing one; the tenant states what they actually transferred and the landlord confirms.
+
+**A signed contract stops offering what no longer does anything.** "Dónde firma cada parte" and the
+note field both disappear once both signatures are in: the stamped PDF is generated exactly once, as
+the second signature lands, so moving a box afterwards would save coordinates no document ever reads
+again, and the note travels inside the upload's `FormData`, so with nothing left to upload it is a
+field you can type into that nothing saves. Both are the "Continuar" that does not continue, in
+miniature. What was written stays readable — the note beside the file, where each party signed drawn
+into the contract itself — because hiding a control is not the same as hiding a record.
+
+**The record is read from the document; only the link comes from the signed URL.** The same rule
+`features/lease` already paid for, and this panel was breaking it: everything — the file name, the
+signature log, "cambiar"/"quitar", the whole signing form — hung off the object carrying the signed
+URL, so a signature that could not be produced (a deleted file, Cloud Storage down, an environment
+with no service account) left the screen saying "sube el contrato" with the contract already
+uploaded and one party already signed. What is lost when a URL cannot be signed is being able to
+*open* the file, and nothing else. Same for the stamped PDF. This is also what makes the stage
+drivable at all in the emulated suite, which has no service account and therefore no signed URLs:
+before it, `tests/e2e/contract.mjs` died seven assertions in, so everything about the signature
+itself was unverified in a browser.
+
+**The ninth stage reads as finished, not as "en curso".** `stageState` gives the last stage no
+`current` state at all: reaching it *is* having finished the nine, and what follows — the tenancy —
+is a different thing with its own page, its own lifetime and twelve months instead of nine steps. It
+used to say "En curso" for ever, which is exactly what makes a completed process indistinguishable
+from one stalled on its last step. The badge over the timeline says the same thing — `stageProgressLabel` answers **"Proceso
+completado"** there instead of "Paso 9 de 9", which was true and still read as a step left to take.
+The card on `/inicio` reads it too, where it becomes "Arriendo en curso · Proceso completado": that
+is what somebody needs at a glance, that this one is not asking them for anything. It is decided from
+the stage and not from the tenancy on purpose:
+`startLease` runs in the same action that lands here, so "there is a lease" and "the process reached
+the end" are one fact, and reading the other module to answer it would make the timeline depend on
+it. That card is also where the **link to the tenancy** lives — the same footer slot that carries
+"Continuar a …" on every other stage, because both answer "what takes me out of here", and at
+`active` the answer is another page.
 
 `UNBUILT_STAGES` is now **empty**, and the constant is kept rather than deleted: `isUnbuilt` is what
 says out loud that something happens off the platform, and the next stage added will need it.

@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
+import { advanceButton, BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -145,7 +145,7 @@ for (const needed of ["1053812345", "6.000.000", "veces el canon", "Carolina Res
 ok("el propietario ve el expediente: documento, ingresos, múltiplo del canon y referencia");
 await owner.screenshot({ path: `${SHOT_DIR}/proceso-propietario.png`, fullPage: true });
 
-await owner.getByRole("button", { name: /Continuar a/ }).click();
+await advanceButton(owner).click();
 await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 9"), null, { timeout: 20000 });
 ok("el propietario avanza una etapa", "paso 2 de 9");
 

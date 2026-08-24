@@ -15,6 +15,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  orderBy,
   query,
   setDoc,
   updateDoc,
@@ -659,6 +660,27 @@ describe("notifications", () => {
           collection(actingAs(env, UID_TENANT, "tenant"), "notifications"),
           where("recipientUid", "==", UID_TENANT),
           limit(20),
+        ),
+      ),
+    );
+  });
+
+  /*
+   * **La consulta exacta a la que se suscribe la campana**, con su `orderBy` y su `limit(15)`.
+   *
+   * El caso de arriba se quedaba a medias: probaba la forma —filtrada y acotada— pero no la que el
+   * producto usa de verdad. Se añadió después de que un `INTERNAL ASSERTION FAILED` del SDK en el
+   * navegador resultara ser un *listen* rechazado por el servidor en esa suscripción: lo primero que
+   * hubo que averiguar fue si estas reglas la permitían, y no había una prueba que lo dijera.
+   */
+  it("permite exactamente la consulta de la campana", async () => {
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(actingAs(env, UID_TENANT, "tenant"), "notifications"),
+          where("recipientUid", "==", UID_TENANT),
+          orderBy("createdAt", "desc"),
+          limit(15),
         ),
       ),
     );

@@ -87,7 +87,14 @@ export function NotificationBell({
           }
           if (!snapshot.metadata.hasPendingWrites) router.refresh();
         },
-        (error) => console.error("live notifications stopped:", error.message),
+        /*
+         * El **código** además del mensaje: cuando el servidor rechaza el listen, lo que hay que
+         * saber es *por qué* — `permission-denied` (las reglas desplegadas no permiten esta
+         * consulta), `failed-precondition` (falta el índice compuesto) o `unauthenticated` (la
+         * sesión del SDK web no es la que cree). Sin el código, lo único que llegaba a la consola
+         * era el fallo interno del SDK al limpiar el target, que no dice nada de la causa.
+         */
+        (error) => console.error("live notifications stopped:", error.code, error.message),
       );
     })();
 

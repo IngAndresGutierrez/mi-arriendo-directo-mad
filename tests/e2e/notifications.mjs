@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
+import { advanceButton, BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -128,7 +128,7 @@ ok("abrirla la marca como leída y el contador se apaga");
 // Avanzar avisa al inquilino, y el texto es una tarea, no un estado.
 await owner.goto(BASE + `/contratos/${applicationId}`, { waitUntil: "domcontentloaded" });
 await settled(owner);
-await owner.getByRole("button", { name: /Continuar a/ }).click();
+await advanceButton(owner).click();
 await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 9"), null, { timeout: 20000 });
 await tenant.goto(BASE + "/inicio", { waitUntil: "domcontentloaded" });
 await settled(tenant);

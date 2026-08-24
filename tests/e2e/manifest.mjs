@@ -60,14 +60,25 @@ export const COVERS = {
     "features/application/actions/payout",
     "features/application/ui/first-payment-panel",
     "features/application/ui/stage-actions",
+    "features/application/ui/advance-button",
     "app/(app)/contratos",
   ],
   contract: [
     "features/application/domain/contract",
     "features/application/validations/contract",
     "features/application/actions/contract",
+    /*
+     * La firma misma, que faltaba: el reto, el lienzo y el colocador de recuadros son este driver y
+     * ningún otro, así que un cambio solo en el lienzo no seleccionaba nada. Es el fallo que el
+     * comentario de abajo describe, en pequeño.
+     */
+    "features/application/actions/signature",
+    "features/application/actions/stamp",
     "features/application/ui/contract-panel",
+    "features/application/ui/signature-pad",
+    "features/application/ui/signature-placer",
     "features/application/ui/stage-actions",
+    "features/application/ui/advance-button",
     "shared/format/bytes",
     "app/(app)/contratos",
   ],

@@ -228,7 +228,8 @@ await db
         accountNumber: "",
         bankName: "",
         holderName: "Marta Propietaria Gómez",
-        holderDocument: "Cédula de ciudadanía 43112233",
+        // Vacío como lo guarda el producto para una llave Bre-B: ahí nadie pide el documento.
+        holderDocument: "",
         note: "",
       },
       receipt: {
@@ -258,12 +259,56 @@ if ((await continuar.getAttribute("aria-disabled")) === "true") {
   throw new Error("con el primer canon confirmado sigue bloqueado");
 }
 await continuar.click();
+/*
+ * Se espera **la consecuencia**, no el rótulo: "Arriendo en curso" es la etiqueta de la novena etapa
+ * y está en el DOM desde el primer render, así que esta espera se cumplía sola y el driver seguía
+ * antes de que la página se hubiera refrescado. Lo que de verdad cambia al avanzar es el estado de
+ * esa tarjeta.
+ *
+ * Y ese estado es el arreglo: el proceso queda **terminado**, no "en curso". Las nueve etapas son la
+ * negociación que acaba en un contrato firmado, y llegar a la última es haberlas terminado; antes se
+ * leía "En curso" para siempre, que es lo que no distingue un proceso acabado de uno atascado en su
+ * último paso.
+ */
+const ultima = dueño.locator("#etapa-active");
 await dueño.waitForFunction(
-  () => /Arriendo en curso/.test(document.body.innerText),
+  () => /Listo/.test(document.getElementById("etapa-active")?.innerText ?? ""),
   null,
   { timeout: 30000 },
 );
-ok("el propietario pone el arriendo en curso");
+const insignia = (await ultima.innerText()).trim();
+if (/En curso|Pendiente/.test(insignia)) {
+  throw new Error("la última etapa no se lee como terminada: " + insignia.slice(0, 120));
+}
+ok("el propietario pone el arriendo en curso, y esa etapa queda terminada");
+
+/*
+ * Y la insignia de la línea de etapas dice lo mismo que la tarjeta: "Paso 9 de 9" era cierto y se
+ * leía como un paso pendiente. Se busca dentro de la sección de las etapas, no en la página entera.
+ */
+const etapas = dueño.getByRole("region", { name: "Etapas del proceso" });
+const cabecera = await etapas.innerText();
+if (!/Proceso completado/.test(cabecera)) {
+  throw new Error("la línea de etapas no dice que el proceso está completado");
+}
+if (/Paso 9 de 9/.test(cabecera)) {
+  throw new Error("la línea de etapas sigue diciendo 'Paso 9 de 9'");
+}
+ok("y la línea de etapas dice 'Proceso completado', no 'Paso 9 de 9'");
+await etapas
+  .screenshot({ path: `${SHOT_DIR}/proceso-completado.png` })
+  .catch(() => undefined);
+await ultima.screenshot({ path: `${SHOT_DIR}/proceso-etapa-final.png` }).catch(() => undefined);
+
+// Y desde ahí se va al arriendo, que es donde pasa todo lo que sigue.
+const alArriendo = ultima.getByRole("link", { name: /Ir al arriendo/i });
+if ((await alArriendo.count()) !== 1) {
+  throw new Error("la última etapa no ofrece el enlace al arriendo");
+}
+await alArriendo.click();
+await dueño.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 25000 });
+await settled(dueño);
+ok("y desde ahí se llega al arriendo", new URL(dueño.url()).pathname);
 
 // ---------- la tenencia existe, y el menú lleva a ella ----------
 await inq.goto(BASE + "/inicio", { waitUntil: "domcontentloaded" });

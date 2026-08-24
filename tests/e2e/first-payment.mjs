@@ -145,7 +145,24 @@ ok("el panel dice que el pago es directo y no verificado, y muestra el canon");
 await dueño.selectOption("#payout-method", "breb");
 await dueño.locator("#payout-key").fill("@marta2025");
 await dueño.locator("#payout-holder").fill("Marta Propietaria Gómez");
-await dueño.locator("#payout-holder-doc").fill("Cédula de ciudadanía 43112233");
+/*
+ * El documento del titular **no se pide aquí**, y esta aserción es lo que cambió: a una llave Bre-B
+ * —como a un Nequi o un Daviplata— se paga con la llave, y la app enseña el nombre de quien recibe
+ * antes de confirmar. El campo se rellenaba en esta línea; ahora se comprueba que no existe, porque
+ * pedirlo era guardar una cédula que nadie al otro lado usa.
+ */
+if (await dueño.locator("#payout-holder-doc").count()) {
+  throw new Error("pide el documento del titular para una llave Bre-B");
+}
+ok("a Bre-B no le pide el documento del titular: nadie lo usa para pagar");
+
+// Y a un banco sí, que es donde el banco lo pide al registrar la cuenta.
+await dueño.selectOption("#payout-method", "bancolombia");
+if (!(await dueño.locator("#payout-holder-doc").count())) {
+  throw new Error("no pide el documento del titular para una cuenta bancaria");
+}
+ok("y a una cuenta bancaria sí se lo pide");
+await dueño.selectOption("#payout-method", "breb");
 await dueño.getByRole("button", { name: /Guardar los datos de pago/i }).click();
 await dueño.waitForFunction(() => /@marta2025/.test(document.body.innerText), null, { timeout: 25000 });
 ok("el propietario guarda su llave Bre-B");

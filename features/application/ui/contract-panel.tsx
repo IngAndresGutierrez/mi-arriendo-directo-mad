@@ -30,6 +30,7 @@ import {
   contractState,
   hasSigned,
   spotsReady,
+  strokeRequired,
   replacingVoids,
   validSignatures,
   CONTRACT_CONTENT_TYPES,
@@ -75,6 +76,7 @@ export function ContractPanel({
   document: file,
   stamped,
   isLandlord,
+  signerName,
   channels,
   readOnly = false,
 }: {
@@ -86,6 +88,13 @@ export function ContractPanel({
   /** El PDF derivado que las partes descargan, con su enlace de una hora. */
   readonly stamped: (StampedContract & { readonly url: string }) | null;
   readonly isLandlord: boolean;
+  /**
+   * El nombre de quien está mirando, tal como lo tiene su perfil, para la firma escrita del lienzo.
+   *
+   * Viene del servidor y no se deriva aquí: el panel no lee perfiles, y el nombre que se estampa
+   * tiene que ser el mismo que queda en el registro de la firma.
+   */
+  readonly signerName: string;
   /**
    * Los canales que de verdad pueden entregar un código, decididos en el servidor.
    *
@@ -106,14 +115,38 @@ export function ContractPanel({
   const [code, setCode] = useState("");
   /** Adónde se mandó el código, enmascarado, o `null` mientras no se ha pedido. */
   const [sentTo, setSentTo] = useState<string | null>(null);
-  /** El trazo dibujado, como data URL, o "" si no dibujó. Opcional: el código es lo que firma. */
+  /**
+   * El trazo dibujado, como data URL, o "" mientras no haya dibujado.
+   *
+   * Obligatorio para las dos partes cuando hay dónde estamparlo (`mustDraw`): lo que firma sigue
+   * siendo el código, pero un contrato sin firma visible es un documento que hay que explicar.
+   */
   const [stroke, setStroke] = useState("");
   const [spots, setSpots] = useState<readonly SignatureSpot[]>(contract?.spots ?? []);
   const [placing, setPlacing] = useState(false);
   const [removing, setRemoving] = useState(false);
 
+  /**
+   * El contrato como registro, que **no es lo mismo que su enlace**.
+   *
+   * Firmar la URL puede fallar —un archivo borrado, Cloud Storage caído, un entorno sin cuenta de
+   * servicio— y la primera versión de este panel colgaba todo de `document`: cuando la firma del
+   * enlace fallaba desaparecían de la pantalla el nombre del archivo, la bitácora de firmas, los
+   * botones de cambiarlo y quitarlo, y el formulario para firmar. El panel decía "sube el contrato"
+   * con el contrato subido. Es el mismo fallo que `features/lease` ya había pagado: **el registro se
+   * lee del documento y el enlace de la URL firmada**, y lo que se pierde cuando no se puede firmar
+   * es poder abrir el archivo, nada más.
+   */
+  const record = contract?.document ?? null;
+  const party = isLandlord ? "landlord" : "tenant";
   const state = contractState(contract);
   const blocker = contractBlocker(contract);
+  /*
+   * Si esta parte tiene que dibujar su firma: las dos tienen que hacerlo siempre que haya dónde
+   * estamparlo. La misma función pura que exige la acción, así que el botón se habilita justo
+   * cuando el servidor va a aceptar.
+   */
+  const mustDraw = strokeRequired(contract, party);
   const signatures = validSignatures(contract);
   const wouldVoid = replacingVoids(contract);
 
@@ -185,7 +218,7 @@ export function ContractPanel({
           </span>
         </div>
 
-        {file ? (
+        {record ? (
           <div className="mt-3 space-y-3">
             {/*
               El enlace lo firma el servidor y dura una hora: la ruta de contratos está cerrada a
@@ -193,22 +226,46 @@ export function ContractPanel({
               es el documento más privado del proceso y una URL permanente está a un reenvío de ser
               pública.
             */}
-            <a
-              className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground hover:bg-background"
-              href={file.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              <FileTextIcon
-                className="size-4 shrink-0 text-brand-panel dark:text-brand-panel-muted"
-                aria-hidden="true"
-              />
-              <span className="min-w-0 flex-1 truncate">{file.fileName}</span>
-              <span className="shrink-0 text-xs text-muted-foreground">
-                {formatBytes(file.bytes)}
-              </span>
-              <ExternalLinkIcon className="size-4 shrink-0" aria-hidden="true" />
-            </a>
+            {file ? (
+              <a
+                className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground hover:bg-background"
+                href={file.url}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <FileTextIcon
+                  className="size-4 shrink-0 text-brand-panel dark:text-brand-panel-muted"
+                  aria-hidden="true"
+                />
+                <span className="min-w-0 flex-1 truncate">{file.fileName}</span>
+                <span className="shrink-0 text-xs text-muted-foreground">
+                  {formatBytes(file.bytes)}
+                </span>
+                <ExternalLinkIcon className="size-4 shrink-0" aria-hidden="true" />
+              </a>
+            ) : (
+              /*
+                Sin enlace, la misma fila sin ser un enlace: un `<a>` que no lleva a ninguna parte es
+                peor que una fila que dice lo que pasa. El contrato sigue ahí y se sigue firmando —
+                lo que se ha perdido es poder abrirlo desde aquí.
+              */
+              <div className="rounded-lg border border-border bg-muted px-3 py-2">
+                <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <FileTextIcon
+                    className="size-4 shrink-0 text-brand-panel dark:text-brand-panel-muted"
+                    aria-hidden="true"
+                  />
+                  <span className="min-w-0 flex-1 truncate">{record.fileName}</span>
+                  <span className="shrink-0 text-xs text-muted-foreground">
+                    {formatBytes(record.bytes)}
+                  </span>
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  El contrato está guardado, pero ahora mismo no pudimos generar el enlace para
+                  abrirlo. Vuelve a cargar la página en un momento.
+                </p>
+              </div>
+            )}
 
             {/*
               Cambiar el archivo va aquí, pegado al archivo, y como enlace discreto — no como un
@@ -274,7 +331,7 @@ export function ContractPanel({
               El PDF firmado: el original con los trazos y la hoja de evidencia. Va arriba del
               original porque es lo que alguien viene a buscar una vez firmado.
             */}
-            {stamped && (
+            {stamped ? (
               <a
                 className="flex items-center gap-2 rounded-lg border border-status-approved bg-status-approved-bg px-3 py-2 text-sm font-medium text-status-approved hover:opacity-90"
                 href={stamped.url}
@@ -285,6 +342,22 @@ export function ContractPanel({
                 <span className="min-w-0 flex-1">Contrato firmado por las dos partes</span>
                 <ExternalLinkIcon className="size-4 shrink-0" aria-hidden="true" />
               </a>
+            ) : (
+              /* Y lo mismo con el PDF firmado: que exista es un hecho del registro, poder abrirlo
+                 depende de una firma de URL que puede fallar. Sin este bloque, un fallo al firmar
+                 dejaba la pantalla diciendo que no hay contrato firmado cuando sí lo hay. */
+              contract?.stamped && (
+                <div className="rounded-lg border border-status-approved bg-status-approved-bg px-3 py-2">
+                  <p className="flex items-center gap-2 text-sm font-medium text-status-approved">
+                    <FileTextIcon className="size-4 shrink-0" aria-hidden="true" />
+                    <span className="min-w-0 flex-1">Contrato firmado por las dos partes</span>
+                  </p>
+                  <p className="mt-1 text-xs text-status-approved">
+                    No pudimos generar el enlace para descargarlo. Vuelve a cargar la página en un
+                    momento.
+                  </p>
+                </div>
+              )
             )}
 
             {contract?.note && <p className="text-sm text-muted-foreground">{contract.note}</p>}
@@ -309,8 +382,13 @@ export function ContractPanel({
         ya firmó: un control que no cambia nada es la misma mentira que un "Continuar" que no
         continúa.
       */}
-      {file && !readOnly && !hasSigned(contract, isLandlord ? "landlord" : "tenant") && (
-        <div className="space-y-4 rounded-xl border border-dashed border-border p-4">
+      {record && !readOnly && !hasSigned(contract, party) && blocker !== "no_spots" && (
+        <div
+          /* Asidero estable para los drivers, como el de los recuadros: colgarse de una clase de
+             Tailwind cuenta también los bloques que la comparten. */
+          data-slot="signature-sign"
+          className="space-y-4 rounded-xl border border-dashed border-border p-4"
+        >
           <p className="text-sm font-medium text-foreground">Tu firma</p>
 
           {sentTo === null ? (
@@ -363,55 +441,66 @@ export function ContractPanel({
                     : `Te mandamos el código por ${SIGNATURE_CHANNEL_LABELS[channel]}, al número que registraste.`}
                 </p>
               )}
-
-              <Button
-                type="button"
-                variant="accent"
-                size="xl"
-                disabled={pending || !acceptedClause}
-                /*
-                  Sin `router.refresh()`: pedir el código no cambia nada de lo que la página
-                  muestra — el reto vive en una colección que nadie lee — y refrescar mantenía
-                  `pending` en `true` durante todo el viaje al servidor, con el lienzo de la firma
-                  deshabilitado justo cuando aparece. Alguien haría clic para dibujar y no pasaría
-                  nada.
-                */
-                onClick={() =>
-                  startTransition(async () => {
-                    setError(null);
-                    const result = await requestSignatureCode(applicationId, {
-                      channel,
-                      acceptedClause,
-                      clauseVersion: SIGNATURE_CLAUSE_VERSION,
-                    });
-                    if (!result.ok) {
-                      setError(result.message);
-                      return;
-                    }
-                    setSentTo(result.sentTo ?? "");
-                  })
-                }
-              >
-                {pending ? "Enviando…" : "Mandarme el código para firmar"}
-              </Button>
             </>
           ) : (
-            <>
-              <p className="text-sm text-muted-foreground">
-                Te mandamos un código a {sentTo}. Escríbelo aquí para firmar.
-              </p>
+            <p className="text-sm text-muted-foreground">
+              Te mandamos un código a {sentTo}. Escríbelo aquí para firmar.
+            </p>
+          )}
 
-              {/*
-                El dibujo va aquí, junto al código, porque es una sola acción: se firma una vez. Y
-                solo si hay dónde estamparlo — sobre una foto del contrato no hay página que marcar,
-                y la firma vale igual porque el código es lo que firma.
-              */}
-              {spotsReady(contract) && (
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-foreground">Dibuja tu firma (opcional)</p>
-                  <SignaturePad onChange={setStroke} disabled={pending} />
-                </div>
-              )}
+          {/*
+            El dibujo, **fuera de los dos pasos y visible desde el primero**.
+
+            Vivía dentro del segundo, junto al campo del código, con el argumento de que firmar es
+            una sola acción. Con el trazo obligatorio eso dejó de funcionar: quien abría la etapa
+            veía la cláusula y un botón para pedir un código, sin lienzo en ninguna parte, así que la
+            mitad obligatoria del trámite no existía hasta después de pedirlo — se reportó
+            exactamente así, "no veo la opción para dibujar la firma". Aquí arriba también se puede
+            dibujar mientras llega el correo, que es el rato muerto de esta etapa.
+
+            Una sola instancia y no una por paso: dos lienzos comparten este `stroke`, así que el
+            segundo aparecería en blanco con el botón de firmar ya habilitado.
+          */}
+          {mustDraw && (
+            <div className="space-y-1">
+              <p className="text-sm font-medium text-foreground">Dibuja tu firma</p>
+              <SignaturePad onChange={setStroke} signerName={signerName} disabled={pending} />
+            </div>
+          )}
+
+          {sentTo === null ? (
+            <Button
+              type="button"
+              variant="accent"
+              size="xl"
+              disabled={pending || !acceptedClause}
+              /*
+                Sin `router.refresh()`: pedir el código no cambia nada de lo que la página
+                muestra — el reto vive en una colección que nadie lee — y refrescar mantenía
+                `pending` en `true` durante todo el viaje al servidor, con el lienzo de la firma
+                deshabilitado justo cuando aparece. Alguien haría clic para dibujar y no pasaría
+                nada.
+              */
+              onClick={() =>
+                startTransition(async () => {
+                  setError(null);
+                  const result = await requestSignatureCode(applicationId, {
+                    channel,
+                    acceptedClause,
+                    clauseVersion: SIGNATURE_CLAUSE_VERSION,
+                  });
+                  if (!result.ok) {
+                    setError(result.message);
+                    return;
+                  }
+                  setSentTo(result.sentTo ?? "");
+                })
+              }
+            >
+              {pending ? "Enviando…" : "Mandarme el código para firmar"}
+            </Button>
+          ) : (
+            <>
               <div className="space-y-2">
                 <Label htmlFor="signature-code">Código de {OTP_LENGTH} dígitos</Label>
                 <Input
@@ -430,7 +519,7 @@ export function ContractPanel({
                   type="button"
                   variant="accent"
                   size="xl"
-                  disabled={pending || code.length !== OTP_LENGTH}
+                  disabled={pending || code.length !== OTP_LENGTH || (mustDraw && !stroke)}
                   onClick={() => run(() => confirmSignature(applicationId, { code, stroke }))}
                 >
                   {pending ? "Firmando…" : "Firmar el contrato"}
@@ -458,8 +547,14 @@ export function ContractPanel({
           {/*
             Marcar dónde firma cada parte. Solo sobre un PDF: en una foto no hay página que
             coordinar, y el panel lo dice en vez de ofrecer un botón que no haría nada.
+
+            Y **desaparece en cuanto están las dos firmas**, que es la misma regla: mover un
+            recuadro entonces no cambia nada. El PDF estampado se genera una sola vez, al entrar la
+            segunda firma, así que después de eso "Cambiar los recuadros" guardaría unas coordenadas
+            que ningún documento vuelve a leer — un control que ya no hace lo que dice. Dónde firmó
+            cada parte se lee en el propio contrato firmado, que es donde quedó dibujado.
           */}
-          {file && canStamp(file) && (
+          {record && canStamp(record) && state !== "signed" && (
             <div className="space-y-3 rounded-xl border border-dashed border-border p-4">
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-sm font-medium text-foreground">Dónde firma cada parte</p>
@@ -515,7 +610,7 @@ export function ContractPanel({
                   <p className="text-sm text-muted-foreground">
                     {spotsReady(contract)
                       ? "Las dos firmas se dibujarán donde las marcaste. Puedes cambiarlo."
-                      : "Marca en el PDF dónde firma cada parte. Sin esto se puede firmar igual, pero la firma no se dibuja en el documento."}
+                      : "Marca en el PDF dónde firma cada parte. Las dos dibujan su firma, así que hasta que los recuadros estén no se puede firmar."}
                   </p>
                   <Button
                     type="button"
@@ -531,17 +626,26 @@ export function ContractPanel({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="contract-note">Nota sobre el contrato (opcional)</Label>
-            <Input
-              id="contract-note"
-              className="h-11"
-              placeholder="Incluye el inventario como anexo."
-              value={note}
-              maxLength={300}
-              onChange={(event) => setNote(event.target.value)}
-            />
-          </div>
+          {/*
+            La nota viaja con el archivo: se manda dentro del `FormData` de la subida, así que su
+            sitio es junto a lo que la manda y **desaparece con las dos firmas**, por lo mismo que
+            los recuadros. Con el contrato ya firmado no hay subida pendiente a la que engancharla,
+            y un campo que se puede escribir sin que nada lo guarde es peor que ninguno. La nota que
+            sí se guardó se sigue leyendo arriba, con el archivo, que es donde es un registro.
+          */}
+          {state !== "signed" && (
+            <div className="space-y-2">
+              <Label htmlFor="contract-note">Nota sobre el contrato (opcional)</Label>
+              <Input
+                id="contract-note"
+                className="h-11"
+                placeholder="Incluye el inventario como anexo."
+                value={note}
+                maxLength={300}
+                onChange={(event) => setNote(event.target.value)}
+              />
+            </div>
+          )}
 
           {/*
             Subir, solo cuando no hay contrato: es entonces la única cosa que hacer, y por eso va en
@@ -577,9 +681,11 @@ export function ContractPanel({
           {/* El aviso de que se pierden firmas, junto a lo que las pierde. */}
           {wouldVoid > 0 && (
             <p className="rounded-lg border border-status-current bg-status-current-bg px-3 py-2 text-sm text-status-current">
-              Si cambias el archivo se pierde
-              {wouldVoid === 1 ? " la firma que ya hay" : ` ${wouldVoid} firmas que ya hay`}: la
-              firma vale para el documento exacto que se firmó, y habría que volver a firmar.
+              {/* El verbo va dentro de cada rama: fuera decía "se pierde 2 firmas". */}
+              {wouldVoid === 1
+                ? "Si cambias el archivo se pierde la firma que ya hay:"
+                : `Si cambias el archivo se pierden las ${wouldVoid} firmas que ya hay:`}{" "}
+              la firma vale para el documento exacto que se firmó, y habría que volver a firmar.
             </p>
           )}
         </div>

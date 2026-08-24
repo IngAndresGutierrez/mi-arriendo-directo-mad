@@ -147,6 +147,34 @@ Y ojo con la cuota: Resend responde **429 `daily_quota_exceeded`** cuando se ago
 entonces `requestSignatureCode` reporta un fallo de envío real — que es lo correcto, porque esa
 persona no va a recibir nada.
 
+## Sin cuenta de servicio no hay URL firmada, y eso cambia lo que se puede asertar
+
+La suite emulada no puede firmar URLs de Storage: firmar necesita una cuenta de servicio y un
+proyecto `demo-` no tiene ninguna, así que `getSignedUrl` responde `Cannot sign data without
+client_email`. **Un driver no puede colgar nada de un enlace firmado**, y `contract` lo hacía: moría
+en la séptima aserción, con toda la etapa de la firma sin verificar en un navegador.
+
+Ahora asserta por los dos caminos y dice cuál corrió: si hay enlace, que sea de Storage, firmado y
+con caducidad; y en los dos entornos, la propiedad que ese enlace defiende — que el contrato **no se
+lee sin ser parte del proceso** — contra `/api/arriendos/<id>/contrato`, que es del propio origen y
+sí funciona aquí. Para los bytes de un archivo hay `adminStorage()` en `lib.mjs`, que los lee del
+bucket emulado: es más fuerte que descargar un enlace, porque mira el objeto y no la dirección.
+
+El producto tuvo que arreglarse para eso, y era un fallo de verdad: el panel de la firma colgaba el
+registro entero del enlace, así que un fallo al firmarlo dejaba la pantalla diciendo "sube el
+contrato" con el contrato subido. `features/lease` ya había pagado esa lección. `documents` y
+`first-payment` siguen rojos por lo mismo, en sus propios paneles.
+
+## Tres drivers todavía se inicializan con el service account real
+
+`guarantee`, `interview` y `rentals-layout` no migraron a `adminDb()` de `lib.mjs`: leen
+`.env.local` con `readFileSync` y una ruta absoluta, y llaman `initializeApp({ credential: cert(...) })`
+con las credenciales del proyecto **real**. Con los hosts del emulador puestos escriben en el
+namespace del proyecto equivocado — fallan con `5 NOT_FOUND: no entity to update: app:
+"dev~mi-arriendo-directo-mad"` — y **sin ellos escribirían en producción**, que es justo lo que la
+suite emulada existe para hacer imposible. El arreglo es una línea por driver: `adminDb()` y
+`adminFieldValue()` de `lib.mjs`, que ya hacen la comprobación `demo-`.
+
 ## Límite de Identity Toolkit
 
 Cada driver crea sus cuentas contra `accounts:signUp`. Encadenar muchas corridas seguidas —o

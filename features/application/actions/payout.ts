@@ -74,7 +74,8 @@ export async function savePayout(
     accountNumber: shape.account && "accountNumber" in data ? data.accountNumber : "",
     bankName: shape.bankName && "bankName" in data ? data.bankName : "",
     holderName: data.holderName,
-    holderDocument: data.holderDocument,
+    // Vacío donde no aplica, como el resto: el esquema ni siquiera lo acepta en esas ramas.
+    holderDocument: shape.holderDocument && "holderDocument" in data ? data.holderDocument : "",
     note: data.note,
   };
 

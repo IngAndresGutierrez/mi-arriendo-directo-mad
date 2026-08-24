@@ -15,6 +15,7 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { AmountField } from "@/shared/form/amount-field";
 import { formatBytes } from "@/shared/format/bytes";
 import { formatBogotaDateTime, formatShortDate } from "@/shared/format/date";
 import { formatCOP } from "@/shared/format/money";
@@ -179,7 +180,10 @@ export function FirstPaymentPanel({
             )}
             {payout.accountNumber && <Row label="Número de cuenta" value={payout.accountNumber} copyable />}
             <Row label="A nombre de" value={payout.holderName} />
-            <Row label="Documento del titular" value={payout.holderDocument} />
+            {/* Vacío en Nequi, Daviplata y Bre-B, donde nadie pide el documento de quien recibe. */}
+            {payout.holderDocument && (
+              <Row label="Documento del titular" value={payout.holderDocument} />
+            )}
             {payout.note && <Row label="Nota" value={payout.note} />}
           </dl>
         ) : (
@@ -308,13 +312,21 @@ export function FirstPaymentPanel({
             coincide con lo que decía la pantalla es un inquilino que cree que lo estafaron.
           */}
           <Field id="payout-holder" label="A nombre de" value={holderName} onChange={setHolderName} />
-          <Field
-            id="payout-holder-doc"
-            label="Documento del titular"
-            hint="Como lo pide tu banco: tipo y número."
-            value={holderDocument}
-            onChange={setHolderDocument}
-          />
+          {/*
+            El documento, **solo si el método es una transferencia bancaria**: a un Nequi, un
+            Daviplata o una llave Bre-B se paga con el número o la llave, y la app muestra el nombre
+            de quien recibe antes de confirmar. Pedirlo ahí sería guardar un número de cédula que
+            nadie al otro lado va a usar.
+          */}
+          {shape.holderDocument && (
+            <Field
+              id="payout-holder-doc"
+              label="Documento del titular"
+              hint="Como lo pide tu banco: tipo y número."
+              value={holderDocument}
+              onChange={setHolderDocument}
+            />
+          )}
           <Field
             id="payout-note"
             label="Nota para el inquilino (opcional)"
@@ -337,7 +349,7 @@ export function FirstPaymentPanel({
                     ...(shape.bankName ? { bankName } : {}),
                     ...(shape.account ? { accountType, accountNumber } : {}),
                     holderName,
-                    holderDocument,
+                    ...(shape.holderDocument ? { holderDocument } : {}),
                     note: payoutNote,
                   });
                   if (result.ok) setEditing(false);
@@ -368,12 +380,19 @@ export function FirstPaymentPanel({
           <p className="text-sm font-medium text-foreground">
             {state === "rejected" ? "Sube otro comprobante" : "Sube tu comprobante"}
           </p>
-          <Field
+          {/*
+            Con separadores de miles mientras se escribe, no como un número pelado: `1800000` y
+            `18000000` se distinguen contando ceros, y quien se equivoca en uno declara haber
+            transferido diez veces el canon — justo en el campo que el propietario va a comparar
+            contra su banco. `AmountField` es el mismo control del canon de un anuncio, y lo que
+            sale de él son dígitos crudos: los puntos son presentación, y `Number("1.800.000")` es
+            `NaN`.
+          */}
+          <AmountField
             id="receipt-amount"
-            label="Cuánto transferiste"
+            label="Cuánto transferiste (COP)"
             value={amount}
             onChange={setAmount}
-            inputMode="numeric"
           />
           <div className="space-y-2">
             <Label htmlFor="receipt-date">Fecha del pago</Label>

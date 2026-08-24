@@ -401,6 +401,42 @@ export function adminDb() {
   return getFirestore(adminApp);
 }
 
+/**
+ * El botón de seguir **de la barra de arriba**, la que está sobre la línea de etapas.
+ *
+ * Existe porque ese botón vive ahora en dos sitios: ahí arriba, siempre, y al pie de la etapa en
+ * curso cuando el paso ya está listo. Un `getByRole("button", { name: /Continuar a/ })` suelto
+ * encuentra los dos y Playwright falla por ambigüedad — que es como se rompieron cuatro drivers a la
+ * vez el día que se añadió el segundo. Un `.first()` tampoco vale: es una suposición sobre el orden
+ * del documento, no sobre de cuál se está hablando.
+ *
+ * Para el del pie de una etapa, el asidero es su tarjeta: `page.locator("#etapa-<stage>")`.
+ */
+export function advanceButton(page) {
+  return page.locator('[data-slot="stage-actions"]').getByRole("button", { name: /Continuar a/i });
+}
+
+/**
+ * Cloud Storage con el Admin SDK, sobre la misma app que `adminDb()`.
+ *
+ * Existe porque en la suite emulada **no hay URL firmada**: firmar necesita una cuenta de servicio y
+ * un proyecto `demo-` no tiene ninguna. Un driver que quiera comprobar los bytes de un archivo tiene
+ * que leerlos por aquí, que además es una aserción más fuerte que descargar un enlace — mira el
+ * objeto, no la URL.
+ *
+ * El bucket se nombra explícitamente: la app emulada se inicializa solo con el id del proyecto, así
+ * que no hay bucket por defecto que resolver.
+ */
+export function adminStorage() {
+  const require = createRequire(joinPath(REPO, "package.json"));
+  const { getStorage } = require("firebase-admin/storage");
+
+  adminDb();
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+
+  return getStorage(adminApp).bucket(`${projectId}.firebasestorage.app`);
+}
+
 /** `FieldValue`, para los `serverTimestamp()` de los drivers. */
 export function adminFieldValue() {
   const require = createRequire(joinPath(REPO, "package.json"));

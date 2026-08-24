@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeftIcon, MessageSquareIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, MessageSquareIcon } from "lucide-react";
 
 import {
   checkProgress,
@@ -34,6 +34,7 @@ import {
   closedAtLabel,
   stageIndex,
   getApplicationFor,
+  AdvanceButton,
   BackgroundCheckPanel,
   DocumentReviewPanel,
   LiveApplication,
@@ -54,7 +55,8 @@ import { getProfile, requireCompleteProfile } from "@/features/profile";
 import { stageAnchor } from "@/features/notification";
 import { getOwnedProperty, getPropertyLocation } from "@/features/property";
 import { DOCUMENT_TYPE_LABELS } from "@/features/tenant-profile/client";
-import { CONTRACTS_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
+import { CONTRACTS_ROUTE, propertyDetailRoute, rentalRoute } from "@/shared/auth/routes";
+import { Button } from "@/shared/ui/button";
 import { formatLongDate } from "@/shared/format/date";
 import { formatCOP } from "@/shared/format/money";
 
@@ -126,7 +128,7 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
    * El contrato firmado, con un enlace válido una hora. Se lee siempre que exista y no solo en
    * su etapa: es el documento del arriendo y ambas partes van a volver a buscarlo después.
    */
-  const [contract, stampedContract, receipt, signatureChannels] = await Promise.all([
+  const [contract, stampedContract, receipt, signatureChannels, signer] = await Promise.all([
     withContractUrl(application.contract?.document ?? null),
     /*
      * El PDF derivado, con su propio enlace de una hora. Es lo que las partes descargan, así que se
@@ -135,11 +137,39 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
     withStampedUrl(application.contract?.stamped ?? null),
     withReceiptUrl(application.firstPayment?.receipt ?? null),
     availableSignatureChannels(),
+    /*
+     * El nombre de quien está mirando, y solo en la etapa de la firma: es lo que el lienzo escribe
+     * cuando alguien firma con el teclado en vez de dibujar. `getProfile` está cacheado por
+     * petición, así que si otra parte de la página ya lo leyó esto no cuesta una lectura más.
+     */
+    application.stage === "contract_signature" ? getProfile(user.uid) : null,
   ]);
   const paymentLeft =
     application.stage === "first_payment" ? firstPaymentBlocker(application.firstPayment) : null;
   const contractLeft =
     application.stage === "contract_signature" ? contractBlocker(application.contract) : null;
+
+  /*
+   * Por qué no se puede seguir, en una frase, o `null` si sí se puede.
+   *
+   * Se calcula una sola vez porque ahora la leen dos sitios: el botón de arriba, que se muestra
+   * bloqueado con el motivo, y el del pie de la etapa, que **solo aparece cuando esto es `null`**.
+   * Calcularlo dos veces sería dejar que los dos botones acabaran discrepando sobre si el paso está
+   * terminado, que es exactamente la incoherencia que un segundo botón invita a tener.
+   */
+  const blockedBecause = blocker
+    ? documentsBlockerMessage(blocker, isLandlord)
+    : checksLeft
+      ? checksBlockerMessage(checksLeft, isLandlord)
+      : interviewLeft
+        ? interviewBlockerMessage(interviewLeft, isLandlord)
+        : guaranteeLeft
+          ? guaranteeBlockerMessage(guaranteeLeft, isLandlord)
+          : contractLeft
+            ? contractBlockerMessage(contractLeft, isLandlord)
+            : paymentLeft
+              ? firstPaymentBlockerMessage(paymentLeft, isLandlord)
+              : null;
 
   const onGuarantee = isLandlord && application.stage === "guarantee";
   /*
@@ -184,7 +214,7 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
         className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
       >
         <ArrowLeftIcon className="size-4" aria-hidden="true" />
-        Arriendos
+        Contratos
       </Link>
 
       <h1 className="mt-3 text-3xl font-semibold tracking-tight text-balance text-primary dark:text-foreground">
@@ -277,21 +307,7 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
         <StageActions
           application={application}
           isLandlord={isLandlord}
-          blockedBecause={
-            blocker
-              ? documentsBlockerMessage(blocker, isLandlord)
-              : checksLeft
-                ? checksBlockerMessage(checksLeft, isLandlord)
-                : interviewLeft
-                  ? interviewBlockerMessage(interviewLeft, isLandlord)
-                  : guaranteeLeft
-                    ? guaranteeBlockerMessage(guaranteeLeft, isLandlord)
-                    : contractLeft
-                      ? contractBlockerMessage(contractLeft, isLandlord)
-                      : paymentLeft
-                        ? firstPaymentBlockerMessage(paymentLeft, isLandlord)
-                        : null
-          }
+          blockedBecause={blockedBecause}
           // The stage's own card, which is where its work lives.
           resolveAt={stageAnchor(application.stage)}
         />
@@ -306,6 +322,25 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
         <StageTimeline
           application={application}
           isLandlord={isLandlord}
+          /*
+           * Lo que hay al pie de la etapa donde está el proceso, que son dos cosas con el mismo
+           * papel: mientras quedan etapas, el botón de seguir —el mismo de arriba, y solo cuando el
+           * paso ya está listo—; y en la última, el enlace al arriendo, porque ahí no hay nada que
+           * avanzar y todo lo que sigue pasa en otra página. Se pasa el elemento ya creado y no el
+           * componente: una función no cruza la frontera RSC.
+           */
+          footer={
+            application.stage === "active" ? (
+              <Button asChild variant="accent" size="xl">
+                <Link href={rentalRoute(application.id)}>
+                  Ir al arriendo
+                  <ArrowRightIcon aria-hidden="true" />
+                </Link>
+              </Button>
+            ) : isLandlord && !blockedBecause ? (
+              <AdvanceButton application={application} />
+            ) : null
+          }
           work={{
             tenant_data: {
               title: isLandlord ? "Documentos del inquilino" : "Tus documentos",
@@ -380,6 +415,7 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
                   stamped={stampedContract}
                   channels={signatureChannels}
                   isLandlord={isLandlord}
+                  signerName={signer?.fullName ?? ""}
                   readOnly={past("contract_signature")}
                 />
               ),

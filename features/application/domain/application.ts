@@ -67,7 +67,8 @@ export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
   approved: "El propietario aceptó tu postulación. Sigue la firma.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
   first_payment: "Paga el primer canon para recibir el inmueble.",
-  active: "El arriendo está en curso. Aquí verás tus pagos y tu contrato.",
+  active:
+    "El proceso terminó y el arriendo está en curso. Tus pagos y tu contrato viven ahora en Arriendos.",
 };
 
 /** The same nine stages, addressed to the landlord. */
@@ -83,7 +84,8 @@ export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
   approved: "Aceptaste la postulación. Sigue la firma del contrato.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
   first_payment: "Confirma que recibiste el primer canon.",
-  active: "El arriendo está en curso. Aquí verás los pagos y el contrato.",
+  active:
+    "El proceso terminó y el arriendo está en curso. Los pagos y el contrato viven ahora en Arriendos.",
 };
 
 /** The description for whoever is reading. */
@@ -228,8 +230,20 @@ export function stageIndex(stage: Stage): number {
   return STAGES.indexOf(stage);
 }
 
-/** `Paso 4 de 9`. */
+/**
+ * `Paso 4 de 9`, y **`Proceso completado` en la última**.
+ *
+ * "Paso 9 de 9" es cierto y aun así se lee como un paso pendiente, que es lo contrario de lo que ha
+ * pasado: llegar a la novena es haber terminado las nueve, y lo que sigue —el arriendo— es otra cosa
+ * con su propia página. Misma decisión que `stageState`, en la otra mitad de la misma frase: la
+ * insignia de la línea de etapas y el estado de la última tarjeta tienen que decir lo mismo.
+ *
+ * Lo lee también la tarjeta de `/inicio`, donde queda "Arriendo en curso · Proceso completado": es
+ * exactamente lo que alguien necesita saber de un vistazo — ese proceso ya no le pide nada.
+ */
 export function stageProgressLabel(stage: Stage): string {
+  if (nextStage(stage) === null) return "Proceso completado";
+
   return `Paso ${stageIndex(stage) + 1} de ${STAGES.length}`;
 }
 
@@ -245,10 +259,26 @@ export function nextStage(stage: Stage): Stage | null {
 /** Where each stage stands relative to the one the process is on. */
 export type StageState = "done" | "current" | "pending";
 
+/**
+ * Where a stage stands, and **the last one has no "in course"**.
+ *
+ * `active` used to read "En curso" forever, which said the process was still going when it was
+ * over: the nine stages are the negotiation that ends in a signed contract, and reaching the last
+ * one *is* finishing them — the tenancy that follows is a different thing, with its own page, its
+ * own lifetime and twelve months instead of nine steps. A process that never shows as finished is a
+ * process nobody can tell apart from one that stalled on its last step.
+ *
+ * It is decided from the stage itself and not from the tenancy: the lease is opened in the same
+ * action that lands here (`startLease`, idempotent), so "there is a tenancy" and "the process
+ * reached the end" are the same fact, and reading the other module to answer this would make the
+ * timeline depend on it.
+ */
 export function stageState(stage: Stage, current: Stage): StageState {
   const difference = stageIndex(stage) - stageIndex(current);
+  if (difference < 0) return "done";
+  if (difference > 0) return "pending";
 
-  return difference < 0 ? "done" : difference === 0 ? "current" : "pending";
+  return nextStage(stage) === null ? "done" : "current";
 }
 
 /**

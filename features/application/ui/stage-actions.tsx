@@ -2,21 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRightIcon, XIcon } from "lucide-react";
+import { XIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Label } from "@/shared/ui/label";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
-import { advanceApplication, rejectApplication, withdrawApplication } from "../actions/advance";
-import {
-  canAdvance,
-  canClose,
-  nextStage,
-  STAGE_LABELS,
-  type Application,
-} from "../domain/application";
+import { rejectApplication, withdrawApplication } from "../actions/advance";
+import { canClose, STAGE_LABELS, type Application } from "../domain/application";
+import { AdvanceButton } from "./advance-button";
 
 /**
  * What each side can do with the process, from where it stands.
@@ -67,10 +61,13 @@ export function StageActions({
 
   if (application.status !== "open") return null;
 
-  const target = nextStage(application.stage);
-
   return (
-    <div className="space-y-3">
+    /*
+      Asidero estable: desde que el botón de seguir vive también al pie de su etapa, un selector
+      suelto por "Continuar a" encuentra dos, y los drivers que hablaban de *esta* barra empezaron a
+      fallar por ambigüedad. Aquí se dice cuál es esta.
+    */
+    <div data-slot="stage-actions" className="space-y-3">
       {/*
         The reject button sits at the far end of the row, not beside the primary one: they are
         opposite decisions, and putting them shoulder to shoulder is how somebody ends a process
@@ -78,49 +75,18 @@ export function StageActions({
         as well would be pretending it is a lesser option than it is.
       */}
       <div className="flex flex-wrap items-center gap-2">
-        {isLandlord && canAdvance(application) && target ? (
-          blockedBecause ? (
-            /*
-             * `aria-disabled`, not `disabled`: the reason has to stay reachable. A `disabled`
-             * button drops out of the tab order and, in several browsers, stops firing hover —
-             * so the tooltip explaining why becomes unreachable exactly when someone goes
-             * looking for it.
-             *
-             * What it does *not* do is act on a click. A control announced as unavailable that
-             * turns out to do something is its own kind of lie, and assistive technology is not
-             * the only thing that believes the announcement — Playwright refuses to click it
-             * too. So the way to the blocker is a button of its own, right beside it.
-             */
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  type="button"
-                  variant="accent"
-                  size="xl"
-                  aria-disabled="true"
-                  aria-describedby={`${application.id}-blocked`}
-                  className="opacity-50"
-                >
-                  Continuar a “{STAGE_LABELS[target]}”
-                  <ArrowRightIcon aria-hidden="true" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="max-w-xs">
-                {blockedBecause}
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <Button
-              type="button"
-              variant="accent"
-              size="xl"
-              disabled={pending}
-              onClick={() => run(() => advanceApplication(application.id))}
-            >
-              Continuar a “{STAGE_LABELS[target]}”
-              <ArrowRightIcon aria-hidden="true" />
-            </Button>
-          )
+        {/*
+          El mismo control que va al pie de la etapa, no una copia: `AdvanceButton` es el único
+          sitio donde se decide qué dice el botón y qué pasa al pulsarlo. Aquí arriba se renderiza
+          también bloqueado, con el motivo, porque este es el sitio al que se viene a averiguar qué
+          falta; al pie de la etapa solo aparece cuando ya se puede seguir.
+        */}
+        {isLandlord ? (
+          <AdvanceButton
+            application={application}
+            blockedBecause={blockedBecause}
+            describedById={`${application.id}-blocked`}
+          />
         ) : null}
 
         {canClose(application) ? (

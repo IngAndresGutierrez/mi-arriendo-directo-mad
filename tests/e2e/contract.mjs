@@ -6,7 +6,7 @@
  */
 import { chromium } from "playwright";
 import { existsSync, readFileSync } from "node:fs";
-import { adminDb, adminFieldValue, BASE, config, createAccount, fixtures, MONTHS, ok, settled } from "./lib.mjs";
+import { adminDb, adminFieldValue, adminStorage, BASE, config, createAccount, fixtures, MONTHS, ok, settled } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2, pdf: PDF } = fixtures();
 
@@ -18,7 +18,26 @@ const { photo1: PHOTO_1, photo2: PHOTO_2, pdf: PDF } = fixtures();
  * asunto lleva el código, así que se lee de ahí. Con clave configurada habría que leerlo de la
  * bandeja de pruebas del proveedor, y este driver lo diría en vez de fallar en silencio.
  */
-async function firmar(pagina, quien) {
+/**
+ * Espera a que el botón de firmar esté abierto o cerrado.
+ *
+ * Se pregunta por el estado del control, no por un tiempo: quién lo abre es un `setState` del
+ * lienzo, y un `waitForTimeout` aquí sería una carrera con el reloj de la máquina que lo escribió.
+ */
+async function esperarFirmar(pagina, habilitado) {
+  await pagina.waitForFunction(
+    (quiero) => {
+      const boton = [...document.querySelectorAll("button")].find(
+        (el) => /^Firmar el contrato$/.test((el.textContent ?? "").trim()),
+      );
+      return Boolean(boton) && !boton.disabled === quiero;
+    },
+    habilitado,
+    { timeout: 15000 },
+  );
+}
+
+async function firmar(pagina, quien, retrato) {
   const registro = process.env.E2E_DEV_LOG;
   if (!registro || !existsSync(registro)) {
     throw new Error(
@@ -62,6 +81,28 @@ async function firmar(pagina, quien) {
     ok(`a ${quien} solo le ofrecen el correo, y le dicen a dónde va`);
   }
 
+  /*
+   * El lienzo tiene que estar **antes** de pedir el código, y esta aserción existe porque no lo
+   * estaba: vivía dentro del segundo paso, así que quien abría la etapa veía la cláusula y un botón
+   * para pedir un código y ningún sitio donde dibujar — con el trazo obligatorio, la mitad del
+   * trámite escondida detrás del paso siguiente. Se reportó como "no veo la opción para dibujar la
+   * firma" desde la vista del inquilino.
+   */
+  const bloqueAntes = pagina.locator('[data-slot="signature-sign"]');
+  if (!(await bloqueAntes.locator('canvas[aria-label="Dibuja tu firma"]').count())) {
+    throw new Error(`a ${quien} no le ofrecen dibujar la firma hasta después de pedir el código`);
+  }
+  ok(`${quien} ve el lienzo desde el primer paso, antes de pedir el código`);
+  /*
+   * Cómo se ve la etapa al llegar, que es la vista que faltaba. Una foto no es una aserción, y este
+   * bloque se vuelve a renderizar solo —la página está suscrita a su propia postulación y llama a
+   * `router.refresh()`— así que el nodo puede desprenderse justo mientras se captura. Una corrida
+   * murió así. Que falle la foto no puede tumbar el driver.
+   */
+  await bloqueAntes
+    .screenshot({ path: `${SHOT_DIR}/contrato-firma-paso1-${retrato}.png` })
+    .catch(() => undefined);
+
   await pagina.getByRole("checkbox").last().check();
   await pagina.getByRole("button", { name: /Mandarme el código para firmar/i }).click();
   await pagina.waitForFunction(
@@ -81,32 +122,76 @@ async function firmar(pagina, quien) {
   if (!codigo) throw new Error(`no salió el código de ${quien} en el log del servidor`);
 
   /*
-   * El dibujo, si el panel lo ofrece: solo aparece cuando los recuadros están marcados y el
-   * contrato es un PDF. Se traza con el ratón, que es lo que pidió el usuario, y `pointer` en vez
-   * de `mouse` porque el componente escucha eventos de puntero para servir también al dedo.
+   * El dibujo, que **las dos partes** tienen que hacer: el lienzo ya no es un añadido opcional, así
+   * que su ausencia es un fallo del producto y no una rama que se salta. Se traza con el ratón, y
+   * con `pointer` en vez de `mouse` porque el componente escucha eventos de puntero para servir
+   * también al dedo.
    */
-  const lienzo = pagina.locator('canvas[aria-label="Dibuja tu firma"]');
-  if (await lienzo.count()) {
-    const zona = await lienzo.boundingBox();
-    await pagina.mouse.move(zona.x + 20, zona.y + zona.height / 2);
-    await pagina.mouse.down();
-    for (let paso = 1; paso <= 8; paso += 1) {
-      await pagina.mouse.move(
-        zona.x + 20 + (zona.width - 40) * (paso / 8),
-        zona.y + zona.height / 2 + (paso % 2 ? -14 : 14),
-      );
-    }
-    await pagina.mouse.up();
-    await pagina.waitForFunction(
-      () => /Se dibujará en el contrato/.test(document.body.innerText),
-      null,
-      { timeout: 10000 },
-    );
-    ok(`${quien} dibuja su firma con el ratón`);
+  const bloque = pagina.locator('[data-slot="signature-sign"]');
+  const lienzo = bloque.locator('canvas[aria-label="Dibuja tu firma"]');
+  if (!(await lienzo.count())) {
+    throw new Error(`no le ofrecen dibujar la firma a ${quien}`);
+  }
+  // Y ya no se anuncia como opcional, que es justo lo que cambió.
+  if (/opcional/i.test(await bloque.innerText())) {
+    throw new Error(`a ${quien} todavía le dicen que la firma dibujada es opcional`);
   }
 
+  /*
+   * La aserción del nuevo requisito: con el código puesto y sin dibujo, el botón sigue cerrado. Va
+   * en este orden a propósito — comprobarlo con el código vacío no diría nada del dibujo.
+   */
   await pagina.locator("#signature-code").fill(codigo);
-  await pagina.getByRole("button", { name: /^Firmar el contrato$/i }).click();
+  const firmarBtn = pagina.getByRole("button", { name: /^Firmar el contrato$/i });
+  if (!(await firmarBtn.isDisabled())) {
+    throw new Error(`${quien} puede firmar sin dibujar la firma`);
+  }
+  ok(`${quien} no puede firmar sin dibujarla, ni con el código puesto`);
+
+  /*
+   * El camino de teclado, que es lo que hace que el requisito no excluya a nadie: un lienzo no se
+   * opera con el teclado, así que el panel ofrece producir el trazo con el propio nombre. Se pulsa
+   * con el teclado de verdad — `press` enfoca primero — y no con un clic, porque lo que se está
+   * probando es justamente que se llega ahí sin ratón.
+   */
+  const conNombre = bloque.getByRole("button", { name: /Usar mi nombre como firma/i });
+  if (!(await conNombre.count())) {
+    throw new Error(`${quien} no tiene forma de firmar sin dibujar: el lienzo sería una puerta cerrada`);
+  }
+  await conNombre.press("Enter");
+  await esperarFirmar(pagina, true);
+  ok(`${quien} puede producir su firma con el teclado, sin dibujar`);
+
+  /*
+   * Y se borra para dibujarla a mano, que es el camino de esta prueba. Borrar tiene que volver a
+   * cerrar la compuerta: un trazo borrado que dejara el botón abierto sería firmar sin firma.
+   */
+  await bloque.getByRole("button", { name: /Borrar y volver a dibujar/i }).click();
+  await esperarFirmar(pagina, false);
+  ok(`${quien} borra el trazo y el botón se cierra otra vez`);
+
+  const zona = await lienzo.boundingBox();
+  await pagina.mouse.move(zona.x + 20, zona.y + zona.height / 2);
+  await pagina.mouse.down();
+  for (let paso = 1; paso <= 8; paso += 1) {
+    await pagina.mouse.move(
+      zona.x + 20 + (zona.width - 40) * (paso / 8),
+      zona.y + zona.height / 2 + (paso % 2 ? -14 : 14),
+    );
+  }
+  await pagina.mouse.up();
+  await pagina.waitForFunction(
+    () => /Se dibujará en el contrato/.test(document.body.innerText),
+    null,
+    { timeout: 10000 },
+  );
+  ok(`${quien} dibuja su firma con el ratón`);
+  // El panel con el lienzo dibujado y el código puesto, que es el estado nuevo de esta etapa.
+  await bloque.screenshot({ path: `${SHOT_DIR}/contrato-firma-${retrato}.png` }).catch(() => undefined);
+
+  // Y el botón se abre con el trazo. Se espera la consecuencia, no un tiempo.
+  await esperarFirmar(pagina, true);
+  await firmarBtn.click();
   await pagina.waitForFunction(
     () => /firmó el/.test(document.body.innerText),
     null,
@@ -289,11 +374,32 @@ await dueño.waitForFunction(
 );
 ok("el contrato queda subido y con su nombre");
 
-// Subido no es firmado: la compuerta sigue cerrada y ahora dice a quién falta.
-if (!(await dueño.evaluate(() => document.body.innerText)).includes("Falta que firmen las dos partes")) {
-  throw new Error("con el contrato subido y sin firmas no dice que faltan las dos");
+/*
+ * Subido no es firmado: la compuerta sigue cerrada. Y lo que falta primero son los **recuadros**, no
+ * las firmas — con el dibujo obligatorio para las dos partes no hay dónde estampar hasta que estén,
+ * así que el panel no ofrece firmar todavía. Antes de esto el panel decía "faltan las dos firmas" y
+ * ofrecía el formulario.
+ */
+if (!(await dueño.evaluate(() => document.body.innerText)).includes("Marca en el PDF dónde firma cada parte")) {
+  throw new Error("con el contrato subido y sin recuadros no dice que hay que marcarlos");
 }
-ok("subir no es firmar: sigue bloqueado y dice que faltan las dos firmas");
+if (await dueño.locator('[data-slot="signature-sign"]').count()) {
+  throw new Error("ofrece firmar antes de que haya dónde dibujar la firma");
+}
+ok("subir no es firmar: primero hay que marcar dónde, y no ofrece firmar antes");
+
+/*
+ * El botón de seguir vive en dos sitios —arriba y al pie de la etapa— pero el del pie **solo cuando
+ * el paso ya está listo**: una tarjeta que termina en un botón deshabilitado termina en un "no", y
+ * el motivo del "no" ya está escrito arriba. Con el contrato sin firmar, uno solo.
+ */
+const seguir = () => dueño.getByRole("button", { name: /Continuar a/i });
+if ((await seguir().count()) !== 1) {
+  throw new Error(
+    `con la etapa bloqueada hay ${await seguir().count()} botones de continuar; debería haber solo el de arriba`,
+  );
+}
+ok("con la etapa bloqueada, el botón de seguir solo está arriba");
 
 /*
  * Y se puede deshacer. Faltaba: quien subía el archivo equivocado no tenía forma de quitarlo, solo
@@ -374,10 +480,21 @@ ok("marca los dos recuadros con dos clics");
 await dueño.getByRole("button", { name: /Guardar los recuadros/i }).click();
 await dueño.waitForFunction(() => /Marcado/.test(document.body.innerText), null, { timeout: 25000 });
 ok("los recuadros quedan guardados");
+
+// Y con ellos guardados, lo que falta pasa a ser lo que siempre fue: las dos firmas.
+await dueño.waitForFunction(
+  () => /Falta que firmen las dos partes/.test(document.body.innerText),
+  null,
+  { timeout: 20000 },
+);
+if (!(await dueño.locator('[data-slot="signature-sign"]').count())) {
+  throw new Error("con los recuadros marcados todavía no ofrece firmar");
+}
+ok("con los recuadros marcados ya ofrece firmar, y dice que faltan las dos firmas");
 await dueño.screenshot({ path: `${SHOT_DIR}/contrato-recuadros.png`, fullPage: true });
 
 // ---------- firma el propietario ----------
-await firmar(dueño, "el propietario");
+await firmar(dueño, "el propietario", "propietario");
 ok("el propietario firma con el código que le llega");
 
 // Con una sola firma sigue bloqueado, y ahora falta la otra.
@@ -399,25 +516,68 @@ if (!suyo.includes("documento.pdf")) throw new Error("el inquilino no ve el cont
 ok("el inquilino ve el mismo documento");
 
 /*
- * El enlace lo firma el servidor y dura una hora: la ruta de contratos esta cerrada a los
- * clientes, asi que esta es la unica forma de leerlo. Se comprueba que sea de Storage y que lleve
- * firma, no que la URL sea una cadena concreta.
+ * Cómo llega el contrato a quien tiene derecho a leerlo, y a nadie más.
+ *
+ * Esto **era** una sola aserción sobre la URL firmada, y en la suite emulada no se podía correr:
+ * firmar necesita una cuenta de servicio y un proyecto `demo-` no tiene ninguna, así que el enlace
+ * no existe y el driver moría aquí — con la mitad del inquilino, que es la que importa, sin correr
+ * nunca. Ahora son dos:
+ *
+ *   1. si hay URL firmada (proyecto real), se comprueba exactamente lo de antes: que es de Storage,
+ *      que viene firmada y que caduca;
+ *   2. y en los dos entornos, la propiedad que esa URL defiende — que el contrato **no se lee sin
+ *      ser parte del proceso** — contra la ruta del propio origen, que sí funciona aquí.
+ *
+ * La segunda es más fuerte que la primera: mira quién puede leer el archivo, no cómo está formada
+ * la dirección.
  */
-const suEnlace = await inq.locator('a:has-text("documento.pdf")').first().getAttribute("href");
-if (!/^https:\/\/storage\.googleapis\.com\//.test(suEnlace ?? "")) {
-  throw new Error("el contrato no se sirve por una URL firmada de Storage: " + suEnlace);
+const suEnlace = await inq.locator('a:has-text("documento.pdf")').first().getAttribute("href").catch(() => null);
+if (suEnlace) {
+  if (!/^https:\/\/storage\.googleapis\.com\//.test(suEnlace)) {
+    throw new Error("el contrato no se sirve por una URL firmada de Storage: " + suEnlace);
+  }
+  /*
+   * Firma y caducidad, sin atarse al esquema: el SDK firma con V2 (`Signature` + `Expires`) o con
+   * V4 (`X-Goog-Signature` + `X-Goog-Expires`) según cómo esté configurado, y cuál use no es lo que
+   * esta prueba defiende. Lo que defiende es que el contrato no se sirve por una URL pública.
+   */
+  const params = new URL(suEnlace).searchParams;
+  if (!(params.get("Signature") ?? params.get("X-Goog-Signature"))) {
+    throw new Error("la URL del contrato no viene firmada: " + suEnlace);
+  }
+  if (!(params.get("Expires") ?? params.get("X-Goog-Expires"))) {
+    throw new Error("la URL del contrato no caduca: " + suEnlace);
+  }
+  ok("y lo lee por una URL firmada que caduca, no por una pública");
+} else {
+  /*
+   * Sin cuenta de servicio no hay enlace, y el registro tiene que seguir en pantalla: colgar el
+   * bloque entero de la firma de la URL dejaba el panel diciendo "sube el contrato" con el contrato
+   * subido, que es el fallo que `features/lease` ya había pagado una vez.
+   */
+  if (!suyo.includes("no pudimos generar el enlace")) {
+    throw new Error("sin URL firmada no dice por qué no se puede abrir el contrato");
+  }
+  ok("sin cuenta de servicio no hay URL firmada, y el registro sigue en pantalla diciéndolo");
 }
-/*
- * Firma y caducidad, sin atarse al esquema: el SDK firma con V2 (`Signature` + `Expires`) o con
- * V4 (`X-Goog-Signature` + `X-Goog-Expires`) según cómo esté configurado, y cuál use no es lo que
- * esta prueba defiende. Lo que defiende es que el contrato no se sirve por una URL pública.
- */
-const params = new URL(suEnlace).searchParams;
-const firma = params.get("Signature") ?? params.get("X-Goog-Signature");
-const caduca = params.get("Expires") ?? params.get("X-Goog-Expires");
-if (!firma) throw new Error("la URL del contrato no viene firmada: " + suEnlace);
-if (!caduca) throw new Error("la URL del contrato no caduca: " + suEnlace);
-ok("y lo lee por una URL firmada que caduca, no por una pública");
+
+// Y la ruta del propio origen: sirve el PDF a una parte…
+const rutaContrato = `${BASE}/api/arriendos/${applicationId}/contrato`;
+const comoParte = await inq.request.get(rutaContrato);
+if (comoParte.status() !== 200) {
+  throw new Error("una parte no puede leer su propio contrato: " + comoParte.status());
+}
+if ((await comoParte.body()).subarray(0, 5).toString() !== "%PDF-") {
+  throw new Error("la ruta del contrato no devuelve un PDF");
+}
+// …y a un extraño, nada: sin sesión `requireCompleteProfile()` lo manda al login.
+const extraño = await b.newContext();
+const comoExtraño = await extraño.request.get(rutaContrato);
+if ((await comoExtraño.body()).subarray(0, 5).toString() === "%PDF-") {
+  throw new Error("un extraño sin sesión se descarga el contrato");
+}
+await extraño.close();
+ok("el contrato se lee por la ruta propia solo si eres parte; un extraño no lo baja");
 
 if (await inq.locator("#contract-file").count()) {
   throw new Error("al inquilino le ofrecen subir el contrato");
@@ -425,8 +585,13 @@ if (await inq.locator("#contract-file").count()) {
 ok("el inquilino no puede subirlo: eso es del propietario");
 
 // ---------- firma el inquilino, y con eso avanza ----------
-await firmar(inq, "el inquilino");
-ok("el inquilino firma con su propio código");
+/*
+ * Aquí está la mitad que faltaba: el inquilino dibuja **su** firma. `firmar` es el mismo helper que
+ * usó el propietario, y eso es lo que asserta que las dos partes recorren el mismo camino en vez de
+ * uno con lienzo y otro sin él.
+ */
+await firmar(inq, "el inquilino", "inquilino");
+ok("el inquilino firma con su propio código, y dibujando su firma como el propietario");
 
 await inq.waitForFunction(() => /Firmado/.test(document.body.innerText), null, { timeout: 20000 });
 await dueño.reload({ waitUntil: "domcontentloaded" });
@@ -453,17 +618,95 @@ await dueño.waitForFunction(
   null,
   { timeout: 30000 },
 );
-const firmado = await dueño.getByRole("link", { name: /Contrato firmado/i }).first().getAttribute("href");
-const paramsFirmado = new URL(firmado).searchParams;
-if (!(paramsFirmado.get("Signature") ?? paramsFirmado.get("X-Goog-Signature"))) {
-  throw new Error("el PDF firmado no se sirve por una URL firmada: " + firmado);
+/*
+ * Se comprueba lo mismo por los dos caminos —que existe, que es un PDF y que creció— y el que se
+ * usa depende de si el entorno puede firmar URLs. Los bytes son la aserción de verdad; la URL
+ * firmada es cómo llegan a un navegador.
+ */
+/*
+ * Y con las dos firmas puestas, marcar dónde se firma deja de existir: el PDF estampado se genera
+ * una sola vez —al entrar la segunda firma— así que mover un recuadro después guardaría unas
+ * coordenadas que ya nadie lee. Un control que no cambia nada es la misma mentira que un
+ * "Continuar" que no continúa.
+ */
+const textoFirmado = await dueño.evaluate(() => document.body.innerText);
+if (/Dónde firma cada parte/.test(textoFirmado)) {
+  throw new Error("con el contrato firmado todavía ofrece cambiar los recuadros");
 }
-const descarga = await dueño.request.get(firmado);
-if (descarga.status() !== 200) throw new Error("el PDF firmado no se descarga: " + descarga.status());
-const cuerpo = await descarga.body();
+if (await dueño.getByRole("button", { name: /Cambiar los recuadros/i }).count()) {
+  throw new Error("con el contrato firmado sigue el botón de cambiar los recuadros");
+}
+/*
+ * Y la nota, por lo mismo: viaja dentro del `FormData` de la subida, así que con el contrato ya
+ * firmado es un campo que se puede escribir y que nada guarda. La nota que sí se guardó se sigue
+ * leyendo arriba, junto al archivo.
+ */
+if (/Nota sobre el contrato/.test(textoFirmado)) {
+  throw new Error("con el contrato firmado todavía ofrece escribir la nota");
+}
+if (await dueño.locator("#contract-note").count()) {
+  throw new Error("con el contrato firmado sigue el campo de la nota");
+}
+if (!/Firmado por las dos partes el 20 de septiembre/.test(textoFirmado)) {
+  throw new Error("la nota que sí se guardó desapareció del registro");
+}
+ok("firmado por los dos: sin recuadros ni campo de nota, y la nota guardada sigue a la vista");
+
+const enlaceFirmado = await dueño
+  .getByRole("link", { name: /Contrato firmado/i })
+  .first()
+  .getAttribute("href")
+  .catch(() => null);
+
+let cuerpo;
+if (enlaceFirmado) {
+  const paramsFirmado = new URL(enlaceFirmado).searchParams;
+  if (!(paramsFirmado.get("Signature") ?? paramsFirmado.get("X-Goog-Signature"))) {
+    throw new Error("el PDF firmado no se sirve por una URL firmada: " + enlaceFirmado);
+  }
+  const descarga = await dueño.request.get(enlaceFirmado);
+  if (descarga.status() !== 200) throw new Error("el PDF firmado no se descarga: " + descarga.status());
+  cuerpo = await descarga.body();
+} else {
+  // Sin firma de URL, los bytes se leen del bucket con el Admin SDK, que es más directo todavía.
+  const registro = (await db.collection("applications").doc(applicationId).get()).data();
+  const ruta = registro?.contract?.stamped?.path;
+  if (!ruta) throw new Error("no quedó registrado el PDF firmado en la postulación");
+  if (!registro.contract.stamped.sha256) {
+    throw new Error("el PDF firmado no lleva su propio hash: estampar cambia los bytes");
+  }
+  [cuerpo] = await adminStorage().file(ruta).download();
+}
 if (cuerpo.subarray(0, 5).toString() !== "%PDF-") throw new Error("lo descargado no es un PDF");
 if (cuerpo.length <= 193) throw new Error("el PDF firmado no creció: no se estampó nada");
 ok("se genera el PDF firmado, con los trazos y la hoja de evidencia", `${cuerpo.length} bytes`);
+
+/*
+ * Y ahora que la etapa está lista, el botón aparece también al pie de su propia tarjeta. Se
+ * comprueba que son dos y que el segundo está **dentro** de la etapa, no en cualquier parte de la
+ * página: lo que se pidió es tenerlo donde se termina de trabajar.
+ */
+if ((await seguir().count()) !== 2) {
+  throw new Error(`con la etapa lista hay ${await seguir().count()} botones de continuar; deberían ser dos`);
+}
+const alPie = dueño.locator("#etapa-contract-signature").getByRole("button", { name: /Continuar a/i });
+if ((await alPie.count()) !== 1) {
+  throw new Error("el botón de seguir no está dentro de la tarjeta de la etapa");
+}
+ok("con la etapa lista, el mismo botón aparece al pie de su tarjeta");
+await dueño
+  .locator("#etapa-contract-signature")
+  .screenshot({ path: `${SHOT_DIR}/contrato-continuar-al-pie.png` })
+  .catch(() => undefined);
+
+// Y avanza de verdad desde ahí, que es lo único que lo distingue de un botón decorativo.
+await alPie.click();
+await dueño.waitForFunction(
+  () => document.body.innerText.includes("Paso 8 de 9"),
+  null,
+  { timeout: 30000 },
+);
+ok("y desde ahí el proceso avanza a la etapa siguiente", "paso 8 de 9");
 
 // ---------- 390px ----------
 await inq.setViewportSize({ width: 390, height: 900 });

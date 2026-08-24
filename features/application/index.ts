@@ -39,6 +39,7 @@ export { ApplicationForm } from "./ui/application-form";
 export { ApplicationCard } from "./ui/application-card";
 export { RentalsCard } from "./ui/rentals-card";
 export { DossierSummary } from "./ui/dossier-summary";
+export { AdvanceButton } from "./ui/advance-button";
 export { StageActions } from "./ui/stage-actions";
 export { StageTimeline } from "./ui/stage-timeline";
 export { authorizeBackgroundChecks, type AuthorizeResult } from "./actions/authorize-checks";

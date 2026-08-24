@@ -67,7 +67,7 @@ export function PayoutCard({
         ...(shape.account ? { accountType, accountNumber } : {}),
         ...(shape.bankName ? { bankName } : {}),
         holderName,
-        holderDocument,
+        ...(shape.holderDocument ? { holderDocument } : {}),
         note,
       });
 
@@ -211,16 +211,24 @@ export function PayoutCard({
                 className="mt-1.5"
               />
             </div>
-            <div>
-              <Label htmlFor="payout-holder-document">Documento del titular</Label>
-              <Input
-                id="payout-holder-document"
-                placeholder="CC 1053812345"
-                value={holderDocument}
-                onChange={(event) => setHolderDocument(event.target.value)}
-                className="mt-1.5"
-              />
-            </div>
+            {/*
+              El documento, **solo cuando el método es una transferencia bancaria**: a un Nequi, un
+              Daviplata o una llave Bre-B se paga con el número o la llave, y la app enseña el nombre
+              de quien recibe antes de confirmar. Pedirlo ahí sería guardar una cédula que nadie al
+              otro lado va a usar, y el dato que no se guarda es el que no se puede filtrar.
+            */}
+            {shape.holderDocument ? (
+              <div>
+                <Label htmlFor="payout-holder-document">Documento del titular</Label>
+                <Input
+                  id="payout-holder-document"
+                  placeholder="CC 1053812345"
+                  value={holderDocument}
+                  onChange={(event) => setHolderDocument(event.target.value)}
+                  className="mt-1.5"
+                />
+              </div>
+            ) : null}
           </div>
 
           <div>
@@ -275,7 +283,9 @@ export function PayoutCard({
             <Row label="Número de cuenta" value={payout.accountNumber} copyable />
           ) : null}
           <Row label="A nombre de" value={payout.holderName} />
-          <Row label="Documento del titular" value={payout.holderDocument} />
+          {payout.holderDocument ? (
+            <Row label="Documento del titular" value={payout.holderDocument} />
+          ) : null}
           {payout.note ? <Row label="Nota" value={payout.note} /> : null}
         </dl>
       ) : (

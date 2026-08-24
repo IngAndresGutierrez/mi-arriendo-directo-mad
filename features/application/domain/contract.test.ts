@@ -12,6 +12,7 @@ import {
   spotFor,
   spotProblem,
   spotsReady,
+  strokeRequired,
   maskChannel,
   replacingVoids,
   validSignatures,
@@ -47,6 +48,15 @@ const signature = (party: ContractParty, documentHash = HASH): ContractSignature
   strokePath: "",
 });
 
+const spot = (party: ContractParty): SignatureSpot => ({
+  party,
+  page: 0,
+  x: 0.1,
+  y: 0.8,
+  width: 0.28,
+  height: 0.06,
+});
+
 const contract = (
   signatures: readonly ContractSignature[],
   sha256 = HASH,
@@ -64,6 +74,18 @@ const contract = (
   stamped: null,
   note: "",
 });
+
+/**
+ * Un contrato con los dos recuadros marcados, que es el estado desde el que se puede firmar.
+ *
+ * Existe porque el dibujo de la firma pasó a ser obligatorio para las dos partes: sin recuadros no
+ * hay dónde estamparlo, así que `contractBlocker` responde `no_spots` y las aserciones sobre "a
+ * quién le falta firmar" tienen que partir de un contrato que ya se puede firmar.
+ */
+const marcado = (
+  signatures: readonly ContractSignature[],
+  sha256 = HASH,
+): Contract => ({ ...contract(signatures, sha256), spots: [spot("landlord"), spot("tenant")] });
 
 describe("contractState", () => {
   it("is `none` with no document", () => {
@@ -100,12 +122,13 @@ describe("validSignatures: la firma está atada al hash del documento", () => {
   });
 
   it("reemplazar el contrato invalida lo ya firmado, sin borrar nada", () => {
-    const firmado = contract([signature("landlord"), signature("tenant")]);
+    const firmado = marcado([signature("landlord"), signature("tenant")]);
     expect(contractState(firmado)).toBe("signed");
 
     // El propietario sube otro archivo: mismo registro, hash nuevo.
     const conOtroArchivo: Contract = {
       ...firmado,
+      spots: [spot("landlord"), spot("tenant")],
       document: { ...firmado.document!, sha256: OTHER_HASH },
     };
     expect(contractState(conOtroArchivo)).toBe("awaiting_signatures");
@@ -141,14 +164,46 @@ describe("contractBlocker", () => {
     expect(contractBlocker(null)).toBe("no_document");
   });
 
+  /*
+   * Lo primero que falta es dónde se firma, no quién firma: con el dibujo obligatorio para las dos
+   * partes, un PDF sin recuadros no se puede firmar, y decirle "falta tu firma" a quien no tiene
+   * dónde dibujarla es señalar la puerta equivocada.
+   */
+  it("bloquea antes por los recuadros, que es lo que falta primero", () => {
+    expect(contractBlocker(contract([]))).toBe("no_spots");
+    expect(contractBlocker({ ...contract([]), spots: [spot("landlord")] })).toBe("no_spots");
+  });
+
+  /* Sobre una foto no hay nada que marcar, así que ahí los recuadros no bloquean nada. */
+  it("no pide recuadros sobre un documento que no se puede estampar", () => {
+    const conFoto: Contract = {
+      ...contract([]),
+      document: { ...contract([]).document!, contentType: "image/jpeg" },
+    };
+    expect(contractBlocker(conFoto)).toBe("awaiting_both");
+  });
+
   it("nombra a quién falta", () => {
-    expect(contractBlocker(contract([]))).toBe("awaiting_both");
-    expect(contractBlocker(contract([signature("landlord")]))).toBe("awaiting_tenant");
-    expect(contractBlocker(contract([signature("tenant")]))).toBe("awaiting_landlord");
+    expect(contractBlocker(marcado([]))).toBe("awaiting_both");
+    expect(contractBlocker(marcado([signature("landlord")]))).toBe("awaiting_tenant");
+    expect(contractBlocker(marcado([signature("tenant")]))).toBe("awaiting_landlord");
   });
 
   it("deja pasar solo con las dos firmas", () => {
+    expect(contractBlocker(marcado([signature("landlord"), signature("tenant")]))).toBeNull();
+  });
+
+  /*
+   * Y un contrato que se firmó cuando el dibujo era opcional sigue firmado: las dos firmas se
+   * comprueban antes que los recuadros justamente para no reabrir una etapa cerrada.
+   */
+  it("un contrato ya firmado sin recuadros sigue pasando", () => {
     expect(contractBlocker(contract([signature("landlord"), signature("tenant")]))).toBeNull();
+  });
+
+  it("cada lado lee el bloqueo de los recuadros como lo que le toca", () => {
+    expect(contractBlockerMessage("no_spots", true)).toMatch(/Marca en el PDF/);
+    expect(contractBlockerMessage("no_spots", false)).toMatch(/El propietario/);
   });
 
   /* El mismo bloqueo se lee distinto en cada lado: "falta tu firma" o "falta la del otro". */
@@ -318,15 +373,6 @@ describe("la cláusula que sostiene la presunción", () => {
   });
 });
 
-const spot = (party: ContractParty): SignatureSpot => ({
-  party,
-  page: 0,
-  x: 0.1,
-  y: 0.8,
-  width: 0.28,
-  height: 0.06,
-});
-
 describe("canStamp", () => {
   it("solo un PDF puede llevar la firma estampada", () => {
     expect(canStamp(contract([]).document)).toBe(true);
@@ -373,6 +419,45 @@ describe("spotFor y spotsReady", () => {
       document: { ...contract([]).document!, contentType: "image/jpeg" },
     };
     expect(spotsReady(sobreFoto)).toBe(false);
+  });
+});
+
+/*
+ * El dibujo es obligatorio para las **dos** partes, que es lo que cambió: antes era un añadido
+ * opcional porque un lienzo no se opera con el teclado. Ese coste se paga en el lienzo —que ofrece
+ * firmar con el nombre— y no bajando la exigencia.
+ */
+describe("strokeRequired", () => {
+  const conPuntos = (...partes: ContractParty[]): Contract => ({
+    ...contract([]),
+    spots: partes.map(spot),
+  });
+
+  it("se lo exige a las dos partes, no solo al propietario", () => {
+    const listo = conPuntos("landlord", "tenant");
+    expect(strokeRequired(listo, "landlord")).toBe(true);
+    expect(strokeRequired(listo, "tenant")).toBe(true);
+  });
+
+  /* Solo se exige donde se puede estampar: pedir un dibujo que nada lee es pedir un archivo. */
+  it("no se le exige a la parte que no tiene recuadro", () => {
+    const soloDueño = conPuntos("landlord");
+    expect(strokeRequired(soloDueño, "landlord")).toBe(true);
+    expect(strokeRequired(soloDueño, "tenant")).toBe(false);
+  });
+
+  it("no se exige sobre un documento que no se puede estampar", () => {
+    const sobreFoto: Contract = {
+      ...conPuntos("landlord", "tenant"),
+      document: { ...contract([]).document!, contentType: "image/jpeg" },
+    };
+    expect(strokeRequired(sobreFoto, "landlord")).toBe(false);
+    expect(strokeRequired(sobreFoto, "tenant")).toBe(false);
+  });
+
+  it("ni sin contrato, ni sobre la forma vieja sin recuadros", () => {
+    expect(strokeRequired(null, "tenant")).toBe(false);
+    expect(strokeRequired(contract([]), "tenant")).toBe(false);
   });
 });
 
@@ -445,9 +530,13 @@ describe("un contrato guardado antes de los campos nuevos", () => {
     expect(validSignatures(viejo)).toHaveLength(0);
   });
 
+  /*
+   * `awaiting_both` hasta que el dibujo pasó a ser obligatorio: ahora lo primero que le falta a un
+   * contrato sin recuadros son los recuadros, y eso es lo que hay que decirle a quien lo abra.
+   */
   it("y el resto del dominio lo lee como lo que es: sin firmar", () => {
     expect(contractState(viejo)).toBe("awaiting_signatures");
-    expect(contractBlocker(viejo)).toBe("awaiting_both");
+    expect(contractBlocker(viejo)).toBe("no_spots");
     expect(spotsReady(viejo)).toBe(false);
     expect(replacingVoids(viejo)).toBe(0);
   });

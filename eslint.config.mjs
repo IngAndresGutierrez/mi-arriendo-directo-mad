@@ -69,6 +69,14 @@ const eslintConfig = defineConfig([
      * verify` started reporting `/* eslint-env *\/` warnings from inside `node_modules` chunks.
      */
     ".next-e2e/**",
+    /*
+     * Y la del `pnpm build` que se lanza con el servidor e2e arriba (`NEXT_DIST_DIR=.next-build`,
+     * documentado en `CLAUDE.md`). Faltaba, así que un `.next-build/` dejado por una sesión anterior
+     * hacía que `pnpm verify` reportara 1.141 errores de dentro de los chunks empaquetados — la
+     * compuerta en rojo por un directorio de salida, que es exactamente el fallo que la línea de
+     * arriba ya había costado una vez.
+     */
+    ".next-build/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
