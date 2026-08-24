@@ -12,7 +12,7 @@ import { LANDING_ROUTE } from "@/shared/auth/routes";
 
 import { CityStrip } from "./city-strip";
 import { ClosingCta } from "./closing-cta";
-import { Hero, SearchCard } from "./hero";
+import { Hero } from "./hero";
 import { HowItWorks } from "./how-it-works";
 import { Showcase } from "./showcase";
 import { WhyDirect } from "./why-direct";
@@ -92,14 +92,14 @@ export default function LandingPage() {
   return (
     <>
       {/*
-        The hero renders at once; only its city list waits on Firestore, and its fallback is the
-        same form offering every city. See `Hero`'s note — the headline is the LCP of the most
-        fetched page on the site and must not sit behind a query.
+        The hero renders at once; only the city `<option>`s wait on Firestore. The boundary is
+        **inside** the `<select>` rather than around the form — see `SearchCard`'s note: around the
+        form, resolving it replaced the node and reset a choice the visitor had already made.
       */}
       <Hero
-        searchCard={
-          <Suspense fallback={<SearchCard cities={[]} />}>
-            <SearchCardWithCities />
+        cityOptions={
+          <Suspense fallback={null}>
+            <CityOptions />
           </Suspense>
         }
       />
@@ -123,8 +123,24 @@ export default function LandingPage() {
   );
 }
 
-async function SearchCardWithCities() {
-  return <SearchCard cities={countCities(await published())} />;
+/**
+ * The cities with listings, as bare `<option>`s.
+ *
+ * A fragment of options and nothing else, because it is streamed straight into the `<select>` the
+ * hero already rendered. The empty-catalogue case needs no branch: no cities is no options, and the
+ * "Todas las ciudades" option the form renders itself is then the only one — a select with one
+ * choice, which is the honest shape of a catalogue with nothing in it.
+ */
+async function CityOptions() {
+  return (
+    <>
+      {countCities(await published()).map((entry) => (
+        <option key={entry.city} value={entry.city}>
+          {entry.city}
+        </option>
+      ))}
+    </>
+  );
 }
 
 async function CatalogSections() {

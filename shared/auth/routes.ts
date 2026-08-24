@@ -70,6 +70,12 @@ export const TENANT_PROFILE_ROUTE = "/perfil-inquilino";
  * Where to reach a person. It is a page rather than a link straight to WhatsApp because the
  * menu entry has to lead somewhere the browser's back button can return from, and because the
  * two channels need room to say what each one is good for.
+ *
+ * **It is already public and always has been**, which is worth stating because it does not look it
+ * from the outside: it is titled "Soporte", it greets by name and it sits beside the portal in the
+ * menu. It answers 200 with no session, renders the public header, and `tests/e2e/header.mjs`
+ * asserts that "Contacto" reaches it without passing through the login. A separate public
+ * `/contacto` was built on the assumption that it did not, and reverted once that was measured.
  */
 export const SUPPORT_ROUTE = "/soporte";
 

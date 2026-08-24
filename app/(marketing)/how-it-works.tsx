@@ -3,7 +3,7 @@ import Link from "next/link";
 import { PROPERTIES_ROUTE, PUBLISH_PROPERTY_ROUTE } from "@/shared/auth/routes";
 import { Button } from "@/shared/ui/button";
 
-import { HOW_IT_WORKS_ANCHOR } from "./landing-chrome";
+import { HOW_IT_WORKS_ANCHOR } from "@/app/public-header";
 
 /**
  * The process, told from both sides at once.

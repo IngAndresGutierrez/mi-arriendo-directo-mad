@@ -110,6 +110,46 @@ try {
   ok("el buscador llega al catálogo sin JavaScript", new URL(bare.url()).search);
   await noJs.close();
 
+  // ---------- el header es literalmente el mismo en la landing y en el catálogo ----------
+  /*
+   * La razón por la que `PublicHeader` existe. Antes había dos, y el del catálogo era el pobre:
+   * pasar de la portada al listado perdía las secciones y el acceso del propietario.
+   *
+   * Se comparan los nombres accesibles de los enlaces del `banner`, no el HTML: lo que tiene que
+   * coincidir es lo que se le ofrece a una persona, y comparar marcado haría fallar esto cada vez
+   * que cambie una clase de Tailwind. Se comprueba en las dos vistas públicas que el usuario nombró
+   * —el listado y el detalle de un inmueble— porque son dos rutas distintas.
+   */
+  const headerLinks = async (page) =>
+    (await page.getByRole("banner").getByRole("link").all()).reduce(
+      async (acc, link) => [...(await acc), ((await link.getAttribute("aria-label")) ?? (await link.innerText())).trim()],
+      Promise.resolve([]),
+    );
+
+  const enLanding = await headerLinks(p);
+
+  await p.goto(BASE + "/inmuebles", { waitUntil: "domcontentloaded" });
+  await settled(p);
+  const enCatalogo = await headerLinks(p);
+  if (JSON.stringify(enCatalogo) !== JSON.stringify(enLanding)) {
+    throw new Error(`el header del catálogo difiere: ${JSON.stringify(enCatalogo)} vs ${JSON.stringify(enLanding)}`);
+  }
+  ok("el catálogo lleva el mismo header que la landing", enLanding.join(" · "));
+
+  const primer = await p.locator("ul li a[href^='/inmuebles/']").first().getAttribute("href");
+  if (primer) {
+    await p.goto(BASE + primer, { waitUntil: "domcontentloaded" });
+    await settled(p);
+    const enDetalle = await headerLinks(p);
+    if (JSON.stringify(enDetalle) !== JSON.stringify(enLanding)) {
+      throw new Error(`el header del detalle difiere: ${JSON.stringify(enDetalle)} vs ${JSON.stringify(enLanding)}`);
+    }
+    ok("el detalle de un inmueble también", primer);
+  }
+
+  await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  await settled(p);
+
   // ---------- la ruta al catálogo y el ancla del proceso ----------
   await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
   await settled(p);

@@ -1,51 +1,31 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
 
-import { getSessionUser } from "@/shared/auth/session";
-import { LANDING_ROUTE, LOGIN_ROUTE, PROPERTIES_ROUTE, SUPPORT_ROUTE } from "@/shared/auth/routes";
-import { Logo } from "@/shared/brand/logo";
-import { AccountMenu } from "@/shared/shell/account-menu";
 import { LegalFooter } from "@/shared/shell/legal-footer";
-import { Button } from "@/shared/ui/button";
 import { TooltipProvider } from "@/shared/ui/tooltip";
+
+import { PublicHeader } from "./public-header";
 
 /**
  * Chrome for the pages anyone can reach: the catalog, a property's detail, support.
  *
- * Deliberately thin — a logo, a way to reach a person, and a way in. The sidebar belongs to the
- * product, and showing it to someone with no session would promise sections they cannot open.
+ * The sidebar belongs to the product, and showing it to someone with no session would promise
+ * sections they cannot open.
  *
- * It reads the session because the header lied without it: "Iniciar sesión" shown to somebody
- * already signed in reads as a session that expired, and there was no way back into the product
- * from here. **Contacto is there either way** — needing help is not something you should have to
- * sign in to do, which is why `/soporte` renders in this chrome too when there is no session.
+ * **The header is `PublicHeader`, the same component the landing renders**, and this file no longer
+ * builds one of its own. It used to, and the two had drifted: the landing carried the sections, the
+ * landlord's way in and the way to sign in, while this one had only a logo, "Contacto" and a button
+ * — so walking from the front door into the catalogue silently dropped half the navigation.
  *
- * It lives under `app/` rather than in `shared/shell` so the support page can use the same
- * header the catalog uses instead of a second copy of it.
+ * **`homeHref` is gone with it.** This chrome used to take a prop so the catalogue could point the
+ * mark at `/inmuebles` instead of at the root. Two things retired that: `/` is no longer a login, so
+ * it is not a dead end for a visitor, and the shared header carries an explicit "Inmuebles" link, so
+ * "back to the results" has its own control and does not need to borrow the logo. A header that
+ * behaves differently depending on the page is exactly what the shared component exists to prevent.
  *
- * **Where the logo goes is decided by whoever renders this, not by the header.** Everything in the
- * `(public)` route group is the catalog — the list and one property's detail — and there the logo
- * belongs to the catalog: someone three listings deep who presses it is asking to go back to the
- * results, not out of the thing they were browsing. `/soporte` renders this same header outside
- * that group and keeps the default. A prop and not `usePathname()`: the answer is a fact about the
- * route, known at build time, and reading it at runtime would make a Client Component out of the
- * whole header for it.
- *
- * **The default is `LANDING_ROUTE` now, and it used to be the login** — which was the same URL, so
- * the change is in what that URL answers rather than in this file's behaviour. It is worth stating
- * because the original reason the catalog overrode it was that `/` was a dead end for a visitor;
- * the override stays anyway, on its own merit: from inside the catalogue the mark means "back to
- * the results", and the landing is one click further out through the nav.
+ * It lives under `app/` rather than in `shared/shell` so the support page and the legal documents
+ * can use the same chrome the catalog uses instead of a second copy of it.
  */
-export async function PublicChrome({
-  children,
-  homeHref = LANDING_ROUTE,
-}: {
-  readonly children: ReactNode;
-  readonly homeHref?: string;
-}) {
-  const user = await getSessionUser();
-
+export function PublicChrome({ children }: { readonly children: ReactNode }) {
   return (
     // The price card renders a "coming soon" tooltip, and Radix needs its provider above it.
     <TooltipProvider>
@@ -58,34 +38,7 @@ export async function PublicChrome({
         bar and pull-to-refresh, and there the filters are behind a button anyway.
       */}
       <div className="flex min-h-svh flex-col bg-background lg:fixed lg:inset-0 lg:min-h-0 lg:overflow-hidden">
-        <header className="shrink-0 border-b border-border">
-          <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
-            <Link
-              href={homeHref}
-              aria-label={
-                homeHref === PROPERTIES_ROUTE
-                  ? "miarriendoDIRECTO.com, volver a los inmuebles"
-                  : "miarriendoDIRECTO.com, ir al inicio"
-              }
-            >
-              <Logo width={170} preload />
-            </Link>
-
-            <div className="flex items-center gap-2 sm:gap-3">
-              <Button asChild variant="ghost" size="lg">
-                <Link href={SUPPORT_ROUTE}>Contacto</Link>
-              </Button>
-
-              {user ? (
-                <AccountMenu email={user.email ?? ""} />
-              ) : (
-                <Button asChild variant="outline" size="lg">
-                  <Link href={LOGIN_ROUTE}>Iniciar sesión</Link>
-                </Button>
-              )}
-            </div>
-          </div>
-        </header>
+        <PublicHeader />
 
         {/*
           `lg:flex lg:flex-col` is what lets the footer coexist with the catalogue's fixed frame.

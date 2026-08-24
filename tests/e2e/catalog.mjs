@@ -42,19 +42,28 @@ if ((await p.title()).includes("Iniciar")) throw new Error("el catálogo pidió 
 ok("el catálogo abre sin sesión", await p.title());
 
 /*
- * La marca del header lleva al listado, no a la raíz. Quien está mirando inmuebles y pulsa el logo
- * está pidiendo volver a los resultados, no salir del catálogo. Se comprueba el destino y no solo
- * que el enlace exista.
+ * El catálogo lleva **el mismo header que la landing**, que es lo que antes no pasaba: aquí había
+ * uno más delgado —logo, "Contacto" y un botón— así que entrar al catálogo desde la portada perdía
+ * media navegación y se leía como haber salido del sitio.
  *
- * El motivo original era más fuerte —`/` era el login, un callejón sin salida para un visitante—
- * y ya no lo es: ahí vive la landing. La regla se queda igualmente, ahora por su propio mérito.
+ * Esto **sustituye a la afirmación anterior**, que exigía que la marca apuntara a `/inmuebles`.
+ * Aquella tenía sentido cuando `/` era el login: mandar allí a un visitante era un callejón sin
+ * salida. Ahora `/` es la landing y el header trae un enlace "Inmuebles" propio, así que volver a
+ * los resultados tiene su control y no necesita tomar prestado el logo. Se comprueban las dos
+ * mitades juntas, porque la afirmación solo vale entera: la marca va a la raíz **y** sigue habiendo
+ * un camino de un clic de vuelta al listado.
  */
 {
-  const marca = p.getByRole("link", { name: /miarriendoDIRECTO\.com/i }).first();
-  if ((await marca.getAttribute("href")) !== "/inmuebles") {
-    throw new Error("el logo del listado no lleva al listado: " + (await marca.getAttribute("href")));
+  const banner = p.getByRole("banner");
+  const marca = banner.getByRole("link", { name: /miarriendoDIRECTO\.com/i }).first();
+  if ((await marca.getAttribute("href")) !== "/") {
+    throw new Error("el logo del catálogo no lleva a la landing: " + (await marca.getAttribute("href")));
   }
-  ok("en el listado, el logo lleva al listado");
+  const alListado = banner.getByRole("link", { name: "Inmuebles", exact: true });
+  if ((await alListado.getAttribute("href")) !== "/inmuebles") {
+    throw new Error("el header no ofrece volver al listado en un clic");
+  }
+  ok("el catálogo lleva el mismo header que la landing: marca a la raíz y enlace al listado");
 }
 // Cuántos hay ya publicados (el inmueble real del dueño de la cuenta cuenta como uno).
 // El total, no las tarjetas de la primera página: con más de 12 publicados las dos cifras
@@ -217,11 +226,20 @@ ok("del catálogo al detalle");
  * enlace pegado en WhatsApp, donde no hay a dónde volver.
  */
 {
-  const marca = p.getByRole("link", { name: /miarriendoDIRECTO\.com/i }).first();
-  if ((await marca.getAttribute("href")) !== "/inmuebles") {
-    throw new Error("el logo del detalle no lleva al listado: " + (await marca.getAttribute("href")));
+  /*
+   * El detalle lleva el mismo header que la landing y que el listado, así que la marca va a la
+   * raíz. **Sustituye a la afirmación anterior**, que la exigía en `/inmuebles`: eso valía cuando
+   * `/` era el login. Volver al listado sigue siendo un clic, y desde aquí hay dos caminos —el
+   * enlace "Inmuebles" del header y la flecha del contenido— así que se comprueban los dos.
+   */
+  const marca = p.getByRole("banner").getByRole("link", { name: /miarriendoDIRECTO\.com/i }).first();
+  if ((await marca.getAttribute("href")) !== "/") {
+    throw new Error("el logo del detalle no lleva a la landing: " + (await marca.getAttribute("href")));
   }
-  ok("en el detalle, el logo también lleva al listado");
+  if ((await p.getByRole("banner").getByRole("link", { name: "Inmuebles", exact: true }).getAttribute("href")) !== "/inmuebles") {
+    throw new Error("el header del detalle no ofrece volver al listado en un clic");
+  }
+  ok("en el detalle, el mismo header: marca a la raíz y enlace al listado");
 
   /*
    * Acotado al contenido: el logo del header también se anuncia "…, volver a los inmuebles" —

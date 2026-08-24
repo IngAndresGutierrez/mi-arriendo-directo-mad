@@ -227,6 +227,13 @@ export const SELECTS_EVERY_DRIVER = [
    */
   "shared/auth/routes",
   /*
+   * `app/public-header.tsx` es el header de **todas** las páginas públicas — la landing, el
+   * catálogo, el detalle de un inmueble, las tres legales y `/soporte`— y nació justamente de que
+   * había dos copias que se habían separado sin que nada lo notara. Mapearlo a mano sería repetir
+   * el fallo un nivel más arriba.
+   */
+  "app/public-header.tsx",
+  /*
    * `shared/legal/` es un primitivo compartido, y mapearlo a mano sería el error que este bloque
    * documenta dos veces: de ahí salen la identidad del Responsable (el pie, en todas las páginas
    * públicas), el aviso de privacidad (cuatro formularios de tres módulos distintos) y las

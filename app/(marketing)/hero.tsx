@@ -3,7 +3,7 @@ import Link from "next/link";
 import { SearchIcon } from "lucide-react";
 
 import { PROPERTIES_ROUTE, PUBLISH_PROPERTY_ROUTE } from "@/shared/auth/routes";
-import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS, type CityCount } from "@/features/property";
+import { PROPERTY_TYPES, PROPERTY_TYPE_LABELS } from "@/features/property";
 import { Button } from "@/shared/ui/button";
 
 /**
@@ -18,7 +18,7 @@ import { Button } from "@/shared/ui/button";
  * The panel is `brand-panel` and never `bg-primary`: in dark mode `--primary` *is* the cyan, and
  * this is a full-bleed surface.
  */
-export function Hero({ searchCard }: { readonly searchCard: ReactNode }) {
+export function Hero({ cityOptions }: { readonly cityOptions: ReactNode }) {
   return (
     <section className="bg-brand-panel text-brand-panel-foreground">
       <div className="mx-auto w-full max-w-6xl px-6 py-16 sm:py-24">
@@ -36,14 +36,11 @@ export function Hero({ searchCard }: { readonly searchCard: ReactNode }) {
         </p>
 
         {/*
-          Handed in as already-created JSX rather than awaited here, so the headline above never
-          waits on Firestore. It is the largest text on the site's most-fetched page — its paint is
-          the LCP — and the city list is a nicety on a form that works without it. The page wraps
-          the filled-in card in a `<Suspense>` whose fallback is *this same form with no cities*,
-          so what streams in is extra options, never the control itself: no layout shift, and a
-          search submitted in that window is a search of every city, which is a real answer.
+          The headline above never waits on Firestore — it is the largest text on the site's most
+          fetched page, so its paint is the LCP. Only the city `<option>`s do, and they arrive
+          inside the `<select>` the form already rendered. See `SearchCard`.
         */}
-        {searchCard}
+        <SearchCard cityOptions={cityOptions} />
 
         {/*
           The landlord's way in sits under the search rather than beside it. Two buttons of equal
@@ -85,7 +82,7 @@ export function Hero({ searchCard }: { readonly searchCard: ReactNode }) {
  * **Only cities with listings are offered**, the same rule the sitemap follows: "Arriendos en
  * Pereira" with nothing in Pereira is a promise of an empty page.
  */
-export function SearchCard({ cities }: { readonly cities: readonly CityCount[] }) {
+function SearchCard({ cityOptions }: { readonly cityOptions: ReactNode }) {
   return (
     <form
       method="get"
@@ -93,13 +90,22 @@ export function SearchCard({ cities }: { readonly cities: readonly CityCount[] }
       className="mt-10 grid gap-3 rounded-2xl border border-white/10 bg-card p-4 shadow-lg sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-end sm:gap-4 sm:p-5"
     >
       <Field label="Ciudad" htmlFor="landing-city">
+        {/*
+          **The `<select>` is outside the Suspense boundary and only its `<option>`s are inside.**
+          This started the other way round — the whole card streamed, with a fallback that was the
+          same form minus the cities — and that was wrong in a way a screenshot cannot show: React
+          replaces the *node* when the boundary resolves, so a visitor who picked a type in the first
+          few hundred milliseconds had their choice silently reset. It was caught by the driver
+          submitting `type=` empty, and reproduced directly: `studio` became `""` between 200 ms and
+          600 ms after the page loaded.
+
+          Streaming only the options keeps the element itself, so nothing the visitor has touched is
+          thrown away and the type select — which is entirely static — never sits in a boundary at
+          all. What arrives late is strictly additive.
+        */}
         <select id="landing-city" name="city" className={FIELD_CLASS} defaultValue="">
           <option value="">Todas las ciudades</option>
-          {cities.map((entry) => (
-            <option key={entry.city} value={entry.city}>
-              {entry.city}
-            </option>
-          ))}
+          {cityOptions}
         </select>
       </Field>
 
