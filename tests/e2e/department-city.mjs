@@ -1,6 +1,13 @@
 /** En completar-perfil, la ciudad depende del departamento: se abre vacía y se limpia al cambiarlo. */
 import { chromium } from "playwright";
-import { BASE, config, createAccount, ok, settled } from "./lib.mjs";
+import {
+  acceptLegalConsents,
+  BASE,
+  config,
+  createAccount,
+  ok,
+  settled,
+} from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
 const email = `depciudad-${STAMP}@miarriendodirecto.test`;
@@ -66,7 +73,7 @@ await p.getByLabel("Género").click();
 await p.getByRole("option", { name: /Femenino/i }).first().click();
 await ciudad.click();
 await p.getByRole("option", { name: "Envigado", exact: true }).click();
-await p.getByRole("checkbox").click();
+await acceptLegalConsents(p);
 await p.getByRole("button", { name: /Guardar|Continuar|Finalizar/i }).click();
 await p.waitForURL(/\/inicio/, { timeout: 30000 });
 await settled(p);

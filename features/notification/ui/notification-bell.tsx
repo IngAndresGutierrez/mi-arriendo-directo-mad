@@ -12,7 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BellIcon, CheckCheckIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
 
-import { ensureClientSession } from "@/shared/auth/client";
+import { ensureClientSession, isSigningOut } from "@/shared/auth/client";
 import { cn } from "@/shared/lib/utils";
 
 import { markNotificationsRead } from "../actions/mark-read";
@@ -173,7 +173,17 @@ export function NotificationBell({
          * sesión del SDK web no es la que cree). Sin el código, lo único que llegaba a la consola
          * era el fallo interno del SDK al limpiar el target, que no dice nada de la causa.
          */
-        (error) => console.error("live notifications stopped:", error.code, error.message),
+        (error) => {
+          /*
+           * Un cierre de sesión revoca los tokens **antes** de que el SDK suelte su credencial, así
+           * que un listener todavía enganchado recibe `permission-denied`. Eso es la sesión
+           * acabándose, no una regla negando nada, y reportarlo manda el diagnóstico a las reglas
+           * desplegadas y a los índices, que es exactamente donde no está.
+           */
+          if (isSigningOut()) return;
+
+          console.error("live notifications stopped:", error.code, error.message);
+        },
       );
     })();
 

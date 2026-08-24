@@ -23,9 +23,13 @@ const caja = await p.evaluate(() => {
   // y la fila entera se corre unos píxeles, que se lee como un desalineado que no existe.
   const r = (el) => ({ top: Math.round(el.getBoundingClientRect().top), h: Math.round(el.getBoundingClientRect().height) });
   return {
-    genero: r(document.getElementById(
-      [...document.querySelectorAll("label")].find((l) => l.textContent.trim() === "Género").htmlFor,
-    )),
+    /*
+     * Por su `id`, no por el texto de su etiqueta. Buscaba `=== "Género"` y la etiqueta dice
+     * "Género (opcional)" desde que el campo dejó de ser obligatorio — es un dato sensible y el
+     * artículo 6 de la Ley 1581 prohíbe exigirlo. Esta prueba va de alineación, así que la redacción
+     * de la etiqueta es justo lo que no debería poder romperla.
+     */
+    genero: r(document.getElementById("gender")),
     dia: r(document.querySelector('[id$="-day"]')),
     mes: r(document.querySelector('[id$="-month"]')),
     anio: r(document.querySelector('[id$="-year"]')),

@@ -117,6 +117,9 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/arriendos` | `RENTALS_ROUTE` | The tenancies in course, on either side. This is the **other half of the product**: `/contratos` is the negotiation that ends in a signed contract, and this is the year that follows it. The question it answers is not "¿vamos a hacer esto?" but "¿está pagado este mes?". The forward that used to live here was a **307 written in the page and never a 301 nor a rule in `next.config.ts`**, precisely so this page could replace it — a permanent redirect would have been cached against it, and a `next.config.ts` rule resolves before routing and would shadow the route. |
 | `/arriendos/<id>` | `rentalRoute(id)` | One tenancy: the term, where the canon goes, every month of it, and the incidents the tenant has reported. **The id is the application's**: one process produces one tenancy, so `/contratos/<id>` and `/arriendos/<id>` are two halves of one story under one key. A non-party — or an id whose process has not finished yet, so no tenancy was opened — is **forwarded to `/contratos/<id>`**, which is both the privacy answer and what keeps every notification sent before the rename working: they all point at `/arriendos/<id>#etapa-…`. |
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
+| `/terminos` | `TERMS_ROUTE` | Conditions of use. Mostly about what this product **is not**: not an agency, not a broker, does not sell insurance, does not move the money. |
+| `/privacidad` | `PRIVACY_ROUTE` | The política de tratamiento. `#derechos` is the anchor the aviso de privacidad and the profile screen both link to. |
+| `/cookies` | `COOKIES_ROUTE` | The four things this product stores in a browser, by name, and the switch that makes the analytics authorisation revocable. |
 | `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. **The map lives here**: a circle over the zone, never a pin — see "The map" below. |
@@ -155,7 +158,10 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
   same URL. Older shapes (`<slug>-<id>` and a bare `<id>`) are permanently redirected, so links
   already shared keep working.
 
-Links with no route yet (they 404): `/recuperar`, `/terminos`, `/privacidad`.
+Links with no route yet (they 404): `/recuperar`. **`/terminos`, `/privacidad` and `/cookies`
+exist now** — they had been linked from the signup and onboarding screens, and answering 404 for as
+long as those links existed is not something `pnpm build` can catch: a `<Link>` to a route that is
+not there compiles perfectly. `tests/e2e/legal.mjs` is what pins them.
 
 **On a wide screen the catalog is a fixed frame and only the list scrolls.** From `lg` the public
 chrome is `fixed inset-0` and `main` owns the overflow; the results column keeps its own
@@ -1480,7 +1486,7 @@ After moving or renaming a route: `rm -rf .next && pnpm typegen`, or `tsc` fails
 generated types with an error that has nothing to do with your change.
 
 ## Security Rules tests
-`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (86 cases, every rule
+`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (101 cases, every rule
 with a mandatory negative case). It needs **JDK 21+**, and **the script puts it on the PATH
 itself** — `/opt/homebrew/opt/openjdk@21/bin` is prepended in `package.json`, because Homebrew's
 `openjdk@21` is *keg-only*: it is not registered with `/usr/libexec/java_home`, so `java` resolves
@@ -1492,6 +1498,153 @@ No `export` is needed any more. If you install the JDK somewhere else, that path
 
 Every new or modified rule is tested here before `firebase deploy`. When you add a
 collection, add its access-denied test too.
+
+## Habeas data, cookies and the right to be deleted (`features/legal`)
+
+Colombia's regime is **Ley Estatutaria 1581 de 2012** plus **Decreto 1074 de 2015** (which compiled
+Decreto 1377 de 2013). The 2025 reform — PL 247/2025, accumulated with 214/2025 — **was archived**
+("ARCHIVADO ARTÍCULO 190, LEY 5 DE 1992") after passing committee, so nothing here is written against
+it. The **RNBD does not apply**: the threshold is 100.000 UVT of total assets (~$5.237M COP for 2026),
+and it starts applying the day that is crossed.
+
+Three documents, at `/terminos`, `/privacidad` and `/cookies`. They live **outside both route groups**
+like `/soporte` and pick their chrome from the session (`app/legal-chrome.tsx`): reading a policy must
+not require an account, because the person deciding whether to sign up is exactly the person who needs
+to read it. They inherit the root layout's `index: true` and are in `app/sitemap.ts` — a policy nobody
+can find is not published, and both Fincaraíz and Metrocuadrado index theirs.
+
+**`shared/legal/` holds what four layers read**, and it is there rather than in `features/legal/`
+because putting it in a feature produced a real cycle: `profile → legal → application → profile`. The
+onboarding form needs the document versions and the erasure action needs to know about processes.
+`controller.ts` is the Responsable's identity; `documents.ts` is the versions.
+
+**The NIT is `null` and that is a gap, not a decision.** It is mandatory content of the policy (Ley
+1581 art. 13 and 15) and of any e-commerce provider's public identification (Ley 1480 art. 50).
+`controllerIdentityLines()` omits the line while it is absent, so nothing renders a dangling "NIT",
+and `shared/legal/controller.ts` is the one line to change.
+
+### Where authorisation is needed, and what each point does
+
+- **`/registro` step 1** carries the **aviso de privacidad**, not an acceptance. It used to say "Al
+  crear tu cuenta aceptas nuestros Términos…", which was wrong twice: Decreto 1074 art. 2.2.2.25.2.3
+  wants conduct from which consent can unequivocally be concluded, and reading a sentence is not
+  conduct — and acceptance actually happens on the *next* screen. What belongs at a point of
+  collection is the information duty (art. 2.2.2.25.3.2).
+- **Onboarding asks twice, and the split is the point.** `acceptsTerms` and
+  `authorizesDataTreatment` were one checkbox reading "Autorizo el tratamiento… y acepto los
+  Términos". Accepting a contract and authorising data processing are different acts, the second has
+  to be **express** (art. 9), and bundled together the record cannot say which one was answered. Both
+  are still required: what vitiates an authorisation is the bundling, not the requirement.
+- **`gender` is optional now**, and that is art. 6 rather than a preference. `domain/profile.ts`
+  already called it sensitive data; art. 6 says nobody may be *obliged* to authorise sensitive data,
+  so a required select was exactly that obligation. It was also part of the profile-completeness check
+  in `data/profile.ts`, which meant declining to give it locked the account out of every screen.
+  Absent is an **absent field**, never `null` and never `""` — and clearing it in the profile writes
+  `FieldValue.delete()`, which is what makes emptying the select mean what the person meant.
+- **The dossier's reference is a third party who never consented.** `referenceAuthorized` is a
+  required declaration that the tenant has that person's permission (art. 2.2.2.25.2.7 anticipates
+  data collected from someone other than the titular). It is **asked again on every save** — unlike
+  the terms — because the tick is about the phone number in the field beside it, and that field is
+  editable. `toStoredDossier` drops it and the action writes `referenceAuthorizedAt` instead: the
+  timestamp is the record, like `waivedAt` and `checksAuthorizedAt`.
+- **`background_check` was already right** and only gained `checksAuthorizedVersion`, for the reason
+  `clauseVersion` sits beside `acceptedClauseAt`.
+- **The cédula photos are personal data, not biometric.** The SIC's guide on photographs treats them
+  as biometric only when processed with biometric tools, which this product does not do. The day face
+  matching is added, that becomes a separate explicit authorisation.
+
+### The consent record
+
+`users/{uid}/consents/{consentId}`, append-only — the sibling of `users/{uid}/documents/{documentId}`.
+It holds `kind`, `version`, `grantedAt`, `ip` and `userAgent`, because Decreto 1074 art. 2.2.2.25.2.4
+puts the burden of **proving** the authorisation on us. The owner may `get` and `list` their own —
+that *is* the derecho de acceso — and **no client writes**: a client that could forge its own proof of
+consent would void the only evidence there is.
+
+**The write lives in `completeProfile`, in the same batch as the profile.** Split into two actions, one
+can succeed alone, and the half that survives is a document full of personal data with no record of
+anybody having authorised it.
+
+**No state is duplicated on `users/{uid}`.** `termsAcceptedAt` stays because every account created
+before this has it and nothing else, and `withLegacyConsent` reads it as an authorisation to both
+documents at version 1 — which is what it was, since one checkbox covered both. Same shape as
+`normalizeStage()` mapping the old stage names. **No migration to run.**
+
+`reconsentFrom` is **not** `version`, and conflating them is the mistake the field exists to prevent:
+art. 2.2.2.25.2.5 requires a fresh authorisation when the **finalidad** changes, not when a sentence is
+reworded. `consentIsCurrent` takes the document rather than reading the constants, for the reason
+`validateBirthDate` takes its reference date — the interesting cases are the ones that are not true
+today.
+
+### Cookies
+
+Two categories: necessary (`session`, `sidebar`, `cookie-consent`) and `analytics`. **There is no
+advertising category**, because this product serves no ads and declaring a processing that does not
+happen is how a policy becomes a liability.
+
+**Firebase Analytics used to load unconditionally on every public page**, for visitors who had been
+asked nothing. `ConsentGate` in the root layout renders it only with an authorisation. The decision is
+read **in the browser**: reading `cookies()` in `app/layout.tsx` would opt the whole route tree into
+dynamic rendering, catalogue and listing detail included. The consequence, stated rather than hidden:
+the banner is not in the HTML a crawler receives, which is correct — a crawler cannot consent.
+
+**Two real buttons on the banner**, and neither is `accent` (it renders over pages with their own cyan
+CTA — the bell's reasoning). `/cookies` carries the switch that makes the authorisation revocable,
+which is what turns the banner from an announcement into a consent.
+
+**The snapshot must be reference-stable, and this cost the whole product.**
+`useSyncExternalStore` compares with `Object.is`; `decodeCookieConsent` builds a fresh object every
+call, so the store reported a change on every render — "Maximum update depth exceeded", and since
+`ConsentGate` is in the **root layout**, every page died. It only appeared *after* a decision existed:
+with no cookie the snapshot is `null`, which is stable, so a first visit looked perfect and every visit
+afterwards did not. `chime.ts` reads its preference the same way and never had the bug because a
+boolean is a primitive. `stableConsent()` memoises on the raw cookie string, and its test asserts with
+`toBe` rather than `toEqual` — `toEqual` passes on exactly the state that broke.
+
+**A Radix `Switch` is a `<button role="switch">`, so `<label for>` does not name it.** Both switches in
+the product were announced as unnamed controls; they carry `aria-labelledby` now, not a duplicated
+`aria-label`, so the announced name cannot drift from the visible words.
+
+### Deleting an account
+
+`deleteAccount` uses `requireUser()`, **not** `requireCompleteProfile()`: somebody who signed up and
+never finished onboarding still has an account and is entitled to have it deleted.
+
+**Supresión is not absolute** (art. 9; Decreto 1074 art. 2.2.2.25.2.11). `ERASURE_PLAN` is the
+specification the action implements and the screen renders, and every retention carries its reason —
+a test fails if one does not, because an exception to somebody's rights that nobody wrote a reason for
+is one nobody can defend. Signed contracts, leases, periods, incidents and closed applications stay:
+they belong to **two** people, and erasing one destroys the other's evidence. The dossier, the uploaded
+files, the listings and the notifications go; `users/{uid}` becomes a tombstone with `deletedAt` and
+`FieldValue.delete()` per field.
+
+**The consent records stay too**, and this is the retention that looks wrong and is not: they are the
+proof that the processing which produced those contracts was authorised. They hold a version, a date,
+an ip and a user agent; they never held a name.
+
+`erasureStatus` **fails closed**: `listLeasesFor` answers `{ ok: false }` while its index is building,
+and reading that as zero tenancies would delete an account mid-lease. It reuses the two public list
+functions rather than writing its own queries, so no second composite index has to be remembered.
+
+**Not built, deliberately:** purging the application snapshots at five years (Estatuto Tributario art.
+632) is documented in the policy and in the code, and no job does it.
+
+### Ley 2300 de 2023
+
+`sendWhatsApp` takes `purpose: "transactional" | "collection"`, **required and with no default**.
+`collection` goes through `collectionContactBlocker` — Mon–Fri 07:00–19:00, Sat 08:00–15:00, never
+Sundays or public holidays, in Bogotá time. The guard is in the sender, not at each call site: a guard
+at the call site is one somebody can forget to write.
+
+**Nothing sends with `collection` today**, and the interview reminders must not — they are an
+appointment both parties agreed to, and the ten-minute one's whole value is arriving ten minutes
+before a call. It exists because the canon-due cron `CLAUDE.md` lists as planned **is** collection, and
+whoever writes it will not be able to send without answering the question.
+
+The eighteen Colombian holidays are **computed, not tabulated**: six are relative to Easter and seven
+are shifted to the following Monday by the Ley Emiliani (Ley 51 de 1983). A hard-coded list would be
+right until the year it silently ran out, and a cron reading it would then send collection messages on
+Jueves Santo. `contact-window.test.ts` pins the whole 2026 calendar.
 
 ## Security — non-negotiable invariants
 1. **No secrets on the client.** Only the `NEXT_PUBLIC_FIREBASE_*` keys (the web SDK's public

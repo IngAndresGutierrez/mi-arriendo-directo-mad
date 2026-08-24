@@ -81,13 +81,21 @@ export function AccountFields({ disabled = false }: { readonly disabled?: boolea
           render={({ field }) => (
             <SelectField
               id="gender"
-              label="Género"
-              placeholder="Selecciona una opción"
+              label="Género (opcional)"
+              placeholder="Prefiero no responder"
               options={GENDER_OPTIONS}
-              value={field.value}
+              value={field.value ?? undefined}
               onValueChange={field.onChange}
               error={errors.gender?.message}
               disabled={disabled}
+              /*
+               * **The sentence art. 6 of Ley 1581 requires**: sensitive data cannot be demanded,
+               * and the person has to be told they are free not to give it. Permanent text and not
+               * a tooltip — a right you only learn about by hovering is one most people never
+               * learn about — and the label carries "(opcional)" as well, because a field is read
+               * before its hint is.
+               */
+              hint="Es un dato sensible: no estás obligado a darlo y puedes dejarlo en blanco."
             />
           )}
         />

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
 import { HOME_ROUTE, TENANT_PROFILE_ROUTE } from "@/shared/auth/routes";
@@ -36,7 +37,8 @@ export async function updateProfile(formData: FormData): Promise<UpdateProfileRe
       country: formData.get("phone.country"),
       national: formData.get("phone.national"),
     },
-    gender: formData.get("gender"),
+    // Absent and empty are the same answer: the field was left blank.
+    gender: formData.get("gender") || null,
     address: {
       line: formData.get("address.line"),
       city: formData.get("address.city"),
@@ -66,7 +68,15 @@ export async function updateProfile(formData: FormData): Promise<UpdateProfileRe
       fullName: parsed.data.fullName,
       phone: e164,
       phoneCountry: parsed.data.phone.country,
-      gender: parsed.data.gender,
+      /*
+       * **Clearing it deletes the field, and that is the revocation.**
+       *
+       * Gender is sensitive data nobody is obliged to authorise (Ley 1581 art. 6), and an
+       * authorisation is revocable (art. 8, lit. e). Writing `null` would leave the key sitting on
+       * the document — data we were asked to stop holding, held. `FieldValue.delete()` is what
+       * makes emptying the select mean what the person meant by it.
+       */
+      gender: parsed.data.gender ?? FieldValue.delete(),
       address: {
         line: parsed.data.address.line,
         city: parsed.data.address.city,

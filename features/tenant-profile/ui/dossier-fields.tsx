@@ -3,6 +3,7 @@
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 
 import { AmountField } from "@/shared/form/amount-field";
+import { ConsentCheckbox } from "@/shared/form/consent-checkbox";
 import { PhoneField } from "@/shared/form/phone-field";
 import { SelectField } from "@/shared/form/select-field";
 import { TextField } from "@/shared/form/text-field";
@@ -208,6 +209,30 @@ export function DossierFields() {
               numberError={errors.reference?.phone?.message}
               inputProps={register("reference.phone")}
             />
+          )}
+        />
+
+        {/*
+          **The reference is a third party who never authorised anything.** This is the one field
+          in the product where somebody hands us another person's name and phone number, and Ley
+          1581 requires the authorisation of the *titular* — who here is the reference, not the
+          person filling this form. We cannot obtain it directly, so what we can do is put the
+          declaration on the record and make the obligation visible. Required, and asked again on
+          every save: the tick is about the number in the field above it, and that field is
+          editable.
+        */}
+        <Controller
+          control={control}
+          name="referenceAuthorized"
+          render={({ field }) => (
+            <ConsentCheckbox
+              id="referenceAuthorized"
+              checked={field.value ?? false}
+              onCheckedChange={field.onChange}
+              error={errors.referenceAuthorized?.message}
+            >
+              Esta persona sabe que voy a dar su nombre y su teléfono, y me autorizó a hacerlo.
+            </ConsentCheckbox>
           )}
         />
       </section>

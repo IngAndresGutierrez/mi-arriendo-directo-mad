@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 
+import {
+  ConsentHistory,
+  DeleteAccountCard,
+  erasureStatus,
+  listConsents,
+} from "@/features/legal";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
+import { PrivacyNotice } from "@/shared/legal/privacy-notice";
 import { findCountry } from "@/shared/phone/countries";
 import { getTenantProfile, TenantProfileForm } from "@/features/tenant-profile";
 
@@ -14,8 +21,16 @@ export const metadata: Metadata = {
 export default async function TenantProfilePage() {
   const user = await requireCompleteProfile();
 
-  // Independent reads: neither half depends on the other.
-  const [dossier, account] = await Promise.all([getTenantProfile(user.uid), getProfile(user.uid)]);
+  /*
+   * Four independent reads, in parallel. `Promise.all` and not four `await`s: none of them depends
+   * on another, and chaining them would make this page as slow as their sum.
+   */
+  const [dossier, account, consents, erasure] = await Promise.all([
+    getTenantProfile(user.uid),
+    getProfile(user.uid),
+    listConsents(user.uid),
+    erasureStatus(user.uid),
+  ]);
 
   /*
    * The phone comes back from E.164 to the national digits the field shows: `+57` belongs to
@@ -42,12 +57,23 @@ export default async function TenantProfilePage() {
         : un propietario solo recibe una copia cuando tú te postulas a su inmueble.
       </p>
 
+      {/*
+        The aviso de privacidad where the most sensitive half of the product's data is collected:
+        the identity document, the income, and a third party's phone number. Decreto 1074 art.
+        2.2.2.25.3.2 wants it at the point of collection, and this is the point of collection.
+      */}
+      <PrivacyNotice
+        purpose="que un propietario pueda evaluar tu postulación cuando te postules a su inmueble"
+        className="mb-8"
+      />
+
       <TenantProfileForm
         profile={dossier}
         account={{
           fullName: account?.fullName ?? "",
           phone: { country: account?.phoneCountry ?? "CO", national },
-          gender: account?.gender,
+          // A select with no value shows its placeholder; `null` is not a value it accepts.
+          gender: account?.gender ?? undefined,
           birthDate: account?.birthDate ?? "",
           address: {
             line: account?.address.line ?? "",
@@ -56,6 +82,24 @@ export default async function TenantProfilePage() {
           },
         }}
       />
+
+      {/*
+        **Where the rights of Ley 1581 actually get exercised.**
+
+        The policy names a channel and its deadlines, and that alone would comply. But the person
+        who wants to know what they authorised, or to leave, is *here* — on the one screen that is
+        about them — and making them write an email for something the product can answer in a
+        render is compliance without the point of it. `#derechos` in the policy links back the
+        other way.
+      */}
+      <div id="mis-datos" className="mt-12 scroll-mt-24 space-y-4 border-t border-border pt-10">
+        <h2 className="text-xl font-semibold tracking-tight text-primary dark:text-foreground">
+          Tus datos personales
+        </h2>
+
+        <ConsentHistory consents={consents} />
+        <DeleteAccountCard blocker={erasure} />
+      </div>
     </div>
   );
 }

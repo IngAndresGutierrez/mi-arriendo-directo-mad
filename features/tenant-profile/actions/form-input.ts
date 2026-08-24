@@ -26,18 +26,29 @@ export function dossierFromForm(data: FormData): Record<string, unknown> {
       phoneCountry: data.get("reference.phoneCountry"),
       relationship: data.get("reference.relationship"),
     },
+    referenceAuthorized: data.get("referenceAuthorized") === "true",
   };
 }
 
 /**
  * Normalizes a parsed dossier into what gets stored: the reference's phone in E.164, and the
  * pet description dropped when there are no pets so a stale sentence cannot outlive the pet.
+ *
+ * **`referenceAuthorized` is deliberately dropped here.** It is a declaration the tenant makes to
+ * *us* — that they have their reference's permission to hand over that phone number — not a field
+ * of the dossier a landlord reads. Leaving it in would carry it into the snapshot inside every
+ * application, where it means nothing to the person reading it. What the record needs is *when* it
+ * was declared, and the action writes that as `referenceAuthorizedAt`: the same choice as
+ * `waivedAt`, `checksAuthorizedAt` and `acceptedClauseAt`, and for the same reason — a bare boolean
+ * answers "no" identically whether it was declared today or never asked at all.
  */
 export function toStoredDossier(values: z.output<typeof tenantDossierSchema>): TenantDossier {
   const digits = values.reference.phone.replace(/\D/g, "");
+  const dossier: Record<string, unknown> = { ...values };
+  delete dossier.referenceAuthorized;
 
   return {
-    ...values,
+    ...(dossier as TenantDossier),
     petsDescription: values.hasPets ? values.petsDescription : "",
     reference: {
       ...values.reference,

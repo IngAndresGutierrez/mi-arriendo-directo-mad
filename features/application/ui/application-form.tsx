@@ -83,6 +83,13 @@ export function ApplicationForm({
     data.set("reference.phone", values.reference.phone);
     data.set("reference.phoneCountry", values.reference.phoneCountry);
     data.set("reference.relationship", values.reference.relationship);
+    /*
+     * La declaración sobre los datos de la referencia. `DossierFields` ya pinta la casilla —es el
+     * mismo bloque que el perfil— y el esquema la exige, así que sin esta línea la acción rechazaba
+     * la postulación con un error que el formulario no pintaba en ningún campo: el botón parecía no
+     * hacer nada.
+     */
+    data.set("referenceAuthorized", String(values.referenceAuthorized));
     data.set("desiredMoveIn", values.desiredMoveIn);
     data.set("leaseMonths", String(values.leaseMonths));
     data.set("message", values.message);

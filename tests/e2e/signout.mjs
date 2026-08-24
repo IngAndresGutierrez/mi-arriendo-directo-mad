@@ -1,6 +1,14 @@
 import { join } from "node:path";
 import { chromium } from "playwright";
-import { BASE, config, createAccount, settled } from "./lib.mjs";
+import {
+  assertQuiet,
+  BASE,
+  config,
+  createAccount,
+  ok,
+  openSession,
+  settled,
+} from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp, shotDir: SHOT_DIR } = config();
 
@@ -67,7 +75,48 @@ try {
     if (path !== "/") throw new Error("no redirigio al login, quedo en " + path);
     return "redirige al login";
   });
+
+  /*
+   * ---------- y cerrar sesión **desde el portal**, que es otra cosa ----------
+   *
+   * Todo lo de arriba cierra sesión desde `/registro/completar-perfil`, y ahí **no hay campana**:
+   * esa pantalla usa `requireUser()` y no lleva el chrome del producto. Por eso este driver estaba
+   * verde mientras la consola escupía `permission-denied` al salir desde `/inicio`.
+   *
+   * `signOutUser()` revoca los refresh tokens *antes* de que el SDK suelte la credencial —el orden
+   * es deliberado, la cookie es la sesión autoritativa— así que en esa ventana el `onSnapshot` de la
+   * campana sigue enganchado y el servidor lo rechaza. Es el final de la sesión, no una regla, y
+   * reportarlo como error manda el diagnóstico a las reglas desplegadas y a los índices.
+   */
+  await step("cerrar sesión desde el portal deja la consola limpia", async () => {
+    const portalEmail = `signout-bell-${stamp}@miarriendodirecto.test`;
+    await createAccount(API_KEY, portalEmail);
+    const dentro = await openSession(browser, {
+      email: portalEmail,
+      name: "Ana Campana Pérez",
+      problems,
+    });
+
+    // Sin esto la prueba pasaría por no llegar a tener suscripción que rechazar.
+    await dentro
+      .getByRole("button", { name: "Notificaciones" })
+      .waitFor({ state: "visible", timeout: 15000 });
+
+    await dentro.getByRole("button", { name: /Cerrar sesión/i }).click();
+    await dentro.waitForURL((u) => new URL(u).pathname === "/", { timeout: 20000 });
+    await settled(dentro);
+    // Un margen para que el rechazo llegue: es asíncrono y venía *después* de la navegación.
+    await dentro.waitForTimeout(1500);
+
+    return "sin permission-denied al salir con la campana montada";
+  });
 } finally {
-  console.log(problems.length ? "  PROBLEMAS EN CONSOLA:\n   " + problems.join("\n   ") : "  OK    consola sin errores");
+  /*
+   * **Y esto ahora falla.** Antes solo se imprimía, así que un error de consola era invisible para
+   * `run.mjs` y el driver salía verde con el fallo delante.
+   */
+  if (problems.length) console.log("  PROBLEMAS EN CONSOLA:\n   " + problems.join("\n   "));
+  else ok("consola sin errores");
   await browser.close();
+  assertQuiet(problems);
 }

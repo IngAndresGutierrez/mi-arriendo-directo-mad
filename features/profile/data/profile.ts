@@ -15,7 +15,13 @@ export type Profile = {
   readonly phone: string;
   /** ISO of the chosen country: `+1` is shared by several, it cannot be derived from the number. */
   readonly phoneCountry: string;
-  readonly gender: Gender;
+  /**
+   * Absent when the person did not answer, which is a complete profile: gender is sensitive data
+   * and art. 6 of Ley 1581 forbids obliging anybody to authorise it. It used to be part of the
+   * completeness check below, which meant declining to give it locked the account out of the whole
+   * product.
+   */
+  readonly gender: Gender | null;
   readonly address: {
     readonly line: string;
     readonly city: string;
@@ -62,7 +68,6 @@ export const getProfile = cache(async (uid: string): Promise<Profile | null> => 
     !email ||
     !phone ||
     !phoneCountry ||
-    !gender ||
     !birthDate ||
     !line ||
     !city ||
@@ -77,7 +82,7 @@ export const getProfile = cache(async (uid: string): Promise<Profile | null> => 
     email,
     phone,
     phoneCountry,
-    gender: gender as Gender,
+    gender: gender as Gender | null,
     address: {
       line,
       city,

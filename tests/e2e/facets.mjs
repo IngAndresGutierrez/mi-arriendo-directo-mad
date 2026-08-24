@@ -1,5 +1,15 @@
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fillBirthdate, fixtures, MONTHS, ok, settled } from "./lib.mjs";
+import {
+  acceptLegalConsents,
+  BASE,
+  config,
+  createAccount,
+  fillBirthdate,
+  fixtures,
+  MONTHS,
+  ok,
+  settled,
+} from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
 
@@ -48,7 +58,7 @@ await p.getByLabel("Teléfono").fill("3001234567");
 await fillBirthdate(p, "10", MONTHS[Number("05") - 1], "1990");
 await p.getByLabel("Dirección", { exact: true }).fill("Calle 1 # 2-3");
 for (const [l, o] of [["Género", /Femenino/i], ["Departamento", /Caldas/], ["Ciudad", /^Manizales$/]]) { await p.getByLabel(l).click(); await p.getByRole("option", { name: o }).first().click(); }
-await p.getByRole("checkbox").click();
+await acceptLegalConsents(p);
 await p.getByRole("button", { name: /Guardar|Continuar/i }).click();
 await p.waitForURL(/\/inicio/, { timeout: 30000 });
 await settled(p);

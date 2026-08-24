@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { requireCompleteProfile } from "@/features/profile";
 import { applicationRoute } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
+import { currentVersion } from "@/shared/legal/documents";
 
 import { getApplicationFor } from "../data/application";
 
@@ -48,6 +49,16 @@ export async function authorizeBackgroundChecks(id: string): Promise<AuthorizeRe
     .doc(id)
     .update({
       checksAuthorizedAt: FieldValue.serverTimestamp(),
+      /*
+       * Which wording of the política de tratamiento this authorisation was given against.
+       *
+       * The same reason `clauseVersion` sits beside `acceptedClauseAt` on a signature: a date on
+       * its own answers *when* somebody authorised and says nothing about *what* they authorised,
+       * which is the half that matters once the policy has changed. Decreto 1074 art.
+       * 2.2.2.25.2.4 puts the burden of proving the authorisation on us, and a proof that cannot
+       * name what was authorised proves nothing.
+       */
+      checksAuthorizedVersion: currentVersion("privacy"),
       updatedAt: FieldValue.serverTimestamp(),
     });
 

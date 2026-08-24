@@ -53,9 +53,12 @@ service cloud.firestore {
       // The profile is written by the backend through the Admin SDK (the
       // `completeProfile` Server Action), which also sets the role custom claim. These
       // rules exist for the case where the client writes directly: same shape, validated.
+      // `gender` is **not** in `hasAll`: it is optional, because it is sensitive data under
+      // Ley 1581 art. 5 and nobody is obliged to authorise it (art. 6). It stays in `hasOnly`
+      // and in `validProfile`, so when it is present it is still one of the four known values.
       allow create: if isOwner(userId)
                     && incoming().keys().hasAll(
-                         ['fullName', 'email', 'phone', 'phoneCountry', 'gender',
+                         ['fullName', 'email', 'phone', 'phoneCountry',
                           'address', 'birthDate', 'role', 'termsAcceptedAt',
                           'createdAt'])
                     && incoming().keys().hasOnly(
@@ -85,8 +88,10 @@ service cloud.firestore {
             // countries, so the country cannot be derived from the number.
             && incoming().phoneCountry is string
             && incoming().phoneCountry.matches('^[A-Z]{2}$')
-            && incoming().gender in ['female', 'male', 'non_binary',
-                                     'prefer_not_to_say']
+            // Optional: absent is valid, present has to be one of the four.
+            && (!incoming().keys().hasAny(['gender'])
+                || incoming().gender in ['female', 'male', 'non_binary',
+                                         'prefer_not_to_say'])
             && incoming().address.line is string
             && incoming().address.line.size() >= 5
             && incoming().address.line.size() <= 160
@@ -109,6 +114,26 @@ service cloud.firestore {
                                    'employment_letter', 'bank_statement']
             && incoming().storagePath is string
             && incoming().storagePath.matches('^applicants/' + userId + '/.*');
+      }
+
+      /*
+       * What this person authorised, and when: `terms` and `privacy`, one document per version
+       * granted, append-only.
+       *
+       * **The owner may read and list their own, and that is not a convenience — it *is* the
+       * derecho de acceso** of Ley 1581 art. 8, lit. a. There is no filter to demand here the way
+       * `notifications` needs one: `userId` is a path segment, so the query is already bounded to
+       * one person by the path itself and the rule is verifiable without inspecting it.
+       *
+       * **No client writes, ever.** The authorisation is written by `completeProfile` through the
+       * Admin SDK, in the same batch as the profile, together with the ip and user agent of the
+       * request that granted it. A client that could write here could forge its own proof of
+       * consent, which is the one field in this whole product where that would matter — Decreto
+       * 1074 art. 2.2.2.25.2.4 puts the burden of proving the authorisation on us.
+       */
+      match /consents/{consentId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create, update, delete: if false;   // Server Actions only
       }
     }
 

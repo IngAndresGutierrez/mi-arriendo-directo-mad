@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import { GENDERS, MAX_AGE, MIN_AGE } from "../domain/profile";
+import { currentVersion } from "@/shared/legal/documents";
 import { DEPARTMENTS } from "@/shared/geo/colombia";
 import { isMunicipalityOf } from "@/shared/geo/municipalities";
 import { COUNTRY_ISO_CODES, phoneRuleFor } from "@/shared/phone/countries";
@@ -81,12 +82,12 @@ const colombianAddress = z
   });
 
 /**
- * The profile completed after the first sign-in.
+ * Who the person is: the block both the onboarding form and the profile page collect.
  *
  * The email is not here: it comes from the session, not from the form. A `uid` or an email
  * coming from the client cannot be trusted.
  */
-export const completeProfileSchema = z.object({
+export const accountDetailsSchema = z.object({
   fullName: z
     .string({ error: "Ingresa tu nombre completo" })
     .trim()
@@ -98,7 +99,24 @@ export const completeProfileSchema = z.object({
 
   phone,
 
-  gender: z.enum(GENDERS, { error: "Selecciona una opción" }),
+  /**
+   * **Optional, and that is a legal requirement rather than a kindness.**
+   *
+   * Gender is sensitive data under Ley 1581 de 2012, art. 5 — the list there is introduced by
+   * *"tales como"* and its actual criterion is data whose misuse can produce discrimination,
+   * which this plainly is. Art. 6 then says nobody may be *obliged* to authorise the processing
+   * of sensitive data. A required select is exactly that obligation, so the field asks and takes
+   * no answer for an answer. `domain/profile.ts` already called it sensitive; this is the rest of
+   * that sentence.
+   *
+   * "Prefiero no decirlo" stays as an option and means something different from leaving it empty:
+   * one is an answer, the other is declining to give the data at all. Neither is stored as a
+   * value the other could be confused with — an absent gender is an **absent field**.
+   */
+  gender: z
+    .enum(GENDERS, { error: "Selecciona una opción" })
+    .nullish()
+    .transform((value) => value ?? null),
 
   address: colombianAddress,
 
@@ -106,27 +124,68 @@ export const completeProfileSchema = z.object({
   birthDate: z
     .string({ error: "Elige tu fecha de nacimiento" })
     .min(1, { error: "Elige tu fecha de nacimiento" }),
+});
 
+/**
+ * Onboarding: the same details, plus the two authorisations it is the moment to ask for.
+ *
+ * **The details are the base and the authorisations are the extension**, which is the way round
+ * this used to be: `accountDetailsSchema` was `completeProfileSchema.omit({ acceptsTerms: true })`.
+ * Subtraction was the wrong direction — editing your own name is not a moment to re-accept
+ * anything, so what the two screens share is the details, and what onboarding adds is the consent.
+ */
+export const completeProfileSchema = accountDetailsSchema.extend({
   /**
-   * Mandatory consent.
+   * Accepting the contract.
    *
    * `z.boolean().refine(...)` and not `z.literal(true)`: the runtime rejection is identical,
    * but the **input** type stays `boolean`, and the form needs to start at `false`. With
    * `z.literal(true)` the default value would not compile.
    */
   acceptsTerms: z.boolean().refine((value) => value === true, {
-    error: "Debes aceptar los Términos y la Política de privacidad",
+    error: "Debes aceptar los Términos y condiciones",
   }),
-});
 
-/**
- * The same fields, minus the consent.
- *
- * Editing your own name is not a moment to re-accept the terms: they were accepted once, at
- * signup, and `termsAcceptedAt` records when. Asking again on every correction would make the
- * checkbox mean nothing.
- */
-export const accountDetailsSchema = completeProfileSchema.omit({ acceptsTerms: true });
+  /**
+   * Authorising the processing of personal data — **a separate answer, and this is the whole
+   * point of there being two.**
+   *
+   * These were one checkbox reading "Autorizo el tratamiento de mis datos personales y acepto los
+   * Términos". They are not one thing: accepting a contract is agreeing to what the parties owe
+   * each other, and authorising data processing is the act Ley 1581 requires, which has to be
+   * **free, prior, express and informed**. Bundling them means neither is expressly given — the
+   * person clicked once and the record cannot say which of the two they were answering.
+   *
+   * Both are still required, and that is not the same defect: what vitiates an authorisation is
+   * the bundling, not the requirement. The product genuinely cannot run without processing the
+   * data it is given, and it says so.
+   */
+  authorizesDataTreatment: z.boolean().refine((value) => value === true, {
+    error: "Debes autorizar el tratamiento de tus datos personales",
+  }),
+
+  /**
+   * Which version of each document is being authorised.
+   *
+   * Submitted by the form and pinned to the constant, exactly as `clauseVersion` is pinned to
+   * `SIGNATURE_CLAUSE_VERSION`: a tab left open across a policy change must not be able to record
+   * consent to a wording that no longer exists. It is also what makes the stored record
+   * reconstructible — Decreto 1074 art. 2.2.2.25.2.4 puts the burden of proving the authorisation
+   * on us, and a proof that does not name what was authorised proves nothing.
+   */
+  termsVersion: z.coerce
+    .number()
+    .int()
+    .refine((value) => value === currentVersion("terms"), {
+      error: "Los Términos cambiaron. Recarga la página para ver la versión vigente.",
+    }),
+  privacyVersion: z.coerce
+    .number()
+    .int()
+    .refine((value) => value === currentVersion("privacy"), {
+      error: "La Política cambió. Recarga la página para ver la versión vigente.",
+    }),
+});
 
 export type AccountDetailsValues = z.output<typeof accountDetailsSchema>;
 export type AccountDetailsFormValues = z.input<typeof accountDetailsSchema>;
@@ -136,7 +195,8 @@ export type CompleteProfileInput = z.output<typeof completeProfileSchema>;
 
 /**
  * What the form handles (before transformation). It differs from the output: the number is
- * normalized and consent starts at `false`.
+ * normalized, the two consents start at `false` and an unanswered gender is `undefined` rather
+ * than `null`.
  */
 export type CompleteProfileFormValues = z.input<typeof completeProfileSchema>;
 

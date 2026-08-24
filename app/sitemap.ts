@@ -1,7 +1,15 @@
 import type { MetadataRoute } from "next";
 
 import { listAvailableProperties } from "@/features/property";
-import { LOGIN_ROUTE, PROPERTIES_ROUTE, propertyDetailRoute, SUPPORT_ROUTE } from "@/shared/auth/routes";
+import {
+  COOKIES_ROUTE,
+  LOGIN_ROUTE,
+  PRIVACY_ROUTE,
+  PROPERTIES_ROUTE,
+  propertyDetailRoute,
+  SUPPORT_ROUTE,
+  TERMS_ROUTE,
+} from "@/shared/auth/routes";
 import { metadataOrigin } from "@/shared/lib/site-url";
 
 /**
@@ -56,6 +64,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     },
     { url: `${origin}${LOGIN_ROUTE}`, changeFrequency: "monthly", priority: 0.5 },
     { url: `${origin}${SUPPORT_ROUTE}`, changeFrequency: "yearly", priority: 0.3 },
+    /*
+     * The three legal documents, and they belong here rather than being merely reachable.
+     *
+     * A policy nobody can find is not published, which is half of the point of Ley 1480 art. 50
+     * for an e-commerce provider — and both Fincaraíz and Metrocuadrado index theirs. They are
+     * also what somebody checking whether this product is real goes looking for, and a search
+     * result is where they look first. Low priority and `yearly`, which is the truth about a
+     * document whose version only moves when the policy does.
+     */
+    { url: `${origin}${TERMS_ROUTE}`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${origin}${PRIVACY_ROUTE}`, changeFrequency: "yearly", priority: 0.3 },
+    { url: `${origin}${COOKIES_ROUTE}`, changeFrequency: "yearly", priority: 0.3 },
   ];
 
   let published: readonly Awaited<ReturnType<typeof listAvailableProperties>>[number][] = [];

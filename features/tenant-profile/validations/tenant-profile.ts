@@ -74,6 +74,23 @@ export const tenantDossierSchema = z
     hasPets: z.coerce.boolean(),
     petsDescription: z.string().trim().max(160, "Resúmelo en menos palabras.").default(""),
     reference,
+
+    /**
+     * **The reference is somebody else, and they never authorised anything.**
+     *
+     * This is the one place in the product where a person hands us a third party's name and phone
+     * number. Ley 1581 requires the authorisation of the *titular* of the data, and the titular
+     * here is the reference — not the tenant filling the form. We cannot obtain it directly
+     * (Decreto 1074 art. 2.2.2.25.2.7 anticipates exactly this: data collected from someone other
+     * than the titular), so what we can do is make the tenant state that they have it, which puts
+     * the declaration on the record and tells them the obligation exists.
+     *
+     * Required, like the two authorisations at onboarding: the field cannot be submitted without
+     * it, because the alternative is holding a stranger's phone number on nobody's authority.
+     */
+    referenceAuthorized: z.boolean().refine((value) => value === true, {
+      error: "Confirma que tu referencia sabe que vas a dar sus datos",
+    }),
   })
   .superRefine((value, ctx) => {
     // Validated per country: the rule for a Colombian mobile is not the rule for a US one.

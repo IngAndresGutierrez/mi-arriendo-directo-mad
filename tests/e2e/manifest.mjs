@@ -31,9 +31,32 @@ export const COVERS = {
    * llevan SEO, y el portal, que no — por eso `app/(app)/layout` está en la lista, porque es el
    * archivo de una línea del que sale el `noindex` de todas esas pantallas.
    */
+  /*
+   * Las tres páginas legales, el pie que las alcanza y el banner de cookies.
+   *
+   * `shared/legal/` está aquí porque de ahí sale la identidad del Responsable, que es lo que el
+   * driver afirma sobre el texto que recibe un desconocido. `app/public-chrome.tsx` también:
+   * el pie vive dentro del `main` que scrollea el catálogo, y ese equilibrio es lo que este
+   * driver protege.
+   */
+  legal: [
+    "app/terminos/",
+    "app/privacidad/",
+    "app/cookies/",
+    "app/legal-chrome.tsx",
+    "app/public-chrome.tsx",
+    "app/(public)/inmuebles",
+    "features/legal/",
+    "shared/legal/",
+    "shared/shell/legal-footer",
+  ],
   seo: [
     "app/robots.ts",
     "app/sitemap.ts",
+    // El sitemap lista las tres páginas legales, así que moverlas es un cambio de SEO.
+    "app/terminos/",
+    "app/privacidad/",
+    "app/cookies/",
     "app/opengraph-image",
     "app/layout.tsx",
     "app/(app)/layout.tsx",
@@ -178,6 +201,14 @@ export const SELECTS_EVERY_DRIVER = [
   "shared/format/",
   "app/globals.css",
   "app/layout.tsx",
+  /*
+   * `shared/legal/` es un primitivo compartido, y mapearlo a mano sería el error que este bloque
+   * documenta dos veces: de ahí salen la identidad del Responsable (el pie, en todas las páginas
+   * públicas), el aviso de privacidad (cuatro formularios de tres módulos distintos) y las
+   * versiones que el onboarding envía. Una lista escrita a mano está mal el día que alguien lo use
+   * en un sitio nuevo.
+   */
+  "shared/legal/",
 ];
 
 export function driversFor(changedPaths) {

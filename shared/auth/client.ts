@@ -16,6 +16,34 @@ import {
 
 import { auth } from "@/shared/firebase/auth";
 
+/*
+ * ── Whether a deliberate sign-out is in flight ───────────────────────────────────────────────
+ *
+ * `signOutUser()` revokes the refresh tokens on the server **before** dropping the SDK's
+ * credential, and that order is deliberate: the authoritative session is the cookie, so it dies
+ * first — if the `DELETE` failed after `signOut(auth)` had already run, the server would still
+ * think the person was signed in and the next page load would rebuild the client session from the
+ * cookie it never cleared.
+ *
+ * The cost of that order is a window. Any `onSnapshot` still attached — the notification bell, the
+ * process page, the tenancy page — is answered `permission-denied` by a backend that has just been
+ * told this token is no longer valid. **That is the session ending, not a rule denying anything**,
+ * and logging it as an error is worse than useless: it sent a real diagnosis through the deployed
+ * rules, the composite indexes and the shape of 70 production documents before landing on "the user
+ * pressed Cerrar sesión".
+ *
+ * A module-level flag and not an `onAuthStateChanged` listener, because the ordering is the whole
+ * problem: `auth.currentUser` is still set at the moment of the denial, so asking the SDK cannot
+ * tell this apart from a genuine one.
+ */
+let signingOut = false;
+
+/** For a subscription deciding whether a denial is worth reporting. */
+export function isSigningOut(): boolean {
+  return signingOut;
+}
+
+
 /**
  * Exchanges the freshly issued idToken for an httpOnly session cookie.
  *
@@ -37,6 +65,10 @@ async function createServerSession(credential: UserCredential): Promise<void> {
     await signOut(auth).catch(() => undefined);
     throw new Error("No pudimos crear la sesión. Inténtalo de nuevo.");
   }
+
+  // Signing back in without a full reload has to clear the flag, or a genuine denial after it
+  // would be swallowed for the rest of the tab's life.
+  signingOut = false;
 }
 
 export async function signInWithEmail(email: string, password: string): Promise<void> {
@@ -96,6 +128,8 @@ export async function sendPasswordReset(email: string): Promise<void> {
 }
 
 export async function signOutUser(): Promise<void> {
+  // Set before the revoke, not after: the denial arrives inside that call, not once it returns.
+  signingOut = true;
   await fetch("/api/session", { method: "DELETE" });
   await signOut(auth);
 }
@@ -126,7 +160,10 @@ export async function ensureClientSession(): Promise<User | null> {
     });
   });
 
-  if (restored) return restored;
+  if (restored) {
+    signingOut = false;
+    return restored;
+  }
 
   try {
     const response = await fetch("/api/session/token", { method: "POST" });
@@ -136,6 +173,7 @@ export async function ensureClientSession(): Promise<User | null> {
     if (!token) return null;
 
     const credential = await signInWithCustomToken(auth, token);
+    signingOut = false;
 
     return credential.user;
   } catch {

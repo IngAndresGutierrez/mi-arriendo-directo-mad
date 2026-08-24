@@ -5,6 +5,7 @@ import { getSessionUser } from "@/shared/auth/session";
 import { LOGIN_ROUTE, PROPERTIES_ROUTE, SUPPORT_ROUTE } from "@/shared/auth/routes";
 import { Logo } from "@/shared/brand/logo";
 import { AccountMenu } from "@/shared/shell/account-menu";
+import { LegalFooter } from "@/shared/shell/legal-footer";
 import { Button } from "@/shared/ui/button";
 import { TooltipProvider } from "@/shared/ui/tooltip";
 
@@ -80,8 +81,17 @@ export async function PublicChrome({
           </div>
         </header>
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 lg:min-h-0 lg:overflow-y-auto lg:py-6">
+        {/*
+          `lg:flex lg:flex-col` is what lets the footer coexist with the catalogue's fixed frame.
+          The footer goes **inside** `main` — outside it, and `fixed inset-0` would pin it across
+          the bottom of the page — but the catalogue claims `lg:flex-1` rather than `lg:h-full`, so
+          the two share the height instead of the footer pushing `main` into scrolling. That
+          matters: scrolling `main` scrolls the facets out of view, and a filter you cannot see is
+          a filter you forget you applied.
+        */}
+        <main className="mx-auto flex w-full max-w-6xl flex-1 flex-col px-6 py-8 lg:min-h-0 lg:overflow-y-auto lg:py-6">
           {children}
+          <LegalFooter />
         </main>
       </div>
     </TooltipProvider>

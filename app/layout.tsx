@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-import { Analytics } from "@/shared/analytics";
+import { ConsentGate } from "@/features/legal/client";
 import { metadataOrigin } from "@/shared/lib/site-url";
 
 const geistSans = Geist({
@@ -63,7 +63,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     >
       <body className="min-h-full flex flex-col">
         {children}
-        <Analytics />
+        {/*
+          Analytics used to mount here unconditionally, on every public page, for a visitor who
+          had been asked nothing. `ConsentGate` renders it only with an authorisation, and renders
+          the cookie banner while there is no decision. It reads the cookie in the browser on
+          purpose: reading `cookies()` here would make every route in the product dynamic,
+          including the catalogue and a listing's detail.
+        */}
+        <ConsentGate />
       </body>
     </html>
   );

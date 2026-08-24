@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
-import { ensureClientSession } from "@/shared/auth/client";
+import { ensureClientSession, isSigningOut } from "@/shared/auth/client";
 
 /**
  * Re-renders the page on the server whenever a document it depends on changes.
@@ -56,7 +56,13 @@ export function useLiveRefresh(path: string, version: string): void {
         // it just stops updating on its own.
         // El código además del mensaje: `permission-denied`, `failed-precondition` (índice) y
         // `unauthenticated` se arreglan en sitios distintos, y el mensaje solo no los distingue.
-        (error) => console.error("live updates stopped:", error.code, error.message),
+        (error) => {
+          // Igual que en la campana: al cerrar sesión los tokens se revocan antes de que el SDK
+          // suelte la credencial, así que este rechazo es el final de la sesión, no una regla.
+          if (isSigningOut()) return;
+
+          console.error("live updates stopped:", error.code, error.message);
+        },
       );
     })();
 

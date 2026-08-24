@@ -38,6 +38,12 @@ export async function saveTenantProfile(formData: FormData): Promise<SaveTenantP
     .set(
       {
         ...toStoredDossier(parsed.data),
+        /*
+         * When the tenant declared they have their reference's permission to give us that phone
+         * number. A date and not a flag: it is part of the record, and the schema already refuses
+         * to parse a dossier without the declaration, so reaching here means it was given.
+         */
+        referenceAuthorizedAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
         createdAt: FieldValue.serverTimestamp(),
       },

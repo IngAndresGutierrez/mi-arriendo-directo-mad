@@ -141,7 +141,27 @@ export async function launch() {
  *
  * Se le quita la intercepción, no la visibilidad: si el overlay sale, sigue saliendo en la
  * captura, que es donde una persona lo va a ver.
+ *
+ * **Y lo mismo con el banner de cookies**, por la misma razón y con la misma solución. Es
+ * `fixed bottom-0 z-50`, así que hasta que alguien lo responde tapa los últimos ochenta píxeles de
+ * cualquier pantalla — lo cual está bien en el producto, se contesta una vez, pero deja a los
+ * treinta y ocho drivers que no van de cookies peleando con "subtree intercepts pointer events" en
+ * cada botón del pie de un formulario. Se le quita la intercepción y se queda visible, que es lo que
+ * hace que siga apareciendo en las capturas.
+ *
+ * `legal.mjs` sí va de eso y necesita pulsarlo: `keepCookieBanner(page)` lo exime.
  */
+const wantsBanner = new WeakSet();
+
+/**
+ * Deja el banner de cookies pulsable en esta página.
+ *
+ * Solo `legal.mjs`, que es el driver cuyo asunto es. Se llama **antes** del primer `settled()`.
+ */
+export function keepCookieBanner(page) {
+  wantsBanner.add(page);
+}
+
 const defused = new WeakSet();
 async function defuseDevOverlay(page) {
   // Una vez por página, no por navegación. Meterlo en cada `settled()` inyectaba un `<style>`
@@ -149,15 +169,20 @@ async function defuseDevOverlay(page) {
   // 74s a 104s y se quedó sin tiempo esperando que se habilitara "Continuar a".
   if (defused.has(page)) return;
   defused.add(page);
+
+  /* Un solo `<style>` para las dos cosas: una llamada al protocolo, no dos. */
+  const neutralise = wantsBanner.has(page)
+    ? "nextjs-portal { pointer-events: none !important; }"
+    : 'nextjs-portal, [aria-label="Uso de cookies"] { pointer-events: none !important; }';
   // `addInitScript` corre en cada documento que cargue la página, así que sobrevive a las
   // navegaciones y a los `reload()` sin volver a tocar el DOM desde fuera.
   await page
-    .addInitScript(() => {
+    .addInitScript((css) => {
       const put = () => {
         if (document.getElementById("mad-e2e-defuse")) return;
         const style = document.createElement("style");
         style.id = "mad-e2e-defuse";
-        style.textContent = "nextjs-portal { pointer-events: none !important; }";
+        style.textContent = css;
         document.head?.append(style);
       };
       if (document.readyState === "loading") {
@@ -165,12 +190,10 @@ async function defuseDevOverlay(page) {
       } else {
         put();
       }
-    })
+    }, neutralise)
     .catch(() => {});
   // La página actual ya está cargada, así que el init script no la alcanza: se aplica a mano.
-  await page
-    .addStyleTag({ content: "nextjs-portal { pointer-events: none !important; }" })
-    .catch(() => {});
+  await page.addStyleTag({ content: neutralise }).catch(() => {});
 }
 
 export function watch(page, label, problems) {
@@ -215,6 +238,41 @@ export async function openSession(
   return page;
 }
 
+/**
+ * Las dos autorizaciones del onboarding.
+ *
+ * **Antes cada driver hacía `getByRole("checkbox").click()`**, que valía mientras hubiera una sola
+ * casilla. Aceptar los Términos y autorizar el tratamiento de datos son actos distintos —el segundo
+ * tiene que ser expreso— y el formulario los pide aparte, así que un selector sin ámbito ahora
+ * encuentra dos y falla por ambigüedad: treinta y cinco drivers rojos a la vez, y ninguno por un
+ * fallo del producto.
+ *
+ * Por id y no con `.first()`: `.first()` es una suposición sobre el orden del documento, no una
+ * afirmación sobre cuál de las dos casillas se quiere. Las dos son obligatorias, de modo que dejar
+ * una sin marcar no deja pasar el formulario — y eso es lo que este helper garantiza en un solo
+ * sitio la próxima vez que el bloque cambie.
+ */
+export async function acceptLegalConsents(page) {
+  for (const id of ["acceptsTerms", "authorizesDataTreatment"]) {
+    await page.locator(`#${id}`).click();
+  }
+}
+
+/**
+ * La declaración de que la referencia autorizó dar sus datos.
+ *
+ * Es el único campo del producto donde alguien entrega el nombre y el teléfono de **otra persona**,
+ * que nunca autorizó nada: la Ley 1581 exige la autorización del titular, y el titular ahí es la
+ * referencia. El formulario no se envía sin ella, así que doce drivers que rellenaban el dossier se
+ * quedaron esperando una navegación que ya no iba a ocurrir.
+ *
+ * Se pide de nuevo en cada guardado, a diferencia de los Términos: la casilla habla del número que
+ * está en el campo de al lado, y ese campo se puede editar.
+ */
+export async function declareReferenceAuthorized(page) {
+  await page.locator("#referenceAuthorized").click();
+}
+
 export async function completeProfile(page, { name, city = "Manizales", department = "Caldas" }) {
   await hydrated(page);
   await page.getByLabel("Nombre completo").fill(name);
@@ -229,7 +287,7 @@ export async function completeProfile(page, { name, city = "Manizales", departme
     await page.getByLabel(label).click();
     await page.getByRole("option", { name: option }).first().click();
   }
-  await page.getByRole("checkbox").click();
+  await acceptLegalConsents(page);
   await page.getByRole("button", { name: /Guardar|Continuar/i }).click();
   await page.waitForURL(/\/inicio/, { timeout: 30000 });
   await settled(page);

@@ -69,7 +69,7 @@ export default async function CatalogPage(props: CatalogProps) {
    * that is actually waiting on Firestore.
    */
   return (
-    <div className="lg:flex lg:h-full lg:flex-col lg:overflow-hidden">
+    <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
       <h1 className="text-3xl font-semibold tracking-tight text-balance text-primary sm:text-4xl dark:text-foreground">
         {filters.city ? `Arriendos en ${filters.city}` : "Encuentra tu próximo hogar"}
       </h1>

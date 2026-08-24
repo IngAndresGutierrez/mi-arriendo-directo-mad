@@ -13,6 +13,7 @@
 import { chromium } from "playwright";
 
 import {
+  acceptLegalConsents,
   adminDb,
   adminFieldValue,
   assertNoHorizontalScroll,
@@ -20,6 +21,7 @@ import {
   BASE,
   config,
   createAccount,
+  declareReferenceAuthorized,
   fixtures,
   leaseTab,
   MONTHS,
@@ -90,7 +92,7 @@ async function entrar(email, nombre) {
     await p.getByLabel(l).click();
     await p.getByRole("option", { name: o }).first().click();
   }
-  await p.getByRole("checkbox").click();
+  await acceptLegalConsents(p);
   await p.getByRole("button", { name: /Guardar|Continuar|Finalizar/i }).click();
   await p.waitForURL(/\/inicio/, { timeout: 30000 });
   await settled(p);
@@ -199,6 +201,7 @@ await inq.getByLabel("Personas que vivirían ahí").fill("2");
 await inq.getByLabel("Nombre de tu referencia").fill("Carolina Restrepo");
 await inq.getByLabel("Qué relación tienen").fill("Jefe directo");
 await inq.getByLabel("Teléfono de tu referencia").fill("3009876543");
+await declareReferenceAuthorized(inq);
 await inq
   .getByLabel("Cuándo te mudarías")
   .fill(new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10));

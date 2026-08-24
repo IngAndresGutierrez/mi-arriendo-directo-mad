@@ -1,6 +1,14 @@
 /** El header público con sesión: Contacto siempre, y la cuenta en vez de "Iniciar sesión". */
 import { chromium } from "playwright";
-import { BASE, config, createAccount, MONTHS, ok, settled } from "./lib.mjs";
+import {
+  acceptLegalConsents,
+  BASE,
+  config,
+  createAccount,
+  MONTHS,
+  ok,
+  settled,
+} from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
 const email = `header-${STAMP}@miarriendodirecto.test`;
@@ -15,10 +23,10 @@ p.on("pageerror", (e) => problemas.push(String(e)));
 // ---------- sin sesión ----------
 await p.goto(BASE + "/inmuebles", { waitUntil: "domcontentloaded" });
 await settled(p);
-if (!(await p.getByRole("link", { name: "Contacto" }).count())) throw new Error("falta Contacto sin sesión");
+if (!(await p.getByRole("banner").getByRole("link", { name: "Contacto" }).count())) throw new Error("falta Contacto sin sesión");
 if (!(await p.getByRole("link", { name: /Iniciar sesión/ }).count())) throw new Error("falta Iniciar sesión sin sesión");
 ok("sin sesión: Contacto e Iniciar sesión");
-await p.getByRole("link", { name: "Contacto" }).click();
+await p.getByRole("banner").getByRole("link", { name: "Contacto" }).click();
 await p.waitForURL(/\/soporte$/, { timeout: 20000 });
 await settled(p);
 if (!(await p.getByRole("heading", { name: "Soporte" }).count())) throw new Error("soporte no abre sin sesión");
@@ -44,7 +52,7 @@ for (const [label, option] of [["Género", /Femenino/i], ["Departamento", /Calda
   await p.getByLabel(label).click();
   await p.getByRole("option", { name: option }).first().click();
 }
-await p.getByRole("checkbox").click();
+await acceptLegalConsents(p);
 await p.getByRole("button", { name: /Guardar|Continuar|Finalizar/i }).click();
 await p.waitForURL(/\/inicio/, { timeout: 30000 });
 await settled(p);
@@ -54,7 +62,7 @@ for (const ruta of ["/inmuebles", "/soporte"]) {
   await settled(p);
   if (ruta === "/inmuebles") {
     if (await p.getByRole("link", { name: /Iniciar sesión/ }).count()) throw new Error(`${ruta} ofrece iniciar sesión estando dentro`);
-    if (!(await p.getByRole("link", { name: "Contacto" }).count())) throw new Error(`${ruta} perdió Contacto`);
+    if (!(await p.getByRole("banner").getByRole("link", { name: "Contacto" }).count())) throw new Error(`${ruta} perdió Contacto`);
     if (!(await p.getByRole("button", { name: /Tu cuenta/ }).count())) throw new Error(`${ruta} no muestra la cuenta`);
     ok(`${ruta}: Contacto y la cuenta, sin "Iniciar sesión"`);
   } else {

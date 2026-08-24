@@ -1,6 +1,14 @@
 /** Los dos textos largos del formulario ahora viven en un tooltip: ni se ven de más, ni se pierden. */
 import { chromium } from "playwright";
-import { BASE, config, createAccount, MONTHS, ok, settled } from "./lib.mjs";
+import {
+  acceptLegalConsents,
+  BASE,
+  config,
+  createAccount,
+  MONTHS,
+  ok,
+  settled,
+} from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
 const email = `hint-${STAMP}@miarriendodirecto.test`;
@@ -33,7 +41,7 @@ for (const [label, option] of [["Género", /Femenino/i], ["Departamento", /Calda
   await p.getByLabel(label).click();
   await p.getByRole("option", { name: option }).first().click();
 }
-await p.getByRole("checkbox").click();
+await acceptLegalConsents(p);
 await p.getByRole("button", { name: /Guardar|Continuar|Finalizar/i }).click();
 await p.waitForURL(/\/inicio/, { timeout: 30000 });
 await settled(p);

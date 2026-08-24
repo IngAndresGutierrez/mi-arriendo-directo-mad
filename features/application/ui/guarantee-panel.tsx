@@ -180,7 +180,17 @@ export function GuaranteePanel({
         <div className="rounded-xl border border-border bg-background p-4">
           <div className="flex items-start justify-between gap-4">
             <div className="min-w-0">
-              <Label htmlFor="guarantee-required" className="block text-sm font-medium">
+              {/*
+                `id` + `aria-labelledby` on the switch, because `htmlFor` alone does not name it:
+                a Radix `Switch` is a `<button role="switch">` and a button takes its accessible
+                name from its own subtree, so this control was announced as an unnamed switch —
+                on the one screen where the landlord decides whether the lease has a policy.
+              */}
+              <Label
+                id="guarantee-required-label"
+                htmlFor="guarantee-required"
+                className="block text-sm font-medium"
+              >
                 Este arriendo lleva póliza de arrendamiento
               </Label>
               <p className="mt-1 text-sm text-muted-foreground">
@@ -190,6 +200,7 @@ export function GuaranteePanel({
             </div>
             <Switch
               id="guarantee-required"
+              aria-labelledby="guarantee-required-label"
               checked={!waived}
               disabled={pending}
               aria-describedby={waived ? "guarantee-waived-note" : undefined}

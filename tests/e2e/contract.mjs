@@ -6,7 +6,20 @@
  */
 import { chromium } from "playwright";
 import { existsSync, readFileSync } from "node:fs";
-import { adminDb, adminFieldValue, adminStorage, BASE, config, createAccount, fixtures, MONTHS, ok, settled } from "./lib.mjs";
+import {
+  acceptLegalConsents,
+  adminDb,
+  adminFieldValue,
+  adminStorage,
+  BASE,
+  config,
+  createAccount,
+  declareReferenceAuthorized,
+  fixtures,
+  MONTHS,
+  ok,
+  settled,
+} from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2, pdf: PDF } = fixtures();
 
@@ -238,7 +251,7 @@ async function entrar(email, nombre) {
     await p.getByLabel(l).click();
     await p.getByRole("option", { name: o }).first().click();
   }
-  await p.getByRole("checkbox").click();
+  await acceptLegalConsents(p);
   await p.getByRole("button", { name: /Guardar|Continuar|Finalizar/i }).click();
   await p.waitForURL(/\/inicio/, { timeout: 30000 });
 await settled(p);
@@ -289,6 +302,7 @@ await inq.getByLabel("Personas que vivirían ahí").fill("2");
 await inq.getByLabel("Nombre de tu referencia").fill("Carolina Restrepo");
 await inq.getByLabel("Qué relación tienen").fill("Jefe directo");
 await inq.getByLabel("Teléfono de tu referencia").fill("3009876543");
+await declareReferenceAuthorized(inq);
 await inq.getByLabel("Cuándo te mudarías").fill(new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10));
 await inq.getByRole("button", { name: /Enviar postulación/i }).click();
 await inq.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 40000 });

@@ -54,6 +54,26 @@ export const TENANT_PROFILE_ROUTE = "/perfil-inquilino";
  * two channels need room to say what each one is good for.
  */
 export const SUPPORT_ROUTE = "/soporte";
+
+/**
+ * The three legal documents.
+ *
+ * They live outside both route groups — like `/soporte` — and pick their chrome from the session,
+ * because a policy has to be readable with an account and without one. Two of them were already
+ * linked from the signup and the onboarding screens and answered 404 for as long as those links
+ * existed.
+ */
+export const TERMS_ROUTE = "/terminos";
+export const PRIVACY_ROUTE = "/privacidad";
+export const COOKIES_ROUTE = "/cookies";
+
+/**
+ * Where the procedure for consultas and reclamos is written, inside the privacy policy.
+ *
+ * An anchor and not a page of its own: the deadlines of art. 14 and 15 only mean anything beside
+ * the rights they apply to, and a separate page would be a second place for them to drift.
+ */
+export const PRIVACY_RIGHTS_ANCHOR = `${PRIVACY_ROUTE}#derechos`;
 /** Editing one of them. Keyed by id, not by slug: the slug is what the edit may change. */
 export function editPropertyRoute(id: string): string {
   return `${MY_PROPERTIES_ROUTE}/${id}/editar`;

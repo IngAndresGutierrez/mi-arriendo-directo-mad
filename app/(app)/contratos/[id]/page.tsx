@@ -57,6 +57,7 @@ import { stageAnchor } from "@/features/notification";
 import { getOwnedProperty, getPropertyLocation } from "@/features/property";
 import { DOCUMENT_TYPE_LABELS } from "@/features/tenant-profile/client";
 import { CONTRACTS_ROUTE, propertyDetailRoute, rentalRoute } from "@/shared/auth/routes";
+import { PrivacyNotice } from "@/shared/legal/privacy-notice";
 import { Button } from "@/shared/ui/button";
 import { formatLongDate } from "@/shared/format/date";
 import { formatCOP } from "@/shared/format/money";
@@ -360,14 +361,27 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
                   readOnly={past("tenant_data")}
                 />
               ) : (
-                <DocumentChecklist
-                  occupation={application.dossier.occupation}
-                  documents={documents}
-                  reviews={application.documentReviews}
-                  // Nudges the application so the landlord's screen learns a file arrived.
-                  onChanged={touchApplicationDocuments.bind(null, application.id)}
-                  readOnly={past("tenant_data")}
-                />
+                <>
+                  {/*
+                    El aviso de privacidad donde se sube la cédula, que es la recolección más
+                    sensible del producto. El artículo 2.2.2.25.3.2 del Decreto 1074 lo pide en el
+                    punto de recolección, y este es un punto de recolección distinto del perfil: son
+                    otros archivos y otra pantalla. Solo del lado del inquilino — es quien entrega
+                    los datos; al propietario no se le está pidiendo nada aquí.
+                  */}
+                  <PrivacyNotice
+                    purpose="que este propietario verifique lo que declaraste en tu postulación"
+                    className="mb-4"
+                  />
+                  <DocumentChecklist
+                    occupation={application.dossier.occupation}
+                    documents={documents}
+                    reviews={application.documentReviews}
+                    // Nudges the application so the landlord's screen learns a file arrived.
+                    onChanged={touchApplicationDocuments.bind(null, application.id)}
+                    readOnly={past("tenant_data")}
+                  />
+                </>
               ),
             },
             interview: {

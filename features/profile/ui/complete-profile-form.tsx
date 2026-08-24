@@ -6,12 +6,14 @@ import Link from "next/link";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
+import { ConsentCheckbox } from "@/shared/form/consent-checkbox";
 import { FormAlert } from "@/shared/form/form-alert";
 import { SubmitButton } from "@/shared/form/submit-button";
-import { Checkbox } from "@/shared/ui/checkbox";
+import { PRIVACY_ROUTE, TERMS_ROUTE } from "@/shared/auth/routes";
+import { currentVersion } from "@/shared/legal/documents";
+import { PrivacyNotice } from "@/shared/legal/privacy-notice";
 
 import { AccountFields } from "./account-fields";
-import { Label } from "@/shared/ui/label";
 
 import { DEFAULT_COUNTRY_ISO } from "@/shared/phone/countries";
 import {
@@ -31,6 +33,9 @@ const FIELD_NAMES = [
   "address",
   "birthDate",
   "acceptsTerms",
+  "authorizesDataTreatment",
+  "termsVersion",
+  "privacyVersion",
 ] as const;
 
 type FieldName = (typeof FIELD_NAMES)[number];
@@ -56,6 +61,14 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
       address: { line: "", city: "", department: undefined },
       birthDate: "",
       acceptsTerms: false,
+      authorizesDataTreatment: false,
+      /*
+       * The version being agreed to travels with the answer, and the schema pins it to the
+       * constant — a tab left open across a policy change cannot record consent to a wording that
+       * no longer exists. Same guard as `clauseVersion` on the electronic signature.
+       */
+      termsVersion: currentVersion("terms"),
+      privacyVersion: currentVersion("privacy"),
     },
   });
 
@@ -75,12 +88,16 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
     formData.set("fullName", values.fullName);
     formData.set("phone.country", values.phone.country);
     formData.set("phone.national", values.phone.national);
-    formData.set("gender", values.gender);
+    // Only sent when answered: an unanswered sensitive field must not travel as "".
+    if (values.gender) formData.set("gender", values.gender);
     formData.set("address.line", values.address.line);
     formData.set("address.city", values.address.city);
     formData.set("address.department", values.address.department);
     formData.set("birthDate", values.birthDate);
     formData.set("acceptsTerms", String(values.acceptsTerms));
+    formData.set("authorizesDataTreatment", String(values.authorizesDataTreatment));
+    formData.set("termsVersion", String(values.termsVersion));
+    formData.set("privacyVersion", String(values.privacyVersion));
 
     const result = await completeProfile(formData);
 
@@ -120,44 +137,61 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
 
       <AccountFields disabled={isSaving} />
 
-      <div className="space-y-2">
-        <div className="flex items-start gap-3">
-          <Controller
-            control={control}
-            name="acceptsTerms"
-            render={({ field }) => (
-              <Checkbox
-                id="acceptsTerms"
-                checked={field.value}
-                onCheckedChange={(checked) => field.onChange(checked === true)}
-                disabled={isSaving}
-                aria-invalid={errors.acceptsTerms ? true : undefined}
-                aria-describedby={errors.acceptsTerms ? "acceptsTerms-error" : undefined}
-                className="mt-0.5"
-              />
-            )}
-          />
-          {/*
-            `block`: shadcn's Label ships `flex`, which turns the text and the links into
-            flex items that stack instead of flowing as a paragraph.
-          */}
-          <Label htmlFor="acceptsTerms" className="block text-sm leading-relaxed font-normal">
-            Autorizo el tratamiento de mis datos personales y acepto los{" "}
-            <Link href="/terminos" className="underline underline-offset-2">
-              Términos y condiciones
-            </Link>{" "}
-            y la{" "}
-            <Link href="/privacidad" className="underline underline-offset-2">
-              Política de privacidad
-            </Link>
-            .
-          </Label>
-        </div>
-        {errors.acceptsTerms ? (
-          <p id="acceptsTerms-error" className="text-sm text-destructive">
-            {errors.acceptsTerms.message}
-          </p>
-        ) : null}
+      {/*
+        The aviso de privacidad, at the point of collection — Decreto 1074 art. 2.2.2.25.3.2 asks
+        for it "a más tardar al momento de la recolección", which is this screen and not a link
+        somewhere.
+      */}
+      <PrivacyNotice purpose="crear tu cuenta, identificarte ante la otra parte de un arriendo y comunicarnos contigo" />
+
+      {/*
+        **Two answers, not one.** This was a single checkbox reading "Autorizo el tratamiento de
+        mis datos personales y acepto los Términos". Accepting a contract and authorising the
+        processing of personal data are different acts, and the second one has to be express
+        (Ley 1581 art. 9) — bundled with the first, the record cannot say which of the two was
+        being answered. Both are still required; what vitiated the authorisation was the bundling,
+        not the requirement.
+      */}
+      <div className="space-y-3">
+        <Controller
+          control={control}
+          name="acceptsTerms"
+          render={({ field }) => (
+            <ConsentCheckbox
+              id="acceptsTerms"
+              checked={field.value}
+              onCheckedChange={field.onChange}
+              disabled={isSaving}
+              error={errors.acceptsTerms?.message}
+            >
+              Acepto los{" "}
+              <Link href={TERMS_ROUTE} className="underline underline-offset-2">
+                Términos y condiciones
+              </Link>
+              .
+            </ConsentCheckbox>
+          )}
+        />
+
+        <Controller
+          control={control}
+          name="authorizesDataTreatment"
+          render={({ field }) => (
+            <ConsentCheckbox
+              id="authorizesDataTreatment"
+              checked={field.value}
+              onCheckedChange={field.onChange}
+              disabled={isSaving}
+              error={errors.authorizesDataTreatment?.message}
+            >
+              Autorizo el tratamiento de mis datos personales en los términos de la{" "}
+              <Link href={PRIVACY_ROUTE} className="underline underline-offset-2">
+                Política de tratamiento de datos personales
+              </Link>
+              .
+            </ConsentCheckbox>
+          )}
+        />
       </div>
 
       <SubmitButton loading={isSaving} loadingLabel="Guardando…">

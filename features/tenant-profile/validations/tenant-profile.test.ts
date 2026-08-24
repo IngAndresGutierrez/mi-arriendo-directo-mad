@@ -17,6 +17,7 @@ const valid: TenantDossierInput = {
     phone: "3001234567",
     relationship: "Jefe directo",
   },
+  referenceAuthorized: true,
 };
 
 const parse = (overrides: Partial<TenantDossierInput> = {}) =>
@@ -32,6 +33,33 @@ function errorFor(result: ReturnType<typeof parse>, path: string): string | unde
 describe("tenantDossierSchema", () => {
   it("accepts a complete dossier", () => {
     expect(parse().success).toBe(true);
+  });
+
+  /**
+   * **The reference is a third party who never authorised anything.**
+   *
+   * This is the one field in the product where somebody hands us another person's name and phone
+   * number. Ley 1581 requires the authorisation of the titular, and the titular here is the
+   * reference — not the tenant filling the form. Decreto 1074 art. 2.2.2.25.2.7 anticipates data
+   * collected from someone other than the titular; what we can do is put the declaration on the
+   * record and tell the tenant the obligation exists.
+   */
+  describe("the reference's own authorisation", () => {
+    it("refuses a dossier that does not declare it", () => {
+      const result = parse({ referenceAuthorized: false });
+
+      expect(result.success).toBe(false);
+      expect(errorFor(result, "referenceAuthorized")).toBe(
+        "Confirma que tu referencia sabe que vas a dar sus datos",
+      );
+    });
+
+    /* Absent is not "no answer", it is the same as saying no: we would be holding the data anyway. */
+    it("refuses a dossier that omits it entirely", () => {
+      expect(tenantDossierSchema.safeParse({ ...valid, referenceAuthorized: undefined }).success).toBe(
+        false,
+      );
+    });
   });
 
   describe("identity document", () => {

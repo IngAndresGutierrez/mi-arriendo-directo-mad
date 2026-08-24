@@ -2,6 +2,7 @@ import "server-only";
 
 // Not `"use server"`: a module marked that way publishes every export as an endpoint, and this
 // one sends messages to phone numbers.
+import { collectionContactBlocker } from "../domain/contact-window";
 import type { WhatsAppTemplateMessage } from "../domain/whatsapp";
 
 /**
@@ -23,6 +24,28 @@ import type { WhatsAppTemplateMessage } from "../domain/whatsapp";
 const VERSION = "v21.0";
 
 export async function sendWhatsApp(message: WhatsAppTemplateMessage): Promise<boolean> {
+  /*
+   * **Ley 2300 de 2023, and it is checked here rather than at each caller.**
+   *
+   * A guard at the call site is a guard somebody can forget to write; this is the one line every
+   * WhatsApp message in the product goes through, so a `collection` message physically cannot
+   * leave outside the window the law allows. Nothing sends with that purpose today — see
+   * `domain/contact-window.ts` for why the interview reminders must not — and the point is that
+   * the canon-due cron will be governed by it the day it is written.
+   *
+   * The reason is logged rather than swallowed: a message that quietly did not go out is the
+   * failure mode that takes longest to notice.
+   */
+  if (message.purpose === "collection") {
+    const blocked = collectionContactBlocker(new Date());
+    if (blocked) {
+      console.info(
+        `[whatsapp] no se envió por la Ley 2300 (${blocked}). Para: ${message.to} · plantilla: ${message.template}`,
+      );
+      return false;
+    }
+  }
+
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
   const token = process.env.WHATSAPP_TOKEN?.trim();
 

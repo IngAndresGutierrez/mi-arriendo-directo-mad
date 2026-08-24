@@ -21,6 +21,7 @@ export function emptyDossier(): TenantDossierInput {
       phoneCountry: DEFAULT_COUNTRY_ISO,
       relationship: "",
     },
+    referenceAuthorized: false,
   };
 }
 
@@ -53,5 +54,15 @@ export function toFormValues(profile: TenantProfile): TenantDossierInput {
       phoneCountry: profile.reference.phoneCountry,
       relationship: profile.reference.relationship,
     },
+    /*
+     * **`false` even for a stored dossier, and it is asked again on every save.**
+     *
+     * Unlike the terms — accepted once, at onboarding, and never re-asked — this declaration is
+     * about *the phone number currently in the field beside it*, and that field is editable. A tick
+     * carried over from six months ago would be a declaration about whoever the reference used to
+     * be. Every dossier stored before this field existed also never carried it, so pre-ticking
+     * would fabricate a declaration nobody made.
+     */
+    referenceAuthorized: false,
   };
 }

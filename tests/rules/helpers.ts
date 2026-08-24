@@ -118,6 +118,15 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       uploadedAt: new Date(),
     });
 
+    // What this person authorised. Written by the backend in the same batch as the profile.
+    await db.doc(`users/${UID_TENANT}/consents/terms-1`).set({
+      kind: "terms",
+      version: 1,
+      grantedAt: new Date(),
+      ip: "190.0.0.1",
+      userAgent: "Mozilla/5.0",
+    });
+
     await db.doc(`properties/${PROPERTY_ID}`).set(
       publishedProperty({
         title: "Apartamento en Chapinero",

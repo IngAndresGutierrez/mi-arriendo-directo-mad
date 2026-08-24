@@ -10,6 +10,21 @@
  * on Meta's side before a single message can leave, and a product that cannot send email or
  * WhatsApp should still be able to run a rental process.
  */
+/**
+ * What the message is for, and therefore which law governs when it may leave.
+ *
+ * **`collection` is the one that is restricted.** Ley 2300 de 2023 confines contact made for
+ * commercial or collection purposes to Monday–Friday 07:00–19:00 and Saturday 08:00–15:00, never
+ * on Sundays or public holidays. `transactional` is everything else: an appointment both parties
+ * agreed to, a one-time code somebody just asked for.
+ *
+ * It is **required and has no default**, which is the whole point of the field. The daily cron
+ * that would tell a tenant their canon is due does not exist yet, and when somebody writes it
+ * they will not be able to send a message without answering this question. A default of
+ * `transactional` would have let that message through with the restriction silently unapplied.
+ */
+export type WhatsAppPurpose = "transactional" | "collection";
+
 export type WhatsAppTemplateMessage = {
   /** E.164, no `+` needed by the API but harmless. */
   readonly to: string;
@@ -17,6 +32,7 @@ export type WhatsAppTemplateMessage = {
   readonly locale: string;
   /** In the order the template declares them. */
   readonly parameters: readonly string[];
+  readonly purpose: WhatsAppPurpose;
 };
 
 /**
@@ -45,6 +61,12 @@ export function interviewReminderMessage({
     locale,
     // Trimmed and collapsed: WhatsApp rejects a parameter with a newline or a tab in it.
     parameters: [clean(propertyTitle), clean(when)],
+    /*
+     * An appointment, not a demand for money — so Ley 2300's window does not apply, and it must
+     * not: the ten-minute reminder's whole value is arriving ten minutes before the call, which
+     * is outside those hours as often as not.
+     */
+    purpose: "transactional",
   };
 }
 

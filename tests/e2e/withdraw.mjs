@@ -1,6 +1,14 @@
 // El otro lado de la moneda: quien se retira por su cuenta sí puede volver a postularse.
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
+import {
+  BASE,
+  config,
+  createAccount,
+  declareReferenceAuthorized,
+  fixtures,
+  ok,
+  settled,
+} from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -66,6 +74,7 @@ async function apply() {
   await tenant.getByLabel("Nombre de tu referencia").fill("Carolina Restrepo");
   await tenant.getByLabel("Qué relación tienen").fill("Jefe directo");
   await tenant.getByLabel("Teléfono de tu referencia").fill("3009876543");
+  await declareReferenceAuthorized(tenant);
   await tenant.getByLabel("Cuándo te mudarías").fill("2026-10-01");
   await tenant.getByRole("button", { name: /Enviar postulación/i }).click();
   try {

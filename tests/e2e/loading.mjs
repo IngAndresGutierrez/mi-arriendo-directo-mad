@@ -3,7 +3,15 @@
  * marcada mientras llega. Se fuerza la lentitud retrasando la respuesta del servidor.
  */
 import { chromium } from "playwright";
-import { BASE, config, createAccount, MONTHS, ok, settled } from "./lib.mjs";
+import {
+  acceptLegalConsents,
+  BASE,
+  config,
+  createAccount,
+  MONTHS,
+  ok,
+  settled,
+} from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
 const email = `load-${STAMP}@miarriendodirecto.test`;
@@ -34,7 +42,7 @@ for (const [l, o] of [["Género", /Femenino/i], ["Departamento", /Caldas/], ["Ci
   await p.getByLabel(l).click();
   await p.getByRole("option", { name: o }).first().click();
 }
-await p.getByRole("checkbox").click();
+await acceptLegalConsents(p);
 await p.getByRole("button", { name: /Guardar|Continuar|Finalizar/i }).click();
 await p.waitForURL(/\/inicio/, { timeout: 30000 });
 await settled(p);

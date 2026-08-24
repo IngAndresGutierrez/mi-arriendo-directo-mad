@@ -5,7 +5,15 @@
  * defence if the client writes directly: same shape validated, no role escalation.
  */
 import { assertFails, assertSucceeds, type RulesTestEnvironment } from "@firebase/rules-unit-testing";
-import { doc, setDoc, updateDoc } from "firebase/firestore";
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  getDocs,
+  setDoc,
+  updateDoc,
+} from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 
 import {
@@ -13,6 +21,7 @@ import {
   completeProfileDoc,
   createTestEnvironment,
   seed,
+  UID_LANDLORD,
   UID_TENANT,
   UID_THIRD_PARTY,
 } from "./helpers";
@@ -46,6 +55,21 @@ describe("create profile", () => {
     );
   });
 
+  /*
+   * `gender` is sensitive data under Ley 1581 art. 5, and art. 6 says nobody is obliged to
+   * authorise the processing of sensitive data. So a profile without it is a complete profile,
+   * and the rules have to agree with the form about that.
+   */
+  it("the owner creates their profile without saying their gender", async () => {
+    const db = asNewUser(UID_THIRD_PARTY);
+    const withoutGender: Record<string, unknown> = {
+      ...completeProfileDoc(),
+      email: "new@example.com",
+    };
+    delete withoutGender.gender;
+    await assertSucceeds(setDoc(doc(db, `users/${UID_THIRD_PARTY}`), withoutGender));
+  });
+
   it("cannot create someone else's profile", async () => {
     const db = asNewUser(UID_THIRD_PARTY);
     await assertFails(
@@ -66,8 +90,9 @@ describe("create profile", () => {
     );
   });
 
+  // `gender` is deliberately absent from this list: it is sensitive data and therefore optional.
+  // The case above covers the absence; "rejects a gender outside the list" covers a bad value.
   it.each([
-    ["gender", "gender"],
     ["phoneCountry", "phoneCountry"],
     ["address", "address"],
     ["birthDate", "birthDate"],
@@ -191,5 +216,62 @@ describe("update profile", () => {
   it("a third party does not touch someone else's profile", async () => {
     const db = actingAs(env, UID_THIRD_PARTY, "tenant", "third@example.com");
     await assertFails(updateDoc(doc(db, `users/${UID_TENANT}`), { fullName: "Hacked Already" }));
+  });
+});
+
+/**
+ * `users/{uid}/consents/{consentId}` — the record of what somebody authorised.
+ *
+ * Two properties matter here, and they pull in opposite directions. The owner **must** be able to
+ * read and list their own: that is the derecho de acceso of Ley 1581 art. 8, lit. a, and a
+ * consent record nobody can inspect is not a record. And **nobody** may write one: Decreto 1074
+ * art. 2.2.2.25.2.4 puts the burden of proving the authorisation on the Responsable, so a client
+ * that could forge its own proof of consent would void the only evidence we have.
+ */
+describe("consents", () => {
+  it("the owner reads their own authorisations", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant", "tenant@example.com");
+    await assertSucceeds(getDoc(doc(db, `users/${UID_TENANT}/consents/terms-1`)));
+  });
+
+  it("the owner lists their own, which is the derecho de acceso", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant", "tenant@example.com");
+    await assertSucceeds(getDocs(collection(db, `users/${UID_TENANT}/consents`)));
+  });
+
+  it("a third party reads none of them", async () => {
+    const db = actingAs(env, UID_THIRD_PARTY, "tenant", "third@example.com");
+    await assertFails(getDoc(doc(db, `users/${UID_TENANT}/consents/terms-1`)));
+    await assertFails(getDocs(collection(db, `users/${UID_TENANT}/consents`)));
+  });
+
+  /*
+   * A landlord reviewing an application has no business reading the tenant's consent log — the
+   * same boundary `tenantProfiles` draws.
+   */
+  it("a landlord reads none of them either", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord", "landlord@example.com");
+    await assertFails(getDoc(doc(db, `users/${UID_TENANT}/consents/terms-1`)));
+  });
+
+  it("CANNOT forge an authorisation, not even their own", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant", "tenant@example.com");
+    await assertFails(
+      setDoc(doc(db, `users/${UID_TENANT}/consents/forged`), {
+        kind: "privacy",
+        version: 1,
+        grantedAt: new Date(),
+        ip: null,
+        userAgent: null,
+      }),
+    );
+  });
+
+  it("CANNOT rewrite or delete one", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant", "tenant@example.com");
+    await assertFails(
+      updateDoc(doc(db, `users/${UID_TENANT}/consents/terms-1`), { version: 99 }),
+    );
+    await assertFails(deleteDoc(doc(db, `users/${UID_TENANT}/consents/terms-1`)));
   });
 });

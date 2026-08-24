@@ -319,6 +319,9 @@ async function deliver(
     template,
     locale: process.env.WHATSAPP_TEMPLATE_LOCALE?.trim() || "es_CO",
     to: destination,
+    // A code the person asked for one second ago. Ley 2300's window governs collection and
+    // commercial contact, and holding this back until Monday would break the signature.
+    purpose: "transactional",
   }))
     ? "delivered"
     : "failed";

@@ -1,6 +1,16 @@
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fillBirthdate, fixtures, MONTHS, settled, stubTiles } from "./lib.mjs";
+import {
+  acceptLegalConsents,
+  BASE,
+  config,
+  createAccount,
+  fillBirthdate,
+  fixtures,
+  MONTHS,
+  settled,
+  stubTiles,
+} from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -48,7 +58,7 @@ try {
       await page.getByLabel(label).click();
       await page.getByRole("option", { name: option }).first().click();
     }
-    await page.getByRole("checkbox").click();
+    await acceptLegalConsents(page);
     await page.getByRole("button", { name: /Guardar|Continuar|Finalizar/i }).click();
     await page.waitForURL(/\/inicio/, { timeout: 30000 });
 await settled(page);

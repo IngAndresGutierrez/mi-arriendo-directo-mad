@@ -81,7 +81,8 @@ export function TenantProfileForm({
     account.set("fullName", values.fullName);
     account.set("phone.country", values.phone.country);
     account.set("phone.national", values.phone.national);
-    account.set("gender", values.gender);
+    // Only sent when answered; empty clears the field on the profile.
+    if (values.gender) account.set("gender", values.gender);
     account.set("birthDate", values.birthDate);
     account.set("address.line", values.address.line);
     account.set("address.city", values.address.city);
@@ -106,6 +107,7 @@ export function TenantProfileForm({
     data.set("reference.phone", values.reference.phone);
     data.set("reference.phoneCountry", values.reference.phoneCountry);
     data.set("reference.relationship", values.reference.relationship);
+    data.set("referenceAuthorized", String(values.referenceAuthorized));
 
     const result = await saveTenantProfile(data);
     if (!result.ok) {
