@@ -28,6 +28,7 @@ import {
   ok,
   settled,
   watch,
+  LOGIN_PATH,
 } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
@@ -62,7 +63,7 @@ async function entrar(email, nombre) {
   await createAccount(API_KEY, email);
   const p = await (await b.newContext({ viewport: { width: 1100, height: 1000 } })).newPage();
   watch(p, nombre, problemas);
-  await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
   await settled(p);
   await p.waitForFunction(
     () => {

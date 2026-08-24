@@ -7,6 +7,7 @@ import {
   fillBirthdate,
   MONTHS,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp, shotDir: SHOT_DIR } = config();
@@ -33,7 +34,7 @@ const step = async (label, fn) => {
 
 try {
   await step("login con el usuario nuevo", async () => {
-    await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+    await page.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
     await settled(page);
     await page.getByLabel("Correo electrónico").fill(email);
     await page.getByLabel("Contraseña").fill(password);

@@ -6,7 +6,7 @@ import { Controller, FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { ConsentCheckbox } from "@/shared/form/consent-checkbox";
-import { LegalLink } from "@/shared/legal/legal-link";
+import { NewTabLink } from "@/shared/ui/new-tab-link";
 import { FormAlert } from "@/shared/form/form-alert";
 import { SubmitButton } from "@/shared/form/submit-button";
 import { PRIVACY_ROUTE, TERMS_ROUTE } from "@/shared/auth/routes";
@@ -157,9 +157,9 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
               error={errors.acceptsTerms?.message}
             >
               Acepto los{" "}
-              <LegalLink href={TERMS_ROUTE} className="underline underline-offset-2">
+              <NewTabLink href={TERMS_ROUTE} className="underline underline-offset-2">
                 Términos y condiciones
-              </LegalLink>
+              </NewTabLink>
               .
             </ConsentCheckbox>
           )}
@@ -177,9 +177,9 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
               error={errors.authorizesDataTreatment?.message}
             >
               Autorizo el tratamiento de mis datos personales en los términos de la{" "}
-              <LegalLink href={PRIVACY_ROUTE} className="underline underline-offset-2">
+              <NewTabLink href={PRIVACY_ROUTE} className="underline underline-offset-2">
                 Política de tratamiento de datos personales
-              </LegalLink>
+              </NewTabLink>
               .
             </ConsentCheckbox>
           )}

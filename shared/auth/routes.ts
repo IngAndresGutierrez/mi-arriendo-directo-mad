@@ -5,8 +5,26 @@
  * No `server-only` here: both server pages and client components consume this module.
  */
 
-/** Sign-in screen. It is the site root. */
-export const LOGIN_ROUTE = "/";
+/**
+ * The public front door: what someone typing `miarriendodirecto.com` gets.
+ *
+ * **It used to be the login**, and that was the single most expensive thing about the old root:
+ * the one URL a person reaches by typing the brand answered with a password field, which tells a
+ * visitor who has never heard of this product nothing about what it is and offers them nothing to
+ * do. The landing explains the model and leads to the catalogue; the form moved to `LOGIN_ROUTE`.
+ */
+export const LANDING_ROUTE = "/";
+
+/**
+ * Sign-in screen.
+ *
+ * **No longer `/`.** A route group does not change the URL, so `(auth)/page.tsx` was both the
+ * login and the site root, and it had to carry a `robots: { index: true }` override against its
+ * own group to stop the homepage of the domain asking not to be indexed. With the landing at the
+ * root that override is gone and the login is plain `noindex` like the rest of `(auth)`, which is
+ * what it always should have been: a form is not a search result.
+ */
+export const LOGIN_ROUTE = "/ingresar";
 export const SIGNUP_ROUTE = "/registro";
 export const PASSWORD_RESET_ROUTE = "/recuperar";
 /** Onboarding: there is a session but the profile is not complete yet. */
@@ -102,8 +120,20 @@ export function propertyDetailRoute(slug: string): string {
 /**
  * Public access screens. Redirecting here after signing in would loop: the screen would
  * see the active session and redirect straight back.
+ *
+ * **`LANDING_ROUTE` is in the set even though it does not loop.** The landing renders happily for
+ * somebody with a session — it shows them their account menu instead of "Iniciar sesión" — so it
+ * is not a redirect loop, it is a worse destination: the whole point of signing in is to reach the
+ * portal, and landing back on the marketing page is being handed a brochure for a product you are
+ * already inside. It was rejected here when it *was* the login, and dropping it from this set at
+ * the moment it stopped being one would have quietly turned `?next=/` into a valid request.
  */
-const AUTH_ROUTES = new Set<string>([LOGIN_ROUTE, SIGNUP_ROUTE, PASSWORD_RESET_ROUTE]);
+const AUTH_ROUTES = new Set<string>([
+  LANDING_ROUTE,
+  LOGIN_ROUTE,
+  SIGNUP_ROUTE,
+  PASSWORD_RESET_ROUTE,
+]);
 
 /** Hoisted: the literal would be rebuilt on every call. */
 const QUERY_SEPARATOR = /[?#]/;

@@ -4,7 +4,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { TERMS_ROUTE } from "@/shared/auth/routes";
-import { LegalLink } from "@/shared/legal/legal-link";
+import { NewTabLink } from "@/shared/ui/new-tab-link";
 import { FormAlert } from "@/shared/form/form-alert";
 import { GoogleButton } from "./google-button";
 import { OrDivider } from "./or-divider";
@@ -90,12 +90,12 @@ export function EmailStep({
         */}
         <p className="text-center text-xs leading-relaxed text-muted-foreground">
           En el siguiente paso te pediremos aceptar los{" "}
-          <LegalLink
+          <NewTabLink
             href={TERMS_ROUTE}
             className="underline underline-offset-2 hover:text-foreground"
           >
             Términos y condiciones
-          </LegalLink>{" "}
+          </NewTabLink>{" "}
           y autorizar el tratamiento de tus datos.
         </p>
       </div>

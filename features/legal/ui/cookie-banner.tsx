@@ -1,7 +1,7 @@
 "use client";
 
 import { COOKIES_ROUTE } from "@/shared/auth/routes";
-import { LegalLink } from "@/shared/legal/legal-link";
+import { NewTabLink } from "@/shared/ui/new-tab-link";
 import { Button } from "@/shared/ui/button";
 
 /**
@@ -42,9 +42,9 @@ export function CookieBanner({
           Usamos cookies necesarias para mantener tu sesión y recordar cómo dejaste el menú. Con tu
           permiso usamos también cookies de <strong className="font-medium">analítica</strong>, que
           nos dicen qué páginas se usan. Puedes cambiar de opinión cuando quieras en{" "}
-          <LegalLink href={COOKIES_ROUTE} className="underline underline-offset-2 hover:text-foreground">
+          <NewTabLink href={COOKIES_ROUTE} className="underline underline-offset-2 hover:text-foreground">
             Cookies
-          </LegalLink>
+          </NewTabLink>
           .
         </p>
 

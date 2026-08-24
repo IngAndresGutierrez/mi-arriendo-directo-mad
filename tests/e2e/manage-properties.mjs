@@ -11,6 +11,7 @@ import {
   ok,
   settled,
   stubTiles,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -41,7 +42,7 @@ const problems = [];
 p.on("pageerror", (e) => problems.push("pageerror: " + e.message));
 p.on("console", (m) => { if (m.type() === "error") problems.push("console: " + m.text().slice(0, 120)); });
 
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.getByLabel("Correo electrónico").fill(email);
 await p.getByLabel("Contraseña").fill("ClaveDePrueba1");

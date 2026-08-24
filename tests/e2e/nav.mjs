@@ -8,6 +8,7 @@ import {
   MONTHS,
   ok,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
@@ -22,7 +23,7 @@ const problems = [];
 p.on("pageerror", (e) => problems.push("pageerror: " + e.message));
 p.on("console", (m) => { if (m.type() === "error" && !m.text().includes("404")) problems.push("console: " + m.text().slice(0, 120)); });
 
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.waitForFunction(() => {
   const f = document.querySelector("form");
@@ -42,6 +43,30 @@ await acceptLegalConsents(p);
 await p.getByRole("button", { name: /Guardar|Continuar/i }).click();
 await p.waitForURL(/\/inicio/, { timeout: 30000 });
 await settled(p);
+
+/*
+ * ---------- el atajo al catálogo sale a una pestaña nueva ----------
+ *
+ * El catálogo es la otra mitad del producto: chrome público, otro contexto. Quien está mirando sus
+ * procesos abiertos y se va a ver anuncios no ha terminado con esta página, así que volver debería
+ * ser cerrar una pestaña y no rehacer el camino.
+ *
+ * Se afirma sobre los atributos y no pulsando: un clic abriría una pestaña de verdad y la prueba
+ * pasaría a ser sobre el manejo de pestañas de Playwright en vez de sobre esta decisión. Y `rel`
+ * aparte de `target`, porque `noopener` es lo que impide que la pestaña nueva toque a la que la abrió.
+ */
+{
+  const atajo = p.getByRole("link", { name: /Buscas un nuevo hogar/ });
+  await atajo.waitFor({ state: "visible", timeout: 15000 });
+
+  if ((await atajo.getAttribute("target")) !== "_blank") {
+    throw new Error("el atajo al catálogo no abre en pestaña nueva");
+  }
+  if (!((await atajo.getAttribute("rel")) ?? "").includes("noopener")) {
+    throw new Error("el atajo al catálogo abre en pestaña nueva sin noopener");
+  }
+  ok("el atajo al catálogo abre en pestaña nueva");
+}
 
 // ---------- escritorio: el menú está a la vista ----------
 const sidebar = p.locator('[data-slot="app-sidebar"]');
@@ -137,7 +162,7 @@ await p.setViewportSize({ width: 1440, height: 900 });
 await p.goto(BASE + "/inicio", { waitUntil: "domcontentloaded" });
 await settled(p);
 await sidebar.getByRole("button", { name: /Cerrar sesión/i }).click();
-await p.waitForURL((u) => new URL(u).pathname === "/", { timeout: 25000 });
+await p.waitForURL((u) => new URL(u).pathname === LOGIN_PATH, { timeout: 25000 });
 await settled(p);
 ok("cerrar sesión desde el menú fijo");
 

@@ -8,6 +8,7 @@ import {
   MONTHS,
   ok,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
@@ -33,7 +34,7 @@ if (!(await p.getByRole("heading", { name: "Soporte" }).count())) throw new Erro
 ok("Contacto lleva a soporte sin pasar por el login");
 
 // ---------- con sesión ----------
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.waitForFunction(() => { const f = document.querySelector("form"); return f && Object.keys(f).some((k) => k.startsWith("__react")); }, null, { timeout: 20000 });
 await p.getByLabel("Correo electrónico").fill(email);
@@ -98,7 +99,7 @@ ok("el detalle de un inmueble hace lo mismo", href);
 // Cerrar sesión desde aquí
 await p.getByRole("button", { name: /Tu cuenta/ }).click();
 await p.getByRole("menuitem", { name: /Cerrar sesión/ }).click();
-await p.waitForURL((u) => new URL(u).pathname === "/", { timeout: 25000 });
+await p.waitForURL((u) => new URL(u).pathname === LOGIN_PATH, { timeout: 25000 });
 await settled(p);
 ok("cerrar sesión desde el header público vuelve al login");
 await p.goto(BASE + "/inmuebles", { waitUntil: "domcontentloaded" });

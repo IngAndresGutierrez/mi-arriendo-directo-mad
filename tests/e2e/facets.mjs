@@ -9,6 +9,7 @@ import {
   MONTHS,
   ok,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -42,7 +43,7 @@ const pricesOnPage = async () =>
     .filter(Boolean)
     .map((m) => Number(m[1].replace(/\./g, "")));
 
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.waitForFunction(() => {
   const f = document.querySelector("form");

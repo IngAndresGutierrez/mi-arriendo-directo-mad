@@ -8,6 +8,7 @@ import {
   MONTHS,
   ok,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
@@ -23,7 +24,7 @@ p.on("pageerror", (e) => problems.push("pageerror: " + e.message));
 p.on("console", (m) => { if (m.type() === "error" && !m.text().includes("404")) problems.push("console: " + m.text().slice(0, 130)); });
 const sidebar = p.locator('[data-slot="app-sidebar"]');
 
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.waitForFunction(() => {
   const f = document.querySelector("form");

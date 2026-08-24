@@ -9,6 +9,7 @@ import {
   MONTHS,
   ok,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -41,10 +42,12 @@ if ((await p.title()).includes("Iniciar")) throw new Error("el catálogo pidió 
 ok("el catálogo abre sin sesión", await p.title());
 
 /*
- * La marca del header lleva al listado, no al login. Quien está mirando inmuebles y pulsa el logo
- * está pidiendo volver a los resultados; mandarlo a `/` es dejarlo en una pantalla de acceso, que
- * para un visitante es un callejón sin salida y para alguien con sesión es sacarlo de lo que
- * estaba viendo. Se comprueba el destino y no solo que el enlace exista.
+ * La marca del header lleva al listado, no a la raíz. Quien está mirando inmuebles y pulsa el logo
+ * está pidiendo volver a los resultados, no salir del catálogo. Se comprueba el destino y no solo
+ * que el enlace exista.
+ *
+ * El motivo original era más fuerte —`/` era el login, un callejón sin salida para un visitante—
+ * y ya no lo es: ahí vive la landing. La regla se queda igualmente, ahora por su propio mérito.
  */
 {
   const marca = p.getByRole("link", { name: /miarriendoDIRECTO\.com/i }).first();
@@ -63,7 +66,7 @@ const before = Number(
 ok("arranca con lo que ya estaba publicado", `${before}`);
 
 // ---------- publicar dos, en ciudades distintas ----------
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.waitForFunction(() => {
   const f = document.querySelector("form");

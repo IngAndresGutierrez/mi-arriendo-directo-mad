@@ -1,12 +1,12 @@
 import { chromium } from "playwright";
-import { BASE, config, createAccount, settled } from "./lib.mjs";
+import { BASE, config, createAccount, settled, LOGIN_PATH } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
 const email = `fecha-${STAMP}@miarriendodirecto.test`;
 await createAccount(API_KEY, email);
 const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 900, height: 900 } })).newPage();
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.waitForFunction(() => { const f = document.querySelector("form"); return f && Object.keys(f).some((k) => k.startsWith("__react")); }, null, { timeout: 20000 });
 await p.getByLabel("Correo electrónico").fill(email);

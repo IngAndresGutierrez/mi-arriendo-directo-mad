@@ -440,8 +440,16 @@ These cost time. Do not repeat them:
 - **Dark mode is not active**: shadcn uses the class variant (`.dark`) and nothing adds it. The
   dark tokens exist and are correct, but today the app renders in light only. And the purple
   logo becomes illegible on a dark background: a reversed version would be needed.
-- **`/` is the login.** The destination after authenticating can never be `/` or `/registro`:
-  it would loop. `safeRedirect()` already rejects both, along with external URLs.
+- **`/` is the landing and the login is `/ingresar`.** The destination after authenticating can
+  never be `/`, `/ingresar`, `/registro` or `/recuperar`; `safeRedirect()` rejects all four, along
+  with external URLs. Three of them loop. `/` does not — the landing renders fine with a session —
+  and it stays rejected anyway: signing in exists to reach the portal, so returning somebody to the
+  marketing page is a worse destination, not a broken one.
+- **A colour inherited from an ancestor is invisible to every check in the bar.** An `outline`
+  button sets a background but no colour, so on a `bg-brand-panel` surface its label inherits the
+  panel's near-white and renders white-on-white. `typecheck`, `lint`, `build` and the drivers were
+  all green; it was reported from the screen. Any `outline` or `ghost` control placed on a brand
+  panel needs an explicit `text-foreground`.
 - **An unfiltered Firestore `list` is always denied**, even on an empty collection: the rule
   must be verifiable from the query. The public catalog **has** to query with
   `where("status", "==", "available")`.

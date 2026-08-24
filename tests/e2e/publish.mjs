@@ -10,6 +10,7 @@ import {
   MONTHS,
   settled,
   stubTiles,
+  LOGIN_PATH,
 } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
@@ -43,7 +44,7 @@ const step = async (label, fn) => {
 let propertyUrl = "";
 try {
   await step("login y onboarding", async () => {
-    await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+    await page.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
     await settled(page);
     await page.getByLabel("Correo electrónico").fill(email);
     await page.getByLabel("Contraseña").fill(password);

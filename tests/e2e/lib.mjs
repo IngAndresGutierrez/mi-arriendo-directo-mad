@@ -39,6 +39,19 @@ if (!process.env.E2E_AGAINST_REAL && !process.env.FIREBASE_PROJECT_ID?.startsWit
 export const BASE = process.env.E2E_BASE_URL ?? "http://localhost:3000";
 export const PASSWORD = "ClaveDePrueba1";
 
+/**
+ * Dónde está el formulario de acceso.
+ *
+ * **Era `/`, y dejó de serlo el día que la landing tomó la raíz.** Veintiocho drivers hacían
+ * `goto(BASE + "/")` y rellenaban ahí el correo: con una landing en esa URL no habría fallado con
+ * un error útil, habría fallado esperando un campo que esa página no tiene, en veintiocho sitios a
+ * la vez y ninguno por un fallo del producto.
+ *
+ * Una constante y no el literal repetido, por la misma razón que `advanceButton()` existe: la
+ * próxima vez que esta ruta se mueva es una línea, no un barrido.
+ */
+export const LOGIN_PATH = "/ingresar";
+
 /** The month select renders es-CO copy, so the option names are Spanish. */
 export const MONTHS = [
   "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
@@ -221,7 +234,7 @@ export async function openSession(
   const context = await browser.newContext({ viewport });
   const page = watch(await context.newPage(), name, problems);
 
-  await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  await page.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
   await settled(page);
   await hydrated(page);
   await page.getByLabel("Correo electrónico").fill(email);

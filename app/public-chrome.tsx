@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { getSessionUser } from "@/shared/auth/session";
-import { LOGIN_ROUTE, PROPERTIES_ROUTE, SUPPORT_ROUTE } from "@/shared/auth/routes";
+import { LANDING_ROUTE, LOGIN_ROUTE, PROPERTIES_ROUTE, SUPPORT_ROUTE } from "@/shared/auth/routes";
 import { Logo } from "@/shared/brand/logo";
 import { AccountMenu } from "@/shared/shell/account-menu";
 import { LegalFooter } from "@/shared/shell/legal-footer";
@@ -26,14 +26,20 @@ import { TooltipProvider } from "@/shared/ui/tooltip";
  * **Where the logo goes is decided by whoever renders this, not by the header.** Everything in the
  * `(public)` route group is the catalog — the list and one property's detail — and there the logo
  * belongs to the catalog: someone three listings deep who presses it is asking to go back to the
- * results, not to a login screen they may already be past. `/soporte` renders this same header
- * outside that group and keeps the default, because from there "el inicio" really is the way in.
- * A prop and not `usePathname()`: the answer is a fact about the route, known at build time, and
- * reading it at runtime would make a Client Component out of the whole header for it.
+ * results, not out of the thing they were browsing. `/soporte` renders this same header outside
+ * that group and keeps the default. A prop and not `usePathname()`: the answer is a fact about the
+ * route, known at build time, and reading it at runtime would make a Client Component out of the
+ * whole header for it.
+ *
+ * **The default is `LANDING_ROUTE` now, and it used to be the login** — which was the same URL, so
+ * the change is in what that URL answers rather than in this file's behaviour. It is worth stating
+ * because the original reason the catalog overrode it was that `/` was a dead end for a visitor;
+ * the override stays anyway, on its own merit: from inside the catalogue the mark means "back to
+ * the results", and the landing is one click further out through the nav.
  */
 export async function PublicChrome({
   children,
-  homeHref = LOGIN_ROUTE,
+  homeHref = LANDING_ROUTE,
 }: {
   readonly children: ReactNode;
   readonly homeHref?: string;

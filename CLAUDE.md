@@ -103,7 +103,8 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 
 | Route | Constant | What it is |
 | --- | --- | --- |
-| `/` | `LOGIN_ROUTE` | Login (email + password, Google). It is the site root. |
+| `/` | `LANDING_ROUTE` | **The public landing**: what somebody typing the brand gets. What this product is, a search into the catalogue, the cities with supply, the process from both sides and the newest listings. It renders for a visitor and for somebody signed in — the header swaps "Iniciar sesión" for the account menu rather than redirecting, because bouncing a person out of a public page they asked for is not an improvement. |
+| `/ingresar` | `LOGIN_ROUTE` | Login (email + password, Google). **It used to be `/`**, which meant the one URL reached by typing the brand answered with a password field: nothing about the product, and nothing to do for somebody without an account. Moving it also fixed an SEO contortion — see the `(auth)` note under SEO. |
 | `/registro` | `SIGNUP_ROUTE` | Two-step signup: email → password. |
 | `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: there is a session but no profile yet. |
 | `/inicio` | `HOME_ROUTE` | User portal: greeting, **the contracts in course** and shortcuts. Destination after signing in. The card lists the open processes with the stage each one is on — it used to read a `contracts` collection nothing writes, so it told somebody with three open processes that they had nothing. |
@@ -145,9 +146,14 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
   and a profile. It lives in `features/profile` (import it from `@/features/profile`), not in
   `shared/auth`: "does this user have a profile?" is a question of the profile domain. The
   onboarding screen uses `requireUser()`, not this one, or the redirect would loop.
-- **`/` is the login, so the destination after signing in can NEVER be `/`**: it would loop
-  forever. `safeRedirect()` rejects `/`, `/registro` and `/recuperar` as destinations, plus
-  any external URL (open redirect).
+- **The destination after signing in can never be `/`, `/ingresar`, `/registro` or `/recuperar`**,
+  and `safeRedirect()` rejects all four plus any external URL (open redirect). Three of them would
+  **loop**: the screen sees the live session and sends you straight back. `/` is in the set for a
+  different reason and it is the one worth stating, because it survived the landing taking that URL:
+  the landing renders perfectly well with a session, so it is not a loop — it is a worse destination.
+  The point of signing in is to reach the portal, and landing back on the marketing page is being
+  handed a brochure for a product you are already inside. Dropping it from the set the moment it
+  stopped being the login would have quietly made `?next=/` valid.
 - The login and signup layout is `shared/shell/auth-shell.tsx`. Its side panel uses the
   `panel-marca` token (purple in both themes), never `bg-primary`.
 - The email from signup step 1 lives in component state, **never in the URL**.
@@ -170,6 +176,59 @@ a filter you forget you applied. `h-svh` alone was not enough: the document stil
 header out of view by its own height. Below `lg` the page scrolls as a page, because an inner
 scroller on a phone fights the address bar and pull-to-refresh, and there the facets are behind a
 button anyway. `CATALOG_PAGE_SIZE` is **6**.
+
+## The landing (`app/(marketing)/`)
+
+`/` is the public front door, and it took that URL **from the login**. The structure is adapted from
+codomoliving.com — hero with a search, cities with counts, what makes the product what it is, the
+process, real listings, a closing invitation — re-aimed at a two-sided marketplace.
+
+**The photography did not come across, and nothing stands in for it.** That reference is built on
+lifestyle photos of housing the company operates; this product owns no housing and no photographs of
+any, and a stock apartment presented as ours would claim something false — the same call the support
+card already makes by carrying no photo of a "team". What fills that role is **the catalogue itself**:
+the city cards and the showcase are real published listings, read from Firestore. A landing that
+describes a marketplace without showing anything in it asks to be taken on faith.
+
+**Every claim on it is something the product actually does.** That threw out the three most tempting
+cards: no "ahorra hasta un 30%" (this product does not know what an agency would have charged), no
+"encuentra en 48 horas" (the process moves when two people move it) and no rating (nothing collects
+them). It is the same discipline the listing's JSON-LD follows by refusing an `aggregateRating`.
+
+**Both data-driven sections remove themselves when the catalogue is empty**, rather than rendering
+"muy pronto" placeholders. An empty shop window with the lights on tells a first-time visitor the
+product has no supply, on the screen where they are deciding whether to bother.
+
+**The hero never waits on Firestore.** Its headline is the LCP of the most-fetched page on the site,
+so the search card's city list streams behind a `<Suspense>` whose fallback is *the same form with no
+cities* — what arrives late is extra options, never the control. A search submitted in that window
+searches every city, which is a real answer. One `cache()`d read serves all three consumers, and it
+**never throws**: a Firestore hiccup costs the listings, not the front door.
+
+**The search is a native `<form method="get">` with native `<select>`s, and that is not sloppiness.**
+The product's rule is that every form carries `method="post"`, because a form with no method submits
+as a GET before hydration and a login doing that puts the password in the URL and the server logs.
+Nothing here is personal data: it is a search, and the catalogue's whole state already lives in the
+URL by design (`parseCatalogFilters` and `catalogQuery` are inverses). So a GET to `/inmuebles`
+produces exactly the URL the catalogue reads **with no JavaScript at all** — which also rules out the
+Radix `SelectField` the product's forms use, since that is a button that submits nothing.
+`tests/e2e/landing.mjs` drives it with every bundle aborted, and that assertion was proved by
+switching the form to `post` and watching it go red.
+
+**One `accent` on the page**, the search, repeated at the foot — the same action within reach twice,
+which is the rule the process page's two advance buttons established. Everything else is `brand` or
+`outline`.
+
+**An `outline` button on a brand panel needs an explicit `text-foreground`.** `outline` sets a
+background but no colour, so on the closing panel the label inherited `text-brand-panel-foreground`
+and rendered white-on-white — an empty pill. It was reported from the screen, because a colour
+inherited from an ancestor is exactly what no type checker and no lint rule can see.
+
+**`shared/auth/routes` is in `SELECTS_EVERY_DRIVER` now.** It was mapped nowhere, which is the
+manifest's own documented mistake: every URL in the product comes out of that file, so changing a
+constant's *value* does not break the file that defines it, it breaks every screen that uses it.
+Moving the login proved it — 26 drivers entered through `/` to fill in the form, and no hand-written
+list would have named them all. `LOGIN_PATH` in `tests/e2e/lib.mjs` is where that path lives now.
 
 ## SEO, and the half of the product that deliberately has none
 
@@ -220,8 +279,12 @@ account never reaches the build step, so a build-time read has no credentials. I
 a sitemap where everything changed today is a sitemap whose dates get ignored.
 
 **The portal is `noindex, nofollow` from one line in `app/(app)/layout.tsx`**, and `(auth)` has the
-same — with `/` overriding it back to `index: true`, because a route group does not change the URL
-and that file is also the site root. Two pages used to carry `robots: { index: false }` of their own:
+same — and **nothing in that group overrides it any more**. It used to: a route group does not change
+the URL, so `(auth)/page.tsx` *was* `/`, the login and the site root at once, and it had to buy its
+way back to `index: true` against its own group or the homepage of the domain would have been asking
+not to be indexed. With the landing at the root and the login at `/ingresar`, the group's rule
+finally applies to the whole group and a page whose entire content is a password field is plainly
+`noindex`. Two pages used to carry `robots: { index: false }` of their own:
 metadata merges **per field**, so their object replaced the layout's whole one and silently dropped
 the `nofollow`. The `Disallow` list in `robots.txt` is about crawl budget rather than secrecy —
 every one of those pages redirects to the login without a session — and the two controls fail in
@@ -1552,12 +1615,22 @@ and `shared/legal/controller.ts` is the one line to change.
   paragraph above every form was noise saying what the checkbox beneath it already said. If a screen
   ever collects for a *new* purpose the documents do not cover, that is when it needs its own notice —
   and a new finalidad needs fresh authorisation anyway (art. 2.2.2.25.2.5).
-- **Every link to a legal document opens in a new tab**, through `shared/legal/legal-link.tsx`. Not
-  convention: these links sit beside a checkbox in a half-filled onboarding form, in a banner over
-  something being read, and under a search that took a minute to build — navigating away loses all
-  three, and the person clicking only means to *check* something. A component rather than
-  `target="_blank"` fourteen times, because that is the attribute that goes missing on the fifteenth;
-  `tests/e2e/legal.mjs` asserts the `target` and the `noopener` on the footer's three.
+- **Links that leave what you are in the middle of open in a new tab**, through
+  `shared/ui/new-tab-link.tsx` (`NewTabLink`). The rule: a new tab when the page being left has state
+  worth keeping and the destination is somewhere you go to *check* something before coming back. Two
+  families qualify — the **legal documents**, clicked from a checkbox in a half-filled onboarding
+  form, from a banner over something being read, from the footer under a search that took a minute to
+  build; and the **`/inicio` shortcut into the public catalogue**, which is the other half of the
+  product behind a different chrome, so somebody browsing listings has not finished with their
+  processes. It is **not** for ordinary navigation: `/soporte` from the footer, a listing from the
+  catalogue, a process from the list are where you were going, and a new tab there is clutter
+  somebody has to close. A component rather than `target="_blank"` fifteen times, because that is
+  the attribute that goes missing on the sixteenth. It began as `LegalLink` in `shared/legal/` and
+  moved the moment the second family appeared — a product shortcut importing from the legal module
+  would have been the wrong dependency for a rule that was never about legal documents.
+  `tests/e2e/legal.mjs` asserts `target` and `noopener` on the footer's three and `tests/e2e/nav.mjs`
+  on the shortcut; both were confirmed to go red with the attribute removed. They assert the
+  attributes rather than clicking, or the test becomes one about Playwright's tab handling.
 - **Onboarding asks twice, and the split is the point.** `acceptsTerms` and
   `authorizesDataTreatment` were one checkbox reading "Autorizo el tratamiento… y acepto los
   Términos". Accepting a contract and authorising data processing are different acts, the second has

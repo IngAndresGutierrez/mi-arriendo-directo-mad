@@ -15,6 +15,7 @@ import {
   MONTHS,
   ok,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -35,7 +36,7 @@ async function cuenta(email) {
 async function entrar(email, nombre) {
   const p = await (await b.newContext({ viewport: { width: 1100, height: 1000 } })).newPage();
   p.on("pageerror", (e) => problemas.push(`${nombre}: ${e}`));
-  await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
   await settled(p);
   await p.waitForFunction(() => { const f = document.querySelector("form"); return f && Object.keys(f).some((k) => k.startsWith("__react")); }, null, { timeout: 20000 });
   await p.getByLabel("Correo electrónico").fill(email);

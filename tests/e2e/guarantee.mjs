@@ -16,6 +16,7 @@ import {
   ok,
   reactReady,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 
 /*
@@ -49,7 +50,7 @@ async function entrar(email, nombre) {
     })
   ).newPage();
   p.on("pageerror", (e) => problemas.push(`${nombre}: ${e}`));
-  await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
   await settled(p);
   await p.waitForFunction(() => { const f = document.querySelector("form"); return f && Object.keys(f).some((k) => k.startsWith("__react")); }, null, { timeout: 20000 });
   await p.getByLabel("Correo electrónico").fill(email);

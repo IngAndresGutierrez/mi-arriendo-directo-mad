@@ -3,7 +3,7 @@ import type { MetadataRoute } from "next";
 import { listAvailableProperties } from "@/features/property";
 import {
   COOKIES_ROUTE,
-  LOGIN_ROUTE,
+  LANDING_ROUTE,
   PRIVACY_ROUTE,
   PROPERTIES_ROUTE,
   propertyDetailRoute,
@@ -52,9 +52,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = metadataOrigin();
 
   /*
-   * `/` is the login, and it is also the site's front door — somebody searching the brand should
-   * find it. It is here with a low priority, which is the honest description of a page with a form
-   * on it: real, worth resolving, not what this site is about.
+   * `/` is the landing: what this product is, for somebody who has never heard of it. It carries
+   * the same priority as the catalogue because it is the other page this site is *about* — the
+   * catalogue answers "what is available" and this one answers "what is this".
+   *
+   * **The login is deliberately not here any more.** While `/` was the login it was in this list
+   * with a low priority, which was the honest description of a page with a form on it. Now that it
+   * lives at `/ingresar` it is plain `noindex` like the rest of `(auth)`, and asking a crawler to
+   * index a page that asks not to be indexed is the contradiction the catalogue's canonical note
+   * already warns about.
    */
   const entries: MetadataRoute.Sitemap = [
     {
@@ -62,7 +68,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       changeFrequency: "daily",
       priority: 1,
     },
-    { url: `${origin}${LOGIN_ROUTE}`, changeFrequency: "monthly", priority: 0.5 },
+    { url: `${origin}${LANDING_ROUTE}`, changeFrequency: "weekly", priority: 1 },
     { url: `${origin}${SUPPORT_ROUTE}`, changeFrequency: "yearly", priority: 0.3 },
     /*
      * The three legal documents, and they belong here rather than being merely reachable.

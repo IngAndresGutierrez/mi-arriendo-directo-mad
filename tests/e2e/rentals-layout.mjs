@@ -3,7 +3,7 @@
  * fotografía /contratos desde el lado del propietario y del inquilino.
  */
 import { chromium } from "playwright";
-import { adminAuth, adminDb, adminFieldValue, BASE, config, createAccount, settled } from "./lib.mjs";
+import { adminAuth, adminDb, adminFieldValue, BASE, config, createAccount, settled, LOGIN_PATH } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
@@ -90,7 +90,7 @@ await db.collection("applications").add({
 async function fotografiar(email, nombre) {
   const b = await chromium.launch();
   const page = await (await b.newContext({ viewport: { width: 1280, height: 1400 } })).newPage();
-  await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  await page.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
   await settled(page);
   await page.waitForFunction(() => { const f = document.querySelector("form"); return f && Object.keys(f).some((k) => k.startsWith("__react")); }, null, { timeout: 20000 });
   await page.getByLabel("Correo electrónico").fill(email);

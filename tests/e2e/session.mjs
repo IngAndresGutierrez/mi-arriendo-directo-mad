@@ -10,6 +10,7 @@ import {
   MONTHS,
   ok,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1 } = fixtures();
@@ -25,7 +26,7 @@ const p = await ctx.newPage();
 const problems = [];
 p.on("pageerror", (e) => problems.push("pageerror: " + e.message));
 
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.waitForFunction(() => { const f = document.querySelector("form"); return f && Object.keys(f).some((k) => k.startsWith("__react")); }, null, { timeout: 20000 });
 await p.getByLabel("Correo electrónico").fill(email);
@@ -102,7 +103,7 @@ await p.evaluate(() => new Promise((resolve) => {
 }));
 await p.goto(BASE + "/inmuebles/publicar", { waitUntil: "domcontentloaded" });
 await settled(p);
-if (!/\/\?next=|\/$/.test(new URL(p.url()).pathname + new URL(p.url()).search)) {
+if (new URL(p.url()).pathname !== LOGIN_PATH) {
   // Sin cookie la página es privada: debe mandar al login en vez de mostrar el formulario.
   throw new Error("sin sesión la página de publicar siguió abierta: " + p.url());
 }

@@ -18,3 +18,4 @@ export {
   type Property,
   type PropertyPhoto,
 } from "./domain/property";
+export { type CityCount } from "./domain/cities";

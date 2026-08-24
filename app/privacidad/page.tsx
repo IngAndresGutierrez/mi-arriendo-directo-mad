@@ -4,7 +4,7 @@ import { LegalChrome } from "@/app/legal-chrome";
 import { LegalDocument, LegalList, LegalSection } from "@/features/legal";
 import { MIN_AGE } from "@/features/profile";
 import { COOKIES_ROUTE, TERMS_ROUTE } from "@/shared/auth/routes";
-import { LegalLink } from "@/shared/legal/legal-link";
+import { NewTabLink } from "@/shared/ui/new-tab-link";
 import { CONTROLLER_NAME, PRIVACY_CONTACT_EMAIL } from "@/shared/legal/controller";
 import { LEGAL_DOCUMENTS } from "@/shared/legal/documents";
 
@@ -87,9 +87,9 @@ export default function PrivacyPage() {
             <li>
               <strong className="font-medium text-foreground">De navegación:</strong> lo que dicen
               las cookies, explicado en la{" "}
-              <LegalLink href={COOKIES_ROUTE} className="underline underline-offset-2">
+              <NewTabLink href={COOKIES_ROUTE} className="underline underline-offset-2">
                 política de cookies
-              </LegalLink>
+              </NewTabLink>
               .
             </li>
           </LegalList>
@@ -326,9 +326,9 @@ export default function PrivacyPage() {
           </p>
           <p>
             Las condiciones del servicio están en los{" "}
-            <LegalLink href={TERMS_ROUTE} className="underline underline-offset-2">
+            <NewTabLink href={TERMS_ROUTE} className="underline underline-offset-2">
               Términos y condiciones
-            </LegalLink>
+            </NewTabLink>
             .
           </p>
         </LegalSection>

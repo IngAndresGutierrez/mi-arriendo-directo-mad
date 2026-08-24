@@ -3,7 +3,7 @@
  * WhatsApp, sin repetirse y sin despertar a nadie por una cita que no se confirmó.
  */
 import { chromium } from "playwright";
-import { adminAuth, adminDb, adminFieldValue, BASE, config, createAccount, ok, settled } from "./lib.mjs";
+import { adminAuth, adminDb, adminFieldValue, BASE, config, createAccount, ok, settled, LOGIN_PATH } from "./lib.mjs";
 import { readFileSync } from "node:fs";
 import { dirname, join as joinPath } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -146,7 +146,7 @@ const b = await chromium.launch();
 const p = await (await b.newContext({ viewport: { width: 1100, height: 900 } })).newPage();
 const problemas = [];
 p.on("pageerror", (e) => problemas.push(String(e)));
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.waitForFunction(() => { const f = document.querySelector("form"); return f && Object.keys(f).some((k) => k.startsWith("__react")); }, null, { timeout: 20000 });
 await p.getByLabel("Correo electrónico").fill(inqEmail);

@@ -12,7 +12,7 @@
 export const COVERS = {
   // The frame every product screen renders inside.
   loading: ["app/(app)/", "shared/ui/skeleton", "shared/ui/nav-item", "shared/shell/"],
-  nav: ["shared/shell/app-nav", "shared/shell/app-shell", "shared/ui/nav-item"],
+  nav: ["shared/shell/app-nav", "shared/shell/app-shell", "shared/ui/nav-item", "app/(app)/inicio"],
   "nav-profile": ["shared/shell/app-nav", "shared/ui/nav-item", "features/profile/"],
   drawer: ["shared/shell/app-drawer", "shared/shell/app-nav"],
   "sidebar-collapse": ["shared/shell/app-sidebar", "shared/shell/sidebar-state", "shared/ui/nav-item"],
@@ -67,6 +67,22 @@ export const COVERS = {
     "shared/seo/",
     "shared/brand/og",
     "shared/lib/site-url",
+  ],
+
+  /*
+   * La landing pública y la mudanza del login.
+   *
+   * `app/(auth)/` está en la lista y no es de más: la raíz y el formulario de acceso son ahora dos
+   * rutas distintas que solo tienen sentido juntas, y este driver es el único que comprueba que
+   * mover una no deja a la otra sin puerta. `features/property/domain/cities` también, porque de
+   * ahí salen las ciudades del buscador y las tarjetas.
+   */
+  landing: [
+    "app/(marketing)/",
+    "app/(auth)/",
+    "app/sitemap.ts",
+    "features/property/domain/cities",
+    "features/property/ui/property-teaser-card",
   ],
 
   // Auth and the profile.
@@ -201,6 +217,15 @@ export const SELECTS_EVERY_DRIVER = [
   "shared/format/",
   "app/globals.css",
   "app/layout.tsx",
+  /*
+   * `shared/auth/routes` es un primitivo compartido y estaba sin mapear, que es la otra mitad del
+   * mismo fallo: de ahí salen **todas** las URLs del producto, así que cambiar el valor de una
+   * constante no rompe el archivo que la define, rompe cada pantalla que la usa.
+   *
+   * Se pagó al mover el login fuera de `/`: veintiséis drivers entraban por la raíz a rellenar el
+   * formulario, y ninguna lista escrita a mano los habría nombrado a todos.
+   */
+  "shared/auth/routes",
   /*
    * `shared/legal/` es un primitivo compartido, y mapearlo a mano sería el error que este bloque
    * documenta dos veces: de ahí salen la identidad del Responsable (el pie, en todas las páginas

@@ -9,6 +9,7 @@ import {
   MONTHS,
   ok,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -28,7 +29,7 @@ p.on("console", (m) => { if (m.type() === "error" && !m.text().includes("404")) 
 const sidebar = p.locator('[data-slot="app-sidebar"]');
 const width = () => sidebar.boundingBox().then((box) => Math.round(box.width));
 
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 await p.waitForFunction(() => {
   const f = document.querySelector("form");

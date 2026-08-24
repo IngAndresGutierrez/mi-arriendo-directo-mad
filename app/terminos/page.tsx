@@ -4,7 +4,7 @@ import Link from "next/link";
 import { LegalChrome } from "@/app/legal-chrome";
 import { LegalDocument, LegalList, LegalSection } from "@/features/legal";
 import { PRIVACY_ROUTE, SUPPORT_ROUTE } from "@/shared/auth/routes";
-import { LegalLink } from "@/shared/legal/legal-link";
+import { NewTabLink } from "@/shared/ui/new-tab-link";
 import { CONTROLLER_NAME } from "@/shared/legal/controller";
 import { LEGAL_DOCUMENTS } from "@/shared/legal/documents";
 
@@ -195,9 +195,9 @@ export default function TermsPage() {
           <p>
             Podemos suspender o cerrar una cuenta que incumpla esto. Cuando haya un arriendo o un
             contrato firmado de por medio, cerrar la cuenta no borra el registro de lo acordado: la{" "}
-            <LegalLink href={PRIVACY_ROUTE} className="underline underline-offset-2">
+            <NewTabLink href={PRIVACY_ROUTE} className="underline underline-offset-2">
               política de tratamiento de datos
-            </LegalLink>{" "}
+            </NewTabLink>{" "}
             explica qué se conserva y por qué.
           </p>
         </LegalSection>
@@ -217,9 +217,9 @@ export default function TermsPage() {
           <p>
             Todo lo relativo a datos personales —qué recogemos, para qué, con quién lo compartimos y
             cómo ejercer tus derechos— está en la{" "}
-            <LegalLink href={PRIVACY_ROUTE} className="underline underline-offset-2">
+            <NewTabLink href={PRIVACY_ROUTE} className="underline underline-offset-2">
               Política de tratamiento de datos personales
-            </LegalLink>
+            </NewTabLink>
             , que hace parte de estos términos.
           </p>
         </LegalSection>

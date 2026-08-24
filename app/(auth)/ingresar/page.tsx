@@ -12,15 +12,15 @@ export const metadata: Metadata = {
   description:
     "Accede a tu portal de miarriendoDIRECTO.com para gestionar tus inmuebles, postulaciones y pagos.",
   /*
-   * **Overrides the group's `noindex`, on purpose.** `(auth)` is `noindex` because signing up and
-   * completing a profile are not search results — but a route group does not change the URL, so
-   * this file is also `/`: the site root, and where somebody searching for the brand has to land.
-   * Without this line the homepage of the domain would be asking not to be indexed.
+   * **No `robots` override any more, and that is the point of the move.** While this file was
+   * `/` it was the login and the site root at once, so it had to override its own group back to
+   * `index: true` — the homepage of the domain cannot ask not to be indexed. The landing holds the
+   * root now, so this page inherits `(auth)`'s `noindex` like the signup beside it, which is the
+   * honest answer for a page whose entire content is a password field.
    */
-  robots: { index: true, follow: true },
 };
 
-export default async function LoginPage(props: PageProps<"/">) {
+export default async function LoginPage(props: PageProps<"/ingresar">) {
   const { next } = await props.searchParams;
   const redirectTo = safeRedirect(next);
 

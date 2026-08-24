@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { HouseIcon, SparklesIcon } from "lucide-react";
 
 import { PROPERTIES_ROUTE } from "@/shared/auth/routes";
+import { NewTabLink } from "@/shared/ui/new-tab-link";
 import { SupportCard } from "@/shared/shell/support-card";
 
 import { listApplicationsFor, RentalsCard } from "@/features/application";
@@ -46,7 +46,12 @@ export default async function HomePage() {
         <aside className="space-y-4" aria-label="Atajos y ayuda">
           <SupportCard firstName={name} />
 
-          <Link
+          {/*
+            En pestaña nueva: el catálogo es otro contexto — chrome público, otra mitad del
+            producto — y quien está mirando sus procesos abiertos y se va a ver anuncios no ha
+            terminado con esta página. Volver debería ser cerrar una pestaña, no rehacer el camino.
+          */}
+          <NewTabLink
             href={PROPERTIES_ROUTE}
             className="flex items-center gap-3 rounded-2xl border border-border bg-card p-5 transition-shadow hover:shadow-md focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
@@ -60,7 +65,7 @@ export default async function HomePage() {
               <p className="font-medium text-foreground">¿Buscas un nuevo hogar?</p>
               <p className="text-sm text-muted-foreground">Explora los inmuebles disponibles</p>
             </div>
-          </Link>
+          </NewTabLink>
 
           {/* Static content: it promises no functionality, so it needs no tooltip. */}
           <section className="rounded-2xl border border-border bg-card p-5">

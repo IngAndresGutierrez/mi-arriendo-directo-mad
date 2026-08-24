@@ -8,6 +8,7 @@ import {
   ok,
   openSession,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp, shotDir: SHOT_DIR } = config();
@@ -36,7 +37,7 @@ const sessionCookie = async () =>
 
 try {
   await step("login lleva al onboarding", async () => {
-    await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+    await page.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
     await settled(page);
     await page.getByLabel("Correo electrónico").fill(email);
     await page.getByLabel("Contraseña").fill(password);
@@ -61,18 +62,18 @@ try {
 
   await step("cierra sesion: vuelve al login Y borra la cookie", async () => {
     await page.getByRole("button", { name: /Cerrar sesión/i }).click();
-    await page.waitForURL((u) => new URL(u).pathname === "/", { timeout: 20000 });
+    await page.waitForURL((u) => new URL(u).pathname === LOGIN_PATH, { timeout: 20000 });
     await settled(page);
     const cookie = await sessionCookie();
     if (cookie) throw new Error("la cookie de sesion sobrevivio");
-    return "URL / y sin cookie";
+    return `URL ${LOGIN_PATH} y sin cookie`;
   });
 
   await step("la sesion esta muerta: el onboarding ya no es accesible", async () => {
     await page.goto(BASE + "/registro/completar-perfil", { waitUntil: "domcontentloaded" });
     await settled(page);
     const path = new URL(page.url()).pathname;
-    if (path !== "/") throw new Error("no redirigio al login, quedo en " + path);
+    if (path !== LOGIN_PATH) throw new Error("no redirigio al login, quedo en " + path);
     return "redirige al login";
   });
 
@@ -103,7 +104,7 @@ try {
       .waitFor({ state: "visible", timeout: 15000 });
 
     await dentro.getByRole("button", { name: /Cerrar sesión/i }).click();
-    await dentro.waitForURL((u) => new URL(u).pathname === "/", { timeout: 20000 });
+    await dentro.waitForURL((u) => new URL(u).pathname === LOGIN_PATH, { timeout: 20000 });
     await settled(dentro);
     // Un margen para que el rechazo llegue: es asíncrono y venía *después* de la navegación.
     await dentro.waitForTimeout(1500);

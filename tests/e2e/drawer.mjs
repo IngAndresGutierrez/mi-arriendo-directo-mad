@@ -8,6 +8,7 @@ import {
   MONTHS,
   ok,
   settled,
+  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
@@ -23,7 +24,7 @@ const problems = [];
 p.on("pageerror", (e) => problems.push("pageerror: " + e.message));
 p.on("console", (m) => { if (m.type() === "error" && !m.text().includes("404")) problems.push("console: " + m.text().slice(0, 120)); });
 
-await p.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+await p.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
 await settled(p);
 // Wait for React to own the form: before hydration the browser submits it natively, as a GET
 // that puts the password in the URL.
@@ -149,7 +150,7 @@ ok("390px sin scroll horizontal");
 await menu.click();
 await drawer.waitFor({ state: "visible" });
 await drawer.getByRole("button", { name: /Cerrar sesión/i }).click();
-await p.waitForURL((u) => new URL(u).pathname === "/", { timeout: 25000 });
+await p.waitForURL((u) => new URL(u).pathname === LOGIN_PATH, { timeout: 25000 });
 await settled(p);
 ok("cerrar sesión sigue disponible dentro del drawer");
 

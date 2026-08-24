@@ -9,12 +9,14 @@ export {
   propertyIdFromSlug,
   propertySlug,
   PROPERTY_STATUS_LABELS,
+  PROPERTY_TYPES,
   PROPERTY_TYPE_LABELS,
   propertyMonthlyCost,
   publicLocationLabel,
   type LeaseTerm,
   type Property,
   type PropertyPhoto,
+  type PropertyType,
 } from "./domain/property";
 export {
   getPropertyLocation,
@@ -23,6 +25,7 @@ export {
   resolvePublicProperty,
 } from "./data/property";
 export { CATALOG_MAX_SCAN, listAvailableProperties } from "./data/property";
+export { countCities, showcaseListings, type CityCount } from "./domain/cities";
 export {
   bedroomBucketLabel,
   countFacets,
@@ -51,6 +54,7 @@ export { getOwnedProperty, listLandlordProperties } from "./data/property";
 export { PropertyForm } from "./ui/property-form";
 export { PropertyManageCard } from "./ui/property-manage-card";
 export { PropertyCard } from "./ui/property-card";
+export { PropertyTeaserCard } from "./ui/property-teaser-card";
 export { CatalogFilters } from "./ui/catalog-filters";
 export { CatalogToolbar } from "./ui/catalog-toolbar";
 export { PropertyFacts } from "./ui/property-facts";

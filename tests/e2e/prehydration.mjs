@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, ok, settled } from "./lib.mjs";
+import { BASE, LOGIN_PATH, ok, settled } from "./lib.mjs";
 
 const b = await chromium.launch();
 const ctx = await b.newContext();
@@ -25,7 +25,7 @@ async function submitWithoutJs(path, fill, buttonName, label) {
   ok(`${label}: method=${method}, la URL no lleva nada`, url.pathname + (url.search || ""));
 }
 
-await submitWithoutJs("/", async (page) => {
+await submitWithoutJs(LOGIN_PATH, async (page) => {
   await page.getByLabel("Correo electrónico").fill("alguien@example.com");
   await page.getByLabel("Contraseña").fill("MiClaveSecreta1");
 }, /Ingresar|Iniciar/i, "login");
