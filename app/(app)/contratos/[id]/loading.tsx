@@ -1,6 +1,6 @@
 import { LoadingScreen, Skeleton } from "@/shared/ui/skeleton";
 
-/** The process page: a heading, the terms of the application, and seven stages. */
+/** The process page: a heading, the terms of the application, and eight stages. */
 export default function Loading() {
   return (
     <LoadingScreen label="Cargando el proceso…">

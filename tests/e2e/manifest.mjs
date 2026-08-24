@@ -86,6 +86,18 @@ export const COVERS = {
   ],
 
   // Auth and the profile.
+  /*
+   * Recuperar la contraseña. `features/notification/` entra porque el correo sale por `sendEmail`,
+   * y `firestore.rules` porque el contador que limita las peticiones vive en una colección que
+   * ninguna regla declara: lo que la protege es la clausura explícita del final, así que tocar las
+   * reglas es exactamente cuando hay que volver a comprobarlo.
+   */
+  "password-reset": [
+    "app/(auth)/recuperar",
+    "features/auth/",
+    "features/notification/actions/send-email",
+    "firestore.rules",
+  ],
   session: ["app/api/session", "shared/auth/", "features/auth/", "app/(auth)/"],
   signout: ["app/api/session", "shared/auth/", "shared/shell/account-menu"],
   onboarding: ["app/(auth)/", "features/profile/", "shared/geo/", "shared/phone/"],
@@ -116,7 +128,28 @@ export const COVERS = {
   // The rental process.
   apply: ["features/application/", "app/(app)/contratos", "app/(app)/postularme"],
   documents: ["features/tenant-profile/", "features/application/", "app/(app)/contratos"],
-  interview: ["features/application/domain/interview", "features/application/validations/interview", "features/application/ui/"],
+  /*
+   * La visita al inmueble: la segunda etapa, y la única que puede parar el proceso con la palabra
+   * del inquilino. `shared/format/date` no hace falta listarlo — está en `SELECTS_EVERY_DRIVER`.
+   */
+  visit: [
+    "features/application/domain/visit",
+    "features/application/validations/visit",
+    "features/application/validations/slot",
+    "features/application/actions/visit",
+    "features/application/ui/visit-panel",
+    "features/application/ui/stage-actions",
+    "features/application/ui/advance-button",
+    "features/application/domain/application",
+    "features/notification/domain/notification",
+    "app/(app)/contratos",
+  ],
+  interview: [
+    "features/application/domain/interview",
+    "features/application/validations/interview",
+    "features/application/validations/slot",
+    "features/application/ui/",
+  ],
   guarantee: [
     "features/application/domain/guarantee",
     "features/application/validations/guarantee",
@@ -185,7 +218,7 @@ export const COVERS = {
 };
 
 /** Drivers that need a landlord, a tenant and a property, so they are the slow ones. */
-export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental", "incidents", "map"];
+export const SLOW = ["documents", "apply", "visit", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental", "incidents", "map"];
 
 /**
  * Rutas tan transversales que cualquier cambio en ellas selecciona **todos** los drivers.

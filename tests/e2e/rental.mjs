@@ -24,11 +24,12 @@ import {
   declareReferenceAuthorized,
   fixtures,
   leaseTab,
+  LOGIN_PATH,
   MONTHS,
   ok,
   settled,
+  stepLabel,
   watch,
-  LOGIN_PATH,
 } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
@@ -288,7 +289,7 @@ if (/En curso|Pendiente/.test(insignia)) {
 ok("el propietario confirma el canon y con eso el proceso queda terminado");
 
 /*
- * Y la insignia de la línea de etapas dice lo mismo que la tarjeta: "Paso 7 de 7" es cierto hasta
+ * Y la insignia de la línea de etapas dice lo mismo que la tarjeta: el último paso es cierto hasta
  * que se confirma y se lee como un paso pendiente después. Se busca dentro de la sección de las
  * etapas, no en la página entera.
  */
@@ -297,10 +298,10 @@ const cabecera = await etapas.innerText();
 if (!/Proceso completado/.test(cabecera)) {
   throw new Error("la línea de etapas no dice que el proceso está completado");
 }
-if (/Paso 7 de 7/.test(cabecera)) {
+if (cabecera.includes(stepLabel("first_payment"))) {
   throw new Error("la línea de etapas sigue numerando pasos con el proceso terminado");
 }
-ok("y la línea de etapas dice 'Proceso completado', no 'Paso 7 de 7'");
+ok("y la línea de etapas dice 'Proceso completado', no " + stepLabel("first_payment"));
 await etapas
   .screenshot({ path: `${SHOT_DIR}/proceso-completado.png` })
   .catch(() => undefined);

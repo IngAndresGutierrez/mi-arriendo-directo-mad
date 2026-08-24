@@ -55,7 +55,7 @@ export default async function ContractPage() {
                 Contratos en curso ({open.length})
               </h2>
               {/*
-                Uno por fila: la barra de nueve etapas y la frase de "siguiente paso" son lo que
+                Uno por fila: la barra de etapas y la frase de "siguiente paso" son lo que
                 trae a alguien a esta pantalla, y en media columna la barra deja de leerse.
               */}
               <ul className="space-y-4">

@@ -64,7 +64,7 @@ export type NotifyInput = {
    *
    * Passing a phone is what says "this one also goes out over WhatsApp". Every other movement of
    * a process is news, and news belongs in the bell and the inbox — a phone that buzzes for each
-   * of nine stages is a phone somebody mutes, and then the reminder arrives muted too.
+   * of eight stages is a phone somebody mutes, and then the reminder arrives muted too.
    */
   readonly recipientPhone?: string | null;
 };

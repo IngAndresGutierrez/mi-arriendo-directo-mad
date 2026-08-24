@@ -66,6 +66,27 @@ export {
   type CheckStatus,
 } from "./domain/background-check";
 export {
+  confirmVisit,
+  declineVisit,
+  proposeVisit,
+  recordVisitVerdict,
+  type VisitActionResult,
+} from "./actions/visit";
+export { VisitPanel } from "./ui/visit-panel";
+export {
+  visitBlocker,
+  visitBlockerMessage,
+  visitHasPassed,
+  visitState,
+  visitWhen,
+  VISIT_OUTCOMES,
+  VISIT_OUTCOME_LABELS,
+  VISIT_STATE_LABELS,
+  type Visit,
+  type VisitOutcome,
+  type VisitState,
+} from "./domain/visit";
+export {
   confirmInterview,
   declineInterview,
   proposeInterview,

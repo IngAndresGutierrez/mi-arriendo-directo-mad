@@ -7,6 +7,8 @@ import {
   declareReferenceAuthorized,
   fixtures,
   ok,
+  onStage,
+  satisfyVisit,
   settled,
 } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
@@ -263,11 +265,16 @@ const muted = await chimes(tenant);
 await tenant.keyboard.press("Escape");
 await tenantPanel.waitFor({ state: "hidden", timeout: 5000 });
 
-// Avanzar avisa al inquilino, y el texto es una tarea, no un estado.
+/*
+ * Avanzar avisa al inquilino, y el texto es una tarea, no un estado. Lo que se comprueba es el
+ * aviso de "Datos y documentos", así que la visita —que es la etapa de antes y bloquea— se deja
+ * hecha con el Admin SDK: recorrerla aquí sería manejar otra etapa dentro del driver de la campana.
+ */
+await satisfyVisit(applicationId);
 await owner.goto(BASE + `/contratos/${applicationId}`, { waitUntil: "domcontentloaded" });
 await settled(owner);
 await advanceButton(owner).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 7"), null, { timeout: 20000 });
+await onStage(owner, "tenant_data");
 await tenant.waitForFunction(() => {
   const el = [...document.querySelectorAll("button")].find((n) => (n.getAttribute("aria-label") ?? "").startsWith("Notificaciones"));
   return el && el.getAttribute("aria-label").includes("1 sin leer");

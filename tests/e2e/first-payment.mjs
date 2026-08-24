@@ -13,10 +13,12 @@ import {
   createAccount,
   declareReferenceAuthorized,
   fixtures,
+  LOGIN_PATH,
   MONTHS,
   ok,
+  onStage,
   settled,
-  LOGIN_PATH,
+  stepLabel,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -129,8 +131,8 @@ await db.collection("applications").doc(applicationId).update({
 });
 await dueño.goto(proceso, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-await dueño.waitForFunction(() => document.body.innerText.includes("Paso 7 de 7"), null, { timeout: 20000 });
-ok("el proceso está en el primer canon", "paso 7 de 7");
+await onStage(dueño, "first_payment");
+ok("el proceso está en el primer canon", stepLabel("first_payment"));
 
 /*
  * **Aquí ya no hay ningún "Continuar a"**, y eso es lo que se comprueba: esta es la última etapa, y
@@ -253,7 +255,7 @@ const trasRechazo = await dueño.evaluate(() => document.body.innerText);
 if (/Proceso completado/.test(trasRechazo)) {
   throw new Error("con el comprobante rechazado el proceso se da por terminado");
 }
-if (!/Paso 7 de 7/.test(trasRechazo)) {
+if (!trasRechazo.includes(stepLabel("first_payment"))) {
   throw new Error("con el comprobante rechazado no dice en qué paso va");
 }
 ok("con el comprobante rechazado el proceso sigue abierto en su última etapa");
@@ -296,7 +298,7 @@ await dueño.waitForFunction(
   null,
   { timeout: 25000 },
 );
-if (/Paso 7 de 7/.test(await dueño.evaluate(() => document.body.innerText))) {
+if ((await dueño.evaluate(() => document.body.innerText)).includes(stepLabel("first_payment"))) {
   throw new Error("terminado y sigue numerando pasos");
 }
 const alArriendo = dueño.locator("#etapa-first-payment").getByRole("link", { name: /Ir al arriendo/i });

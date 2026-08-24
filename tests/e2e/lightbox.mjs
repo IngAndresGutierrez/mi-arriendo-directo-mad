@@ -8,11 +8,21 @@ const problems = [];
 p.on("pageerror", (e) => problems.push("pageerror: " + e.message));
 p.on("console", (m) => { if (m.type() === "error") problems.push("console: " + m.text().slice(0, 120)); });
 
-// El driver se abastece solo: entra al catálogo y abre el primer inmueble. Antes recibía la
-// URL por argumento, así que fuera de la sesión que la calculó no se podía correr.
+/*
+ * El driver se abastece solo: entra al catálogo y abre el primer inmueble. Antes recibía la
+ * URL por argumento, así que fuera de la sesión que la calculó no se podía correr.
+ *
+ * **Acotado a la lista de resultados, no a la página entera.** Sin acotar, `a[href^="/inmuebles/"]`
+ * también encuentra "Publicar inmueble" (`/inmuebles/publicar`) en el header —y el header va
+ * primero en el documento, así que `.first()` abría el formulario de publicar en vez de un anuncio.
+ * La espera de URL ni siquiera lo delataba: `/inmuebles/publicar` encaja en `/inmuebles/<algo>`, de
+ * modo que el driver seguía adelante y moría doce líneas después buscando un botón de fotos. Es
+ * exactamente el fallo que `.first()` sobre un selector sin ámbito produce: una suposición sobre el
+ * orden del documento, correcta hasta que alguien añade un enlace arriba.
+ */
 await p.goto(BASE + "/inmuebles", { waitUntil: "domcontentloaded" });
 await settled(p);
-const first = p.locator('a[href^="/inmuebles/"]').first();
+const first = p.locator('ul li a[href^="/inmuebles/"]').first();
 if (!(await first.count())) throw new Error("el catálogo no ofrece ningún inmueble que abrir");
 await first.click();
 await p.waitForURL(/\/inmuebles\/[^/]+$/, { timeout: 25000 });

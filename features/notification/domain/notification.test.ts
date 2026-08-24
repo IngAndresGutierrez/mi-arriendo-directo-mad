@@ -77,6 +77,38 @@ describe("interview copy", () => {
   });
 });
 
+describe("la visita al inmueble", () => {
+  /*
+   * El punto de encuentro es el único campo del proceso que entrega la dirección, y nunca sale en
+   * un aviso: un correo se reenvía, se cita y se queda abierto en un portátil. Lo que viaja es
+   * cuándo; dónde se lee en la página, detrás de la sesión. La acción es la que decide qué manda
+   * como `detail`, y esto comprueba la otra mitad: que el texto mande a la página a buscarlo.
+   */
+  it("dice cuándo es la visita y manda a la página a ver dónde", () => {
+    const copy = notificationCopy({
+      ...base,
+      type: "visit_proposed",
+      detail: "jueves 10 de septiembre, 3:00 p. m.",
+    });
+    expect(copy.body).toContain("jueves 10 de septiembre");
+    expect(copy.body).toMatch(/punto de encuentro está en la etapa/i);
+  });
+
+  /*
+   * Dos tipos y no uno con el resultado dentro: "le interesó" es una tarea —el proceso ya puede
+   * seguir— y "no le interesó" es el final. Un aviso que no distingue las dos se ignora.
+   */
+  it("distingue las dos conclusiones, porque piden cosas distintas", () => {
+    const sí = notificationCopy({ ...base, type: "visit_interested" });
+    const no = notificationCopy({ ...base, type: "visit_not_interested" });
+
+    expect(sí.title).not.toBe(no.title);
+    expect(sí.body).toMatch(/continuar/i);
+    expect(no.body).toMatch(/no sigue/i);
+    expect(no.body).toMatch(/rechazar|proponer otra/i);
+  });
+});
+
 describe("notificationCopy", () => {
   it("writes a title and a body for every type", () => {
     for (const type of NOTIFICATION_TYPES) {

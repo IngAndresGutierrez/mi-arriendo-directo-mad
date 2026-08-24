@@ -21,6 +21,17 @@ export const NOTIFICATION_TYPES = [
   "documents_requested",
   "document_rejected",
   "check_findings",
+  "visit_proposed",
+  "visit_confirmed",
+  "visit_declined",
+  /*
+   * Two types for one field, and the copy is why — the lesson the incidents already paid for.
+   * "Le interesó el inmueble" is a task for the landlord (the process can move on) and "no le
+   * interesó" is the end of it, and one `visit_answered` carrying the result inside would be a
+   * notification nobody can act on without opening the page to find out which of the two it is.
+   */
+  "visit_interested",
+  "visit_not_interested",
   "interview_proposed",
   "interview_confirmed",
   "interview_declined",
@@ -149,6 +160,53 @@ export function notificationCopy(
         body: notification.detail
           ? `${who} registró un hallazgo al revisar tus antecedentes para ${property}. ${notification.detail}`
           : `${who} registró un hallazgo al revisar tus antecedentes para ${property}.`,
+      };
+    case "visit_proposed":
+      /*
+       * Cuándo, y **nunca dónde**. El punto de encuentro es el único campo del proceso que entrega
+       * la dirección, y un correo se reenvía, se cita y se queda abierto en un portátil — la misma
+       * regla que mantiene los datos de la cuenta fuera de las notificaciones del canon. Que hay
+       * visita se avisa; dónde es se lee en la página, detrás de la sesión.
+       */
+      return {
+        title: "Te proponen un día para conocer el inmueble",
+        body: notification.detail
+          ? `${who} propone ${notification.detail} para que conozcas ${property}. Confirma el día o pide otro; el punto de encuentro está en la etapa de la visita.`
+          : `${who} propuso un día para que conozcas ${property}. Confirma el día o pide otro.`,
+      };
+    case "visit_confirmed":
+      return {
+        title: "La visita quedó confirmada",
+        body: notification.detail
+          ? `${who} confirmó ${notification.detail} para conocer ${property}.`
+          : `${who} confirmó el día para conocer ${property}.`,
+      };
+    case "visit_declined":
+      return {
+        title: "Ese día no le sirve para la visita",
+        body: notification.detail
+          ? `${who} no puede el día propuesto para conocer ${property}. ${notification.detail}`
+          : `${who} no puede el día propuesto para conocer ${property}. Propón otro.`,
+      };
+    case "visit_interested":
+      return {
+        title: "Al inquilino le interesó el inmueble",
+        body: notification.detail
+          ? `${sentence(`${who} visitó ${property} y le interesa: ${notification.detail}`)} Ya puedes continuar con el proceso.`
+          : `${who} visitó ${property} y le interesa. Ya puedes continuar con el proceso.`,
+      };
+    case "visit_not_interested":
+      /*
+       * La que para el proceso, y se dice sin rodeos: el propietario está esperando en una página a
+       * algo que ya pasó, y lo que necesita saber es que no va a pasar. Sin reproche —decidir que
+       * un inmueble no es para uno después de verlo es exactamente para lo que existe la visita— y
+       * diciendo qué queda por hacer, que es cerrar o volver a intentarlo.
+       */
+      return {
+        title: "Al inquilino no le interesó el inmueble",
+        body: notification.detail
+          ? `${sentence(`${who} visitó ${property} y no le interesa: ${notification.detail}`)} El proceso no sigue: puedes rechazar la postulación o proponer otra visita.`
+          : `${who} visitó ${property} y no le interesa. El proceso no sigue: puedes rechazar la postulación o proponer otra visita.`,
       };
     case "interview_proposed":
       return {

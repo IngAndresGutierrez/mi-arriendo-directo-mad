@@ -35,11 +35,22 @@ const at = (
 /** El proceso terminado: la última etapa, y la marca que escribe el canon confirmado. */
 const finished = at("first_payment", "open", "2026-10-01T15:00:00.000Z");
 
-describe("the seven stages", () => {
-  it("are seven, in the agreed order, and end with the first canon", () => {
-    expect(STAGES).toHaveLength(7);
+describe("the eight stages", () => {
+  it("are eight, in the agreed order, and end with the first canon", () => {
+    expect(STAGES).toHaveLength(8);
     expect(STAGES[0]).toBe("submitted");
     expect(STAGES.at(-1)).toBe("first_payment");
+  });
+
+  /*
+   * La visita va segunda, y la posición *es* el argumento: a nadie se le pide la cédula, el soporte
+   * de ingresos ni permiso para consultar sus antecedentes por un inmueble que no ha visto. Si
+   * alguna vez se mueve detrás de los documentos, este test es donde se para.
+   */
+  it("manda a ver el inmueble antes de pedir un solo dato", () => {
+    expect(STAGES[1]).toBe("visit");
+    expect(STAGES.indexOf("visit")).toBeLessThan(STAGES.indexOf("tenant_data"));
+    expect(STAGES.indexOf("visit")).toBeLessThan(STAGES.indexOf("background_check"));
   });
 
   /*
@@ -47,7 +58,7 @@ describe("the seven stages", () => {
    * registrara la firma —decidir firmar *es* aprobar— y `active` no era una etapa sino el
    * arriendo, que tiene su propia página, su propia vida y doce meses en vez de siete pasos.
    */
-  it("no tiene ni la aprobación ni el arriendo como pasos", () => {
+  it("no tiene ni la aprobacion ni el arriendo como pasos", () => {
     expect(STAGES).not.toContain("approved");
     expect(STAGES).not.toContain("active");
   });
@@ -100,11 +111,11 @@ describe("the seven stages", () => {
   });
 
   /*
-   * Ya no queda ninguna: las siete etapas tienen trabajo en el producto. El test se queda para que
+   * Ya no queda ninguna: las ocho etapas tienen trabajo en el producto. El test se queda para que
    * añadir una etapa sin interfaz obligue a declararla, en vez de que aparezca vacía sin que nadie
    * lo diga.
    */
-  it("no marks any stage as unbuilt: the seven have work in the product now", () => {
+  it("no marks any stage as unbuilt: the eight have work in the product now", () => {
     for (const stage of STAGES) {
       expect(isUnbuilt(stage)).toBe(false);
     }
@@ -140,13 +151,14 @@ describe("normalizeStage", () => {
 
 describe("nextStage", () => {
   it("walks the list and stops at the end", () => {
-    expect(nextStage("submitted")).toBe("tenant_data");
+    expect(nextStage("submitted")).toBe("visit");
+    expect(nextStage("visit")).toBe("tenant_data");
     expect(nextStage("tenant_data")).toBe("background_check");
     expect(nextStage("guarantee")).toBe("contract_signature");
     expect(nextStage("first_payment")).toBeNull();
   });
 
-  it("reaches the last stage in exactly six moves", () => {
+  it("reaches the last stage in exactly seven moves", () => {
     let stage: Stage | null = "submitted";
     let moves = 0;
     while (nextStage(stage!) !== null) {
@@ -154,7 +166,7 @@ describe("nextStage", () => {
       moves += 1;
     }
     expect(stage).toBe("first_payment");
-    expect(moves).toBe(6);
+    expect(moves).toBe(7);
   });
 });
 
@@ -197,7 +209,7 @@ describe("stageState", () => {
 
 describe("progress", () => {
   /*
-   * "Paso 7 de 7" es cierto mientras el propietario no ha confirmado el canon, y deja de serlo en
+   * "Paso 8 de 8" es cierto mientras el propietario no ha confirmado el canon, y deja de serlo en
    * cuanto lo confirma: entonces lo que hay que decir es que se acabó. Una insignia que sigue
    * numerando pasos es lo que no distingue un proceso acabado de uno atascado en el último.
    */
@@ -207,12 +219,13 @@ describe("progress", () => {
   });
 
   it("counts from one, not from zero", () => {
-    expect(stageProgressLabel(at("submitted"))).toBe("Paso 1 de 7");
-    expect(stageProgressLabel(at("first_payment"))).toBe("Paso 7 de 7");
+    expect(stageProgressLabel(at("submitted"))).toBe("Paso 1 de 8");
+    expect(stageProgressLabel(at("visit"))).toBe("Paso 2 de 8");
+    expect(stageProgressLabel(at("first_payment"))).toBe("Paso 8 de 8");
   });
 
   it("fills the bar only when the process is at the last stage", () => {
-    expect(stageProgress("submitted")).toBeCloseTo(1 / 7);
+    expect(stageProgress("submitted")).toBeCloseTo(1 / 8);
     expect(stageProgress("first_payment")).toBe(1);
   });
 });

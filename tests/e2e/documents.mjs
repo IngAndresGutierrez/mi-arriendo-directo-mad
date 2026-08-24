@@ -7,7 +7,10 @@ import {
   declareReferenceAuthorized,
   fixtures,
   ok,
+  onStage,
+  satisfyVisit,
   settled,
+  stepLabel,
 } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
@@ -78,14 +81,23 @@ await tenant.getByRole("button", { name: /Enviar postulación/i }).click();
 await tenant.waitForURL(/\/contratos\/[A-Za-z0-9]+$/, { timeout: 40000 });
 await settled(tenant);
 const processUrl = tenant.url();
+const applicationId = new URL(processUrl).pathname.split("/").pop();
 ok("postulación creada");
 
-// El propietario avanza a la etapa 2.
+/*
+ * La visita al inmueble queda hecha y con visto bueno antes de seguir: es la etapa 2 y bloquea, y
+ * recorrerla entera desde aquí serían cuatro interacciones más en el driver más lento de la suite
+ * por una etapa que `visit.mjs` maneja de punta a punta. El proceso se queda *en* la visita, así
+ * que el que avanza sigue siendo el botón del producto.
+ */
+await satisfyVisit(applicationId);
+
+// El propietario avanza a los documentos del inquilino.
 await owner.goto(processUrl, { waitUntil: "domcontentloaded" });
 await settled(owner);
 await advanceButton(owner).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 7"), null, { timeout: 20000 });
-ok("el proceso tiene 7 etapas y llegó a la 2");
+await onStage(owner, "tenant_data");
+ok("el proceso llegó a los documentos del inquilino", stepLabel("tenant_data"));
 
 // ---------- la sección vive dentro de la etapa 2, como acordeón ----------
 await tenant.goto(processUrl, { waitUntil: "domcontentloaded" });
@@ -308,7 +320,7 @@ ok("con todo aprobado, el botón se activa");
 await owner.screenshot({ path: `${SHOT_DIR}/aprobado.png`, fullPage: true });
 
 await advanceButton(owner).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 3 de 7"), null, { timeout: 20000 });
+await onStage(owner, "background_check");
 ok("y el proceso avanza a la validación de expedientes");
 
 // Al pasar de un paso a otro, todos los acordeones quedan plegados — sin recargar.

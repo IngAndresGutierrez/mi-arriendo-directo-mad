@@ -579,6 +579,83 @@ export function adminDb() {
 }
 
 /**
+ * Las etapas del proceso, en orden, y la insignia que las cuenta.
+ *
+ * Once drivers afirmaban "Paso 5 de 7" a mano, que es una copia de una regla del producto en once
+ * ficheros: añadir la visita al inmueble desplazó seis etapas y las puso rojas todas a la vez, con
+ * el diff de cada una siendo una cifra. La lista vive aquí una sola vez, y un driver dice de qué
+ * **etapa** habla en vez de en qué número cayó — que es lo que de verdad quiere decir.
+ *
+ * Sigue siendo una copia de `STAGES`, y no hay forma de evitarlo: los drivers son `.mjs` y el
+ * dominio es TypeScript. Lo que se compra es que la copia sea una y esté señalada.
+ */
+export const STAGE_ORDER = [
+  "submitted",
+  "visit",
+  "tenant_data",
+  "background_check",
+  "interview",
+  "guarantee",
+  "contract_signature",
+  "first_payment",
+];
+
+/** `Paso 5 de 8` para una etapa, como lo escribe la insignia sobre la línea. */
+export function stepLabel(stage) {
+  const index = STAGE_ORDER.indexOf(stage);
+  if (index < 0) throw new Error(`no existe la etapa ${stage}`);
+
+  return `Paso ${index + 1} de ${STAGE_ORDER.length}`;
+}
+
+/** Espera a que la página diga que el proceso está en esa etapa. */
+export async function onStage(page, stage, timeout = 20000) {
+  const label = stepLabel(stage);
+  await page.waitForFunction(
+    (expected) => document.body.innerText.includes(expected),
+    label,
+    { timeout },
+  );
+
+  return label;
+}
+
+/**
+ * Deja la visita al inmueble hecha y con visto bueno, para un driver que no va de eso.
+ *
+ * La visita es la segunda etapa y **bloquea**: sin proponerla, confirmarla y que el inquilino diga
+ * que le interesa, el proceso no pasa de ahí. Los drivers que empiezan postulándose por la interfaz
+ * y luego van a otra cosa —los documentos, la campana— tendrían que recorrerla entera para llegar a
+ * su tema, que son cuatro interacciones y dos sesiones por una etapa que `visit.mjs` ya maneja de
+ * punta a punta.
+ *
+ * Escribe con el Admin SDK lo que habrían escrito esas cuatro interacciones, y **deja el proceso en
+ * la etapa de la visita** en vez de saltársela: así el driver sigue avanzando con el botón del
+ * producto y lo que se ahorra es el trámite, no la comprobación.
+ */
+export async function satisfyVisit(applicationId, when = "2026-09-10T20:00:00.000Z") {
+  const now = new Date().toISOString();
+
+  await adminDb()
+    .collection("applications")
+    .doc(applicationId)
+    .update({
+      stage: "visit",
+      visit: {
+        at: when,
+        meetingPoint: "Cra 23 #14-08, portería de la torre 2",
+        note: "",
+        proposedAt: now,
+        confirmedAt: now,
+        declinedAt: null,
+        declineNote: "",
+        verdict: { result: "interested", note: "Me gustó mucho la luz.", at: now },
+      },
+      updatedAt: adminFieldValue().serverTimestamp(),
+    });
+}
+
+/**
  * El botón de seguir **de la barra de arriba**, la que está sobre la línea de etapas.
  *
  * Existe porque ese botón vive ahora en dos sitios: ahí arriba, siempre, y al pie de la etapa en

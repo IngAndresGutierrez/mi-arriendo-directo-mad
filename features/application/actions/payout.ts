@@ -244,7 +244,7 @@ export async function uploadReceipt(
  * A rejection **needs a reason**, and the tenant reads it: it is the only thing that tells them what
  * to fix before uploading another one.
  *
- * **Confirming closes the seven stages and opens the tenancy, in one movement.** There used to be
+ * **Confirming closes the eight stages and opens the tenancy, in one movement.** There used to be
  * two stages after this — "Postulación aprobada" was already behind it, and "Arriendo en curso" was
  * ahead — and reaching the second of them was a button the landlord pressed *after* confirming the
  * canon, which recorded nothing the confirmation had not already recorded. A step whose only content

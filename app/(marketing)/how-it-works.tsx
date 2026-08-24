@@ -9,7 +9,7 @@ import { HOW_IT_WORKS_ANCHOR } from "@/app/public-header";
  * The process, told from both sides at once.
  *
  * **Two columns rather than a tab strip or a single "cómo funciona".** This is a two-sided market
- * and the two sides do different things at the same seven stages — the sentence that tells the
+ * and the two sides do different things at the same eight stages — the sentence that tells the
  * tenant to wait for a call is the sentence that tells the landlord to make it, which is exactly
  * why `STAGE_DESCRIPTIONS` and `STAGE_DESCRIPTIONS_LANDLORD` exist as two lists in the domain. A
  * tab would hide half of that behind a click, and the half it hides is the half that answers "and

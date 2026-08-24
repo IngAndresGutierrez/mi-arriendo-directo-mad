@@ -103,7 +103,7 @@ export function RentalsCard({
                 />
               </Link>
 
-              {/* Cuánto falta, de un vistazo: siete etapas son difíciles de situar con palabras. */}
+              {/* Cuánto falta, de un vistazo: ocho etapas son difíciles de situar con palabras. */}
               <div
                 className="mt-2 h-1 overflow-hidden rounded-full bg-border"
                 role="presentation"

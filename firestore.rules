@@ -251,7 +251,7 @@ service cloud.firestore {
     }
 
     // ----------------------------- applications -----------------------------
-    // A rental process: seven stages the landlord moves it through — and a seventh that ends by
+    // A rental process: eight stages the landlord moves it through — and a last one that ends by
     // itself when he confirms the first canon. Visible ONLY to the tenant who created it and to
     // the property's landlord.
     //

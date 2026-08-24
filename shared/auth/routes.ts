@@ -26,7 +26,21 @@ export const LANDING_ROUTE = "/";
  */
 export const LOGIN_ROUTE = "/ingresar";
 export const SIGNUP_ROUTE = "/registro";
+/**
+ * Asking for a password reset email. **Built now** — it was linked from the login form and
+ * answered 404 for as long as that link existed, which is the same failure the legal pages had.
+ */
 export const PASSWORD_RESET_ROUTE = "/recuperar";
+
+/**
+ * Where the link in that email lands: the screen that takes the `oobCode` and sets the password.
+ *
+ * **Firebase decides which URL its email points at, not this code.** By default it is Google's own
+ * hosted handler on the project's `authDomain`; pointing it here is one setting in the Firebase
+ * console (Authentication → Templates → Action URL). The page is built and works either way, so
+ * this is additive: with the console untouched the flow still completes on Firebase's page.
+ */
+export const PASSWORD_RESET_CONFIRM_ROUTE = "/recuperar/confirmar";
 /** Onboarding: there is a session but the profile is not complete yet. */
 export const COMPLETE_PROFILE_ROUTE = "/registro/completar-perfil";
 

@@ -26,7 +26,7 @@ const STATE_BADGE = {
 } as const;
 
 /**
- * The seven stages, with the process's own place in them.
+ * The eight stages, with the process's own place in them.
  *
  * Every stage is shown, including the ones that have nothing behind them yet: a tenant needs to
  * know what is coming, and a process with holes in it is worse than one that says which parts

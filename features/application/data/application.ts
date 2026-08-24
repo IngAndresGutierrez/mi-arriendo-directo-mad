@@ -68,6 +68,9 @@ function toApplication(snapshot: Snapshot): Application | null {
         { ...review, at: iso((review as { at?: unknown }).at) },
       ]),
     ),
+    // Written by `proposeVisit`; absent on every application older than that stage — which is
+    // every application made before the visit was added, including the ones still running.
+    visit: doc.visit ?? null,
     // Written by `proposeInterview`; absent on every application older than that stage.
     interview: doc.interview ?? null,
     /*

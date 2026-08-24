@@ -26,6 +26,11 @@ import {
   withContractUrl,
   withStampedUrl,
   CONTRACT_STATE_LABELS,
+  visitBlocker,
+  visitBlockerMessage,
+  visitState,
+  VisitPanel,
+  VISIT_STATE_LABELS,
   interviewBlocker,
   interviewBlockerMessage,
   interviewState,
@@ -116,6 +121,14 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
       ? checksBlocker(application.checksAuthorizedAt, application.checkResults)
       : null;
 
+  /*
+   * Y la visita tiene cuatro, y la cuarta es la que da sentido a la etapa: además de proponer,
+   * confirmar e ir, el inquilino tiene que decir que el inmueble le interesa. Un "no me interesa"
+   * no cierra el proceso solo — eso es una decisión con nombre, y las dos partes ya tienen su
+   * botón — pero tampoco deja seguir.
+   */
+  const visitLeft = application.stage === "visit" ? visitBlocker(application.visit) : null;
+
   // And the interview has three: a time proposed, the tenant's confirmation, and what came out
   // of the conversation. A stage that moves on without those is a stage nobody held.
   const interviewLeft =
@@ -164,19 +177,29 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
    * Calcularlo dos veces sería dejar que los dos botones acabaran discrepando sobre si el paso está
    * terminado, que es exactamente la incoherencia que un segundo botón invita a tener.
    */
-  const blockedBecause = blocker
-    ? documentsBlockerMessage(blocker, isLandlord)
-    : checksLeft
-      ? checksBlockerMessage(checksLeft, isLandlord)
-      : interviewLeft
-        ? interviewBlockerMessage(interviewLeft, isLandlord)
-        : guaranteeLeft
-          ? guaranteeBlockerMessage(guaranteeLeft, isLandlord)
-          : contractLeft
-            ? contractBlockerMessage(contractLeft, isLandlord)
-            : paymentLeft
-              ? firstPaymentBlockerMessage(paymentLeft, isLandlord)
-              : null;
+  const blockedBecause = visitLeft
+    ? visitBlockerMessage(visitLeft, isLandlord)
+    : blocker
+      ? documentsBlockerMessage(blocker, isLandlord)
+      : checksLeft
+        ? checksBlockerMessage(checksLeft, isLandlord)
+        : interviewLeft
+          ? interviewBlockerMessage(interviewLeft, isLandlord)
+          : guaranteeLeft
+            ? guaranteeBlockerMessage(guaranteeLeft, isLandlord)
+            : contractLeft
+              ? contractBlockerMessage(contractLeft, isLandlord)
+              : paymentLeft
+                ? firstPaymentBlockerMessage(paymentLeft, isLandlord)
+                : null;
+
+  /*
+   * La dirección que el propietario dio al publicar, para ofrecerla como punto de encuentro. Se
+   * lee **solo para él y solo en su etapa**: `getPropertyLocation` ya devuelve `null` a quien no
+   * sea el dueño, y aun así no se pide en las otras etapas para no hacer una lectura que nadie va
+   * a mirar. Al inquilino no le llega nunca — lo que ve es lo que el propietario escribió.
+   */
+  const onVisit = isLandlord && application.stage === "visit";
 
   const onGuarantee = isLandlord && application.stage === "guarantee";
   /*
@@ -186,7 +209,7 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
    */
   const [tenantAccount, location, property] = await Promise.all([
     onGuarantee ? getProfile(application.tenantUid) : null,
-    onGuarantee ? getPropertyLocation(application.propertyId, user.uid) : null,
+    onGuarantee || onVisit ? getPropertyLocation(application.propertyId, user.uid) : null,
     onGuarantee ? getOwnedProperty(application.propertyId, user.uid) : null,
   ]);
 
@@ -349,6 +372,19 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
             ) : null
           }
           work={{
+            visit: {
+              title: "Visita al inmueble",
+              meta: VISIT_STATE_LABELS[visitState(application.visit)],
+              content: (
+                <VisitPanel
+                  applicationId={application.id}
+                  visit={application.visit}
+                  isLandlord={isLandlord}
+                  suggestedMeetingPoint={onVisit ? (location?.line ?? "") : ""}
+                  readOnly={past("visit")}
+                />
+              ),
+            },
             tenant_data: {
               title: isLandlord ? "Documentos del inquilino" : "Tus documentos",
               meta: `${progress.uploaded} de ${progress.required} subidos`,

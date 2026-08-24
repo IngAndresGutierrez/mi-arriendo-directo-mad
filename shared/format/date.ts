@@ -110,3 +110,49 @@ const ISO_IN_BOGOTA = new Intl.DateTimeFormat("en-CA", {
 export function bogotaToday(now: Date): string {
   return ISO_IN_BOGOTA.format(now);
 }
+
+/**
+ * `jueves 10 de septiembre, 3:00 p. m.` — for an appointment somebody has to turn up to.
+ *
+ * The weekday is the point: "el 10 de septiembre" is a date you have to go and look up, and
+ * "jueves" is one you already know where you are standing. No year, because an appointment more
+ * than a few weeks out is not what this shape is for — `formatBogotaDateTime` is.
+ *
+ * It lives here and not in the stage that needed it first because **two screens now show the same
+ * kind of instant**: the interview and the visit to the property. Two formatters for one fact are
+ * two things that can drift, and the first to drift would be the hour somebody is expected at.
+ */
+export function formatBogotaWeekdayTime(value: string): string {
+  const instant = instantOf(value);
+  if (Number.isNaN(instant.getTime())) return "";
+
+  const day = new Intl.DateTimeFormat("es-CO", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    timeZone: TIME_ZONE,
+  }).format(instant);
+
+  return `${day}, ${formatBogotaTime(value)}`;
+}
+
+/**
+ * `3:00 p. m.`, Colombian time.
+ *
+ * Goes through `normalizeSpaces` like every other formatter here, and that is not cosmetic: the
+ * space before `p. m.` is a narrow no-break space in some ICU builds and an ordinary one in others,
+ * which is a hydration mismatch the moment an hour is rendered unfolded.
+ */
+export function formatBogotaTime(value: string): string {
+  const instant = instantOf(value);
+  if (Number.isNaN(instant.getTime())) return "";
+
+  return normalizeSpaces(
+    new Intl.DateTimeFormat("es-CO", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: TIME_ZONE,
+    }).format(instant),
+  );
+}

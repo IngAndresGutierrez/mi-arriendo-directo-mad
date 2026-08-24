@@ -15,7 +15,7 @@ import { canAdvance, nextStage, STAGE_LABELS, type Application } from "../domain
  *
  * It lives **twice on the page**: at the top, beside "Rechazar postulación", and again at the foot
  * of the stage being worked on — because the answer to "am I done with this step?" is at the bottom
- * of the step, and scrolling back up past nine cards to press a button about the thing you just
+ * of the step, and scrolling back up past eight cards to press a button about the thing you just
  * finished is a scroll that means nothing. Its own component precisely so the two are the *same*
  * control: the label names the stage it moves to, and a copy that drifted from it would be a second
  * button claiming to do the same thing and doing it differently.

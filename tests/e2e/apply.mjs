@@ -7,7 +7,10 @@ import {
   declareReferenceAuthorized,
   fixtures,
   ok,
+  onStage,
   settled,
+  STAGE_ORDER,
+  stepLabel,
 } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
@@ -110,12 +113,23 @@ const processUrl = tenant.url();
 ok("la postulación se envía y abre el proceso", new URL(processUrl).pathname);
 
 const stages = await tenant.locator("ol li h3").allTextContents();
-if (stages.length !== 7) throw new Error(`se ven ${stages.length} etapas`);
+if (stages.length !== STAGE_ORDER.length) throw new Error(`se ven ${stages.length} etapas`);
 if (stages.join(" ").toLowerCase().includes("depósito")) throw new Error("¡apareció una etapa de depósito!");
-ok("se ven las 7 etapas y ninguna es depósito", stages[0] + " → " + stages[6]);
+ok(`se ven las ${stages.length} etapas y ninguna es depósito`, stages[0] + " → " + stages.at(-1));
+
+/*
+ * Y la visita va **antes** de que se le pida un solo dato: a nadie se le pide la cédula ni el
+ * soporte de ingresos por un apartamento que no ha visto. Se comprueba sobre lo que la página
+ * pinta, no sobre la constante, porque la constante es la que podría estar mal.
+ */
+const visita = stages.findIndex((title) => /visita/i.test(title));
+const datos = stages.findIndex((title) => /documentos/i.test(title));
+if (visita < 0) throw new Error("no hay etapa de visita al inmueble: " + stages.join(" · "));
+if (visita > datos) throw new Error("la visita va después de pedir los documentos");
+ok("la visita al inmueble va antes de pedirle nada al inquilino", `${visita + 1}ª de ${stages.length}`);
 const tenantText = await tenant.evaluate(() => document.body.innerText);
-if (!tenantText.includes("Paso 1 de 7")) throw new Error("no dice en qué paso va");
-ok("el proceso arranca en el paso 1 de 7");
+if (!tenantText.includes(stepLabel("submitted"))) throw new Error("no dice en qué paso va");
+ok("el proceso arranca en la primera etapa", stepLabel("submitted"));
 await tenant.screenshot({ path: `${SHOT_DIR}/proceso-inquilino.png`, fullPage: true });
 
 // El inquilino no puede avanzar su propio proceso.
@@ -156,13 +170,13 @@ ok("el propietario ve el expediente: documento, ingresos, múltiplo del canon y 
 await owner.screenshot({ path: `${SHOT_DIR}/proceso-propietario.png`, fullPage: true });
 
 await advanceButton(owner).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 7"), null, { timeout: 20000 });
-ok("el propietario avanza una etapa", "paso 2 de 7");
+await onStage(owner, "visit");
+ok("el propietario avanza una etapa", stepLabel("visit"));
 
 // El inquilino ve el avance.
 await tenant.goto(processUrl, { waitUntil: "domcontentloaded" });
 await settled(tenant);
-if (!(await tenant.evaluate(() => document.body.innerText)).includes("Paso 2 de 7")) throw new Error("el inquilino no ve el avance");
+if (!(await tenant.evaluate(() => document.body.innerText)).includes(stepLabel("visit"))) throw new Error("el inquilino no ve el avance");
 ok("el inquilino ve el avance del propietario");
 
 // ---------- lo sensible no se filtra ----------

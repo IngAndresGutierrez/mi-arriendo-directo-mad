@@ -108,7 +108,8 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/registro` | `SIGNUP_ROUTE` | Two-step signup: email → password. |
 | `/registro/completar-perfil` | `COMPLETE_PROFILE_ROUTE` | Onboarding: there is a session but no profile yet. |
 | `/inicio` | `HOME_ROUTE` | User portal: greeting, **the contracts in course** and shortcuts. Destination after signing in. The card lists the open processes with the stage each one is on — it used to read a `contracts` collection nothing writes, so it told somebody with three open processes that they had nothing. |
-| `/recuperar` | `PASSWORD_RESET_ROUTE` | **Not implemented** (404). |
+| `/recuperar` | `PASSWORD_RESET_ROUTE` | Ask for a reset email. **It was linked from the login form long before it existed**, answering 404 the whole time — the same failure the legal pages had, and one `pnpm build` cannot see, because a `<Link>` to a missing route compiles perfectly. |
+| `/recuperar/confirmar` | `PASSWORD_RESET_CONFIRM_ROUTE` | Where the link lands: takes the `oobCode` and sets the new password. **Whether Firebase's email points here is a console setting** (Authentication → Templates → Action URL), not code — untouched, the flow still completes on Firebase's own hosted page. |
 | `/inmuebles/publicar` | `PUBLISH_PROPERTY_ROUTE` | Where a landlord publishes. Needs a complete profile. |
 | — | — | Publishing requires the **matrícula inmobiliaria**, and it is stored beside the street in `properties/{id}/private/location`, never in the public document: with that number anyone can pull the certificate and read the address off it, so publishing it would publish the address by the back door. Validated loosely — the circle is two or three digits and the separator is written every way — because the only real check is against the registry, which this product does not do. |
 | `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
@@ -164,7 +165,8 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
   same URL. Older shapes (`<slug>-<id>` and a bare `<id>`) are permanently redirected, so links
   already shared keep working.
 
-Links with no route yet (they 404): `/recuperar`. **`/terminos`, `/privacidad` and `/cookies`
+**There are no links to routes that do not exist.** `/recuperar` was the last one and is built now;
+`/terminos`, `/privacidad` and `/cookies`
 exist now** — they had been linked from the signup and onboarding screens, and answering 404 for as
 long as those links existed is not something `pnpm build` can catch: a `<Link>` to a route that is
 not there compiles perfectly. `tests/e2e/legal.mjs` is what pins them.
@@ -531,13 +533,13 @@ through: a pair that does not exist.
 
 ## The rental process (`features/application`)
 
-Seven stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
+Eight stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
 nothing advances by itself, because each of these is a decision someone makes off the platform
-and then records here. `submitted → tenant_data → background_check → interview → guarantee →
+and then records here. `submitted → visit → tenant_data → background_check → interview → guarantee →
 contract_signature → first_payment`.
 
 **Except the end, which is the one deliberate exception**: confirming the first canon *is* the
-decision, so it ends the process and opens the tenancy in the same movement. There is no eighth
+decision, so it ends the process and opens the tenancy in the same movement. There is no ninth
 stage to advance to.
 
 **Two stages were removed, and both for the same reason: they recorded nothing.** `approved`
@@ -1237,6 +1239,67 @@ that would tell the tenant a canon is due, the IPC raise at renewal, and the clo
 above. A landlord recording "me pagó en efectivo" without a tenant
 receipt is not built either — the flow is symmetric with the first canon on purpose. `/arriendos`
 also does **not** mark the property `rented`, which the process does not do on finishing either.
+
+## Recovering a password (`features/auth`)
+
+Two screens: `/recuperar` asks for the address, `/recuperar/confirmar` takes the code and sets the
+password. The email goes out **through Resend from this product's own verified domain**, not from
+Firebase's default template — a message about getting back into your account arriving from
+`noreply@<project>.firebaseapp.com` reads as phishing, which is the same reason the notification
+emails are sent the way they are.
+
+**The screen never says whether the account exists**, and that is the whole security design. It
+answers *"si existe una cuenta con ese correo, te enviamos un enlace"* to every address — unknown,
+throttled, Google-only, or a Resend failure — because anything more definite turns the form into an
+account-enumeration oracle. It is the same rule `shared/auth/errors.ts` already enforces on the
+login, where invalid credentials and unknown user deliberately share one message, and keeping it
+there while giving it away here would have been pointless. `requestPasswordReset` returns the same
+value on every branch and never throws, so timing and errors do not leak it either.
+`tests/e2e/password-reset.mjs` asserts the two confirmations are **identical word for word** rather
+than looking for a phrase — a property of two runs compared against each other, which no unit test
+can express — and it was proved by making the form reveal the answer on purpose and watching it go
+red.
+
+**Three requests per address per fifteen minutes** (`resetThrottle`, pure and unit-tested). The
+endpoint emails an address the caller chooses, which is two abuses at once: filling somebody's inbox,
+and burning the Resend quota — **100 a day** on the free tier, already exhausted once by a driver run.
+The window is fixed rather than sliding (a sliding one needs every timestamp, so the document grows
+with the abuse it exists to stop) and **a refused attempt still counts**, or hammering it would let
+the window lapse while the requests kept landing.
+
+**The counter lives in `passwordResetRequests/{sha256(email)}` and no rule declares it** — the
+explicit closure at the end of `firestore.rules` is what denies every client, exactly as with
+`signatureChallenges`, and a rules test pins that so nobody declares it higher up by accident. The
+document id is a **hash**: a doc id is not data you can hide (console, exports, log lines), so a
+collection keyed by plaintext email would be a readable list of everyone who ever forgot their
+password. Unsalted on purpose — a stable salt is one constant, which buys nothing against somebody
+who has both it and a list of addresses; what it defends against is casual exposure.
+
+**The code is verified before the form is shown, not on submit.** `oobCode` is single-use and lasts
+an hour, and both ways of arriving with a dead one are ordinary — the link sat overnight, or it was
+already used. Finding out *after* typing a password is the version that makes people give up.
+`verifyPasswordResetCode` also returns the address, which is what lets the screen say whose account
+is being changed. Every reason a code is bad shares **one message**: Firebase distinguishes expired
+from already-used, and "ya se usó" tells whoever holds a leaked link that it worked for somebody.
+
+**`signupSchema` is reused for the new password**, never a second schema — a reset screen that
+accepted a weaker password than signup would be a way around the rules.
+
+**The exchange happens in the browser.** `oobCode` is a credential, and handing it to a Server Action
+would put it in the request log of every hop; the web SDK talks to Firebase directly. The initial
+"no code in the URL" state is **derived at first render, not set in an effect** — the React compiler
+refuses a synchronous `setState` in an effect body, the same rule `LeaseTabs` pays for with its
+`requestAnimationFrame`.
+
+**The driver reads the code from the Auth emulator**, not from the dev log: unlike the signature OTP
+the link is in the body rather than the subject, so `sendEmail`'s log line does not carry it.
+`GET /emulator/v1/projects/{id}/oobCodes` is what the emulator exposes for this. And the assertion
+that matters is the last one — **signing in with the new password, and the old one no longer
+working**: everything else can be right and still leave the account on the old password.
+
+**Not built:** changing a password from inside an account (it should ask for the current one), and
+`/recuperar` deliberately redirects a signed-in visitor to the portal rather than pretending to be
+that flow.
 
 ## Notifications and email (`features/notification`)
 

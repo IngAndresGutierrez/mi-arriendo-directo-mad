@@ -6,9 +6,10 @@ import type { Contract } from "./contract";
 import type { FirstPayment } from "./payout";
 import type { Guarantee } from "./guarantee";
 import type { Interview } from "./interview";
+import type { Visit } from "./visit";
 
 /**
- * The seven stages a rental goes through, in order.
+ * The eight stages a rental goes through, in order.
  *
  * The landlord moves the process forward one stage at a time — there is no automatic
  * progression, because every one of these is a decision someone makes off the platform and then
@@ -27,12 +28,20 @@ import type { Interview } from "./interview";
  * of the negotiation that produces it. The tenancy has its own page, its own lifetime and twelve
  * months instead of seven steps — `completedAt` is what says the process reached the end.
  *
+ * **`visit` is second, and the position is the argument.** The tenant goes to see the property
+ * before anybody is asked for an identity document, for payslips, or for permission to search
+ * their judicial record — and before the landlord spends any of that on somebody who will walk in
+ * and find the building faces a motorway. Everything after it is worth doing only once both people
+ * have seen what they are talking about, so it sits as early as it can and still have an
+ * application to hang off. Its verdict is the tenant's: see `domain/visit.ts`.
+ *
  * There is deliberately **no deposit stage**. Ley 820 de 2003 forbids cash deposits on urban
  * housing leases in Colombia; what stands in for it is `guarantee` — a co-signer or an insurance
  * policy — which is a stage precisely because it is the legal way to do this.
  */
 export const STAGES = [
   "submitted",
+  "visit",
   "tenant_data",
   "background_check",
   "interview",
@@ -70,6 +79,7 @@ export function normalizeStage(value: unknown): Stage {
 
 export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
   submitted: "Postulación recibida",
+  visit: "Visita al inmueble",
   tenant_data: "Datos y documentos del inquilino",
   background_check: "Validación de expedientes",
   interview: "Entrevista con el propietario",
@@ -87,6 +97,8 @@ export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
  */
 export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
   submitted: "El propietario ya tiene tu postulación y los datos que declaraste.",
+  visit:
+    "Ve a conocer el inmueble. El propietario propone el día y el punto de encuentro, y después nos dices si te interesa.",
   tenant_data: "Sube tu documento de identidad y el soporte de tus ingresos.",
   background_check:
     "Con tu autorización se revisan tus antecedentes judiciales, multas de tránsito y sanciones disciplinarias.",
@@ -99,9 +111,11 @@ export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
     "Paga el primer canon y sube el comprobante. En cuanto el propietario confirme que llegó, el proceso termina y empieza el arriendo.",
 };
 
-/** The same seven stages, addressed to the landlord. */
+/** The same eight stages, addressed to the landlord. */
 export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
   submitted: "Revisa lo que declaró el inquilino y decide si sigues con él.",
+  visit:
+    "Propón un día y un punto de encuentro para que el inquilino conozca el inmueble. Él dirá si le interesa.",
   tenant_data: "Pídele su documento de identidad y el soporte de sus ingresos.",
   background_check:
     "Consulta sus antecedentes judiciales, de tránsito y disciplinarios, y marca el resultado.",
@@ -117,7 +131,7 @@ export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
 /**
  * What the process reads as once it is over, which is not a stage.
  *
- * The seven stages are the negotiation; what follows is the tenancy, and it lives on another page
+ * The eight stages are the negotiation; what follows is the tenancy, and it lives on another page
  * with its own months. These two sentences are what a card says instead of naming the last stage —
  * "Primer canon" beside a process that finished would read as one still asking for the money.
  */
@@ -166,7 +180,7 @@ export function processDescription(
  * is how a process that happens over WhatsApp gets recorded here in the meantime.
  */
 /*
- * Vacío, y eso es la noticia: las siete etapas tienen trabajo en el producto. `contract_signature`
+ * Vacío, y eso es la noticia: las ocho etapas tienen trabajo en el producto. `contract_signature`
  * salió cuando la firma pasó a hacerse aquí, y `first_payment` cuando el propietario pudo decir por
  * dónde recibir el canon y el inquilino subir su comprobante.
  *
@@ -183,7 +197,7 @@ export function isUnbuilt(stage: Stage): boolean {
  * How a process ended, or that it has not.
  *
  * **`completed` is not a status, and it stayed out on purpose.** How a process ended is one thing
- * and whether it ended well is another: `completedAt` is the timestamp that says the seven stages
+ * and whether it ended well is another: `completedAt` is the timestamp that says the eight stages
  * were walked, and a status of its own would be a second field able to disagree with it — the same
  * choice `waivedAt`, `checksAuthorizedAt` and `acceptedClauseAt` already make.
  *
@@ -264,6 +278,12 @@ export type ApplicationDoc = {
   /** What each records search turned up, keyed by source. Written by the landlord. */
   readonly checkResults: CheckResults;
   /**
+   * The visit to the property: when, where they meet, whether the tenant confirmed and what they
+   * made of it after going. `null` until the landlord proposes a day, and on every application
+   * made before this stage existed.
+   */
+  readonly visit: Visit | null;
+  /**
    * The interview: when, where, whether the tenant confirmed and how it went.
    *
    * `null` until the landlord proposes a time, and on every application made before this stage
@@ -326,9 +346,9 @@ export function isCompleted(application: Pick<Application, "completedAt">): bool
 }
 
 /**
- * `Paso 4 de 7`, y **`Proceso completado`** cuando ya no queda nada.
+ * `Paso 4 de 8`, y **`Proceso completado`** cuando ya no queda nada.
  *
- * "Paso 7 de 7" es cierto mientras el propietario todavía no ha confirmado el canon, y deja de
+ * "Paso 8 de 8" es cierto mientras el propietario todavía no ha confirmado el canon, y deja de
  * serlo en cuanto lo confirma: entonces lo que hay que decir es que se acabó. Se decide por
  * `completedAt` y no por la etapa, que es lo que hace que la última etapa pueda tener trabajo
  * dentro sin leerse como terminada por estar al final de la fila.

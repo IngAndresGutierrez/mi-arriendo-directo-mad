@@ -4,7 +4,7 @@ import {
   interviewFeedbackSchema,
   proposeInterviewSchema,
   toInstant,
-  validateInterviewSlot,
+  validateSlot,
 } from "./interview";
 
 const VALID = {
@@ -53,17 +53,17 @@ describe("validateInterviewSlot", () => {
   const now = new Date("2026-09-01T15:00:00.000Z");
 
   it("accepts a time still to come", () => {
-    expect(validateInterviewSlot(new Date("2026-09-02T15:00:00.000Z"), now).ok).toBe(true);
+    expect(validateSlot(new Date("2026-09-02T15:00:00.000Z"), now).ok).toBe(true);
   });
 
   it("rejects a time that already passed", () => {
-    const r = validateInterviewSlot(new Date("2026-08-31T15:00:00.000Z"), now);
+    const r = validateSlot(new Date("2026-08-31T15:00:00.000Z"), now);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.error).toContain("no hayan pasado");
   });
 
   it("rejects a date more than a year out", () => {
-    expect(validateInterviewSlot(new Date("2027-10-01T15:00:00.000Z"), now).ok).toBe(false);
+    expect(validateSlot(new Date("2027-10-01T15:00:00.000Z"), now).ok).toBe(false);
   });
 });
 

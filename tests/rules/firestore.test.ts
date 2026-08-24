@@ -369,6 +369,34 @@ describe("applications", () => {
   });
 
   /*
+   * El contador que limita cuántos correos de recuperación se pueden pedir por dirección.
+   *
+   * Nunca lo escribe un cliente, y la razón es la misma que hace falta el contador: si se pudiera
+   * escribir desde el navegador, quien quisiera saltarse el límite lo pondría a cero antes de cada
+   * petición, y el límite dejaría de existir. Leerlo tampoco — el id del documento es un hash del
+   * correo, así que poder consultarlo convertiría la colección en un oráculo para comprobar si una
+   * dirección tiene cuenta, que es justo lo que la pantalla se cuida de no revelar.
+   *
+   * No hay regla que lo declare: lo garantiza la clausura explícita del final. Este test es lo que
+   * avisa si alguien la declara más arriba sin darse cuenta.
+   */
+  it("nobody can read or write a password-reset counter from the client", async () => {
+    const key = "0000000000000000000000000000000000000000000000000000000000000000";
+    for (const [uid, role] of [
+      [UID_TENANT, "tenant"],
+      [UID_LANDLORD, "landlord"],
+      [UID_THIRD_PARTY, "tenant"],
+    ] as const) {
+      const db = actingAs(env, uid, role);
+      await assertFails(getDoc(doc(db, `passwordResetRequests/${key}`)));
+      await assertFails(setDoc(doc(db, `passwordResetRequests/${key}`), { count: 0 }));
+      await assertFails(getDocs(collection(db, "passwordResetRequests")));
+    }
+    await assertFails(getDoc(doc(anonymous(env), `passwordResetRequests/${key}`)));
+    await assertFails(setDoc(doc(anonymous(env), `passwordResetRequests/${key}`), { count: 0 }));
+  });
+
+  /*
    * El primer canon añade dos cosas que moverían el proceso si un cliente pudiera escribirlas: los
    * datos de cobro y, sobre todo, **el veredicto** — que es lo único que cierra la etapa. Un
    * inquilino que pudiera escribir `confirmed` cerraría el arriendo sin que el dinero llegara.

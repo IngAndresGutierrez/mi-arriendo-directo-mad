@@ -12,10 +12,12 @@ import {
   createAccount,
   declareReferenceAuthorized,
   fixtures,
+  LOGIN_PATH,
   MONTHS,
   ok,
+  onStage,
   settled,
-  LOGIN_PATH,
+  stepLabel,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -123,8 +125,8 @@ await db.collection("applications").doc(applicationId).update({
 });
 await dueño.goto(proceso, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-await dueño.waitForFunction(() => document.body.innerText.includes("Paso 4 de 7"), null, { timeout: 20000 });
-ok("el proceso está en la entrevista", "paso 4 de 7");
+await onStage(dueño, "interview");
+ok("el proceso está en la entrevista", stepLabel("interview"));
 
 // ---------- sin proponer nada, no se puede avanzar ----------
 const bloqueado = await dueño.getByRole("button", { name: /Continuar a/i }).first().getAttribute("aria-disabled");
@@ -216,8 +218,8 @@ await dueño
   }, null, { timeout: 15000 })
   .catch(() => { throw new Error("sigue bloqueado con la conclusión escrita"); });
 await avanzar.click();
-await dueño.waitForFunction(() => document.body.innerText.includes("Paso 5 de 7"), null, { timeout: 25000 });
-ok("con la conclusión escrita, el proceso avanza", "paso 5 de 7");
+await onStage(dueño, "guarantee", 25000);
+ok("con la conclusión escrita, el proceso avanza", stepLabel("guarantee"));
 
 // el inquilino lee la conclusión, y la etapa cerrada conserva su panel sin botones
 await inq.reload({ waitUntil: "domcontentloaded" });
@@ -239,7 +241,7 @@ const inicio = await inq.evaluate(() => document.body.innerText);
 if (inicio.includes("Todavía no tienes")) throw new Error("Inicio dice que no hay nada teniendo un proceso abierto");
 if (!inicio.includes("Tus contratos en curso")) throw new Error("Inicio no lista los contratos");
 if (!inicio.includes(`Apartamento con balcón en Palermo ${STAMP}`)) throw new Error("no nombra el inmueble");
-if (!inicio.includes("Paso 5 de 7")) throw new Error("no dice en qué etapa va: " + inicio.slice(0, 400));
+if (!inicio.includes(stepLabel("guarantee"))) throw new Error("no dice en qué etapa va: " + inicio.slice(0, 400));
 ok("Inicio muestra el arriendo en curso con su etapa");
 {
   const caja = await inq.locator("section").filter({ hasText: "Tus contratos en curso" }).first().boundingBox().catch(() => null);

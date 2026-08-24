@@ -89,7 +89,7 @@ function lookOf(application: Application): Look {
  * same card, two sentences — and for the landlord the applicant's name comes first, because with
  * three processes on one property the address is what they have in common.
  *
- * An open one shows the rail: seven stages is too many to name in a row, so the dots carry the
+ * An open one shows the rail: eight stages is too many to name in a row, so the dots carry the
  * position and only the current stage is spelled out, with the sentence that says whose turn it
  * is. A closed one drops the rail — there is no progress to show — and keeps what happened and
  * why, which is the whole reason it is still on the screen.
@@ -218,7 +218,7 @@ export function ApplicationCard({
 }
 
 /**
- * The seven stages as a rail.
+ * The eight stages as a rail.
  *
  * Naming all seven in a row does not fit on a phone and barely fits on a laptop, so the dots carry
  * the position and the current stage is the one that gets words. Each dot still says what it is

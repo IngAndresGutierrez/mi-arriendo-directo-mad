@@ -36,6 +36,15 @@ export {
   type CheckStatus,
 } from "./domain/background-check";
 export {
+  visitState,
+  visitWhen,
+  VISIT_OUTCOME_LABELS,
+  VISIT_STATE_LABELS,
+  type Visit,
+  type VisitOutcome,
+  type VisitState,
+} from "./domain/visit";
+export {
   interviewState,
   interviewWhen,
   INTERVIEW_MINUTES,
