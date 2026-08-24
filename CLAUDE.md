@@ -572,6 +572,45 @@ There is no separate "revisión de documentos" stage: reviewing them **is** stag
 one is approved or rejected. A stage repeating what the previous one settled is a stage everybody
 clicks through without reading.
 
+**`visit` is built, and it is second on purpose — the position *is* the argument.** The tenant goes
+to see the property before anybody is asked for an identity document, for payslips or for permission
+to search their judicial record, and before the landlord spends any of that on somebody who will
+walk in and find the building faces a motorway. It sits as early as it can and still have an
+application to hang off, and `application.test.ts` pins it there.
+
+The shape is the interview's — the landlord proposes, the tenant confirms, proposing again
+**replaces the whole arrangement** — with one deliberate difference and one new field:
+
+- **The verdict is the tenant's**, and only theirs. Whether a flat is right is something only the
+  person who walked through it can say, exactly as whether the money arrived is something only the
+  person whose account it is can say and whether the shower works is something only the person
+  showering can say. `recordVisitVerdict` refuses the landlord, and the panel offers them no such
+  control. **"No me interesa" blocks the stage** — that is what makes this a step that filters
+  rather than one that is merely recorded — but it does **not** close the process: ending it is a
+  decision with a name on it, both parties already have their button, and somebody who saw the flat
+  on a grey Tuesday can change their answer by Thursday. `visitBlocker` answers `not_interested`
+  and the message names both ways out.
+- **`meetingPoint` is the one field in the process that gives away the address**, and it is required:
+  a visit is somebody crossing a city, and "el jueves a las 3" with no address is an appointment
+  nobody can keep. What stops it undoing `properties/{id}/private/location` is that it is read on
+  the page, behind the session, and **never leaves in a notification** — the bell says when, the
+  address is on the page. Same rule as the payout account details, and `tests/e2e/visit.mjs` proves
+  it by reading the bell's panel (not `document.body.innerText`, which contains the page behind it,
+  where the address belongs). It was verified by leaking the point on purpose and watching it go red.
+  It is the landlord's own sentence rather than the stored address, because "en la portería, pregunta
+  por Alberto" is what actually gets somebody to the door — but the address they gave when publishing
+  is offered as a button, since they typed it once already.
+- **Two notification types for one field**, `visit_interested` / `visit_not_interested`, the lesson
+  the incidents paid for: "le interesó" is a task and "no le interesó" is the end of the process,
+  and one type carrying the result inside is a bell nobody can act on without opening the page.
+  Unlike the interview's conclusion — which the landlord writes and then announces by advancing —
+  this news travels *towards* the landlord, so it has to be notified or they wait on a page for
+  something that already happened.
+
+**No reminders.** The interview's cron (`dueReminder`, the day-before and ten-minutes-before sweep)
+covers interviews only; a visit is exactly as forgettable and wiring it in needs a WhatsApp template
+approved by Meta, which is not something this repository can create. Stated rather than half-built.
+
 **`interview` is built, and it is the one stage that is mostly about agreeing on a time.** The
 landlord proposes a day, an hour and a channel - Google Meet, WhatsApp or a plain phone call, 30
 minutes - and the tenant **confirms**, which is what turns a proposal into an appointment: a time

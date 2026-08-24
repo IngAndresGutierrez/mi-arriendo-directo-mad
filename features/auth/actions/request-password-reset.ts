@@ -5,7 +5,7 @@ import { createHash } from "node:crypto";
 import { headers } from "next/headers";
 
 import { sendEmail } from "@/features/notification";
-import { PASSWORD_RESET_CONFIRM_ROUTE } from "@/shared/auth/routes";
+import { LOGIN_ROUTE } from "@/shared/auth/routes";
 import { adminAuth, adminDb } from "@/shared/firebase/admin";
 import { resolveSiteUrl } from "@/shared/lib/site-url";
 
@@ -87,11 +87,19 @@ export async function requestPasswordReset(input: unknown): Promise<{ readonly o
     }
 
     /*
-     * `continueUrl` is where Firebase sends the person **after** they have chosen the password, not
-     * where the link points. Where the link points is the action URL configured in the Firebase
-     * console; until that names this site, it is Firebase's own hosted page. `/recuperar/confirmar`
-     * is built and handles the code, so pointing it here is a console setting away — see the note
-     * in that page.
+     * **`url` is the continue URL — where Firebase sends the person once the password is already
+     * changed — and not where the emailed link points.** Where the link points is the *action URL*
+     * configured in the Firebase console; until that names this site it is Google's hosted page.
+     *
+     * This pointed at `/recuperar/confirmar` and that was a real bug, reported from the screen: the
+     * reset completed on Firebase's page, Firebase then forwarded to the confirm screen with no
+     * `oobCode`, and that screen — which exists precisely to consume a code — answered "este enlace
+     * está incompleto". The password had just been changed successfully, so the one message the
+     * person got was both alarming and false.
+     *
+     * `LOGIN_ROUTE` is the honest destination: the thing you do after choosing a new password is
+     * sign in with it. It stays correct under the other configuration too — with a custom action
+     * URL the confirm screen handles the code itself and sends people here on its own.
      */
     const requestHeaders = await headers();
     const origin = resolveSiteUrl({
@@ -101,7 +109,7 @@ export async function requestPasswordReset(input: unknown): Promise<{ readonly o
     });
 
     const link = await adminAuth().generatePasswordResetLink(email, {
-      url: `${origin}${PASSWORD_RESET_CONFIRM_ROUTE}`,
+      url: `${origin}${LOGIN_ROUTE}`,
     });
 
     await sendEmail(passwordResetEmail(email, link));

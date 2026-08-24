@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 import { BellIcon, CheckCheckIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
 
 import { ensureClientSession, isSigningOut } from "@/shared/auth/client";
+import { reportOrRecover } from "@/shared/auth/subscription-error";
 import { cn } from "@/shared/lib/utils";
 
 import { markNotificationsRead } from "../actions/mark-read";
@@ -182,7 +183,17 @@ export function NotificationBell({
            */
           if (isSigningOut()) return;
 
-          console.error("live notifications stopped:", error.code, error.message);
+          /*
+           * Y la sesión también puede acabarse **sin que esta pestaña haya hecho nada**: un
+           * restablecimiento de contraseña revoca los refresh tokens, y lo mismo hace deshabilitar
+           * la cuenta. `isSigningOut()` no puede saberlo —es una bandera de módulo— así que se
+           * pregunta lo único que lo zanja: si la credencial todavía puede renovar su token.
+           *
+           * `router.refresh()` y no un silencio a secas: la cookie del servidor se verifica con
+           * `checkRevoked`, así que un refresco hace que el guard mande al login en vez de dejar a
+           * la persona mirando un portal que ya no es suyo.
+           */
+          void reportOrRecover(error, "live notifications stopped:", router);
         },
       );
     })();

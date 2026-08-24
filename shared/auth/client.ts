@@ -43,6 +43,38 @@ export function isSigningOut(): boolean {
   return signingOut;
 }
 
+/**
+ * Has this browser's credential stopped being valid?
+ *
+ * **`isSigningOut()` answers the same question and only for the tab that pressed the button.** It is
+ * a module flag, which is exactly right for a sign-out — the ordering is the whole problem there, so
+ * asking the SDK cannot help — and useless for every other way a session dies: a password reset, an
+ * admin revoking the tokens, the account being disabled. Firebase revokes the refresh tokens in all
+ * of those, every open `onSnapshot` is answered `permission-denied`, and `auth.currentUser` is still
+ * set because nothing has told the SDK yet.
+ *
+ * That gap arrived with the password reset flow and was found the way the sign-out one was: as a
+ * `permission-denied` in the console that reads like a rules bug and is not. So this asks the one
+ * question that actually settles it — **force a token refresh**. A revoked credential cannot mint a
+ * new token, so a rejection here is proof the session is over, and a success is proof the denial was
+ * about the query rather than the caller.
+ *
+ * It is a network call, so it belongs in an error path and nowhere near a render.
+ */
+export async function credentialRevoked(): Promise<boolean> {
+  const user = auth.currentUser;
+  // No user at all is the same answer for the caller's purposes: there is no session to report on.
+  if (!user) return true;
+
+  try {
+    await user.getIdToken(true);
+
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 
 /**
  * Exchanges the freshly issued idToken for an httpOnly session cookie.

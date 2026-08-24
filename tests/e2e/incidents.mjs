@@ -17,7 +17,7 @@
  * que no se ve, así que un ancla cuyo destino no está montado no lleva a ninguna parte y no se queja:
  * el correo se ve bien y el clic parece no hacer nada.
  *
- * **La tenencia se siembra con el Admin SDK en vez de recorrer las nueve etapas.** Que llegar a
+ * **La tenencia se siembra con el Admin SDK en vez de recorrer las ocho etapas.** Que llegar a
  * `active` abre el arriendo ya lo maneja `rental.mjs`, y repetirlo aquí serían noventa segundos de
  * formularios para llegar al punto donde empieza esta prueba. Lo que este driver necesita del
  * proceso es únicamente su resultado: un documento en `leases` con dos partes de verdad.

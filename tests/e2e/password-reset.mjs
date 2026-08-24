@@ -81,6 +81,25 @@ try {
   if (!emitted?.oobCode) throw new Error("el emulador no registró ningún código para esa cuenta");
   ok("se emitió un código de recuperación");
 
+  /*
+   * **El `continueUrl` no puede ser la pantalla de confirmar**, y esto es una regresión que ya
+   * ocurrió: `url` en `generatePasswordResetLink` es a dónde va la persona *después* de haber
+   * cambiado la contraseña, no a dónde apunta el enlace del correo. Apuntándolo a
+   * `/recuperar/confirmar`, quien terminaba el cambio en la página de Firebase aterrizaba en la
+   * pantalla que exige un `oobCode`, sin `oobCode`, y leía "este enlace está incompleto" sobre una
+   * contraseña que se acababa de guardar bien.
+   *
+   * Se afirma sobre el enlace que el emulador registró, que es el que Firebase enviaría.
+   */
+  const continueUrl = new URL(emitted.oobLink).searchParams.get("continueUrl") ?? "";
+  if (continueUrl.includes("/recuperar/confirmar")) {
+    throw new Error(`el continueUrl vuelve a la pantalla que pide el código: ${continueUrl}`);
+  }
+  if (!continueUrl.includes(LOGIN_PATH)) {
+    throw new Error(`el continueUrl no lleva al login: ${continueUrl || "(vacío)"}`);
+  }
+  ok("después de cambiarla, Firebase devuelve al login", continueUrl);
+
   // ---------- y para una que no existe: la MISMA respuesta ----------
   /*
    * El corazón de esta pantalla. Si el mensaje cambiara —"no existe una cuenta con ese correo"—
@@ -113,11 +132,22 @@ try {
   }
   ok("un código inválido se avisa antes de escribir la contraseña");
 
-  // ---------- y sin código en la URL ----------
+  // ---------- y sin código en la URL: otra cosa, no un error ----------
+  /*
+   * Llegar aquí sin código **no** es un enlace roto en el caso más probable: es alguien que acaba
+   * de terminar el cambio en la página de Firebase. Decirle "el enlace no sirve" sería mentirle
+   * sobre una contraseña que sí se guardó, así que la pantalla dice otra cosa y ofrece entrar.
+   */
   await p.goto(BASE + "/recuperar/confirmar", { waitUntil: "domcontentloaded" });
   await settled(p);
-  await p.getByRole("heading", { level: 1, name: /El enlace no sirve/i }).waitFor({ timeout: 20000 });
-  ok("sin código en la URL, tampoco");
+  if (await p.getByRole("heading", { level: 1, name: /El enlace no sirve/i }).count()) {
+    throw new Error("sin código dice que el enlace no sirve, y lo más probable es que sí sirviera");
+  }
+  await p.getByRole("heading", { level: 1, name: /Aquí no hay nada que cambiar/i }).waitFor({ timeout: 20000 });
+  if (!(await p.getByRole("link", { name: /Iniciar sesión/i }).count())) {
+    throw new Error("sin código no ofrece entrar, que es lo que esa persona viene a hacer");
+  }
+  ok("sin código, la pantalla no acusa un fallo y ofrece entrar");
 
   // ---------- el camino feliz ----------
   await p.goto(BASE + `/recuperar/confirmar?oobCode=${encodeURIComponent(emitted.oobCode)}`, {
@@ -170,6 +200,59 @@ try {
   await settled(p);
   await p.getByRole("heading", { level: 1, name: /El enlace no sirve/i }).waitFor({ timeout: 20000 });
   ok("el mismo código no se puede usar otra vez");
+
+  // ---------- una pestaña del portal abierta mientras cambian la contraseña ----------
+  /*
+   * El fallo que se reportó desde la pantalla, y el que ningún test unitario alcanza.
+   *
+   * Restablecer la contraseña **revoca los refresh tokens**, así que cualquier `onSnapshot` que
+   * siga enganchado —la campana, la página de un proceso, la de un arriendo— recibe
+   * `permission-denied`. No es una regla negando nada: es la sesión acabándose. `isSigningOut()`
+   * no lo cubre porque es una bandera de módulo y aquí la sesión muere sin que esta pestaña haya
+   * tocado nada.
+   *
+   * Se afirma sobre la consola, que es donde dolía: el error decía "live notifications stopped" y
+   * mandaba a mirar las reglas desplegadas y los índices, que es exactamente donde no estaba.
+   */
+  const portalProblems = [];
+  const portalCtx = await b.newContext({ viewport: { width: 1440, height: 1100 } });
+  const portal = watch(await portalCtx.newPage(), "portal", portalProblems);
+
+  await portal.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
+  await settled(portal);
+  await portal.getByLabel("Correo electrónico").fill(email);
+  await portal.getByLabel("Contraseña").fill(NEW_PASSWORD);
+  await portal.getByRole("button", { name: /Ingresar|Iniciar/i }).click();
+  await portal.waitForURL(/completar-perfil|\/inicio/, { timeout: 30000 });
+  await settled(portal);
+
+  // Otra pestaña cambia la contraseña de esa misma cuenta.
+  await p.goto(BASE + "/recuperar", { waitUntil: "domcontentloaded" });
+  await settled(p);
+  await p.getByLabel("Correo electrónico").fill(email);
+  await p.getByRole("button", { name: /Enviarme el enlace/i }).click();
+  await p.getByRole("heading", { level: 1, name: /Revisa tu correo/i }).waitFor({ timeout: 20000 });
+
+  const segundo = await latestOobCode();
+  if (!segundo?.oobCode) throw new Error("no se emitió el segundo código");
+  await p.goto(BASE + `/recuperar/confirmar?oobCode=${encodeURIComponent(segundo.oobCode)}`, {
+    waitUntil: "domcontentloaded",
+  });
+  await settled(p);
+  await p.getByLabel("Contraseña nueva").fill("OtraClaveMas7");
+  await p.getByRole("button", { name: /Guardar la contraseña/i }).click();
+  await p.getByRole("heading", { level: 1, name: /Contraseña actualizada/i }).waitFor({ timeout: 25000 });
+
+  // Se le da tiempo a la pestaña del portal a recibir la negación y reaccionar.
+  await portal.waitForTimeout(6000);
+
+  const gritó = portalProblems.filter((problem) => /live (notifications|updates) stopped/i.test(problem));
+  if (gritó.length) {
+    throw new Error(`la sesión se acabó y la consola lo reportó como fallo de reglas: ${gritó[0]}`);
+  }
+  ok("con la sesión revocada, la suscripción no acusa un fallo de reglas");
+
+  await portalCtx.close();
 
   // ---------- un teléfono ----------
   await p.goto(BASE + "/recuperar", { waitUntil: "domcontentloaded" });

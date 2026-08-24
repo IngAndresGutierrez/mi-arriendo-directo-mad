@@ -25,7 +25,15 @@ const REQUIREMENTS_ID = "new-password-requirements";
 /** What the screen is doing, rather than three booleans that can contradict each other. */
 type State =
   | { readonly step: "checking" }
-  | { readonly step: "invalid"; readonly message: string }
+  /**
+   * `missing` and `rejected` are kept apart because they are not the same news.
+   *
+   * A **rejected** code is a dead link: expired, already spent, revoked. A **missing** one usually
+   * is not a failure at all — the likeliest way to arrive with no code is having just finished the
+   * reset on Firebase's own hosted page, which then forwards here. Telling that person "el enlace
+   * no sirve" is telling them something false about a password they just changed successfully.
+   */
+  | { readonly step: "invalid"; readonly reason: "missing" | "rejected" }
   | { readonly step: "ready"; readonly email: string }
   | { readonly step: "done" };
 
@@ -59,9 +67,7 @@ export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
    * needs an effect, and that one sets state from a promise callback, which is fine.
    */
   const [state, setState] = useState<State>(() =>
-    oobCode
-      ? { step: "checking" }
-      : { step: "invalid", message: "Este enlace está incompleto: no trae el código." },
+    oobCode ? { step: "checking" } : { step: "invalid", reason: "missing" },
   );
   const [error, setError] = useState<string | null>(null);
 
@@ -91,12 +97,7 @@ export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
         // Deliberately one message for every reason the code is bad. Firebase tells them apart —
         // expired, already used, revoked — and none of those distinctions helps the person, while
         // "ya se usó" tells whoever holds a leaked link that it worked for somebody.
-        if (!cancelled) {
-          setState({
-            step: "invalid",
-            message: "Este enlace ya no sirve: pudo vencerse o haberse usado. Pide uno nuevo.",
-          });
-        }
+        if (!cancelled) setState({ step: "invalid", reason: "rejected" });
       });
 
     return () => {
@@ -113,16 +114,36 @@ export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
   }
 
   if (state.step === "invalid") {
+    const missing = state.reason === "missing";
+
     return (
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
-          El enlace no sirve
+          {missing ? "Aquí no hay nada que cambiar" : "El enlace no sirve"}
         </h1>
-        <p className="mt-2 text-muted-foreground">{state.message}</p>
+        <p className="mt-2 text-muted-foreground">
+          {missing
+            ? "Esta pantalla necesita el código que viene en el correo de recuperación. Si acabas de elegir tu contraseña nueva, ya está guardada: entra con ella."
+            : "Este enlace ya no sirve: pudo vencerse o haberse usado. Pide uno nuevo."}
+        </p>
 
-        <Button asChild variant="accent" size="xl" className="mt-8">
-          <Link href={PASSWORD_RESET_ROUTE}>Pedir un enlace nuevo</Link>
-        </Button>
+        {/*
+          Con código muerto, la acción es pedir otro. Sin código, lo más probable es que la persona
+          venga de terminar el cambio, así que la cyan es entrar y pedir otro enlace queda al lado
+          por si de verdad se perdió — una sola cyan por vista, y aquí depende de por qué se llegó.
+        */}
+        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+          <Button asChild variant={missing ? "accent" : "brand"} size="xl">
+            <Link href={missing ? LOGIN_ROUTE : PASSWORD_RESET_ROUTE}>
+              {missing ? "Iniciar sesión" : "Pedir un enlace nuevo"}
+            </Link>
+          </Button>
+          <Button asChild variant={missing ? "brand" : "accent"} size="xl">
+            <Link href={missing ? PASSWORD_RESET_ROUTE : LOGIN_ROUTE}>
+              {missing ? "Pedir un enlace nuevo" : "Iniciar sesión"}
+            </Link>
+          </Button>
+        </div>
       </div>
     );
   }

@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 import { ensureClientSession, isSigningOut } from "@/shared/auth/client";
+import { reportOrRecover } from "@/shared/auth/subscription-error";
 
 /**
  * Re-renders the page on the server whenever a document it depends on changes.
@@ -61,7 +62,10 @@ export function useLiveRefresh(path: string, version: string): void {
           // suelte la credencial, así que este rechazo es el final de la sesión, no una regla.
           if (isSigningOut()) return;
 
-          console.error("live updates stopped:", error.code, error.message);
+          // Misma historia que en la campana, y por eso el helper es compartido: la sesión puede
+          // morir en otra pestaña (un cambio de contraseña revoca los tokens) y aquí llega como un
+          // `permission-denied` que parece de reglas.
+          void reportOrRecover(error, "live updates stopped:", router);
         },
       );
     })();
