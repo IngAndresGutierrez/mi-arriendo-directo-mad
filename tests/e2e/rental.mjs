@@ -210,8 +210,10 @@ const id = new URL(proceso).pathname.split("/").pop();
 ok("proceso creado", id);
 
 /*
- * El proceso, puesto en la última etapa con el primer canon ya confirmado: es el estado desde el
- * que el propietario lo pone en curso, y el que decide si el mes 1 se hereda pagado.
+ * El proceso, puesto en la última etapa con el comprobante subido y **sin veredicto**: es el estado
+ * desde el que el propietario confirma que el dinero llegó, que es lo que ahora termina el proceso
+ * y abre el arriendo de una vez. Sembrar el veredicto aquí no serviría — lo que crea la tenencia es
+ * la acción, no el campo — y además se saltaría precisamente lo que este driver tiene que manejar.
  */
 const subido = new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth(), 11)).toISOString();
 await db
@@ -243,37 +245,35 @@ await db
         paidOn: ISO(inicio),
         note: "Primer canon.",
       },
-      verdict: {
-        status: "confirmed",
-        at: new Date(Date.parse(subido) + 3600000).toISOString(),
-        reason: "",
-      },
+      verdict: null,
     },
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-// ---------- poner el arriendo en curso ----------
+// ---------- confirmar el canon, que es lo que abre el arriendo ----------
 await dueño.goto(proceso, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-const continuar = dueño.getByRole("button", { name: /Continuar a/i }).first();
-if ((await continuar.getAttribute("aria-disabled")) === "true") {
-  throw new Error("con el primer canon confirmado sigue bloqueado");
-}
-await continuar.click();
+
 /*
- * Se espera **la consecuencia**, no el rótulo: "Arriendo en curso" es la etiqueta de la novena etapa
- * y está en el DOM desde el primer render, así que esta espera se cumplía sola y el driver seguía
- * antes de que la página se hubiera refrescado. Lo que de verdad cambia al avanzar es el estado de
- * esa tarjeta.
- *
- * Y ese estado es el arreglo: el proceso queda **terminado**, no "en curso". Las nueve etapas son la
- * negociación que acaba en un contrato firmado, y llegar a la última es haberlas terminado; antes se
- * leía "En curso" para siempre, que es lo que no distingue un proceso acabado de uno atascado en su
- * último paso.
+ * **No hay ningún botón de avanzar**, y ese es el cambio: antes el propietario confirmaba el canon y
+ * después pulsaba "Continuar a Arriendo en curso", un paso que no registraba nada que la
+ * confirmación no hubiera registrado ya — y hasta que lo pulsaba, el inquilino había pagado, él lo
+ * había confirmado y la página de los meses todavía no existía.
  */
-const ultima = dueño.locator("#etapa-active");
+if ((await dueño.getByRole("button", { name: /Continuar a/i }).count()) !== 0) {
+  throw new Error("la última etapa sigue ofreciendo un botón de avanzar");
+}
+await dueño.locator("#etapa-first-payment").getByRole("button", { name: /Primer canon/i }).first().click();
+await dueño.getByRole("button", { name: /Sí, lo recibí/i }).click();
+
+/*
+ * Se espera **la consecuencia**, no el rótulo: lo que de verdad cambia al confirmar es el estado de
+ * esa tarjeta, que pasa a "Listo", y la insignia de la línea de etapas, que deja de numerar pasos.
+ * Un proceso que nunca se muestra terminado no se distingue de uno atascado en su último paso.
+ */
+const ultima = dueño.locator("#etapa-first-payment");
 await dueño.waitForFunction(
-  () => /Listo/.test(document.getElementById("etapa-active")?.innerText ?? ""),
+  () => /Listo/.test(document.getElementById("etapa-first-payment")?.innerText ?? ""),
   null,
   { timeout: 30000 },
 );
@@ -281,21 +281,22 @@ const insignia = (await ultima.innerText()).trim();
 if (/En curso|Pendiente/.test(insignia)) {
   throw new Error("la última etapa no se lee como terminada: " + insignia.slice(0, 120));
 }
-ok("el propietario pone el arriendo en curso, y esa etapa queda terminada");
+ok("el propietario confirma el canon y con eso el proceso queda terminado");
 
 /*
- * Y la insignia de la línea de etapas dice lo mismo que la tarjeta: "Paso 9 de 9" era cierto y se
- * leía como un paso pendiente. Se busca dentro de la sección de las etapas, no en la página entera.
+ * Y la insignia de la línea de etapas dice lo mismo que la tarjeta: "Paso 7 de 7" es cierto hasta
+ * que se confirma y se lee como un paso pendiente después. Se busca dentro de la sección de las
+ * etapas, no en la página entera.
  */
 const etapas = dueño.getByRole("region", { name: "Etapas del proceso" });
 const cabecera = await etapas.innerText();
 if (!/Proceso completado/.test(cabecera)) {
   throw new Error("la línea de etapas no dice que el proceso está completado");
 }
-if (/Paso 9 de 9/.test(cabecera)) {
-  throw new Error("la línea de etapas sigue diciendo 'Paso 9 de 9'");
+if (/Paso 7 de 7/.test(cabecera)) {
+  throw new Error("la línea de etapas sigue numerando pasos con el proceso terminado");
 }
-ok("y la línea de etapas dice 'Proceso completado', no 'Paso 9 de 9'");
+ok("y la línea de etapas dice 'Proceso completado', no 'Paso 7 de 7'");
 await etapas
   .screenshot({ path: `${SHOT_DIR}/proceso-completado.png` })
   .catch(() => undefined);

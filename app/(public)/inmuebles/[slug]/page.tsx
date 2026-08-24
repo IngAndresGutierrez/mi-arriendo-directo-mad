@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, permanentRedirect } from "next/navigation";
-import { ArrowRightIcon, LockIcon, MapPinIcon } from "lucide-react";
+import { ArrowLeftIcon, ArrowRightIcon, LockIcon, MapPinIcon } from "lucide-react";
 
 import {
   getPropertyLocation,
@@ -100,6 +100,24 @@ export default async function PropertyDetailPage(props: DetailProps) {
 
   return (
     <article className="space-y-8">
+      {/*
+        La vuelta al listado, arriba del todo y antes que nada, como en la página de un proceso.
+        Es un enlace de verdad y no `history.back()`: a este anuncio se llega tanto desde el
+        catálogo como desde un enlace pegado en WhatsApp, y un botón que en el segundo caso saca a
+        la persona del sitio —o no hace nada— es peor que uno que siempre lleva al mismo sitio.
+
+        Lo que sí se pierde así son los filtros que hubiera puestos: el catálogo guarda su estado
+        entero en la URL, y esta no la lleva. Volver con el gesto del navegador sigue devolviendo la
+        búsqueda tal cual estaba.
+      */}
+      <Link
+        href={PROPERTIES_ROUTE}
+        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+      >
+        <ArrowLeftIcon className="size-4" aria-hidden="true" />
+        Volver a los inmuebles
+      </Link>
+
       {isOwner && property.status !== "available" && (
         <p className="rounded-lg bg-secondary px-4 py-3 text-sm text-secondary-foreground">
           Este anuncio está en <strong>{PROPERTY_STATUS_LABELS[property.status]}</strong>: solo tú

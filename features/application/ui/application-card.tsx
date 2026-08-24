@@ -16,10 +16,13 @@ import { cn } from "@/shared/lib/utils";
 
 import {
   applicationCode,
-  stageDescription,
+  isCompleted,
+  processDescription,
+  processStageLabel,
   stageIndex,
   stageProgressLabel,
   APPLICATION_STATUS_LABELS,
+  COMPLETED_LABEL,
   STAGES,
   STAGE_LABELS,
   type Application,
@@ -29,9 +32,9 @@ import {
  * How this process looks at a glance: the tint of the icon, the badge on its corner and the word
  * in the chip all say the same thing, so it is legible before anything is read.
  *
- * `active` is not a status — a rental in course is still an open process — but it *is* the one
- * outcome worth celebrating, so it gets the green of a thing that worked instead of the blue of
- * a thing in motion.
+ * A finished process is not a status either — a tenancy in course is still an open application —
+ * but it *is* the one outcome worth celebrating, so it gets the green of a thing that worked
+ * instead of the blue of a thing in motion.
  */
 type Look = {
   readonly tint: string;
@@ -60,11 +63,11 @@ function lookOf(application: Application): Look {
       badgeTint: "bg-muted-foreground text-background",
     };
   }
-  if (application.stage === "active") {
+  if (isCompleted(application)) {
     return {
       tint: "bg-status-approved-bg text-status-approved",
       chip: "bg-status-approved-bg text-status-approved",
-      label: STAGE_LABELS.active,
+      label: COMPLETED_LABEL,
       badge: CheckIcon,
       badgeTint: "bg-status-approved text-white",
     };
@@ -86,7 +89,7 @@ function lookOf(application: Application): Look {
  * same card, two sentences — and for the landlord the applicant's name comes first, because with
  * three processes on one property the address is what they have in common.
  *
- * An open one shows the rail: nine stages is too many to name in a row, so the dots carry the
+ * An open one shows the rail: seven stages is too many to name in a row, so the dots carry the
  * position and only the current stage is spelled out, with the sentence that says whose turn it
  * is. A closed one drops the rail — there is no progress to show — and keeps what happened and
  * why, which is the whole reason it is still on the screen.
@@ -161,7 +164,7 @@ export function ApplicationCard({
       </div>
 
       {isOpen ? (
-        <StageRail stage={application.stage} />
+        <StageRail application={application} />
       ) : (
         <div className="mt-4 space-y-1">
           <span
@@ -201,12 +204,12 @@ export function ApplicationCard({
         <p className="mt-3 flex items-start gap-1.5 border-t border-border pt-3 text-sm text-muted-foreground">
           <ListChecksIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
           <span>
-            {/* En `active` no hay paso siguiente: el arriendo ya está corriendo, y llamarlo
+            {/* Terminado no hay paso siguiente: el arriendo ya está corriendo, y llamarlo
                 "siguiente paso" prometería algo que hacer donde no hay nada. */}
             <span className="font-medium text-foreground">
-              {application.stage === "active" ? "Estado: " : "Siguiente paso: "}
+              {isCompleted(application) ? "Estado: " : "Siguiente paso: "}
             </span>
-            {stageDescription(application.stage, isLandlord)}
+            {processDescription(application, isLandlord)}
           </span>
         </p>
       )}
@@ -215,21 +218,24 @@ export function ApplicationCard({
 }
 
 /**
- * The nine stages as a rail.
+ * The seven stages as a rail.
  *
- * Naming all nine in a row does not fit on a phone and barely fits on a laptop, so the dots carry
+ * Naming all seven in a row does not fit on a phone and barely fits on a laptop, so the dots carry
  * the position and the current stage is the one that gets words. Each dot still says what it is
  * to a screen reader: a row of unlabelled circles is decoration, not information.
  */
-function StageRail({ stage }: { readonly stage: Application["stage"] }) {
-  const current = stageIndex(stage);
+function StageRail({ application }: { readonly application: Application }) {
+  const current = stageIndex(application.stage);
+  // Terminado, el último punto se llena: si no, el proceso acabado se lee igual que el que está
+  // esperando el dinero, que es la única diferencia que esta fila tiene que contar.
+  const finished = isCompleted(application);
 
   return (
     <div className="mt-4">
       <ol className="flex items-center" aria-label="Etapas del proceso">
         {STAGES.map((entry, index) => {
-          const done = index < current;
-          const isCurrent = index === current;
+          const done = index < current || (finished && index === current);
+          const isCurrent = index === current && !finished;
 
           return (
             <li
@@ -261,8 +267,8 @@ function StageRail({ stage }: { readonly stage: Application["stage"] }) {
         })}
       </ol>
       <p className="mt-2 text-sm">
-        <span className="font-medium text-foreground">{STAGE_LABELS[stage]}</span>
-        <span className="text-muted-foreground"> · {stageProgressLabel(stage)}</span>
+        <span className="font-medium text-foreground">{processStageLabel(application)}</span>
+        <span className="text-muted-foreground"> · {stageProgressLabel(application)}</span>
       </p>
     </div>
   );

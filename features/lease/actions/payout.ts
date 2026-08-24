@@ -90,7 +90,8 @@ export async function saveLeasePayout(
     recipientEmail: tenant?.email ?? null,
     type: "canon_payout_changed",
     applicationId: leaseId,
-    stage: "active",
+    // La última etapa del proceso; en una notificación de arrendamiento el destino sale del tipo.
+    stage: "first_payment",
     propertyTitle: lease.propertyTitle,
     actorName: landlord?.fullName ?? "",
     detail: `Ahora es por ${PAYOUT_METHOD_LABELS[payout.method]}.`,

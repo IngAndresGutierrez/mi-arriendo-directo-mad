@@ -29,6 +29,20 @@ await p.goto(BASE + "/inmuebles", { waitUntil: "domcontentloaded" });
 await settled(p);
 if ((await p.title()).includes("Iniciar")) throw new Error("el catálogo pidió sesión");
 ok("el catálogo abre sin sesión", await p.title());
+
+/*
+ * La marca del header lleva al listado, no al login. Quien está mirando inmuebles y pulsa el logo
+ * está pidiendo volver a los resultados; mandarlo a `/` es dejarlo en una pantalla de acceso, que
+ * para un visitante es un callejón sin salida y para alguien con sesión es sacarlo de lo que
+ * estaba viendo. Se comprueba el destino y no solo que el enlace exista.
+ */
+{
+  const marca = p.getByRole("link", { name: /miarriendoDIRECTO\.com/i }).first();
+  if ((await marca.getAttribute("href")) !== "/inmuebles") {
+    throw new Error("el logo del listado no lleva al listado: " + (await marca.getAttribute("href")));
+  }
+  ok("en el listado, el logo lleva al listado");
+}
 // Cuántos hay ya publicados (el inmueble real del dueño de la cuenta cuenta como uno).
 // El total, no las tarjetas de la primera página: con más de 12 publicados las dos cifras
 // dejan de coincidir y la resta de después mide otra cosa.
@@ -183,6 +197,36 @@ await p.locator(`a[href="${dos}"]`).first().click();
 await p.waitForURL(new RegExp(dos.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), { timeout: 20000 });
 await settled(p);
 ok("del catálogo al detalle");
+
+/*
+ * Y desde el detalle se puede deshacer ese paso: una flecha de volver, arriba del todo. Es un
+ * enlace de verdad y no el gesto del navegador porque a este anuncio también se llega desde un
+ * enlace pegado en WhatsApp, donde no hay a dónde volver.
+ */
+{
+  const marca = p.getByRole("link", { name: /miarriendoDIRECTO\.com/i }).first();
+  if ((await marca.getAttribute("href")) !== "/inmuebles") {
+    throw new Error("el logo del detalle no lleva al listado: " + (await marca.getAttribute("href")));
+  }
+  ok("en el detalle, el logo también lleva al listado");
+
+  /*
+   * Acotado al contenido: el logo del header también se anuncia "…, volver a los inmuebles" —
+   * dice a dónde lleva, que es lo que un lector de pantalla necesita— y sin acotar el selector
+   * encuentra los dos y falla por ambigüedad.
+   */
+  const volver = p.locator("article").getByRole("link", { name: /Volver a los inmuebles/i });
+  if ((await volver.count()) !== 1) throw new Error("el detalle no ofrece la flecha de volver");
+  await volver.click();
+  await p.waitForURL(/\/inmuebles$/, { timeout: 20000 });
+  await settled(p);
+  ok("la flecha del detalle vuelve al listado", new URL(p.url()).pathname);
+
+  // Y de vuelta al detalle, que es donde sigue el resto de este bloque.
+  await p.goto(BASE + dos, { waitUntil: "domcontentloaded" });
+  await settled(p);
+}
+
 await p.getByRole("link", { name: /Ver más arriendos en Medellín/i }).click();
 await p.waitForURL(/city=Medell/, { timeout: 20000 });
 await settled(p);

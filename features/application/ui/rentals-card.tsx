@@ -5,9 +5,9 @@ import { applicationRoute, PROPERTIES_ROUTE, CONTRACTS_ROUTE } from "@/shared/au
 import { formatCOP } from "@/shared/format/money";
 
 import {
+  processStageLabel,
   stageProgressLabel,
   STAGES,
-  STAGE_LABELS,
   stageIndex,
   type Application,
 } from "../domain/application";
@@ -90,7 +90,7 @@ export function RentalsCard({
                   </p>
                   {/* La etapa, no solo el estado: es la única cosa que cambia de un día a otro. */}
                   <p className="mt-0.5 text-sm text-muted-foreground">
-                    {STAGE_LABELS[application.stage]} · {stageProgressLabel(application.stage)}
+                    {processStageLabel(application)} · {stageProgressLabel(application)}
                   </p>
                   <p className="mt-0.5 text-sm text-muted-foreground">
                     {formatCOP(application.monthlyCost)} al mes ·{" "}
@@ -103,7 +103,7 @@ export function RentalsCard({
                 />
               </Link>
 
-              {/* Cuánto falta, de un vistazo: nueve etapas son difíciles de situar con palabras. */}
+              {/* Cuánto falta, de un vistazo: siete etapas son difíciles de situar con palabras. */}
               <div
                 className="mt-2 h-1 overflow-hidden rounded-full bg-border"
                 role="presentation"

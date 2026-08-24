@@ -3,12 +3,14 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 
+import { startLease } from "@/features/lease";
 import { notify } from "@/features/notification";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
-import { applicationRoute } from "@/shared/auth/routes";
+import { applicationRoute, CONTRACTS_ROUTE, RENTALS_ROUTE } from "@/shared/auth/routes";
 import { adminDb, adminStorage } from "@/shared/firebase/admin";
 
 import { getApplicationFor } from "../data/application";
+import { isCompleted } from "../domain/application";
 import {
   payoutShape,
   receiptFileProblem,
@@ -31,6 +33,14 @@ async function partyOn(applicationId: string) {
   if (application.status !== "open") return { ok: false, error: "Este proceso ya está cerrado." } as const;
   if (application.stage !== "first_payment") {
     return { ok: false, error: "El proceso no está en la etapa del primer canon." } as const;
+  }
+  /*
+   * Y no después de que termine. Confirmar el canon abre el arriendo, y a partir de ahí los pagos
+   * viven en `/arriendos`: dejar subir aquí un comprobante más sería ofrecer una pantalla que ya no
+   * lleva a ninguna parte, con el mes siguiente esperándolos en otra.
+   */
+  if (isCompleted(application)) {
+    return { ok: false, error: "Este proceso ya terminó: el arriendo está en curso." } as const;
   }
 
   const isLandlord = application.landlordUid === user.uid;
@@ -225,7 +235,7 @@ export async function uploadReceipt(
 }
 
 /**
- * The landlord says whether the money arrived.
+ * The landlord says whether the money arrived — and a "yes" is what **ends the process**.
  *
  * This is what the stage exists for. A receipt is what the tenant can prove; whether the money
  * landed is something only the person whose account it is can say, and no screenshot substitutes
@@ -233,6 +243,20 @@ export async function uploadReceipt(
  *
  * A rejection **needs a reason**, and the tenant reads it: it is the only thing that tells them what
  * to fix before uploading another one.
+ *
+ * **Confirming closes the seven stages and opens the tenancy, in one movement.** There used to be
+ * two stages after this — "Postulación aprobada" was already behind it, and "Arriendo en curso" was
+ * ahead — and reaching the second of them was a button the landlord pressed *after* confirming the
+ * canon, which recorded nothing the confirmation had not already recorded. A step whose only content
+ * is repeating the previous one is a step everybody clicks through without reading, and here it was
+ * worse than that: until it was pressed, the tenant had paid, the landlord had confirmed, and the
+ * page with the months on it still did not exist.
+ *
+ * So this is the one place in the product where something moves without the landlord moving it, and
+ * it is the same decision, not an extra one. The order matters: the verdict is written first, then
+ * the tenancy is opened, then the bell rings. `startLease` never throws and is idempotent through
+ * the tenancy's id — a tenancy that failed to open is a screen the next attempt fixes, while a
+ * rolled-back confirmation is not.
  */
 export async function recordReceiptVerdict(
   applicationId: string,
@@ -260,21 +284,47 @@ export async function recordReceiptVerdict(
     at: new Date().toISOString(),
     reason: parsed.data.status === "rejected" ? parsed.data.reason : "",
   };
+  const confirmed = verdict.status === "confirmed";
+  const completedAt = new Date();
 
   await adminDb()
     .collection("applications")
     .doc(applicationId)
-    .update({ "firstPayment.verdict": verdict, updatedAt: FieldValue.serverTimestamp() });
+    .update({
+      "firstPayment.verdict": verdict,
+      /*
+       * Un instante, no un booleano: *cuándo* terminó es parte del registro que leen las dos
+       * partes, y una bandera responde "no" igual el día que se acabó que estando en la etapa tres.
+       * Se guarda como marca de tiempo del servidor, como `checksAuthorizedAt`, porque es el
+       * convertidor el que las pasa a ISO al leerlas.
+       */
+      ...(confirmed ? { completedAt: FieldValue.serverTimestamp() } : {}),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+  if (confirmed) {
+    await startLease({
+      ...context.application,
+      completedAt: completedAt.toISOString(),
+      firstPayment: { ...current, verdict },
+    });
+  }
 
   const [landlord, tenant] = await Promise.all([
     getProfile(context.uid),
     getProfile(context.application.tenantUid),
   ]);
 
+  /*
+   * Una sola noticia, y la que sirve: `lease_started` es una notificación del arriendo, así que
+   * lleva a `/arriendos/<id>` — que es donde está a partir de ahora todo lo que sigue. Mandar
+   * además "confirmó el canon", que apunta al proceso, sería sonar dos veces por una decisión y
+   * dejar el segundo enlace en la página que acaba de quedarse sin nada que hacer.
+   */
   await notify({
     recipientUid: context.application.tenantUid,
     recipientEmail: tenant?.email ?? null,
-    type: verdict.status === "confirmed" ? "canon_confirmed" : "receipt_rejected",
+    type: confirmed ? "lease_started" : "receipt_rejected",
     applicationId,
     stage: "first_payment",
     propertyTitle: context.application.propertyTitle,
@@ -283,5 +333,10 @@ export async function recordReceiptVerdict(
   });
 
   revalidatePath(applicationRoute(applicationId));
+  if (confirmed) {
+    revalidatePath(CONTRACTS_ROUTE);
+    revalidatePath(RENTALS_ROUTE);
+  }
+
   return { ok: true };
 }

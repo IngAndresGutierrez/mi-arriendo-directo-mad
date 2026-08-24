@@ -133,8 +133,8 @@ await db.collection("applications").doc(applicationId).update({
 });
 await dueño.goto(proceso, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-await dueño.waitForFunction(() => document.body.innerText.includes("Paso 5 de 9"), null, { timeout: 20000 });
-ok("el proceso está en la póliza", "paso 5 de 9");
+await dueño.waitForFunction(() => document.body.innerText.includes("Paso 5 de 7"), null, { timeout: 20000 });
+ok("el proceso está en la póliza", "paso 5 de 7");
 
 // Sin póliza no se avanza, y lo dice.
 if ((await dueño.getByRole("button", { name: /Continuar a/i }).first().getAttribute("aria-disabled")) !== "true") {

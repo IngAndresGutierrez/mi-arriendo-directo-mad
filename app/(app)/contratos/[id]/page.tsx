@@ -32,6 +32,7 @@ import {
   InterviewPanel,
   INTERVIEW_STATE_LABELS,
   closedAtLabel,
+  isCompleted,
   stageIndex,
   getApplicationFor,
   AdvanceButton,
@@ -94,8 +95,14 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
    * are the record, and a control that no longer changes anything is the same lie as a
    * "Continuar" that does not continue.
    */
+  /*
+   * Y una vez terminado, **todos** los paneles quedan de solo lectura: el proceso no vuelve a
+   * moverse, así que un control que ya no cambia nada es la misma mentira que un "Continuar" que no
+   * continúa. El registro se queda; los botones no.
+   */
+  const finished = isCompleted(application);
   const past = (stage: Parameters<typeof stageIndex>[0]) =>
-    stageIndex(application.stage) > stageIndex(stage) || application.status !== "open";
+    stageIndex(application.stage) > stageIndex(stage) || application.status !== "open" || finished;
 
   const blocker =
     application.stage === "tenant_data"
@@ -330,7 +337,7 @@ export default async function ApplicationPage(props: PageProps<"/contratos/[id]"
            * componente: una función no cruza la frontera RSC.
            */
           footer={
-            application.stage === "active" ? (
+            finished ? (
               <Button asChild variant="accent" size="xl">
                 <Link href={rentalRoute(application.id)}>
                   Ir al arriendo

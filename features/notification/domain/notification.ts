@@ -6,10 +6,14 @@ import { applicationRoute, rentalRoute } from "@/shared/auth/routes";
  * What happened. One type per movement of a rental process, from the point of view of whoever
  * is being told about it.
  *
- * `documents_requested` and `application_approved` are stages that also arrive as
+ * `documents_requested` and `application_approved` are stage movements that also arrive as
  * `stage_advanced` would — they are their own type because what they ask of the reader is
  * different. "Avanzaste a Datos y documentos" is a status line; "te piden tus documentos" is a
  * task, and a notification that does not say which of the two it is gets ignored.
+ *
+ * `application_approved` outlived the stage it was named after: `approved` is gone as a step, and
+ * the sentence is now sent on landing on `contract_signature`, which is the same decision. The
+ * words are what the tenant was waiting for and they did not stop being true.
  */
 export const NOTIFICATION_TYPES = [
   "application_received",
@@ -242,6 +246,12 @@ export function notificationCopy(
           : `${who} rechazó el comprobante del primer canon de ${property}. Sube otro.`,
       };
     case "canon_confirmed":
+      /*
+       * **Ya no se manda**, y se queda: hay notificaciones con este tipo guardadas, y un tipo que
+       * el switch no cubre es una campana con el cuerpo vacío. Lo que lo sustituyó es
+       * `lease_started`, que dice lo mismo y además lleva al arriendo en vez de al proceso, que
+       * desde ese momento no tiene nada que hacer.
+       */
       return {
         title: "El propietario confirmó el primer canon",
         body: `${who} confirmó que recibió el primer canon del arriendo de ${property}. Con eso el arriendo queda en curso.`,
@@ -272,9 +282,14 @@ export function notificationCopy(
         body: `El proceso de ${property} pasó a la etapa "${STAGE_LABELS[notification.stage]}".`,
       };
     case "lease_started":
+      /*
+       * La confirmación del primer canon y el arranque del arriendo son un solo hecho desde que no
+       * hay un botón entre los dos, así que se cuentan en una sola frase: quien la recibe necesita
+       * saber que le confirmaron el pago *y* dónde va a vivir el arriendo a partir de ahora.
+       */
       return {
         title: "Tu arriendo quedó en curso",
-        body: `El arriendo de ${property} ya está andando. En "Arriendos" vas a ver mes a mes lo que se paga y lo que falta.`,
+        body: `${who} confirmó que recibió el primer canon de ${property}. El proceso terminó: en "Arriendos" vas a ver mes a mes lo que se paga y lo que falta.`,
       };
     case "canon_payout_changed":
       /*

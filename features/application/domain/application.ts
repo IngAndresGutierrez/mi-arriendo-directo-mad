@@ -8,15 +8,24 @@ import type { Guarantee } from "./guarantee";
 import type { Interview } from "./interview";
 
 /**
- * The nine stages a rental goes through, in order.
+ * The seven stages a rental goes through, in order.
  *
  * The landlord moves the process forward one stage at a time — there is no automatic
  * progression, because every one of these is a decision someone makes off the platform and then
- * records here.
+ * records here. **Except the last one**, and that is the one deliberate exception: confirming the
+ * first canon *is* the decision, and asking the landlord to then press a second button that
+ * repeats it was a step that recorded nothing.
  *
  * There is no separate "revisión de documentos" stage either: reviewing them *is* stage two,
  * where each one is approved or rejected, and a stage that repeats what the previous one already
- * settled is a stage everybody clicks through without reading.
+ * settled is a stage everybody clicks through without reading. **`approved` went for exactly that
+ * reason**: approving the application and moving it to the signature were one decision recorded
+ * twice, and the tenant still learns of it — the notification is sent on landing on
+ * `contract_signature`, which is the moment the landlord says "vamos a firmar".
+ *
+ * And `active` went because it was not a stage at all: it was the tenancy, listed among the steps
+ * of the negotiation that produces it. The tenancy has its own page, its own lifetime and twelve
+ * months instead of seven steps — `completedAt` is what says the process reached the end.
  *
  * There is deliberately **no deposit stage**. Ley 820 de 2003 forbids cash deposits on urban
  * housing leases in Colombia; what stands in for it is `guarantee` — a co-signer or an insurance
@@ -28,13 +37,36 @@ export const STAGES = [
   "background_check",
   "interview",
   "guarantee",
-  "approved",
   "contract_signature",
   "first_payment",
-  "active",
 ] as const;
 
 export type Stage = (typeof STAGES)[number];
+
+/**
+ * Stages that existed once and are still written on documents in the database.
+ *
+ * Removing a stage from `STAGES` does not remove it from the processes standing on it, nor from
+ * the notifications already sent naming it — and a stage the code no longer knows lands as
+ * `stageIndex() === -1`, which reads as "before the first step" everywhere it is compared. So the
+ * two are mapped to what they became rather than dropped: `approved` was the decision to go to the
+ * signature, and `active` was the tenancy already open.
+ *
+ * `active` maps to the last stage **and the converter marks it completed**, which is the other half
+ * of the same fact: a process that had reached it had finished the process.
+ */
+const LEGACY_STAGES: Readonly<Record<string, Stage>> = {
+  approved: "contract_signature",
+  active: "first_payment",
+};
+
+/** The stage a stored value means today. Anything unknown is the first one, never `undefined`. */
+export function normalizeStage(value: unknown): Stage {
+  if (typeof value !== "string") return STAGES[0];
+  if ((STAGES as readonly string[]).includes(value)) return value as Stage;
+
+  return LEGACY_STAGES[value] ?? STAGES[0];
+}
 
 export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
   submitted: "Postulación recibida",
@@ -42,10 +74,8 @@ export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
   background_check: "Validación de expedientes",
   interview: "Entrevista con el propietario",
   guarantee: "Póliza de arrendamiento",
-  approved: "Postulación aprobada",
   contract_signature: "Firma del contrato",
   first_payment: "Primer canon",
-  active: "Arriendo en curso",
 };
 
 /**
@@ -64,14 +94,12 @@ export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
     "El propietario propondrá una fecha para hablar 30 minutos contigo. Confírmala aquí y quedan cuadrados.",
   guarantee:
     "El propietario toma una póliza de arrendamiento con Sura. No necesitas codeudor.",
-  approved: "El propietario aceptó tu postulación. Sigue la firma.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
-  first_payment: "Paga el primer canon para recibir el inmueble.",
-  active:
-    "El proceso terminó y el arriendo está en curso. Tus pagos y tu contrato viven ahora en Arriendos.",
+  first_payment:
+    "Paga el primer canon y sube el comprobante. En cuanto el propietario confirme que llegó, el proceso termina y empieza el arriendo.",
 };
 
-/** The same nine stages, addressed to the landlord. */
+/** The same seven stages, addressed to the landlord. */
 export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
   submitted: "Revisa lo que declaró el inquilino y decide si sigues con él.",
   tenant_data: "Pídele su documento de identidad y el soporte de sus ingresos.",
@@ -81,16 +109,52 @@ export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
     "Propón una fecha para hablar 30 minutos con el inquilino y, después, escribe aquí cómo te fue.",
   guarantee:
     "Toma la póliza de arrendamiento con Sura — sin codeudor — y registra aquí su número.",
-  approved: "Aceptaste la postulación. Sigue la firma del contrato.",
   contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
-  first_payment: "Confirma que recibiste el primer canon.",
-  active:
-    "El proceso terminó y el arriendo está en curso. Los pagos y el contrato viven ahora en Arriendos.",
+  first_payment:
+    "Confirma que recibiste el primer canon: con eso termina el proceso y arranca el arriendo.",
 };
+
+/**
+ * What the process reads as once it is over, which is not a stage.
+ *
+ * The seven stages are the negotiation; what follows is the tenancy, and it lives on another page
+ * with its own months. These two sentences are what a card says instead of naming the last stage —
+ * "Primer canon" beside a process that finished would read as one still asking for the money.
+ */
+export const COMPLETED_LABEL = "Arriendo en curso";
+
+export const COMPLETED_DESCRIPTION =
+  "El proceso terminó y el arriendo está en curso. Tus pagos y tu contrato viven ahora en Arriendos.";
+
+export const COMPLETED_DESCRIPTION_LANDLORD =
+  "El proceso terminó y el arriendo está en curso. Los pagos y el contrato viven ahora en Arriendos.";
 
 /** The description for whoever is reading. */
 export function stageDescription(stage: Stage, isLandlord: boolean): string {
   return isLandlord ? STAGE_DESCRIPTIONS_LANDLORD[stage] : STAGE_DESCRIPTIONS[stage];
+}
+
+/**
+ * Where the process stands, in a word, for a card that is not the timeline.
+ *
+ * A finished process is not "Primer canon": it stopped asking for anything, and the last stage's
+ * name beside it would read as a step still pending. This is the one place that decides it, so the
+ * home card and the list cannot end up saying two different things.
+ */
+export function processStageLabel(application: Pick<Application, "stage" | "completedAt">): string {
+  return isCompleted(application) ? COMPLETED_LABEL : STAGE_LABELS[application.stage];
+}
+
+/** And the sentence under it, for whoever is reading. */
+export function processDescription(
+  application: Pick<Application, "stage" | "completedAt">,
+  isLandlord: boolean,
+): string {
+  if (isCompleted(application)) {
+    return isLandlord ? COMPLETED_DESCRIPTION_LANDLORD : COMPLETED_DESCRIPTION;
+  }
+
+  return stageDescription(application.stage, isLandlord);
 }
 
 /**
@@ -102,7 +166,7 @@ export function stageDescription(stage: Stage, isLandlord: boolean): string {
  * is how a process that happens over WhatsApp gets recorded here in the meantime.
  */
 /*
- * Vacío, y eso es la noticia: las nueve etapas tienen trabajo en el producto. `contract_signature`
+ * Vacío, y eso es la noticia: las siete etapas tienen trabajo en el producto. `contract_signature`
  * salió cuando la firma pasó a hacerse aquí, y `first_payment` cuando el propietario pudo decir por
  * dónde recibir el canon y el inquilino subir su comprobante.
  *
@@ -118,8 +182,12 @@ export function isUnbuilt(stage: Stage): boolean {
 /**
  * How a process ended, or that it has not.
  *
- * `completed` is not a status: reaching `active` is what "it worked" looks like, and a rental in
- * course is not a finished process. `rejected` and `withdrawn` both stop it, and both keep the
+ * **`completed` is not a status, and it stayed out on purpose.** How a process ended is one thing
+ * and whether it ended well is another: `completedAt` is the timestamp that says the seven stages
+ * were walked, and a status of its own would be a second field able to disagree with it — the same
+ * choice `waivedAt`, `checksAuthorizedAt` and `acceptedClauseAt` already make.
+ *
+ * `rejected` and `withdrawn` both stop it, and both keep the
  * stage they stopped at — "rechazada en la entrevista" is a different story from "rechazada al
  * recibirla", and the two people involved deserve to see which one happened.
  */
@@ -170,6 +238,22 @@ export type ApplicationDoc = {
    * application because it is given to *this* landlord, for *this* process.
    */
   readonly checksAuthorizedAt: string | null;
+  /**
+   * When the process finished, ISO 8601, or `null` while it is still running.
+   *
+   * Written by `recordReceiptVerdict` the moment the landlord confirms the first canon arrived —
+   * the same write that opens the tenancy. There is no eighth stage to advance to: confirming the
+   * money *is* the decision, and a button afterwards that only repeated it recorded nothing.
+   *
+   * **A timestamp, not a boolean**, like `waivedAt` and `checksAuthorizedAt`: *when* it ended is
+   * part of the record both parties read, and a bare flag answers "no" identically whether it
+   * ended yesterday or is still on stage three.
+   *
+   * The status stays `open`, which is not a contradiction: an application whose tenancy is running
+   * has not been rejected or withdrawn, and it is still the document both parties come back to for
+   * the contract they signed.
+   */
+  readonly completedAt: string | null;
   /**
    * What the landlord decided about each uploaded document, keyed by its id.
    *
@@ -231,20 +315,33 @@ export function stageIndex(stage: Stage): number {
 }
 
 /**
- * `Paso 4 de 9`, y **`Proceso completado` en la última**.
+ * Has the process finished?
  *
- * "Paso 9 de 9" es cierto y aun así se lee como un paso pendiente, que es lo contrario de lo que ha
- * pasado: llegar a la novena es haber terminado las nueve, y lo que sigue —el arriendo— es otra cosa
- * con su propia página. Misma decisión que `stageState`, en la otra mitad de la misma frase: la
- * insignia de la línea de etapas y el estado de la última tarjeta tienen que decir lo mismo.
+ * One question, one answer, read from one field. It used to be `stage === "active"`, which meant
+ * every screen that needed to know had to know the name of the last stage — and the day the last
+ * stage changed, each of them was wrong on its own.
+ */
+export function isCompleted(application: Pick<Application, "completedAt">): boolean {
+  return application.completedAt !== null;
+}
+
+/**
+ * `Paso 4 de 7`, y **`Proceso completado`** cuando ya no queda nada.
+ *
+ * "Paso 7 de 7" es cierto mientras el propietario todavía no ha confirmado el canon, y deja de
+ * serlo en cuanto lo confirma: entonces lo que hay que decir es que se acabó. Se decide por
+ * `completedAt` y no por la etapa, que es lo que hace que la última etapa pueda tener trabajo
+ * dentro sin leerse como terminada por estar al final de la fila.
  *
  * Lo lee también la tarjeta de `/inicio`, donde queda "Arriendo en curso · Proceso completado": es
  * exactamente lo que alguien necesita saber de un vistazo — ese proceso ya no le pide nada.
  */
-export function stageProgressLabel(stage: Stage): string {
-  if (nextStage(stage) === null) return "Proceso completado";
+export function stageProgressLabel(
+  application: Pick<Application, "stage" | "completedAt">,
+): string {
+  if (isCompleted(application)) return "Proceso completado";
 
-  return `Paso ${stageIndex(stage) + 1} de ${STAGES.length}`;
+  return `Paso ${stageIndex(application.stage) + 1} de ${STAGES.length}`;
 }
 
 /** How far along, 0 to 1, for the progress bar. */
@@ -260,40 +357,42 @@ export function nextStage(stage: Stage): Stage | null {
 export type StageState = "done" | "current" | "pending";
 
 /**
- * Where a stage stands, and **the last one has no "in course"**.
+ * Where a stage stands, and **the last one is only finished when the process is**.
  *
- * `active` used to read "En curso" forever, which said the process was still going when it was
- * over: the nine stages are the negotiation that ends in a signed contract, and reaching the last
- * one *is* finishing them — the tenancy that follows is a different thing, with its own page, its
- * own lifetime and twelve months instead of nine steps. A process that never shows as finished is a
- * process nobody can tell apart from one that stalled on its last step.
+ * This used to answer "done" for whichever stage came last, on the grounds that reaching it *was*
+ * finishing — true while the last stage was `active`, which asked for nothing. `first_payment` asks
+ * for the money, so the same rule would have marked a process as finished the moment it arrived at
+ * the step that still had all of its work ahead of it.
  *
- * It is decided from the stage itself and not from the tenancy: the lease is opened in the same
- * action that lands here (`startLease`, idempotent), so "there is a tenancy" and "the process
- * reached the end" are the same fact, and reading the other module to answer this would make the
- * timeline depend on it.
+ * So it takes the completion instead of guessing it from the position: `completed` comes from
+ * `completedAt`, written by the same action that opens the tenancy. A process that never shows as
+ * finished is a process nobody can tell apart from one that stalled on its last step, and one that
+ * shows as finished early is worse.
  */
-export function stageState(stage: Stage, current: Stage): StageState {
+export function stageState(stage: Stage, current: Stage, completed = false): StageState {
   const difference = stageIndex(stage) - stageIndex(current);
   if (difference < 0) return "done";
   if (difference > 0) return "pending";
 
-  return nextStage(stage) === null ? "done" : "current";
+  return completed ? "done" : "current";
 }
 
 /**
  * May the landlord move this process forward?
  *
- * Only while it is open, and never past the last stage — `active` is where it stays. A closed
- * process is not resumed: the tenant applies again, which is honest about what happened.
+ * Only while it is open, and never past the last stage — there is nothing after `first_payment` to
+ * advance to, because what ends the process is confirming the canon and not a button. A closed
+ * process is not resumed either: the tenant applies again, which is honest about what happened.
  */
 export function canAdvance(application: Pick<Application, "status" | "stage">): boolean {
   return application.status === "open" && nextStage(application.stage) !== null;
 }
 
-/** May it still be stopped? Once the rental is in course, stopping it is a termination. */
-export function canClose(application: Pick<Application, "status" | "stage">): boolean {
-  return application.status === "open" && application.stage !== "active";
+/** May it still be stopped? Once the tenancy has started, stopping it is a termination. */
+export function canClose(
+  application: Pick<Application, "status" | "stage" | "completedAt">,
+): boolean {
+  return application.status === "open" && !isCompleted(application);
 }
 
 /** The stage a stopped process stopped at, for a sentence like "rechazada en la entrevista". */

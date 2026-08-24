@@ -306,8 +306,8 @@ await db.collection("applications").doc(applicationId).update({
 });
 await dueño.goto(proceso, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-await dueño.waitForFunction(() => document.body.innerText.includes("Paso 7 de 9"), null, { timeout: 20000 });
-ok("el proceso esta en la firma", "paso 7 de 9");
+await dueño.waitForFunction(() => document.body.innerText.includes("Paso 6 de 7"), null, { timeout: 20000 });
+ok("el proceso esta en la firma", "paso 6 de 7");
 
 /*
  * Lo que esta etapa no tenia: el boton de continuar deshabilitado con la razon. `aria-disabled`,
@@ -702,11 +702,11 @@ await dueño
 // Y avanza de verdad desde ahí, que es lo único que lo distingue de un botón decorativo.
 await alPie.click();
 await dueño.waitForFunction(
-  () => document.body.innerText.includes("Paso 8 de 9"),
+  () => document.body.innerText.includes("Paso 7 de 7"),
   null,
   { timeout: 30000 },
 );
-ok("y desde ahí el proceso avanza a la etapa siguiente", "paso 8 de 9");
+ok("y desde ahí el proceso avanza a la etapa siguiente", "paso 7 de 7");
 
 // ---------- 390px ----------
 await inq.setViewportSize({ width: 390, height: 900 });

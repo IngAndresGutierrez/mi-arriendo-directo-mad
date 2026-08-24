@@ -162,7 +162,8 @@ export async function uploadCanonReceipt(
     recipientEmail: landlord?.email ?? null,
     type: "canon_receipt_uploaded",
     applicationId: leaseId,
-    stage: "active",
+    // La última etapa del proceso; en una notificación de arrendamiento el destino sale del tipo.
+    stage: "first_payment",
     period: context.month.id,
     propertyTitle: context.lease.propertyTitle,
     actorName: tenant?.fullName ?? "",
@@ -231,7 +232,8 @@ export async function recordCanonVerdict(
     recipientEmail: tenant?.email ?? null,
     type: verdict.status === "confirmed" ? "canon_paid" : "canon_receipt_rejected",
     applicationId: leaseId,
-    stage: "active",
+    // La última etapa del proceso; en una notificación de arrendamiento el destino sale del tipo.
+    stage: "first_payment",
     period: context.month.id,
     propertyTitle: context.lease.propertyTitle,
     actorName: landlord?.fullName ?? "",

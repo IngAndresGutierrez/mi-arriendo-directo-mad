@@ -257,7 +257,7 @@ await tenantPanel.waitFor({ state: "hidden", timeout: 5000 });
 await owner.goto(BASE + `/contratos/${applicationId}`, { waitUntil: "domcontentloaded" });
 await settled(owner);
 await advanceButton(owner).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 9"), null, { timeout: 20000 });
+await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 7"), null, { timeout: 20000 });
 await tenant.waitForFunction(() => {
   const el = [...document.querySelectorAll("button")].find((n) => (n.getAttribute("aria-label") ?? "").startsWith("Notificaciones"));
   return el && el.getAttribute("aria-label").includes("1 sin leer");

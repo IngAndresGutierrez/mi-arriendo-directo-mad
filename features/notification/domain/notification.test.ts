@@ -149,7 +149,7 @@ describe("notificationPath", () => {
 
   it("builds an anchor a URL can carry for every stage", () => {
     expect(stageAnchor("tenant_data")).toBe("etapa-tenant-data");
-    expect(stageAnchor("active")).toBe("etapa-active");
+    expect(stageAnchor("first_payment")).toBe("etapa-first-payment");
     expect(stageAnchor("first_payment")).not.toContain("_");
   });
 
@@ -161,7 +161,7 @@ describe("notificationPath", () => {
     expect(
       notificationPath({
         applicationId: "abc",
-        stage: "active",
+        stage: "first_payment",
         type: "canon_receipt_uploaded",
         period: "2026-09",
       }),
@@ -169,7 +169,7 @@ describe("notificationPath", () => {
   });
 
   it("points at the tenancy with no anchor when no month is named", () => {
-    expect(notificationPath({ applicationId: "abc", stage: "active", type: "lease_started" })).toBe(
+    expect(notificationPath({ applicationId: "abc", stage: "first_payment", type: "lease_started" })).toBe(
       "/arriendos/abc",
     );
   });
@@ -187,7 +187,7 @@ describe("notificationPath", () => {
     expect(
       notificationPath({
         applicationId: "abc",
-        stage: "active",
+        stage: "first_payment",
         type: "incident_reported",
         incident: "inc-7",
       }),
@@ -197,7 +197,7 @@ describe("notificationPath", () => {
 
 describe("the incident notification", () => {
   const base = {
-    stage: "active" as const,
+    stage: "first_payment" as const,
     propertyTitle: "Apartamento en Chapinero",
     actorName: "Carlos Ramírez",
     applicationId: "abc",
@@ -249,7 +249,7 @@ describe("the incident notification", () => {
 
 describe("the tenancy's notifications", () => {
   const base = {
-    stage: "active",
+    stage: "first_payment",
     propertyTitle: "Apartamento en Chapinero",
     actorName: "Ana Uno Pérez",
   } as const;

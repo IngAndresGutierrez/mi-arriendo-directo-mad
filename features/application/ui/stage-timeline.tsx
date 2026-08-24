@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils";
 import { StagePanel } from "./stage-panel";
 
 import {
+  isCompleted,
   isUnbuilt,
   stageDescription,
   stageProgress,
@@ -25,7 +26,7 @@ const STATE_BADGE = {
 } as const;
 
 /**
- * The nine stages, with the process's own place in them.
+ * The seven stages, with the process's own place in them.
  *
  * Every stage is shown, including the ones that have nothing behind them yet: a tenant needs to
  * know what is coming, and a process with holes in it is worse than one that says which parts
@@ -69,13 +70,19 @@ export function StageTimeline({
   readonly work?: Partial<Record<Stage, StageWork>>;
 }) {
   const stopped = application.status !== "open";
+  /*
+   * Terminado no es lo mismo que estar en la última etapa: `first_payment` pide el dinero, así que
+   * llegar a ella es tener todo el trabajo por delante. Lo decide `completedAt`, que escribe la
+   * confirmación del canon — la misma que abre el arriendo.
+   */
+  const finished = isCompleted(application);
 
   return (
     <section aria-label="Etapas del proceso" className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-semibold text-primary dark:text-foreground">El proceso</h2>
         <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-          {stageProgressLabel(application.stage)}
+          {stageProgressLabel(application)}
         </span>
       </div>
 
@@ -95,9 +102,10 @@ export function StageTimeline({
 
       <ol className="space-y-3">
         {STAGES.map((stage) => {
-          const state = stopped && stageState(stage, application.stage) === "current"
-            ? "pending"
-            : stageState(stage, application.stage);
+          const state =
+            stopped && stageState(stage, application.stage, finished) === "current"
+              ? "pending"
+              : stageState(stage, application.stage, finished);
           const done = state === "done";
           const current = state === "current";
 
@@ -177,9 +185,9 @@ export function StageTimeline({
                   responde al final del paso, y volver a subir nueve tarjetas para pulsar un botón
                   sobre lo que se acaba de hacer es un recorrido que no dice nada.
 
-                  La condición es `stage === application.stage` y no `current` a propósito: la última
-                  etapa se lee como terminada en cuanto se llega a ella, así que ahí no hay ninguna
-                  "en curso" — y es justo la tarjeta que tiene que ofrecer el enlace al arriendo.
+                  La condición es `stage === application.stage` y no `current` a propósito: cuando el
+                  proceso termina, su última etapa pasa a leerse "Listo" y deja de haber ninguna "en
+                  curso" — y es justo la tarjeta que tiene que ofrecer el enlace al arriendo.
                 */}
                 {stage === application.stage && footer ? (
                   <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">

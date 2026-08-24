@@ -112,7 +112,8 @@ export async function reportIncident(
     recipientEmail: landlord?.email ?? null,
     type: "incident_reported",
     applicationId: leaseId,
-    stage: "active",
+    // La última etapa del proceso; en una notificación de arrendamiento el destino sale del tipo.
+    stage: "first_payment",
     incident: reference.id,
     propertyTitle: lease.propertyTitle,
     actorName: lease.tenantName || "",
@@ -220,7 +221,8 @@ export async function updateIncident(
     recipientEmail: recipient?.email ?? null,
     type: NOTIFICATION_FOR_MOVE[movedTo ?? "comment"],
     applicationId: leaseId,
-    stage: "active",
+    // La última etapa del proceso; en una notificación de arrendamiento el destino sale del tipo.
+    stage: "first_payment",
     incident: incidentId,
     propertyTitle: lease.propertyTitle,
     actorName: update.authorName,

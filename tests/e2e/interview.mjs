@@ -3,25 +3,17 @@
  * confirma, el propietario escribe la conclusión y solo entonces el proceso avanza.
  */
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fixtures, MONTHS, ok, settled } from "./lib.mjs";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-const requireDelProyecto = createRequire("/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/package.json");
-const { cert, initializeApp } = requireDelProyecto("firebase-admin/app");
-const { getFirestore, FieldValue } = requireDelProyecto("firebase-admin/firestore");
+import { adminDb, adminFieldValue, BASE, config, createAccount, fixtures, MONTHS, ok, settled } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
 
-const env = Object.fromEntries(
-  readFileSync("/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/.env.local", "utf8")
-    .split("\n").filter((l) => l.includes("=") && !l.startsWith("#"))
-    .map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).replace(/^"|"$/g, "")]),
-);
-initializeApp({ credential: cert({
-  projectId: env.FIREBASE_PROJECT_ID, clientEmail: env.FIREBASE_CLIENT_EMAIL,
-  privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-}) });
-const db = getFirestore();
+/*
+ * El Admin SDK de `lib.mjs`, no uno propio. Este driver se inicializaba solo con la cuenta de
+ * servicio *real* leída de `.env.local`, así que contra los emuladores escribía en el proyecto
+ * equivocado y moría antes de su primera aserción.
+ */
+const db = adminDb();
+const FieldValue = adminFieldValue();
 const problemas = [];
 const b = await chromium.launch();
 
@@ -117,8 +109,8 @@ await db.collection("applications").doc(applicationId).update({
 });
 await dueño.goto(proceso, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-await dueño.waitForFunction(() => document.body.innerText.includes("Paso 4 de 9"), null, { timeout: 20000 });
-ok("el proceso está en la entrevista", "paso 4 de 9");
+await dueño.waitForFunction(() => document.body.innerText.includes("Paso 4 de 7"), null, { timeout: 20000 });
+ok("el proceso está en la entrevista", "paso 4 de 7");
 
 // ---------- sin proponer nada, no se puede avanzar ----------
 const bloqueado = await dueño.getByRole("button", { name: /Continuar a/i }).first().getAttribute("aria-disabled");
@@ -210,8 +202,8 @@ await dueño
   }, null, { timeout: 15000 })
   .catch(() => { throw new Error("sigue bloqueado con la conclusión escrita"); });
 await avanzar.click();
-await dueño.waitForFunction(() => document.body.innerText.includes("Paso 5 de 9"), null, { timeout: 25000 });
-ok("con la conclusión escrita, el proceso avanza", "paso 5 de 9");
+await dueño.waitForFunction(() => document.body.innerText.includes("Paso 5 de 7"), null, { timeout: 25000 });
+ok("con la conclusión escrita, el proceso avanza", "paso 5 de 7");
 
 // el inquilino lee la conclusión, y la etapa cerrada conserva su panel sin botones
 await inq.reload({ waitUntil: "domcontentloaded" });
@@ -233,7 +225,7 @@ const inicio = await inq.evaluate(() => document.body.innerText);
 if (inicio.includes("Todavía no tienes")) throw new Error("Inicio dice que no hay nada teniendo un proceso abierto");
 if (!inicio.includes("Tus contratos en curso")) throw new Error("Inicio no lista los contratos");
 if (!inicio.includes(`Apartamento con balcón en Palermo ${STAMP}`)) throw new Error("no nombra el inmueble");
-if (!inicio.includes("Paso 5 de 9")) throw new Error("no dice en qué etapa va: " + inicio.slice(0, 400));
+if (!inicio.includes("Paso 5 de 7")) throw new Error("no dice en qué etapa va: " + inicio.slice(0, 400));
 ok("Inicio muestra el arriendo en curso con su etapa");
 {
   const caja = await inq.locator("section").filter({ hasText: "Tus contratos en curso" }).first().boundingBox().catch(() => null);

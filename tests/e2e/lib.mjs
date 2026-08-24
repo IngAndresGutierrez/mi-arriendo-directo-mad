@@ -543,6 +543,21 @@ export function adminStorage() {
   return getStorage(adminApp).bucket(`${projectId}.firebasestorage.app`);
 }
 
+/**
+ * Auth con el Admin SDK, sobre la misma app que `adminDb()`.
+ *
+ * Existe por lo mismo: un driver que llamaba a `initializeApp()` por su cuenta con la cuenta de
+ * servicio real acababa preguntándole al proyecto de verdad por una cuenta que acababa de crear en
+ * el emulador, y moría con `USER_NOT_FOUND` antes de su primera aserción.
+ */
+export function adminAuth() {
+  const require = createRequire(joinPath(REPO, "package.json"));
+  // `adminDb()` es quien decide la app —emulador o cuenta de servicio— y la deja inicializada.
+  adminDb();
+
+  return require("firebase-admin/auth").getAuth(adminApp);
+}
+
 /** `FieldValue`, para los `serverTimestamp()` de los drivers. */
 export function adminFieldValue() {
   const require = createRequire(joinPath(REPO, "package.json"));

@@ -115,19 +115,27 @@ await db.collection("applications").doc(applicationId).update({
 });
 await dueño.goto(proceso, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-await dueño.waitForFunction(() => document.body.innerText.includes("Paso 8 de 9"), null, { timeout: 20000 });
-ok("el proceso está en el primer canon", "paso 8 de 9");
+await dueño.waitForFunction(() => document.body.innerText.includes("Paso 7 de 7"), null, { timeout: 20000 });
+ok("el proceso está en el primer canon", "paso 7 de 7");
 
-// Sin datos de cobro no se cierra, y lo dice.
-const continuar = dueño.getByRole("button", { name: /Continuar a/i }).first();
-if ((await continuar.getAttribute("aria-disabled")) !== "true") {
-  throw new Error("se puede cerrar el arriendo sin el primer canon");
+/*
+ * **Aquí ya no hay ningún "Continuar a"**, y eso es lo que se comprueba: esta es la última etapa, y
+ * lo que termina el proceso es confirmar el canon, no un botón aparte que repita la decisión. Un
+ * control ofrecido en la última tarjeta sería exactamente el paso que se quitó.
+ */
+if ((await dueño.getByRole("button", { name: /Continuar a/i }).count()) !== 0) {
+  throw new Error("la última etapa sigue ofreciendo un botón de avanzar");
 }
-if (!(await dueño.evaluate(() => document.body.innerText)).includes("Escribe por dónde quieres recibir")) {
-  const texto = await dueño.evaluate(() => document.body.innerText);
-  if (!/por d.nde quieres recibir/i.test(texto)) throw new Error("no dice que faltan los datos de cobro");
+ok("en la última etapa no hay botón de avanzar: lo que cierra el proceso es confirmar el canon");
+
+// Y sin datos de cobro no se cierra, y lo dice.
+if (!/por d.nde quieres recibir/i.test(await dueño.evaluate(() => document.body.innerText))) {
+  throw new Error("no dice que faltan los datos de cobro");
 }
-ok("sin datos de cobro el arriendo no se cierra, y dice por que");
+if (/Proceso completado/.test(await dueño.evaluate(() => document.body.innerText))) {
+  throw new Error("el proceso se lee terminado sin haber cobrado nada");
+}
+ok("sin datos de cobro el proceso no se da por terminado, y dice qué falta");
 
 await dueño.getByRole("button", { name: /Primer canon/i }).first().click();
 const visto = await dueño.evaluate(() => document.body.innerText);
@@ -167,11 +175,13 @@ await dueño.getByRole("button", { name: /Guardar los datos de pago/i }).click()
 await dueño.waitForFunction(() => /@marta2025/.test(document.body.innerText), null, { timeout: 25000 });
 ok("el propietario guarda su llave Bre-B");
 
-// Con los datos puestos sigue bloqueado: falta que el inquilino pague.
-if ((await dueño.getByRole("button", { name: /Continuar a/i }).first().getAttribute("aria-disabled")) !== "true") {
-  throw new Error("con solo los datos de cobro deja cerrar");
+// Con los datos puestos el proceso sigue sin terminar: falta que el inquilino pague.
+{
+  const texto = await dueño.evaluate(() => document.body.innerText);
+  if (/Proceso completado/.test(texto)) throw new Error("poner los datos de cobro dio el proceso por terminado");
+  if (!/Falta que el inquilino pague/i.test(texto)) throw new Error("no dice que falta el pago del inquilino");
 }
-ok("poner los datos no es cobrar: sigue bloqueado");
+ok("poner los datos no es cobrar: el proceso sigue abierto y dice qué falta");
 
 // ---------- lo que ve el inquilino ----------
 await inq.goto(proceso, { waitUntil: "domcontentloaded" });
@@ -224,11 +234,15 @@ await rechazar.click();
 await dueño.waitForFunction(() => /Rechazado/.test(document.body.innerText), null, { timeout: 25000 });
 ok("rechazar exige motivo, y el motivo queda escrito");
 
-// Y sigue bloqueado tras el rechazo.
-if ((await dueño.getByRole("button", { name: /Continuar a/i }).first().getAttribute("aria-disabled")) !== "true") {
-  throw new Error("con el comprobante rechazado deja cerrar");
+// Y con el comprobante rechazado el proceso sigue sin terminar.
+const trasRechazo = await dueño.evaluate(() => document.body.innerText);
+if (/Proceso completado/.test(trasRechazo)) {
+  throw new Error("con el comprobante rechazado el proceso se da por terminado");
 }
-ok("con el comprobante rechazado sigue bloqueado");
+if (!/Paso 7 de 7/.test(trasRechazo)) {
+  throw new Error("con el comprobante rechazado no dice en qué paso va");
+}
+ok("con el comprobante rechazado el proceso sigue abierto en su última etapa");
 
 // ---------- el inquilino sube otro, y el rechazo viejo deja de aplicar ----------
 await inq.reload({ waitUntil: "domcontentloaded" });
@@ -258,15 +272,31 @@ await dueño.getByRole("button", { name: /Sí, lo recibí/i }).click();
 await dueño.waitForFunction(() => /Canon recibido/.test(document.body.innerText), null, { timeout: 25000 });
 ok("el propietario confirma que recibio el canon");
 
+/*
+ * **La consecuencia, que es lo nuevo**: confirmar el canon termina el proceso y abre el arriendo,
+ * sin que nadie pulse nada más. Se espera a que la insignia lo diga y a que la última tarjeta
+ * ofrezca el enlace al arriendo, que es lo único que queda por hacer desde aquí.
+ */
 await dueño.waitForFunction(
-  () => {
-    const boton = [...document.querySelectorAll("button")].find((el) => /Continuar a/.test(el.textContent ?? ""));
-    return boton && boton.getAttribute("aria-disabled") !== "true";
-  },
+  () => /Proceso completado/.test(document.body.innerText),
   null,
   { timeout: 25000 },
 );
-ok("y con eso el arriendo se puede poner en curso");
+if (/Paso 7 de 7/.test(await dueño.evaluate(() => document.body.innerText))) {
+  throw new Error("terminado y sigue numerando pasos");
+}
+const alArriendo = dueño.locator("#etapa-first-payment").getByRole("link", { name: /Ir al arriendo/i });
+if ((await alArriendo.count()) !== 1) {
+  throw new Error("la última etapa no ofrece el enlace al arriendo");
+}
+ok("confirmar el canon termina el proceso solo, y desde ahí se va al arriendo");
+
+// Y el arriendo existe de verdad: es la mitad de la promesa que no se ve en la pantalla.
+const arrendamiento = await db.collection("leases").doc(applicationId).get();
+if (!arrendamiento.exists) throw new Error("confirmar el canon no abrió el arriendo");
+const primerMes = await db.collection("leases").doc(applicationId).collection("periods").get();
+if (primerMes.empty) throw new Error("el arriendo se abrió sin el primer mes pagado");
+ok("el arriendo quedó abierto con su primer mes", `${primerMes.size} mes`);
 await dueño.screenshot({ path: `${SHOT_DIR}/primer-canon.png`, fullPage: true });
 
 // ---------- 390px ----------

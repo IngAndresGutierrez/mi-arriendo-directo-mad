@@ -74,8 +74,8 @@ ok("postulación creada");
 await owner.goto(processUrl, { waitUntil: "domcontentloaded" });
 await settled(owner);
 await advanceButton(owner).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 9"), null, { timeout: 20000 });
-ok("el proceso tiene 9 etapas y llegó a la 2");
+await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 7"), null, { timeout: 20000 });
+ok("el proceso tiene 7 etapas y llegó a la 2");
 
 // ---------- la sección vive dentro de la etapa 2, como acordeón ----------
 await tenant.goto(processUrl, { waitUntil: "domcontentloaded" });
@@ -298,7 +298,7 @@ ok("con todo aprobado, el botón se activa");
 await owner.screenshot({ path: `${SHOT_DIR}/aprobado.png`, fullPage: true });
 
 await advanceButton(owner).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 3 de 9"), null, { timeout: 20000 });
+await owner.waitForFunction(() => document.body.innerText.includes("Paso 3 de 7"), null, { timeout: 20000 });
 ok("y el proceso avanza a la validación de expedientes");
 
 // Al pasar de un paso a otro, todos los acordeones quedan plegados — sin recargar.

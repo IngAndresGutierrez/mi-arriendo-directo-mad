@@ -226,8 +226,9 @@ service cloud.firestore {
     }
 
     // ----------------------------- applications -----------------------------
-    // A rental process: nine stages the landlord moves it through. Visible ONLY to the tenant
-    // who created it and to the property's landlord.
+    // A rental process: seven stages the landlord moves it through — and a seventh that ends by
+    // itself when he confirms the first canon. Visible ONLY to the tenant who created it and to
+    // the property's landlord.
     //
     // Every write goes through a Server Action with the Admin SDK, which bypasses these rules,
     // so the client cannot write here at all. That is not belt-and-braces: the stage machine

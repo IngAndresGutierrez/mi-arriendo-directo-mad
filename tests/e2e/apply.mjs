@@ -100,12 +100,12 @@ const processUrl = tenant.url();
 ok("la postulación se envía y abre el proceso", new URL(processUrl).pathname);
 
 const stages = await tenant.locator("ol li h3").allTextContents();
-if (stages.length !== 9) throw new Error(`se ven ${stages.length} etapas`);
+if (stages.length !== 7) throw new Error(`se ven ${stages.length} etapas`);
 if (stages.join(" ").toLowerCase().includes("depósito")) throw new Error("¡apareció una etapa de depósito!");
-ok("se ven las 9 etapas y ninguna es depósito", stages[0] + " → " + stages[8]);
+ok("se ven las 7 etapas y ninguna es depósito", stages[0] + " → " + stages[6]);
 const tenantText = await tenant.evaluate(() => document.body.innerText);
-if (!tenantText.includes("Paso 1 de 9")) throw new Error("no dice en qué paso va");
-ok("el proceso arranca en el paso 1 de 10");
+if (!tenantText.includes("Paso 1 de 7")) throw new Error("no dice en qué paso va");
+ok("el proceso arranca en el paso 1 de 7");
 await tenant.screenshot({ path: `${SHOT_DIR}/proceso-inquilino.png`, fullPage: true });
 
 // El inquilino no puede avanzar su propio proceso.
@@ -146,13 +146,13 @@ ok("el propietario ve el expediente: documento, ingresos, múltiplo del canon y 
 await owner.screenshot({ path: `${SHOT_DIR}/proceso-propietario.png`, fullPage: true });
 
 await advanceButton(owner).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 9"), null, { timeout: 20000 });
-ok("el propietario avanza una etapa", "paso 2 de 9");
+await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 7"), null, { timeout: 20000 });
+ok("el propietario avanza una etapa", "paso 2 de 7");
 
 // El inquilino ve el avance.
 await tenant.goto(processUrl, { waitUntil: "domcontentloaded" });
 await settled(tenant);
-if (!(await tenant.evaluate(() => document.body.innerText)).includes("Paso 2 de 9")) throw new Error("el inquilino no ve el avance");
+if (!(await tenant.evaluate(() => document.body.innerText)).includes("Paso 2 de 7")) throw new Error("el inquilino no ve el avance");
 ok("el inquilino ve el avance del propietario");
 
 // ---------- lo sensible no se filtra ----------
