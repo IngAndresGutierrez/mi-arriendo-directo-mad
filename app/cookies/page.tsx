@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { LegalChrome } from "@/app/legal-chrome";
 import { CookiePreferences, LegalDocument, LegalList, LegalSection } from "@/features/legal";
 import { PRIVACY_ROUTE } from "@/shared/auth/routes";
+import { LegalLink } from "@/shared/legal/legal-link";
 import { COOKIE_POLICY_EFFECTIVE_DATE, COOKIE_POLICY_VERSION } from "@/shared/legal/documents";
 
 export const metadata: Metadata = {
@@ -130,9 +130,9 @@ export default function CookiesPage() {
           </p>
           <p>
             El resto de lo que hacemos con tus datos está en la{" "}
-            <Link href={PRIVACY_ROUTE} className="underline underline-offset-2">
+            <LegalLink href={PRIVACY_ROUTE} className="underline underline-offset-2">
               Política de tratamiento de datos personales
-            </Link>
+            </LegalLink>
             .
           </p>
         </LegalSection>

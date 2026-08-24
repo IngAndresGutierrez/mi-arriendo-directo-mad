@@ -2,16 +2,15 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { ConsentCheckbox } from "@/shared/form/consent-checkbox";
+import { LegalLink } from "@/shared/legal/legal-link";
 import { FormAlert } from "@/shared/form/form-alert";
 import { SubmitButton } from "@/shared/form/submit-button";
 import { PRIVACY_ROUTE, TERMS_ROUTE } from "@/shared/auth/routes";
 import { currentVersion } from "@/shared/legal/documents";
-import { PrivacyNotice } from "@/shared/legal/privacy-notice";
 
 import { AccountFields } from "./account-fields";
 
@@ -138,13 +137,6 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
       <AccountFields disabled={isSaving} />
 
       {/*
-        The aviso de privacidad, at the point of collection — Decreto 1074 art. 2.2.2.25.3.2 asks
-        for it "a más tardar al momento de la recolección", which is this screen and not a link
-        somewhere.
-      */}
-      <PrivacyNotice purpose="crear tu cuenta, identificarte ante la otra parte de un arriendo y comunicarnos contigo" />
-
-      {/*
         **Two answers, not one.** This was a single checkbox reading "Autorizo el tratamiento de
         mis datos personales y acepto los Términos". Accepting a contract and authorising the
         processing of personal data are different acts, and the second one has to be express
@@ -165,9 +157,9 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
               error={errors.acceptsTerms?.message}
             >
               Acepto los{" "}
-              <Link href={TERMS_ROUTE} className="underline underline-offset-2">
+              <LegalLink href={TERMS_ROUTE} className="underline underline-offset-2">
                 Términos y condiciones
-              </Link>
+              </LegalLink>
               .
             </ConsentCheckbox>
           )}
@@ -185,9 +177,9 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
               error={errors.authorizesDataTreatment?.message}
             >
               Autorizo el tratamiento de mis datos personales en los términos de la{" "}
-              <Link href={PRIVACY_ROUTE} className="underline underline-offset-2">
+              <LegalLink href={PRIVACY_ROUTE} className="underline underline-offset-2">
                 Política de tratamiento de datos personales
-              </Link>
+              </LegalLink>
               .
             </ConsentCheckbox>
           )}

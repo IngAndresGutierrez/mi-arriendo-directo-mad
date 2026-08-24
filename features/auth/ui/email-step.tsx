@@ -1,12 +1,11 @@
 "use client";
 
-import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import { TERMS_ROUTE } from "@/shared/auth/routes";
+import { LegalLink } from "@/shared/legal/legal-link";
 import { FormAlert } from "@/shared/form/form-alert";
-import { PrivacyNotice } from "@/shared/legal/privacy-notice";
 import { GoogleButton } from "./google-button";
 import { OrDivider } from "./or-divider";
 import { SubmitButton } from "@/shared/form/submit-button";
@@ -82,25 +81,21 @@ export function EmailStep({
         </form>
 
         {/*
-          **The aviso de privacidad, and it replaced a sentence that was wrong twice.**
-
-          It used to read "Al crear tu cuenta aceptas nuestros Términos y la Política de
-          privacidad", which was legally wrong — Decreto 1074 art. 2.2.2.25.2.3 wants conduct from
-          which consent can unequivocally be concluded, and reading a sentence is not conduct — and
-          factually wrong, because acceptance is asked for on the next screen, with two checkboxes.
-          What belongs *here* is the information duty (art. 2.2.2.25.3.2): this is where an email
-          address is first collected, so this is where it has to be said.
+          Lo que había aquí antes era "Al crear tu cuenta aceptas nuestros Términos y la Política de
+          privacidad", que era falso dos veces: leer una frase no es la conducta de la que el
+          artículo 2.2.2.25.2.3 del Decreto 1074 permite concluir un consentimiento, y la aceptación
+          se pide en la pantalla siguiente, con dos casillas. Esto dice lo que de verdad pasa, y
+          enlaza el documento — que es el contenido mínimo del deber de información: que la política
+          existe y cómo llegar a ella.
         */}
-        <PrivacyNotice purpose="crear tu cuenta y poder identificarte cuando vuelvas" />
-
         <p className="text-center text-xs leading-relaxed text-muted-foreground">
           En el siguiente paso te pediremos aceptar los{" "}
-          <Link
+          <LegalLink
             href={TERMS_ROUTE}
             className="underline underline-offset-2 hover:text-foreground"
           >
             Términos y condiciones
-          </Link>{" "}
+          </LegalLink>{" "}
           y autorizar el tratamiento de tus datos.
         </p>
       </div>

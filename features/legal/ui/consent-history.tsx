@@ -1,6 +1,5 @@
-import Link from "next/link";
-
 import { COOKIES_ROUTE, PRIVACY_ROUTE, TERMS_ROUTE } from "@/shared/auth/routes";
+import { LegalLink } from "@/shared/legal/legal-link";
 import { CONSENT_KINDS, CONSENT_KIND_LABELS } from "@/shared/legal/documents";
 
 import { latestConsent, needsReconsent, type ConsentRecord } from "../domain/consent";
@@ -42,12 +41,12 @@ export function ConsentHistory({ consents }: { readonly consents: readonly Conse
       <p className="mt-1 text-sm text-muted-foreground">
         Puedes conocer, actualizar, rectificar y suprimir tus datos, y revocar estas
         autorizaciones. Los plazos y el canal están en la{" "}
-        <Link
+        <LegalLink
           href={`${PRIVACY_ROUTE}#derechos`}
           className="underline underline-offset-2 hover:text-foreground"
         >
           política de tratamiento de datos
-        </Link>
+        </LegalLink>
         .
       </p>
 
@@ -61,12 +60,12 @@ export function ConsentHistory({ consents }: { readonly consents: readonly Conse
               key={kind}
               className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-border pt-3 text-sm first:border-t-0 first:pt-0"
             >
-              <Link
+              <LegalLink
                 href={documentLinks[kind]}
                 className="font-medium text-foreground underline underline-offset-2"
               >
                 {CONSENT_KIND_LABELS[kind]}
-              </Link>
+              </LegalLink>
 
               <span className="text-muted-foreground">
                 {consent && !pending
@@ -84,12 +83,12 @@ export function ConsentHistory({ consents }: { readonly consents: readonly Conse
           contradicts itself the moment they open the product somewhere else.
         */}
         <li className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-border pt-3 text-sm">
-          <Link
+          <LegalLink
             href={COOKIES_ROUTE}
             className="font-medium text-foreground underline underline-offset-2"
           >
             Cookies
-          </Link>
+          </LegalLink>
           <span className="text-muted-foreground">Se decide en cada navegador</span>
         </li>
       </ul>

@@ -1342,6 +1342,23 @@ rules or keeping two versions of every screen, so the subscription reads one fie
   month nudges its parent's `updatedAt`. Same trick, one level down.
 - Both hooks fail quietly: a denied or dropped subscription logs and stops updating. No live
   updates is a lesser problem than a broken screen.
+- **Signing out denies every open subscription, and that is not a bug to fix in the rules.**
+  `signOutUser()` revokes the refresh tokens through `DELETE /api/session` **before** `signOut(auth)`
+  drops the SDK's credential, and that order is deliberate: the cookie is the authoritative session,
+  so it dies first — reversed, a failed `DELETE` after a successful `signOut(auth)` would leave the
+  server thinking the person was still signed in and the next load would rebuild the client session
+  from a cookie nobody cleared. The cost is a window in which every attached `onSnapshot` — the bell,
+  the process page, the tenancy page — is answered `permission-denied` by a backend that has just
+  been told the token is void. `isSigningOut()` (`shared/auth/client.ts`) is what both error handlers
+  check so it is not reported. A module-level flag and **not** `onAuthStateChanged`, because the
+  ordering is the whole problem: `auth.currentUser` is still set at the moment of the denial, so
+  asking the SDK cannot tell this apart from a real denial. It is cleared when a session is next
+  established, or a genuine denial after signing back in would be swallowed for the tab's lifetime.
+  The cost of not doing this was measured: the log sent a diagnosis through the deployed ruleset, the
+  composite indexes and the shape of seventy production documents before landing on "somebody pressed
+  Cerrar sesión". `tests/e2e/signout.mjs` pins it, and it had to be **taught to fail first** — it
+  signed out from `/registro/completar-perfil`, which uses `requireUser()` and carries no bell, so
+  there was no subscription to deny; and its `finally` printed console problems without ever throwing.
 - **`networkidle` no longer happens.** A Firestore subscription keeps a connection open, so any
   test or script waiting for the network to go quiet waits forever. Wait for `domcontentloaded`
   and then for the thing you actually mean.
@@ -1525,11 +1542,22 @@ and `shared/legal/controller.ts` is the one line to change.
 
 ### Where authorisation is needed, and what each point does
 
-- **`/registro` step 1** carries the **aviso de privacidad**, not an acceptance. It used to say "Al
-  crear tu cuenta aceptas nuestros Términos…", which was wrong twice: Decreto 1074 art. 2.2.2.25.2.3
-  wants conduct from which consent can unequivocally be concluded, and reading a sentence is not
-  conduct — and acceptance actually happens on the *next* screen. What belongs at a point of
-  collection is the information duty (art. 2.2.2.25.3.2).
+- **`/registro` step 1** says what actually happens and links the document, rather than claiming an
+  acceptance. It used to read "Al crear tu cuenta aceptas nuestros Términos…", which was wrong twice:
+  Decreto 1074 art. 2.2.2.25.2.3 wants conduct from which consent can unequivocally be concluded, and
+  reading a sentence is not conduct — and acceptance actually happens on the *next* screen.
+- **There is no standing aviso-de-privacidad block on the collection screens**, and that was a
+  deliberate call after one existed: the information duty of art. 2.2.2.25.3.2 is to make the policy's
+  **existence and how to reach it** known, and the two consent checkboxes link it directly. A repeated
+  paragraph above every form was noise saying what the checkbox beneath it already said. If a screen
+  ever collects for a *new* purpose the documents do not cover, that is when it needs its own notice —
+  and a new finalidad needs fresh authorisation anyway (art. 2.2.2.25.2.5).
+- **Every link to a legal document opens in a new tab**, through `shared/legal/legal-link.tsx`. Not
+  convention: these links sit beside a checkbox in a half-filled onboarding form, in a banner over
+  something being read, and under a search that took a minute to build — navigating away loses all
+  three, and the person clicking only means to *check* something. A component rather than
+  `target="_blank"` fourteen times, because that is the attribute that goes missing on the fifteenth;
+  `tests/e2e/legal.mjs` asserts the `target` and the `noopener` on the footer's three.
 - **Onboarding asks twice, and the split is the point.** `acceptsTerms` and
   `authorizesDataTreatment` were one checkbox reading "Autorizo el tratamiento… y acepto los
   Términos". Accepting a contract and authorising data processing are different acts, the second has

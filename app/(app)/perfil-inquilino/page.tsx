@@ -7,7 +7,6 @@ import {
   listConsents,
 } from "@/features/legal";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
-import { PrivacyNotice } from "@/shared/legal/privacy-notice";
 import { findCountry } from "@/shared/phone/countries";
 import { getTenantProfile, TenantProfileForm } from "@/features/tenant-profile";
 
@@ -56,16 +55,6 @@ export default async function TenantProfilePage() {
         </strong>
         : un propietario solo recibe una copia cuando tú te postulas a su inmueble.
       </p>
-
-      {/*
-        The aviso de privacidad where the most sensitive half of the product's data is collected:
-        the identity document, the income, and a third party's phone number. Decreto 1074 art.
-        2.2.2.25.3.2 wants it at the point of collection, and this is the point of collection.
-      */}
-      <PrivacyNotice
-        purpose="que un propietario pueda evaluar tu postulación cuando te postules a su inmueble"
-        className="mb-8"
-      />
 
       <TenantProfileForm
         profile={dossier}

@@ -116,11 +116,25 @@ for (const { ruta, titulo } of PAGINAS) {
 
     const nav = p.getByRole("navigation", { name: "Información legal" });
     for (const nombre of ["Términos y condiciones", "Tratamiento de datos", "Cookies"]) {
-      if ((await nav.getByRole("link", { name: nombre }).count()) === 0) {
+      const enlace = nav.getByRole("link", { name: nombre });
+      if ((await enlace.count()) === 0) {
         throw new Error(`el pie de ${ruta} no enlaza "${nombre}"`);
       }
+      /*
+       * **En pestaña nueva.** Estos enlaces se pulsan desde el pie de una búsqueda que costó un
+       * minuto armar, desde una casilla en medio de un formulario a medio llenar y desde un banner
+       * sobre algo que se estaba leyendo: navegar fuera pierde las tres cosas. Es una decisión que
+       * un rediseño puede tirar sin que nada se queje, y `LegalLink` existe para que no se pierda
+       * en el siguiente enlace que alguien añada.
+       */
+      if ((await enlace.getAttribute("target")) !== "_blank") {
+        throw new Error(`"${nombre}" en el pie de ${ruta} no abre en pestaña nueva`);
+      }
+      if (!((await enlace.getAttribute("rel")) ?? "").includes("noopener")) {
+        throw new Error(`"${nombre}" en el pie de ${ruta} abre en pestaña nueva sin noopener`);
+      }
     }
-    ok(`${ruta} alcanza las tres políticas desde el pie`);
+    ok(`${ruta} alcanza las tres políticas desde el pie, en pestaña nueva`);
   }
 }
 

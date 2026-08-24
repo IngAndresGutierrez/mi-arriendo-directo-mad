@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { COOKIES_ROUTE, PRIVACY_ROUTE, SUPPORT_ROUTE, TERMS_ROUTE } from "@/shared/auth/routes";
+import { LegalLink } from "@/shared/legal/legal-link";
 import { controllerIdentityLines } from "@/shared/legal/controller";
 
 /**
@@ -33,25 +34,25 @@ export function LegalFooter() {
         <nav aria-label="Información legal">
           <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
             <li>
-              <Link href={TERMS_ROUTE} className="underline underline-offset-2 hover:text-foreground">
+              <LegalLink href={TERMS_ROUTE} className="underline underline-offset-2 hover:text-foreground">
                 Términos y condiciones
-              </Link>
+              </LegalLink>
             </li>
             <li>
-              <Link
+              <LegalLink
                 href={PRIVACY_ROUTE}
                 className="underline underline-offset-2 hover:text-foreground"
               >
                 Tratamiento de datos
-              </Link>
+              </LegalLink>
             </li>
             <li>
-              <Link
+              <LegalLink
                 href={COOKIES_ROUTE}
                 className="underline underline-offset-2 hover:text-foreground"
               >
                 Cookies
-              </Link>
+              </LegalLink>
             </li>
             <li>
               <Link

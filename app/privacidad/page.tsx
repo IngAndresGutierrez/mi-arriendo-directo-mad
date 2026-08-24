@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { LegalChrome } from "@/app/legal-chrome";
 import { LegalDocument, LegalList, LegalSection } from "@/features/legal";
 import { MIN_AGE } from "@/features/profile";
 import { COOKIES_ROUTE, TERMS_ROUTE } from "@/shared/auth/routes";
+import { LegalLink } from "@/shared/legal/legal-link";
 import { CONTROLLER_NAME, PRIVACY_CONTACT_EMAIL } from "@/shared/legal/controller";
 import { LEGAL_DOCUMENTS } from "@/shared/legal/documents";
 
@@ -87,9 +87,9 @@ export default function PrivacyPage() {
             <li>
               <strong className="font-medium text-foreground">De navegación:</strong> lo que dicen
               las cookies, explicado en la{" "}
-              <Link href={COOKIES_ROUTE} className="underline underline-offset-2">
+              <LegalLink href={COOKIES_ROUTE} className="underline underline-offset-2">
                 política de cookies
-              </Link>
+              </LegalLink>
               .
             </li>
           </LegalList>
@@ -326,9 +326,9 @@ export default function PrivacyPage() {
           </p>
           <p>
             Las condiciones del servicio están en los{" "}
-            <Link href={TERMS_ROUTE} className="underline underline-offset-2">
+            <LegalLink href={TERMS_ROUTE} className="underline underline-offset-2">
               Términos y condiciones
-            </Link>
+            </LegalLink>
             .
           </p>
         </LegalSection>
