@@ -32,6 +32,7 @@ import {
   PROPERTY_ID,
   APPLICATION_ID,
   NOTIFICATION_ID,
+  INCIDENT_ID,
   LEASE_ID,
   PERIOD_ID,
   seed,
@@ -614,6 +615,108 @@ describe("leases", () => {
     it("a month under a tenancy that does not exist is denied", async () => {
       await assertFails(
         getDoc(doc(actingAs(env, UID_TENANT, "tenant"), "leases/lease-invented/periods/2026-09")),
+      );
+    });
+  });
+
+  describe("its incidents", () => {
+    /*
+     * Un incidente dice dónde vive alguien y qué está roto ahí. Lo leen las dos partes — el
+     * inquilino lo reporta y el propietario es quien tiene que arreglarlo — y nadie más.
+     */
+    it("both parties read an incident; a third party and an anonymous visitor do NOT", async () => {
+      await assertSucceeds(
+        getDoc(
+          doc(actingAs(env, UID_TENANT, "tenant"), `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`),
+        ),
+      );
+      await assertSucceeds(
+        getDoc(
+          doc(
+            actingAs(env, UID_LANDLORD, "landlord"),
+            `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`,
+          ),
+        ),
+      );
+      await assertFails(
+        getDoc(
+          doc(
+            actingAs(env, UID_THIRD_PARTY, "tenant"),
+            `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`,
+          ),
+        ),
+      );
+      await assertFails(
+        getDoc(doc(anonymous(env), `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`)),
+      );
+    });
+
+    it("both parties list the incidents, and a stranger cannot", async () => {
+      await assertSucceeds(
+        getDocs(collection(actingAs(env, UID_TENANT, "tenant"), `leases/${LEASE_ID}/incidents`)),
+      );
+      await assertSucceeds(
+        getDocs(
+          collection(actingAs(env, UID_LANDLORD, "landlord"), `leases/${LEASE_ID}/incidents`),
+        ),
+      );
+      await assertFails(
+        getDocs(
+          collection(actingAs(env, UID_THIRD_PARTY, "tenant"), `leases/${LEASE_ID}/incidents`),
+        ),
+      );
+    });
+
+    /*
+     * El reporte lo escribe la Server Action, como todo lo que hay debajo de una tenencia. Lo que
+     * esto impide en concreto: que el inquilino registre un adjunto que está en la carpeta de otra
+     * persona — o que no existe en el bucket —, y que cualquiera de los dos reescriba o borre lo
+     * que el otro reportó. Nada de eso se puede preguntar desde aquí.
+     */
+    it("neither party writes an incident from the client", async () => {
+      const report = {
+        title: "Se dañó la estufa",
+        description: "No enciende ninguno de los cuatro puestos desde el sábado.",
+        attachments: [],
+        reporterUid: UID_TENANT,
+        reporterName: "Ana Uno Pérez",
+      };
+
+      for (const [uid, role] of [
+        [UID_TENANT, "tenant"],
+        [UID_LANDLORD, "landlord"],
+      ] as const) {
+        const db = actingAs(env, uid, role);
+        await assertFails(
+          setDoc(doc(db, `leases/${LEASE_ID}/incidents/incident-invented`), report),
+        );
+        await assertFails(addDoc(collection(db, `leases/${LEASE_ID}/incidents`), report));
+        await assertFails(
+          updateDoc(doc(db, `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`), {
+            title: "Otra cosa",
+          }),
+        );
+        await assertFails(
+          deleteDoc(doc(db, `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`)),
+        );
+      }
+    });
+
+    /** Como con los meses: una tenencia inventada no presta acceso a lo que se cuelgue de ella. */
+    it("an incident under a tenancy that does not exist is denied", async () => {
+      await assertFails(
+        getDoc(
+          doc(actingAs(env, UID_TENANT, "tenant"), "leases/lease-invented/incidents/whatever"),
+        ),
+      );
+    });
+
+    /** Y la tenencia de otra pareja tampoco: el `get` del padre es lo que decide. */
+    it("a party of one tenancy does not read another tenancy's incidents", async () => {
+      await assertFails(
+        getDocs(
+          collection(actingAs(env, UID_TENANT, "tenant"), "leases/lease-someone-else/incidents"),
+        ),
       );
     });
   });

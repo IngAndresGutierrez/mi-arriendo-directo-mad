@@ -115,7 +115,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/contratos` | `CONTRACTS_ROUTE` | Every process the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. **It is called "Contratos" because that is what it produces** — everything up to the first canon is the negotiation that *ends* in a signed contract, and the tenancy that runs afterwards is a different thing with a different lifetime. **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
 | `/contratos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
 | `/arriendos` | `RENTALS_ROUTE` | The tenancies in course, on either side. This is the **other half of the product**: `/contratos` is the negotiation that ends in a signed contract, and this is the year that follows it. The question it answers is not "¿vamos a hacer esto?" but "¿está pagado este mes?". The forward that used to live here was a **307 written in the page and never a 301 nor a rule in `next.config.ts`**, precisely so this page could replace it — a permanent redirect would have been cached against it, and a `next.config.ts` rule resolves before routing and would shadow the route. |
-| `/arriendos/<id>` | `rentalRoute(id)` | One tenancy: the term, where the canon goes, and every month of it. **The id is the application's**: one process produces one tenancy, so `/contratos/<id>` and `/arriendos/<id>` are two halves of one story under one key. A non-party — or an id whose process has not reached `active` yet — is **forwarded to `/contratos/<id>`**, which is both the privacy answer and what keeps every notification sent before the rename working: they all point at `/arriendos/<id>#etapa-…`. |
+| `/arriendos/<id>` | `rentalRoute(id)` | One tenancy: the term, where the canon goes, every month of it, and the incidents the tenant has reported. **The id is the application's**: one process produces one tenancy, so `/contratos/<id>` and `/arriendos/<id>` are two halves of one story under one key. A non-party — or an id whose process has not reached `active` yet — is **forwarded to `/contratos/<id>`**, which is both the privacy answer and what keeps every notification sent before the rename working: they all point at `/arriendos/<id>#etapa-…`. |
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
 | `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
@@ -768,9 +768,129 @@ first time `/arriendos` was opened there. So: **a new `where(...).orderBy(...)` 
 state a month ended in instead of recomputing it: an assertion that restates the rule is a second
 copy of the rule, and the copy nobody looks at is this one.
 
-**Not built, and deliberately so for now**: incidents (`periods` has a sibling `incidents` in the
-agreed shape), the daily reminder cron that would tell the tenant a canon is due, the IPC raise at
-renewal, and the closing described above. A landlord recording "me pagó en efectivo" without a tenant
+**Incidents are built**: `leases/{leaseId}/incidents/{incidentId}`, the sibling of `periods` the
+agreed shape always had. **Only the tenant reports one; both parties manage it.** An incident is what
+the person living there finds, so a landlord "reporting" one about a property they do not occupy would
+be a note about their own tenant with no way for the tenant to answer.
+
+The five states are `reported → in_progress → awaiting_confirmation → resolved`, plus `withdrawn`,
+and **`awaiting_confirmation` is the one that makes the domain honest — it is the canon's shape
+again.** The landlord says "ya lo arreglé" and that does *not* close it: whether the shower works is
+something only the person showering can say, exactly as whether the money landed is something only
+the person whose account it is can say. A repair the landlord can mark finished by themselves is a
+repair that gets marked finished without being finished. So **only the tenant resolves**, only the
+tenant withdraws their own report, and once the landlord has said it is fixed they have no button
+left — just the message box, because there is nothing to do but wait.
+
+`withdrawn` and `resolved` are both the tenant closing it and they are kept apart for the reason
+"rechazada en la entrevista" and "rechazada al recibirla" are: different things happened. A withdrawn
+one is not reopened — they report again. A **resolved** one the tenant *can* reopen, because a leak
+that comes back is the same leak and filing it again would throw away the record of the first repair.
+
+**The state is derived from the thread, never stored beside it** — `incidentState()` reads the last
+update that moved it. Same choice `leaseSummary` makes over the periods and for the same reason: a
+stored status is a second source of truth, and the day a write lands twice the field and the thread
+disagree with no way to tell which is lying. The thread is inline on the document (capped by
+`MAX_INCIDENT_UPDATES`), so deriving it costs nothing and a list of incidents stays one query.
+
+**There is deliberately no "this is not my responsibility" transition, and no cost split.** Who pays
+under *Ley 820* — the landlord owes the repairs the property needs to stay habitable, the tenant owes
+the damage they caused — is what decides who pays for a boiler, and a product that computed it would
+be telling both parties something it does not know. A landlord who thinks a broken window is the
+tenant's doing writes that, in a message the tenant reads; there is no button that makes it true. The
+thread keeps the disagreement instead of adjudicating it.
+
+**A button's label depends on where the incident is coming from, not only where it is going.** Three
+different things move one to `in_progress` — taking it on, a repair that did not work, and a leak
+returning months later — and labelling all three "Está en arreglo" (which the first version did) gave
+a resolved incident a button claiming somebody was already fixing it. `transitionLabel(from, to)`.
+
+**`updates` is optional in the domain types and nowhere else.** Every incident reported before the
+thread existed has no such key and those documents are in the database now; the converter defaults it,
+and `incidentState`/`allAttachments` tolerate its absence anyway, because a pure function that is only
+total because its one caller is careful is a function waiting for a second caller. Skipping that cost a
+`Cannot read properties of undefined (reading 'length')` that took out the whole list.
+
+**Images *and* video, and the video is the point.** A photo answers "is it broken?"; a video answers
+"it only leaks when the tap runs" and "listen to this noise", which is the half of a repair argument a
+still frame cannot carry. `video/quicktime` is accepted because an iPhone records `.mov` by default —
+leaving it out would reject the file most Colombian tenants would actually produce. Two limits, not
+one: 8 MB for a photo, **50 MB for a video** (`attachmentLimit` is a function of the type, because a
+40 MB image and a 40 MB video are the same number and two different answers).
+
+**The files do not go through the Server Action, and that is forced.** A Server Action's request body
+is capped at **1 MB** by Next and `next.config.ts` sets no `bodySizeLimit`, so the browser uploads
+straight to Cloud Storage with the web SDK — the route the listing photos and the identity documents
+already take — and the action records what landed. Raising the limit to fit a video would raise it for
+*every* action in the product. Three consequences worth keeping:
+
+- The path is `incidents/{uid}/…`, **keyed by uid and not by tenancy**, because Storage rules cannot
+  read Firestore: "is this person a party to lease X?" is a question they cannot ask. What they check
+  is that the path names the uploader; which tenancy it belongs to is recorded in Firestore, where the
+  question *can* be asked. The landlord cannot read the object at all and opens it through a URL the
+  server signs — same as an identity document.
+- The action therefore carries the real gate: party to *this* tenancy **and** its tenant, every path
+  inside the caller's own folder, and **every object confirmed to exist in the bucket** with the type
+  and size it claims. That last one is what a schema cannot do — without it a client writes a report
+  carrying five attachments that were never uploaded, and the landlord opens five broken previews.
+  The bucket's own metadata is what gets stored, so the numbers on screen are never the client's word.
+- **Files are held in the browser and uploaded on submit**, not on pick. `incidents/**` denies
+  `delete` to every client — the landlord reads this record, and a tenant who could delete the file
+  would leave the report pointing at nothing — so a file uploaded on pick and then removed from the
+  form would sit in the bucket for ever with nothing referring to it.
+
+The notification carries the **title or the note, never the description**: a description is what the
+tenant wrote about their home with the door broken, and an email is forwarded, quoted and left open on
+a laptop. There is **a type per move** rather than one `incident_updated`, because the copy is the
+point — "dicen que ya está arreglado" is a task the tenant has to act on, while "hay un mensaje nuevo"
+is news, and a notification that does not say which of the two it is gets ignored. All six are lease
+notifications, so they land on `/arriendos/<id>#incidente-<id>`. Everything in the section is `brand`,
+never `accent` — the one cyan action on that page is the month that has to be paid, and a tenancy with
+rent due and a broken boiler still has one first thing to do.
+
+**`toNotification` was dropping the anchor, and had been since the anchors existed.** The converter
+names every field it copies, so `period` — and then `incident` — never reached the bell: the same
+notification landed on September in an email and at the top of a twelve-month page in the app. The
+emails were fine, which is why nobody noticed: `renderNotificationEmail` reads the `NotifyInput` on
+the way out, not the stored document on the way back in. A field added to the document needs a line
+in that converter.
+
+## The tenancy has three tabs
+
+`/arriendos/<id>` is **Información · Pagos · Incidentes** — the term and the summary, where the canon
+goes plus every month, and the reports. Three subjects, three panels.
+
+**Información is listed first and Pagos is the one that opens.** The question this page exists to
+answer is "¿está pagado este mes?", and the month that needs something is what somebody came for;
+opening on a summary would put a reference card in front of the only action on the screen.
+
+**`LeaseTabs` is a Client Component for one reason: the anchors.** Every notification about a month
+links to `#mes-2026-09` and every one about a report to `#incidente-<id>`, and Radix unmounts the
+panel that is not showing — so a link whose target is not mounted scrolls nowhere and fails silently,
+which is the worst kind of regression because the email looks fine and the click looks like nothing
+happened. The hash picks the tab, in the browser, because **a fragment is never sent to the server**
+and no Server Component can read it. The mapping is derived from `periodAnchor("")` and
+`incidentAnchor("")`, never from literals. The tab is deliberately *not* written into the URL on
+click: the hash is a contract with links that already exist, and a `?tab=` every click rewrote would
+be a second source of truth beside it.
+
+Two React details that are not optional there. The `setState` that applies the hash is scheduled with
+`requestAnimationFrame`, not called in the effect body — the compiler flags the second, and a frame
+later is also what the scroll needs, since the tab has to be mounted first. And the scroll is its own
+effect keyed on the tab, so it only fires when the panel holding the anchor is actually there.
+
+The panels are passed in as **already-created JSX**, not components: an element crosses the RSC
+boundary, a function does not.
+
+**`pnpm e2e` has `leaseTab(page, name)` in `tests/e2e/lib.mjs`** because this is now how that screen
+is navigated — it waits for the rail to hydrate before clicking (Radix will not switch on a click it
+has no handler for yet, and Playwright will not retry a click on an element that was already
+actionable) and then waits for the active tab, not for the click. Splitting this page cost `rental`
+three assertions that read the summary out of `document.body.innerText`.
+
+**Not built, and deliberately so for now**: who pays for a repair (above), the daily reminder cron
+that would tell the tenant a canon is due, the IPC raise at renewal, and the closing described
+above. A landlord recording "me pagó en efectivo" without a tenant
 receipt is not built either — the flow is symmetric with the first canon on purpose. `/arriendos`
 also does **not** mark the property `rented`, which the process does not do at `active` either.
 

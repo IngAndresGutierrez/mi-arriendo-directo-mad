@@ -235,6 +235,43 @@ export async function completeProfile(page, { name, city = "Manizales", departme
   await settled(page);
 }
 
+/**
+ * Cambia de pestaña en la pantalla de un arriendo, y espera a que el panel esté montado.
+ *
+ * Vive aquí y no en un driver porque es **cómo se navega esa pantalla** desde que tiene pestañas:
+ * "Información", "Pagos" e "Incidentes" son tres paneles y Radix desmonta el que no se ve, así que
+ * cualquier aserción sobre el resumen o sobre los incidentes empieza por esto. Dos drivers ya lo
+ * necesitan y el siguiente que toque la tenencia también.
+ *
+ * Se espera la hidratación del rail antes de pulsar: un `click` sobre un `tab` al que Radix todavía
+ * no le ha enganchado el manejador no cambia de pestaña, y Playwright no lo reintenta porque el
+ * elemento ya era pulsable. Y después se espera **la pestaña activa**, no el clic: el panel se monta
+ * en el render siguiente.
+ */
+export async function leaseTab(page, name) {
+  const trigger = page.getByRole("tab", { name: new RegExp(name, "i") });
+  await trigger.waitFor({ state: "visible", timeout: 20000 });
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-slot="tabs-trigger"]');
+      return Boolean(el) && Object.keys(el).some((k) => k.startsWith("__react"));
+    },
+    null,
+    { timeout: 20000 },
+  );
+  await trigger.click();
+  await page.waitForFunction(
+    (label) => {
+      const active = document.querySelector('[data-slot="tabs-trigger"][data-state="active"]');
+      return Boolean(active?.textContent?.toLowerCase().includes(label.toLowerCase()));
+    },
+    name,
+    { timeout: 15000 },
+  );
+
+  return page.getByRole("tabpanel");
+}
+
 /** No horizontal scrolling at 390px is a rule for every screen, so it is one helper. */
 export async function assertNoHorizontalScroll(page, where) {
   const size = await page.evaluate(() => ({
@@ -322,6 +359,29 @@ trailer<</Root 1 0 R>>
 `;
 
 /**
+ * Un MP4 con la cabecera de verdad y nada dentro.
+ *
+ * Lo que se maneja con esto es el camino de un video: que el tipo se acepte, que suba al bucket con
+ * su `contentType`, que la acción lo confirme contra Storage y que la ficha lo pinte como `<video>`
+ * y no como una foto. **No se maneja la reproducción** — no hay pistas que decodificar —, y eso está
+ * dicho aquí porque la alternativa sería comprometer un fichero binario de varios megas al repo para
+ * probar el decodificador de Chromium, que no es de este producto.
+ *
+ * `setInputFiles` deduce el mime de la extensión, así que lo que el navegador declara es `video/mp4`.
+ */
+const MP4 = Buffer.concat([
+  // ftyp: tamaño, marca, versión menor, y las marcas compatibles.
+  Buffer.from([0x00, 0x00, 0x00, 0x18]),
+  Buffer.from("ftyp", "ascii"),
+  Buffer.from("isom", "ascii"),
+  Buffer.from([0x00, 0x00, 0x02, 0x00]),
+  Buffer.from("isomiso2", "ascii"),
+  // mdat vacío: la caja donde irían los datos.
+  Buffer.from([0x00, 0x00, 0x00, 0x08]),
+  Buffer.from("mdat", "ascii"),
+]);
+
+/**
  * The files the drivers upload. Written once per run into the shot directory.
  * The two photos differ in colour on purpose: an uploader that dedupes by content would
  * otherwise silently accept one file where the driver believes it sent two.
@@ -333,10 +393,12 @@ export function fixtures() {
     photo1: join(dir, "photo-1.png"),
     photo2: join(dir, "photo-2.png"),
     pdf: join(dir, "documento.pdf"),
+    video: join(dir, "video.mp4"),
   };
   if (!existsSync(files.photo1)) writeFileSync(files.photo1, png(64, [45, 18, 77]));
   if (!existsSync(files.photo2)) writeFileSync(files.photo2, png(64, [0, 229, 255]));
   if (!existsSync(files.pdf)) writeFileSync(files.pdf, PDF, "latin1");
+  if (!existsSync(files.video)) writeFileSync(files.video, MP4);
   return files;
 }
 

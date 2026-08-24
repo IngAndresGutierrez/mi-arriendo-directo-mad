@@ -21,6 +21,7 @@ import {
   config,
   createAccount,
   fixtures,
+  leaseTab,
   MONTHS,
   ok,
   settled,
@@ -338,23 +339,37 @@ await inq.getByRole("link", { name: new RegExp(`Apartamento con patio en Palermo
 await inq.waitForURL(new RegExp(`/arriendos/${id}$`), { timeout: 25000 });
 await settled(inq);
 
+/*
+ * La pantalla tiene tres pestañas — Información, Pagos e Incidentes — y abre en **Pagos**, que es la
+ * pregunta con la que se entra aquí. Los datos de cobro y los meses están ahí sin tocar nada.
+ */
 const dentro = await inq.evaluate(() => document.body.innerText);
 // Los datos de cobro llegan con la tenencia: preguntarlos otra vez el día uno sería pedir algo que
 // el proceso ya tiene.
 for (const frase of ["@ana2026", "Marta Propietaria Gómez", "Comprueba el nombre del titular"]) {
   if (!dentro.includes(frase)) throw new Error(`la tenencia no hereda "${frase}"`);
 }
-ok("los datos de cobro se heredan del primer canon");
+ok("la tenencia abre en Pagos y hereda los datos de cobro del primer canon");
 
-// El canon va etiquetado como el de la postulación, no como el del contrato.
-if (!/seg[úu]n la postulaci[óo]n/i.test(dentro)) {
+/*
+ * El resumen del término vive ahora en "Información": el canon etiquetado como el de la postulación
+ * y cuántos meses van sin pagar. Antes estaban en la misma página que los meses, así que esto se
+ * leía del `innerText` del documento; ahora hay que ir a su pestaña.
+ */
+const info = await leaseTab(inq, "Información");
+const resumen = await info.innerText();
+
+if (!/seg[úu]n la postulaci[óo]n/i.test(resumen)) {
   throw new Error("no dice que el canon es el de la postulación");
 }
-ok("el canon va etiquetado como el de la postulación");
+ok("el canon va etiquetado como el de la postulación, en Información");
 
 // Y hay meses en mora: dos, con su plata.
-if (!/sin pagar/i.test(dentro)) throw new Error("no dice que hay meses sin pagar");
+if (!/sin pagar/i.test(resumen)) throw new Error("no dice que hay meses sin pagar");
 ok("dice cuántos meses van sin pagar");
+
+// De vuelta a Pagos, que es donde pasa el resto de este driver.
+await leaseTab(inq, "Pagos");
 
 /*
  * El mes que toca es el **más viejo en mora**, no el más reciente: la deuda que hay que limpiar es
@@ -464,7 +479,8 @@ ok("el propietario confirma que el canon llegó");
 
 await inq.reload({ waitUntil: "domcontentloaded" });
 await settled(inq);
-const final = await inq.evaluate(() => document.body.innerText);
+// El contador del término está en "Información", no en la pestaña de los meses.
+const final = await (await leaseTab(inq, "Información")).innerText();
 if (!/2 de \d+/.test(final)) throw new Error(`no cuenta dos meses pagados: ${final.slice(0, 400)}`);
 ok("el resumen cuenta dos meses pagados");
 

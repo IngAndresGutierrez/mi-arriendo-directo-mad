@@ -91,6 +91,16 @@ export const COVERS = {
     "features/application/actions/advance",
     "shared/format/date",
   ],
+  // Los incidentes de una tenencia: el reporte del inquilino, con fotos y video.
+  incidents: [
+    "features/lease/domain/incident",
+    "features/lease/validations/incident",
+    "features/lease/data/incident",
+    "features/lease/actions/incident",
+    "features/lease/ui/incident-list",
+    "app/(app)/arriendos",
+    "storage.rules",
+  ],
   notifications: ["features/notification/", "shared/lib/site-url"],
 
   // Layout assertions: alignment, no horizontal scrolling at 390px, the active nav entry.
@@ -103,7 +113,7 @@ export const COVERS = {
 };
 
 /** Drivers that need a landlord, a tenant and a property, so they are the slow ones. */
-export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental"];
+export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental", "incidents"];
 
 /**
  * Rutas tan transversales que cualquier cambio en ellas selecciona **todos** los drivers.

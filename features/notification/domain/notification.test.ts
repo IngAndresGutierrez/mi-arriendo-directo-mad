@@ -177,8 +177,73 @@ describe("notificationPath", () => {
   it("knows which types belong to the tenancy and which to the process", () => {
     expect(isLeaseNotification("canon_paid")).toBe(true);
     expect(isLeaseNotification("lease_started")).toBe(true);
+    expect(isLeaseNotification("incident_reported")).toBe(true);
     expect(isLeaseNotification("canon_confirmed")).toBe(false);
     expect(isLeaseNotification("stage_advanced")).toBe(false);
+  });
+
+  /** Un reporte de una gotera aterriza en la gotera, no arriba de una página con doce meses. */
+  it("points at the incident inside the tenancy", () => {
+    expect(
+      notificationPath({
+        applicationId: "abc",
+        stage: "active",
+        type: "incident_reported",
+        incident: "inc-7",
+      }),
+    ).toBe("/arriendos/abc#incidente-inc-7");
+  });
+});
+
+describe("the incident notification", () => {
+  const base = {
+    stage: "active" as const,
+    propertyTitle: "Apartamento en Chapinero",
+    actorName: "Carlos Ramírez",
+    applicationId: "abc",
+  };
+
+  it("names what happened and sends the landlord to the tenancy to read it", () => {
+    const copy = notificationCopy({
+      ...base,
+      type: "incident_reported",
+      detail: "Se rompió el sifón del lavaplatos",
+    });
+
+    expect(copy.title).toMatch(/incidente/i);
+    expect(copy.body).toContain("Carlos Ramírez");
+    expect(copy.body).toContain("Se rompió el sifón del lavaplatos");
+    expect(copy.body).toMatch(/arriendo/i);
+  });
+
+  it("still says something when the title is missing", () => {
+    const copy = notificationCopy({ ...base, type: "incident_reported" });
+
+    expect(copy.body).toContain("Apartamento en Chapinero");
+  });
+
+  /*
+   * Lo que **no** sale en el correo: la descripción y los adjuntos. Es lo que el inquilino escribió
+   * sobre su casa con algo roto dentro, y un correo se reenvía y se queda abierto en un portátil. El
+   * título dice qué pasó y el enlace dice dónde leer el resto, detrás de la sesión.
+   */
+  it("carries the title and the link, and never the description", () => {
+    const email = renderNotificationEmail(
+      {
+        ...base,
+        type: "incident_reported",
+        detail: "Se rompió el sifón del lavaplatos",
+        incident: "inc-7",
+      },
+      "dueno@example.com",
+      "https://miarriendodirecto.com",
+    );
+
+    expect(email.text).toContain("https://miarriendodirecto.com/arriendos/abc#incidente-inc-7");
+    expect(email.text).toContain("Se rompió el sifón del lavaplatos");
+    expect(email.text).toMatch(/Ver el arriendo/);
+    // La descripción nunca se le pasa a `notify`, así que no hay forma de que aparezca aquí.
+    expect(email.text).not.toMatch(/goteando|debajo del mueble/i);
   });
 });
 

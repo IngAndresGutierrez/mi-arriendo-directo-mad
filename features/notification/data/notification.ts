@@ -27,6 +27,17 @@ function toNotification(snapshot: Snapshot): Notification | null {
     propertyTitle: doc.propertyTitle,
     actorName: doc.actorName,
     ...(doc.detail ? { detail: doc.detail } : {}),
+    /*
+     * `period` and `incident` are what the **link** needs, and leaving them out is what made the
+     * bell's anchors dead for as long as they had existed: this converter names every field it
+     * copies, so a field added to the document without a line here is a field the bell never sees.
+     * The emails were unaffected and that is why nobody noticed — `renderNotificationEmail` reads
+     * the `NotifyInput` on the way out, not the stored document on the way back in — so "septiembre"
+     * in an email landed on September while the same notification in the bell landed at the top of a
+     * page with twelve months on it.
+     */
+    ...(doc.period ? { period: doc.period } : {}),
+    ...(doc.incident ? { incident: doc.incident } : {}),
     readAt: doc.readAt ? iso(doc.readAt) : null,
     createdAt: iso(doc.createdAt),
   };

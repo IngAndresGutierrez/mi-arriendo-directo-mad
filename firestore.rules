@@ -308,6 +308,22 @@ service cloud.firestore {
       function isLeaseLandlord() {
         return isSignedIn() && current().landlordUid == uid();
       }
+      /*
+       * The parties, read from the tenancy itself, for the subcollections underneath it.
+       *
+       * Inside `periods` or `incidents` `resource` is that document, which carries no uid — so the
+       * two uids have to come from the parent, and that is one `get` per request. The alternative is
+       * a copy of both on every month and every report, and a copy that can disagree with the
+       * tenancy it belongs to.
+       *
+       * Declared here rather than once per subcollection: it was duplicated the day the second one
+       * arrived, and two copies of "who may read this tenancy" is the pair whose first divergence
+       * nobody would notice.
+       */
+      function isParentLeaseParty() {
+        let lease = get(/databases/$(database)/documents/leases/$(leaseId)).data;
+        return lease.tenantUid == uid() || lease.landlordUid == uid();
+      }
 
       // One month. The document id IS the month, which is what makes a monthly charge idempotent.
       //
@@ -320,11 +336,20 @@ service cloud.firestore {
       match /periods/{period} {
         allow get, list: if isAdmin() || (isSignedIn() && isParentLeaseParty());
         allow create, update, delete: if false;  // Server Actions only
+      }
 
-        function isParentLeaseParty() {
-          let lease = get(/databases/$(database)/documents/leases/$(leaseId)).data;
-          return lease.tenantUid == uid() || lease.landlordUid == uid();
-        }
+      // What went wrong in the property while the tenancy runs: a leak, a broken boiler. Reported
+      // by the tenant, read by both — the same audience as a month, and for the same reason it is
+      // the same rule: an incident says where somebody lives and what is broken in it.
+      //
+      // Written only by the Server Action, like everything else under a tenancy. The checks that
+      // have to hold are not expressible here: the reporter has to be a party to *this* tenancy,
+      // each attachment has to sit in the reporter's own Storage folder, and the file has to
+      // actually exist in the bucket with the type it claims. A rule that enforced the shape but
+      // none of that would be a rule somebody trusts.
+      match /incidents/{incidentId} {
+        allow get, list: if isAdmin() || (isSignedIn() && isParentLeaseParty());
+        allow create, update, delete: if false;  // Server Actions only
       }
     }
 
