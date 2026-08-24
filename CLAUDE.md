@@ -113,9 +113,9 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
 | `/postularme/<slug>` | `applyToPropertyRoute(slug)` | Where a tenant applies. Needs a complete profile; redirects to the process if one is already open. |
 | `/contratos` | `CONTRACTS_ROUTE` | Every process the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. **It is called "Contratos" because that is what it produces** — everything up to the first canon is the negotiation that *ends* in a signed contract, and the tenancy that runs afterwards is a different thing with a different lifetime. **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
-| `/contratos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
+| `/contratos/<id>` | `applicationRoute(id)` | One process: its seven stages. A non-party gets 404, the same answer as a process that does not exist. |
 | `/arriendos` | `RENTALS_ROUTE` | The tenancies in course, on either side. This is the **other half of the product**: `/contratos` is the negotiation that ends in a signed contract, and this is the year that follows it. The question it answers is not "¿vamos a hacer esto?" but "¿está pagado este mes?". The forward that used to live here was a **307 written in the page and never a 301 nor a rule in `next.config.ts`**, precisely so this page could replace it — a permanent redirect would have been cached against it, and a `next.config.ts` rule resolves before routing and would shadow the route. |
-| `/arriendos/<id>` | `rentalRoute(id)` | One tenancy: the term, where the canon goes, every month of it, and the incidents the tenant has reported. **The id is the application's**: one process produces one tenancy, so `/contratos/<id>` and `/arriendos/<id>` are two halves of one story under one key. A non-party — or an id whose process has not reached `active` yet — is **forwarded to `/contratos/<id>`**, which is both the privacy answer and what keeps every notification sent before the rename working: they all point at `/arriendos/<id>#etapa-…`. |
+| `/arriendos/<id>` | `rentalRoute(id)` | One tenancy: the term, where the canon goes, every month of it, and the incidents the tenant has reported. **The id is the application's**: one process produces one tenancy, so `/contratos/<id>` and `/arriendos/<id>` are two halves of one story under one key. A non-party — or an id whose process has not finished yet, so no tenancy was opened — is **forwarded to `/contratos/<id>`**, which is both the privacy answer and what keeps every notification sent before the rename working: they all point at `/arriendos/<id>#etapa-…`. |
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
 | `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
@@ -164,6 +164,26 @@ a filter you forget you applied. `h-svh` alone was not enough: the document stil
 header out of view by its own height. Below `lg` the page scrolls as a page, because an inner
 scroller on a phone fights the address bar and pull-to-refresh, and there the facets are behind a
 button anyway. `CATALOG_PAGE_SIZE` is **6**.
+
+**Inside the catalog, the logo is the way back to the catalog.** Everything in the `(public)` route
+group *is* the catalog — the list and one property's detail — so `app/(public)/layout.tsx` renders
+`PublicChrome` with `homeHref={PROPERTIES_ROUTE}`; `/soporte` renders the same header from outside
+that group and keeps the default, `/`, because from there "el inicio" really is the way in. A prop
+and not `usePathname()`: the answer is a fact about the route, known at build time, and reading it at
+runtime would make a Client Component out of the whole header. Sending somebody browsing listings to
+`/` dropped them on a login screen — a dead end for a visitor, and a way out of what they were
+looking at for anyone already signed in.
+
+**And the detail page carries a "Volver a los inmuebles" arrow**, top left, the same shape the
+process page uses. A real link and not `history.back()`: this page is also reached from a URL pasted
+into WhatsApp, where there is nothing to go back to. What it does not carry across is the filters — the
+catalog keeps its whole state in the URL and this link does not — so the browser's own back gesture
+is still the one that returns the search exactly as it was.
+
+**One `outline` button per card, not one `accent`.** A page of the catalog is six cards, and six cyan
+buttons are six calls to action competing with each other, which is none. What should draw the eye in
+a card is the price; "Ver inmueble" is the shortcut, and the card's own title already leads to the
+same page.
 
 **The catalog filters, counts, sorts and paginates in memory**, over one query capped by
 `CATALOG_MAX_SCAN`. That is deliberate: faceted search needs a count per option computed against
@@ -358,10 +378,40 @@ through: a pair that does not exist.
 
 ## The rental process (`features/application`)
 
-Nine stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
+Seven stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
 nothing advances by itself, because each of these is a decision someone makes off the platform
-and then records here. `submitted → tenant_data → background_check → interview → guarantee → approved →
-contract_signature → first_payment → active`.
+and then records here. `submitted → tenant_data → background_check → interview → guarantee →
+contract_signature → first_payment`.
+
+**Except the end, which is the one deliberate exception**: confirming the first canon *is* the
+decision, so it ends the process and opens the tenancy in the same movement. There is no eighth
+stage to advance to.
+
+**Two stages were removed, and both for the same reason: they recorded nothing.** `approved`
+("Postulación aprobada") sat between the policy and the signature — but deciding to go to the
+signature *is* approving, so it was one decision written down twice. The notification survived it:
+`application_approved` is now sent on landing on `contract_signature`, because "tu postulación fue
+aprobada" is the sentence the tenant was waiting for and "avanzaste a Firma del contrato" is not.
+And `active` ("Arriendo en curso") was never a stage at all — it was the tenancy, listed among the
+steps of the negotiation that produces it, and until somebody pressed a button to reach it the
+tenant had paid, the landlord had confirmed, and the page with the months on it did not exist.
+
+**What says the process finished is `completedAt`, a timestamp on the application** — like
+`waivedAt`, `checksAuthorizedAt` and `acceptedClauseAt`, and for the same reason: *when* it ended is
+part of the record both parties read, and a bare flag answers "no" identically whether it ended
+yesterday or is still on stage three. `isCompleted()` is the one question, read from the one field;
+it used to be `stage === "active"`, which meant every screen that needed to know had to know the
+name of the last stage. The **status stays `open`**: an application whose tenancy is running has not
+been rejected or withdrawn, and it is still the document both parties come back to for the contract
+they signed. `stageState` and `stageProgressLabel` take the completion rather than deriving it from
+the position — the last stage is the one that asks for the money, so "last" and "finished" stopped
+being the same thing the day `active` went.
+
+**`approved` and `active` are still written on documents in the database**, so `normalizeStage()`
+maps them (to `contract_signature` and `first_payment`) and the converter in `data/application.ts`
+marks a stored `active` as completed, dated from its own history entry. A stage the code no longer
+knows lands as `stageIndex() === -1`, which reads as "before the first step" in every comparison —
+no migration to run, and the old links and old notifications keep meaning what they meant.
 
 There is no separate "revisión de documentos" stage: reviewing them **is** stage two, where each
 one is approved or rejected. A stage repeating what the previous one settled is a stage everybody
@@ -427,7 +477,7 @@ credentials the message is logged and the other two channels still go out - the 
 Resend without a key.
 
 **A phone on `notify()` is what says "this one also goes over WhatsApp".** Every other movement of
-a process is news, and news belongs in the bell and the inbox: a phone that buzzes for each of nine
+a process is news, and news belongs in the bell and the inbox: a phone that buzzes for each of seven
 stages is a phone somebody mutes, and then the reminder arrives muted too.
 
 Times are stored as instants and shown in Colombian time. The form's two fields are read as
@@ -459,7 +509,7 @@ the bell useless on the day it matters.
 
 **The advance button is in two places, and it is one control.** `AdvanceButton` renders at the top,
 beside "Rechazar postulación", and again at the **foot of the stage being worked on** — the question
-"am I done with this step?" is answered at the end of the step, and scrolling back up past nine cards
+"am I done with this step?" is answered at the end of the step, and scrolling back up past seven cards
 to press a button about what you just finished is a scroll that means nothing. Two rules keep the
 pair honest. The one at the top is **always** there and, when the stage is blocked, stays visible
 with the reason: that is where somebody goes to find out what is missing. The one at the foot renders
@@ -484,7 +534,7 @@ panel, decided by the page, which is the only place that knows which stage the p
 
 **Every panel starts folded, and a change of stage folds them all.** The header carries the
 state — "5 de 5 subidos", "2 de 4 consultadas" — so what a click reveals is the controls, not the
-news; nine stages each unfolding on their own would be a page nobody can see the shape of.
+news; seven stages each unfolding on their own would be a page nobody can see the shape of.
 `resetOn` carries the current stage, so moving forward leaves the timeline collapsed instead of
 growing a section at a time.
 
@@ -725,9 +775,23 @@ Four rules there, each of which cost a decision:
   corrected receipt does not leave "rechazado" standing with nothing to fix. `verdictApplies` is one
   comparison and it is unit-tested by weakening it.
 
-**Confirming does not close the process.** It unblocks the button and the landlord still presses it,
-like the eight stages before — nothing here advances by itself, and making the last stage the one
-exception would be the worst place to break that.
+**Confirming *is* what closes the process**, and this is the one place where something moves without
+the landlord moving it — because it is the same decision, not an extra one. It used to unblock a
+"Continuar a Arriendo en curso" that the landlord then pressed, a step that recorded nothing the
+confirmation had not, and until it was pressed the tenant had paid, the landlord had confirmed and
+the page with the months on it did not exist. `recordReceiptVerdict` now writes the verdict, stamps
+`completedAt`, opens the tenancy with `startLease` and rings the bell once, in that order: the
+tenancy is idempotent through its own id and never throws, so a tenancy that failed to open is a
+screen the next attempt fixes, while a rolled-back confirmation is not. After that the stage takes
+no more writes — `partyOn` refuses a second receipt on a finished process, because the next month is
+already waiting on the other page.
+
+**The record is read from the document; only the link comes from the signed URL.** The same rule
+`features/lease` and the contract panel already pay for, and this panel was breaking it: the file
+name, the amount, the verdict *and the landlord's confirm buttons* all hung off the object carrying
+the signed URL. That is now load-bearing rather than cosmetic — confirming is what ends the process
+— so an environment that cannot sign (a deleted file, Cloud Storage down, no service account) used
+to leave both parties on a screen with the money paid and no way to finish it.
 
 The amount shown is `monthlyCost`, **labelled as the one from the application**. The contract governs
 the canon and this product does not read it, so presenting a figure as authoritative would be
@@ -752,20 +816,20 @@ drivable at all in the emulated suite, which has no service account and therefor
 before it, `tests/e2e/contract.mjs` died seven assertions in, so everything about the signature
 itself was unverified in a browser.
 
-**The ninth stage reads as finished, not as "en curso".** `stageState` gives the last stage no
-`current` state at all: reaching it *is* having finished the nine, and what follows — the tenancy —
-is a different thing with its own page, its own lifetime and twelve months instead of nine steps. It
-used to say "En curso" for ever, which is exactly what makes a completed process indistinguishable
-from one stalled on its last step. The badge over the timeline says the same thing — `stageProgressLabel` answers **"Proceso
-completado"** there instead of "Paso 9 de 9", which was true and still read as a step left to take.
-The card on `/inicio` reads it too, where it becomes "Arriendo en curso · Proceso completado": that
-is what somebody needs at a glance, that this one is not asking them for anything. It is decided from
-the stage and not from the tenancy on purpose:
-`startLease` runs in the same action that lands here, so "there is a lease" and "the process reached
-the end" are one fact, and reading the other module to answer it would make the timeline depend on
-it. That card is also where the **link to the tenancy** lives — the same footer slot that carries
-"Continuar a …" on every other stage, because both answer "what takes me out of here", and at
-`active` the answer is another page.
+**A finished process reads as finished, and the last stage is not finished by being last.**
+`stageState` used to give whichever stage came last no `current` state at all, on the grounds that
+reaching it *was* finishing — true while the last stage was `active`, which asked for nothing.
+`first_payment` asks for the money, so the same rule would mark a process as over the moment it
+arrived at the step with all of its work still ahead. Both now take `completedAt`: the last stage is
+"En curso" until the canon is confirmed and "Listo" the instant it is. The badge over the timeline
+says the same thing — `stageProgressLabel` answers **"Proceso completado"** instead of "Paso 7 de 7",
+which is true right up until it is misleading. The card on `/inicio` reads it too, where it becomes
+"Arriendo en curso · Proceso completado": that is what somebody needs at a glance, that this one is
+not asking them for anything. `processStageLabel` and `processDescription` are the single place that
+decides it, so the home card and the list cannot end up saying different things. That last card is
+also where the **link to the tenancy** lives — the same footer slot that carries "Continuar a …" on
+every other stage, because both answer "what takes me out of here", and once the process is done the
+answer is another page.
 
 `UNBUILT_STAGES` is now **empty**, and the constant is kept rather than deleted: `isUnbuilt` is what
 says out loud that something happens off the platform, and the next stage added will need it.
@@ -797,24 +861,29 @@ says out loud that something happens off the platform, and the next stage added 
 
 `/contratos` is the negotiation that **ends** in a signed contract. This is the year that follows
 it, and the question it answers is not "¿vamos a hacer esto?" but "¿está pagado este mes?". It is a
-separate domain because it has a separate lifetime: nine stages happen once, twelve canons happen
+separate domain because it has a separate lifetime: seven stages happen once, twelve canons happen
 twelve times.
 
 `leases/{leaseId}` with **`leaseId == applicationId`** — one process produces one tenancy, so a
 second identifier would be a second thing that can disagree with the first (the same reasoning as
 `propertySlugs/{slug}`, whose document id *is* the slug). It could not live on the application
 document either: `LiveApplication` subscribes to that one, so a canon paid in month seven would wake
-both parties and re-render a nine-stage page that has not changed since March.
+both parties and re-render a seven-stage page that has not changed since March.
 
-**The tenancy opens when the landlord advances the process to `active`**, in `advanceApplication` —
-nothing here advances by itself, and that stage is not a resting place, it is the day the months
-start. `startLease()` never throws and is idempotent through `create()`: the stage has already moved,
-and a tenancy that failed to open is a screen the next attempt fixes, while a rolled-back advance is
-not. Landing on `active` notifies `lease_started`, not `stage_advanced`: the news is that there is
-now a page with the months on it.
+**The tenancy opens the moment the landlord confirms the first canon**, in `recordReceiptVerdict` —
+the same write that stamps `completedAt`. It used to hang off a stage of its own, `active`, which the
+landlord advanced to *after* confirming and which recorded nothing the confirmation had not.
+`startLease()` never throws and is idempotent through `create()`: the confirmation is already
+written, and a tenancy that failed to open is a screen the next attempt fixes, while a rolled-back
+confirmation is not. It notifies `lease_started`, not `canon_confirmed`: the two are one fact now, and
+the news that matters is that there is a page with the months on it — which is where that
+notification lands, unlike the one it replaced. (`canon_confirmed` stays in the union, unsent: there
+are notifications with that type stored, and a type the switch does not cover is a bell with an empty
+body.)
 
-**The first canon is the first month.** The landlord confirmed it before the process could reach
-`active`, so `startLease` carries the receipt *and* the verdict verbatim onto `periods/{first}`.
+**The first canon is the first month**, and now literally the same act: the confirmation that ends
+the process is the write this runs after, so `startLease` carries the receipt *and* the verdict
+verbatim onto `periods/{first}`.
 Without that the tenant would open this screen and be asked to pay a month they had just paid, and
 the only record of having paid it would be on the other page. The payout comes across for the same
 reason: asking again on day one is asking for something the process already has.
@@ -877,6 +946,14 @@ first time `/arriendos` was opened there. So: **a new `where(...).orderBy(...)` 
 `firestore.indexes.json` and a `firebase deploy --only firestore:indexes`, in the same change.**
 `features/lease/data/lease-indexes.test.ts` pins the pair so a query added without its index fails in
 `pnpm test` instead of on somebody's screen; it is worth copying that guard for the next collection.
+
+**The whole tenancy card opens the tenancy**, not just its title — four words at the top is a hit
+area people miss more often than they find on a phone. It is the title link stretched over the card
+(`after:absolute after:inset-0`) rather than an `<a>` wrapped around everything, because the card
+also holds the link to the process and an anchor inside an anchor is invalid HTML the browser
+repairs by dropping one. That second link sits above the overlay with `relative z-10`. One
+consequence for the drivers: a `locator.click()` on anything inside the card is now correctly
+refused as intercepted, so the way to assert it is a real `mouse.click()` at that point.
 
 **Every month carries `data-month` and `data-state`.** They are how a driver asks the product what
 state a month ended in instead of recomputing it: an assertion that restates the rule is a second
@@ -1006,7 +1083,7 @@ three assertions that read the summary out of `document.body.innerText`.
 that would tell the tenant a canon is due, the IPC raise at renewal, and the closing described
 above. A landlord recording "me pagó en efectivo" without a tenant
 receipt is not built either — the flow is symmetric with the first canon on purpose. `/arriendos`
-also does **not** mark the property `rented`, which the process does not do at `active` either.
+also does **not** mark the property `rented`, which the process does not do on finishing either.
 
 ## Notifications and email (`features/notification`)
 
@@ -1016,7 +1093,7 @@ than stored with it, so fixing a confusing sentence fixes the ones already sent.
 
 The email carries what the bell cannot: an **absolute link straight to the stage**,
 `/contratos/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
-the step it is about instead of at the top of a page with nine of them.
+the step it is about instead of at the top of a page with seven of them.
 
 **Email goes out through Resend**, over its REST API — no SDK, because sending is a `POST` with
 five fields. The `from` domain is derived from `RESEND_EMAIL_DOMAIN` rather than written by hand,
@@ -1034,7 +1111,7 @@ fail silently until the SPF/DKIM records were pointed at the new account. That i
 live rental processes waiting on notifications, traded for one invoice.
 
 **The plan matters, and it is the daily cap that bites.** Resend's free tier is 3,000 a month but
-**100 a day**; Pro at $20 removes the daily limit. A rental that reaches `active` walks nine stages
+**100 a day**; Pro at $20 removes the daily limit. A rental that reaches its tenancy walks seven stages
 and each movement notifies the other party, plus two reminders per confirmed interview — of the order
 of ten to fifteen emails per completed rental. A hundred a day is therefore seven to ten *processes
 moving*, platform-wide, which arrives sooner than it sounds. **Driver runs must not spend that

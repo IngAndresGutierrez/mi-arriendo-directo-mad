@@ -153,7 +153,14 @@ export function PropertyCard({
               </p>
             </div>
 
-            <Button asChild variant="accent" size="lg">
+            {/*
+              `outline`, no `accent`: una página del catálogo son seis tarjetas, y seis botones cian
+              son seis llamadas a la acción compitiendo entre sí — que es ninguna. Lo que tiene que
+              destacar en una tarjeta es el precio, y lo que decide en cuál entrar son las fotos y
+              los metros; este botón es el atajo, no el protagonista. Además la tarjeta entera ya
+              lleva a la misma página desde el título.
+            */}
+            <Button asChild variant="outline" size="lg">
               <Link href={href}>Ver inmueble</Link>
             </Button>
           </div>

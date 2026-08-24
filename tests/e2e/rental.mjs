@@ -335,7 +335,35 @@ if (!lista.includes(`Apartamento con patio en Palermo ${STAMP}`)) {
 if (!/1 de \d+/.test(lista)) throw new Error(`no cuenta el primer canon como pagado: ${lista.slice(0, 400)}`);
 ok("la tenencia aparece con el primer mes ya pagado");
 
+/*
+ * **La tarjeta entera abre la tenencia**, no solo el título: se pulsa un trozo cualquiera de ella —
+ * el número de meses pagados, que no es un enlace — y tiene que llevar igual. Antes el único blanco
+ * eran cuatro palabras arriba, que en un teléfono se falla más veces de las que se acierta.
+ */
+const tarjeta = inq.locator("li", { hasText: `Apartamento con patio en Palermo ${STAMP}` }).first();
+/*
+ * Un clic de ratón en ese punto, no `locator.click()` sobre el `<dt>`: quien recibe el clic ahí es
+ * la capa que estira el enlace del título, y Playwright se niega —con razón— a "pulsar" un elemento
+ * que otro tapa. Lo que se comprueba es justo eso, que ese píxel de la tarjeta lleva al arriendo.
+ */
+const punto = await tarjeta.getByText("Meses pagados").boundingBox();
+if (!punto) throw new Error("no encontré el bloque de meses pagados en la tarjeta");
+await inq.mouse.click(punto.x + punto.width / 2, punto.y + punto.height / 2);
+await inq.waitForURL(new RegExp(`/arriendos/${id}$`), { timeout: 25000 });
+await settled(inq);
+ok("la tarjeta del arriendo se abre desde cualquier parte, no solo desde el título");
+
+// Y el enlace al proceso, que vive dentro de esa misma tarjeta, conserva su propio destino.
+await inq.goBack({ waitUntil: "domcontentloaded" });
+await settled(inq);
+await tarjeta.getByRole("link", { name: /Ver el contrato y el proceso/i }).click();
+await inq.waitForURL(new RegExp(`/contratos/${id}$`), { timeout: 25000 });
+await settled(inq);
+ok("y el enlace al proceso dentro de ella sigue llevando al proceso");
+
 // ---------- la tenencia, por dentro ----------
+await inq.goto(BASE + "/arriendos", { waitUntil: "domcontentloaded" });
+await settled(inq);
 await inq.getByRole("link", { name: new RegExp(`Apartamento con patio en Palermo ${STAMP}`) }).first().click();
 await inq.waitForURL(new RegExp(`/arriendos/${id}$`), { timeout: 25000 });
 await settled(inq);

@@ -25,6 +25,14 @@ import {
  *
  * It links to both halves of the same story: the tenancy, and the process that produced it — the
  * contract, the interview and the policy live there and people go back for them.
+ *
+ * **The whole card opens the tenancy**, not just the title. A card whose only target is four words
+ * at the top is a card people click three times before finding the hit area, and on a phone the
+ * miss is the norm rather than the exception. It is done with the title link stretched over the card
+ * (`after:absolute after:inset-0`) and not by wrapping everything in an `<a>`: the card also holds a
+ * second link — the process — and an anchor inside an anchor is invalid HTML that browsers repair
+ * by dropping one of them. That second link is lifted above the overlay with `relative z-10`, so it
+ * keeps its own destination, and there is still exactly one accessible name for the card's own.
  */
 export function LeaseCard({
   lease,
@@ -44,12 +52,12 @@ export function LeaseCard({
   const state = leaseTermState(lease, today);
 
   return (
-    <li className="rounded-2xl border border-border bg-card p-5">
+    <li className="relative rounded-2xl border border-border bg-card p-5 transition-shadow hover:shadow-md">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <Link
             href={rentalRoute(lease.id)}
-            className="group flex items-start gap-2 focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+            className="group flex items-start gap-2 after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
           >
             <h2 className="min-w-0 text-lg font-semibold text-balance text-primary group-hover:underline dark:text-foreground">
               {lease.propertyTitle}
@@ -127,7 +135,9 @@ export function LeaseCard({
       <p className="mt-3 text-sm">
         <Link
           href={applicationRoute(lease.id)}
-          className="text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+          // `relative z-10`: por encima de la capa que estira el enlace del título, o este no se
+          // podría pulsar nunca — la tarjeta entera se lo tragaría.
+          className="relative z-10 text-muted-foreground hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
         >
           Ver el contrato y el proceso
         </Link>
