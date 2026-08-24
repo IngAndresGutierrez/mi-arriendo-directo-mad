@@ -26,6 +26,25 @@ export const COVERS = {
   pagination: ["app/(public)/inmuebles", "features/property/domain/catalog"],
   "listing-scroll": ["app/(public)/inmuebles", "shared/shell/"],
   lightbox: ["app/(public)/inmuebles", "features/property/ui/"],
+  /*
+   * Lo que el sitio le dice a un buscador. Cubre las dos mitades: el catálogo y el detalle, que sí
+   * llevan SEO, y el portal, que no — por eso `app/(app)/layout` está en la lista, porque es el
+   * archivo de una línea del que sale el `noindex` de todas esas pantallas.
+   */
+  seo: [
+    "app/robots.ts",
+    "app/sitemap.ts",
+    "app/opengraph-image",
+    "app/layout.tsx",
+    "app/(app)/layout.tsx",
+    "app/(auth)/",
+    "app/(public)/inmuebles",
+    "features/property/domain/seo",
+    "features/property/data/property",
+    "shared/seo/",
+    "shared/brand/og",
+    "shared/lib/site-url",
+  ],
 
   // Auth and the profile.
   session: ["app/api/session", "shared/auth/", "features/auth/", "app/(auth)/"],

@@ -16,7 +16,12 @@ export {
   type Property,
   type PropertyPhoto,
 } from "./domain/property";
-export { getPropertyLocation, getVisibleProperty, getVisiblePropertyBySlug } from "./data/property";
+export {
+  getPropertyLocation,
+  getVisibleProperty,
+  getVisiblePropertyBySlug,
+  resolvePublicProperty,
+} from "./data/property";
 export { CATALOG_MAX_SCAN, listAvailableProperties } from "./data/property";
 export {
   bedroomBucketLabel,
@@ -29,6 +34,16 @@ export {
   type CatalogFacets,
   type CatalogFilters as CatalogFilterState,
 } from "./domain/catalog";
+export {
+  catalogJsonLd,
+  catalogMetaDescription,
+  catalogMetaTitle,
+  propertyBreadcrumbJsonLd,
+  propertyImageAlt,
+  propertyJsonLd,
+  propertyMetaDescription,
+  propertyMetaTitle,
+} from "./domain/seo";
 export { catalogQuery, parseCatalogFilters, parseCityFilter } from "./validations/catalog";
 export { publishProperty } from "./actions/publish-property";
 export { deleteProperty, updateProperty } from "./actions/manage-property";

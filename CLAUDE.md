@@ -165,6 +165,90 @@ header out of view by its own height. Below `lg` the page scrolls as a page, bec
 scroller on a phone fights the address bar and pull-to-refresh, and there the facets are behind a
 button anyway. `CATALOG_PAGE_SIZE` is **6**.
 
+## SEO, and the half of the product that deliberately has none
+
+**Two halves, opposite answers.** The catalog and a property's detail exist to be found and shared;
+the management portal is the private workspace of two named people and carries no SEO at all. Every
+decision below follows from that split.
+
+**The words a listing is described with are the domain's, not the page's**
+(`features/property/domain/seo.ts`, pure and unit-tested). The same sentence has to come out of
+three places that never see each other — the `<title>`, the Open Graph card a paste produces, and
+the JSON-LD — and three copies is three chances to describe it differently, with the one people
+notice being the WhatsApp preview.
+
+- **The landlord's own headline is not used.** They write "HERMOSO APTO REMODELADO 😍", which is
+  neither specific nor comparable with the other five links in a group chat. `propertyMetaTitle`
+  produces the fact sheet — *Apartamento en arriendo en Palermo, Manizales · $ 1.400.000* — and the
+  page's `<h1>` stays theirs. Same for the description: what a preview needs is the fact sheet in an
+  identical shape across every listing, not the first 160 characters of a greeting.
+- **The price is the total**, `rent + adminFee`. Publishing the rent alone is the surprise at the end.
+- **Too long degrades in steps, it does not get chopped.** The price goes first, then the
+  neighbourhood; **the city never goes**, because "dónde" is the question before "cuánto". Clamping
+  the whole string instead produced *"Apartamento en arriendo en Ciudadela del Norte La Enea…"*, a
+  title that no longer says which city — caught by its own test rather than in production.
+
+**Neither the street nor any coordinate goes into structured data, and there is no `geo` block at
+all.** This is the same rule as the map, one layer earlier and in the place nobody reviews: a
+`<script>` is not read when looking at a page. Even the blunted `area.approx` stays out — publishing
+it would invite a search engine to draw the pin this product deliberately does not draw.
+`seo.test.ts` asserts the absence over the serialised tree and `tests/e2e/seo.mjs` asserts it again
+over the HTML a stranger receives.
+
+**What is on each public page:**
+
+| | |
+| --- | --- |
+| Detail | `RealEstateListing` whose `about` is an `Accommodation` (an `Offer` hung off the listing says *the web page* costs $1.400.000), `businessFunction: LeaseOut` and `unitCode: MON` so the canon does not read as a sale price, plus a `BreadcrumbList` mirroring the two links the page actually offers. No `aggregateRating`, no `priceValidUntil`: marking up things that do not exist is the one structured-data mistake that earns a manual action. |
+| Catalog | `CollectionPage` + `ItemList` of **the items on the page being rendered**, with positions counted from where the page starts — an `ItemList` claiming 1..6 on page four tells a search engine that four URLs are the same six results. |
+
+**Only the city is canonical, and there is deliberately no `noindex` on the other facets.** A
+`noindex` beside a canonical pointing elsewhere is two contradictory instructions, and Google's
+documented answer to the pair is to trust neither. The canonical alone is the whole instruction;
+discovery of what is behind page four is the sitemap's job.
+
+**`app/robots.ts` and `app/sitemap.ts`.** The sitemap is `force-dynamic` on purpose: prerendered it
+would freeze the catalogue as it looked on deploy day, and freeze it *empty* — on Vercel the service
+account never reaches the build step, so a build-time read has no credentials. It never throws, like
+`listNotifications`, and `lastModified` is each listing's own `updatedAt` rather than "now", because
+a sitemap where everything changed today is a sitemap whose dates get ignored.
+
+**The portal is `noindex, nofollow` from one line in `app/(app)/layout.tsx`**, and `(auth)` has the
+same — with `/` overriding it back to `index: true`, because a route group does not change the URL
+and that file is also the site root. Two pages used to carry `robots: { index: false }` of their own:
+metadata merges **per field**, so their object replaced the layout's whole one and silently dropped
+the `nofollow`. The `Disallow` list in `robots.txt` is about crawl budget rather than secrecy —
+every one of those pages redirects to the login without a session — and the two controls fail in
+different directions, which is why both are there.
+
+**The shared card is generated, not the first photo.** `app/(public)/inmuebles/[slug]/opengraph-image.tsx`
+draws a fixed 1200×630: the photo on the left, and on a brand panel the price, the neighbourhood and
+the rooms. A raw photo is cropped to 1.91:1 by every client, so a portrait shot of a kitchen
+previewed as a cupboard — and the two things anybody decides on were not on the card at all. Four
+things about it:
+
+- **No photo is a different composition, not the same one with a hole**: the fact sheet across the
+  full width, set larger. Half a card of flat purple reads as an image that failed to load.
+- **The photo is fetched here and embedded**, with a timeout and a size cap, so a failure is a value
+  this code can see. Handed to satori as a remote `<img src>`, a 404 throws from inside the layout
+  pass and takes the whole card with it — turning a missing picture into a missing preview.
+- **A slug that no longer resolves still gets a card** ("este anuncio ya no está disponible"), never
+  a 500 that leaves the link previewing as broken.
+- **`revalidate = 3600`.** The route is cached per slug after the first request, and the price is the
+  largest thing on it. Revalidating on the write would be exact and is not available: the path
+  carries a build hash `updateProperty` cannot construct.
+
+`shared/brand/og.ts` holds the three brand hex values, and it is the one place in this product where
+a literal colour is correct: satori lays out inline styles into a PNG with no stylesheet and no
+`var(--primary)` to resolve. If a token in `globals.css` changes, that file changes with it.
+
+**`metadataOrigin()` (`shared/lib/site-url.ts`) is not `resolveSiteUrl()`.** A link in an email must
+point where the person actually is, so it reads the request; a canonical tag must name the *one*
+address a page is published at, and "wherever this request came from" is exactly what a canonical
+exists to stop — a preview deployment declaring itself the canonical home of every listing is how a
+catalogue gets deindexed. It uses `||` and not `??`: an env var that exists and is empty is a string,
+and `new URL("")` throws from inside the root layout, which is every page.
+
 **Inside the catalog, the logo is the way back to the catalog.** Everything in the `(public)` route
 group *is* the catalog — the list and one property's detail — so `app/(public)/layout.tsx` renders
 `PublicChrome` with `homeHref={PROPERTIES_ROUTE}`; `/soporte` renders the same header from outside

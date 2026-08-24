@@ -4,7 +4,11 @@ import Link from "next/link";
 import { ChevronLeftIcon, ChevronRightIcon, HouseIcon } from "lucide-react";
 
 import {
+  catalogJsonLd,
+  catalogMetaDescription,
+  catalogMetaTitle,
   catalogQuery,
+  CATALOG_PAGE_SIZE,
   CatalogFilters,
   CatalogToolbar,
   countFacets,
@@ -16,26 +20,39 @@ import {
   PropertyCard,
   sortProperties,
 } from "@/features/property";
-import { PROPERTIES_ROUTE } from "@/shared/auth/routes";
+import { PROPERTIES_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
+import { metadataOrigin } from "@/shared/lib/site-url";
+import { JsonLd } from "@/shared/seo/json-ld";
 import { Button } from "@/shared/ui/button";
 import { LoadingScreen, Skeleton } from "@/shared/ui/skeleton";
 
 type CatalogProps = PageProps<"/inmuebles">;
 
 export async function generateMetadata(props: CatalogProps): Promise<Metadata> {
-  const { city } = parseCatalogFilters(await props.searchParams);
-  const where = city ? ` en ${city}` : " en Colombia";
+  const filters = parseCatalogFilters(await props.searchParams);
+  const title = catalogMetaTitle(filters);
+  const description = catalogMetaDescription(filters);
+  /*
+   * The canonical is the city alone: the facets and the page number are ways of looking at the
+   * same catalog, not pages a search engine should index separately.
+   *
+   * And deliberately **without** a `noindex` on the filtered variants. Combining a `noindex` with
+   * a canonical pointing somewhere else is a contradiction — one tag says "drop this page", the
+   * other says "credit it to that one" — and Google's documented answer to the pair is to trust
+   * neither. The canonical alone is the whole instruction, and discovery of the listings behind
+   * page four is the sitemap's job, not the pager's.
+   */
+  const canonical = filters.city
+    ? `${PROPERTIES_ROUTE}?city=${encodeURIComponent(filters.city)}`
+    : PROPERTIES_ROUTE;
 
   return {
-    title: city ? `Arriendos en ${city}` : "Inmuebles en arriendo",
-    description:
-      `Inmuebles en arriendo${where} por 6 o 12 meses, directamente con el propietario. ` +
-      "Sin intermediarios y con el proceso a la vista de ambas partes.",
-    // The canonical is the city alone: the facets and the page number are ways of looking at
-    // the same catalog, not pages a search engine should index separately.
-    alternates: {
-      canonical: city ? `${PROPERTIES_ROUTE}?city=${encodeURIComponent(city)}` : PROPERTIES_ROUTE,
-    },
+    title,
+    description,
+    alternates: { canonical },
+    // Sin esto, un enlace a "/inmuebles?city=Manizales" pegado en un grupo de WhatsApp previsualiza
+    // la descripción genérica del sitio y no la ciudad que alguien acaba de buscar.
+    openGraph: { title, description, url: canonical },
   };
 }
 
@@ -78,6 +95,24 @@ async function CatalogResults({ filters }: { readonly filters: ReturnType<typeof
 
   return (
     <div className="mt-8 grid items-start gap-6 lg:mt-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-stretch">
+        {/*
+          Lo que hay en esta página, para una máquina. Va aquí dentro y no en el componente de la
+          página porque necesita los resultados ya filtrados y paginados: un `ItemList` que
+          enumerara el catálogo entero estaría describiendo una página que nadie ve.
+        */}
+        <JsonLd
+          data={catalogJsonLd(
+            page.items,
+            filters,
+            metadataOrigin(),
+            filters.city
+              ? `${PROPERTIES_ROUTE}?city=${encodeURIComponent(filters.city)}`
+              : PROPERTIES_ROUTE,
+            propertyDetailRoute,
+            CATALOG_PAGE_SIZE,
+          )}
+        />
+
         {/* From `lg` the facets have a column; below that they are behind the toolbar's button. */}
         <aside
           aria-label="Filtros"

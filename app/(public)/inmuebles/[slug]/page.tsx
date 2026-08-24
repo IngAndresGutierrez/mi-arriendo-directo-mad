@@ -5,76 +5,73 @@ import { ArrowLeftIcon, ArrowRightIcon, LockIcon, MapPinIcon } from "lucide-reac
 
 import {
   getPropertyLocation,
-  getVisibleProperty,
-  getVisiblePropertyBySlug,
-  propertyIdFromSlug,
-  propertyMonthlyCost,
+  propertyBreadcrumbJsonLd,
+  propertyJsonLd,
+  propertyMetaDescription,
+  propertyMetaTitle,
   publicLocationLabel,
   PropertyFacts,
   PropertyGallery,
   PropertyPriceCard,
   PropertyZoneMap,
   PROPERTY_STATUS_LABELS,
-  PROPERTY_TYPE_LABELS,
+  resolvePublicProperty,
   type Property,
 } from "@/features/property";
 import { applicationBlocker, getTenantApplicationTo } from "@/features/application";
-import { PROPERTIES_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
-import { formatCOP } from "@/shared/format/money";
+import { PROPERTIES_ROUTE } from "@/shared/auth/routes";
 import { getSessionUser } from "@/shared/auth/session";
+import { metadataOrigin } from "@/shared/lib/site-url";
+import { JsonLd } from "@/shared/seo/json-ld";
 
 type DetailProps = PageProps<"/inmuebles/[slug]">;
 
 /**
- * Resolves the property behind a URL segment.
+ * The property behind a URL segment, for whoever is asking.
  *
- * The slug alone is the address now. Two older shapes still resolve, and are redirected rather
- * than served: `<slug>-<id>` from when the id was appended, and a bare `<id>` from before slugs
- * existed. A link that was already pasted somewhere must not rot.
+ * Which URLs resolve to a listing — the slug, and the two older shapes still pasted in messages —
+ * is `resolvePublicProperty`, in the property module: the Open Graph image beside this file needs
+ * the same answer, and two copies of that rule is two chances for the card a shared link produces
+ * to point at a page that no longer exists.
+ *
+ * What this adds is the reader: an owner may preview a listing that is not `available` yet.
  */
 async function resolve(segment: string): Promise<{ property: Property; canonical: string } | null> {
   const viewer = await getSessionUser();
-  const viewerUid = viewer?.uid ?? null;
 
-  const bySlug = await getVisiblePropertyBySlug(segment, viewerUid);
-  const legacyId = bySlug
-    ? null
-    : (propertyIdFromSlug(segment) ?? (/^[A-Za-z0-9]{20}$/.test(segment) ? segment : null));
-
-  const property = bySlug ?? (legacyId ? await getVisibleProperty(legacyId, viewerUid) : null);
-  if (!property) return null;
-
-  return { property, canonical: propertyDetailRoute(property.slug) };
+  return resolvePublicProperty(segment, viewer?.uid ?? null);
 }
 
 export async function generateMetadata(props: DetailProps): Promise<Metadata> {
   const { slug } = await props.params;
   const found = await resolve(slug);
 
-  if (!found) return { title: "Inmueble no disponible" };
+  // Un anuncio que ya no existe no se indexa: sin esto, la página de "no encontrado" que Next
+  // sirve con este `<title>` es una URL más que un buscador guarda y vuelve a visitar.
+  if (!found) return { title: "Inmueble no disponible", robots: { index: false, follow: false } };
 
   const { property, canonical } = found;
-  const where = publicLocationLabel(property.area);
-  const bathrooms = property.bathrooms === 1 ? "1 baño" : `${property.bathrooms} baños`;
-  const description =
-    `${PROPERTY_TYPE_LABELS[property.type]} en ${where} por ` +
-    `${formatCOP(propertyMonthlyCost(property))} al mes. ` +
-    `${property.bedrooms} hab · ${bathrooms} · ${property.areaM2} m².`;
+  /*
+   * **The title and the description are the domain's, not this page's.**
+   *
+   * Shared into WhatsApp or a Facebook group, the preview card *is* the listing — and what it
+   * used to say was the landlord's own headline, which is "HERMOSO APTO REMODELADO 😍" as often as
+   * not. `propertyMetaTitle` produces the fact sheet instead: what it is, where, and what it
+   * costs, in the same shape for every listing so that six of them pasted into a group chat can
+   * be compared. The `<h1>` on the page is still the landlord's words; this is the index card.
+   *
+   * The image is not listed here on purpose: `opengraph-image.tsx` sits beside this file and Next
+   * wires it in, which is what keeps the shared card at a fixed 1200×630 instead of whatever
+   * aspect ratio the first photo happened to have.
+   */
+  const title = propertyMetaTitle(property);
+  const description = propertyMetaDescription(property);
 
-  // Shared into WhatsApp or a Facebook group, the preview card is the listing: the cover photo
-  // and this line are what someone decides on before the page even opens.
   return {
-    title: property.title,
+    title,
     description,
     alternates: { canonical },
-    openGraph: {
-      type: "website",
-      locale: "es_CO",
-      url: canonical,
-      title: property.title,
-      description,
-      images: property.photos.slice(0, 1).map((photo) => ({ url: photo.url })),
-    },
+    openGraph: { url: canonical, title, description },
   };
 }
 
@@ -98,8 +95,21 @@ export default async function PropertyDetailPage(props: DetailProps) {
   const existing = viewer ? await getTenantApplicationTo(property.id, viewer.uid) : null;
   const apply = applyStateFor(property, viewer?.uid ?? null, existing);
 
+  const origin = metadataOrigin();
+
   return (
     <article className="space-y-8">
+      {/*
+        El anuncio, para una máquina: qué es, dónde queda, cuánto cuesta y que es un arriendo.
+        Ni la calle ni la coordenada exacta salen de aquí — ver `domain/seo.ts`, que es donde está
+        escrito por qué, y `seo.test.ts`, que es lo que lo comprueba.
+      */}
+      <JsonLd data={propertyJsonLd(property, `${origin}${canonical}`)} />
+      {/* Y el rastro hasta aquí: los mismos dos enlaces que la página ofrece de verdad. */}
+      <JsonLd
+        data={propertyBreadcrumbJsonLd(property, origin, PROPERTIES_ROUTE, canonical)}
+      />
+
       {/*
         La vuelta al listado, arriba del todo y antes que nada, como en la página de un proceso.
         Es un enlace de verdad y no `history.back()`: a este anuncio se llega tanto desde el
