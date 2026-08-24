@@ -3,28 +3,44 @@
  * WhatsApp, sin repetirse y sin despertar a nadie por una cita que no se confirmó.
  */
 import { chromium } from "playwright";
-import { BASE, config, createAccount, ok, settled } from "./lib.mjs";
+import { adminAuth, adminDb, adminFieldValue, BASE, config, createAccount, ok, settled } from "./lib.mjs";
 import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-const requireDelProyecto = createRequire("/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/package.json");
-const { cert, initializeApp } = requireDelProyecto("firebase-admin/app");
-const { getFirestore, FieldValue } = requireDelProyecto("firebase-admin/firestore");
-const { getAuth } = requireDelProyecto("firebase-admin/auth");
+import { dirname, join as joinPath } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
-const RAIZ = "/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo";
+const RAIZ = joinPath(dirname(fileURLToPath(import.meta.url)), "..", "..");
 
-const env = Object.fromEntries(readFileSync(`${RAIZ}/.env.local`, "utf8").split("\n")
-  .filter((l) => l.includes("=") && !l.startsWith("#"))
-  .map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).replace(/^"|"$/g, "")]));
-initializeApp({ credential: cert({
-  projectId: env.FIREBASE_PROJECT_ID, clientEmail: env.FIREBASE_CLIENT_EMAIL,
-  privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-}) });
-const db = getFirestore(); const auth = getAuth();
-const SECRETO = env.CRON_SECRET;
-if (!SECRETO) throw new Error("falta CRON_SECRET en .env.local");
+/*
+ * El Admin SDK de `lib.mjs`, no uno propio: este driver se inicializaba solo con la cuenta de
+ * servicio *real*, así que contra los emuladores le preguntaba al proyecto de verdad por una cuenta
+ * recién creada en el emulador y moría con `USER_NOT_FOUND` en la aserción cero.
+ */
+const db = adminDb();
+const FieldValue = adminFieldValue();
+const auth = adminAuth();
+
+/*
+ * De `.env.local` solo hace falta una cosa, y no es una credencial de Firebase: el secreto del cron,
+ * que es lo que el propio servidor exige para dejar correr la barrida.
+ */
+const SECRETO = (process.env.CRON_SECRET ?? "").trim() || leerCronSecret();
+if (!SECRETO) throw new Error("falta CRON_SECRET en el entorno o en .env.local");
+
+function leerCronSecret() {
+  try {
+    return (
+      readFileSync(joinPath(RAIZ, ".env.local"), "utf8")
+        .split("\n")
+        .find((l) => l.startsWith("CRON_SECRET="))
+        ?.slice("CRON_SECRET=".length)
+        .replace(/^"|"$/g, "") ?? ""
+    );
+  } catch {
+    return "";
+  }
+}
 
 async function cuenta(email, nombre, role) {
   const r = await createAccount(API_KEY, email);

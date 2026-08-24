@@ -9,11 +9,12 @@ import { applicationRoute } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
 
 import { getApplicationFor } from "../data/application";
-import { GUARANTEE_PROVIDER } from "../domain/guarantee";
+import { canWaiveGuarantee, GUARANTEE_PROVIDER } from "../domain/guarantee";
 import {
   guaranteePolicySchema,
   guaranteeProgressSchema,
   guaranteeRequestSchema,
+  guaranteeWaiverSchema,
 } from "../validations/guarantee";
 
 export type GuaranteeActionResult =
@@ -40,7 +41,7 @@ async function landlordOn(applicationId: string) {
 async function tell(
   application: { tenantUid: string; propertyTitle: string; id: string },
   landlordUid: string,
-  type: "guarantee_requested" | "guarantee_active",
+  type: "guarantee_requested" | "guarantee_active" | "guarantee_waived",
   detail: string,
 ): Promise<void> {
   const [landlord, tenant] = await Promise.all([
@@ -86,6 +87,11 @@ export async function recordGuaranteeRequested(
     .update({
       guarantee: {
         requestedAt: new Date().toISOString(),
+        // Solicitarla **es** querer póliza: si estaba marcada como "sin seguro", eso queda deshecho
+        // por el propio acto de pedirla. Escrito y no omitido: un `update` con un objeto que no
+        // nombra el campo lo borraría igual, y entonces el borrado sería un accidente en vez de una
+        // decisión.
+        waivedAt: null,
         activeAt: null,
         policyNumber: "",
         tenantLink: parsed.data.tenantLink,
@@ -132,6 +138,8 @@ export async function recordGuaranteePolicy(
       guarantee: {
         // Kept if it was already there: when the policy was applied for is part of the record.
         requestedAt: current?.requestedAt ?? new Date().toISOString(),
+        // Una póliza expedida gana a cualquier renuncia anterior — no se "des-compra" un seguro.
+        waivedAt: null,
         activeAt: new Date().toISOString(),
         policyNumber: parsed.data.policyNumber,
         // Preserved: the tenant may still need it, and issuing the policy is not a reason to
@@ -204,6 +212,13 @@ export async function saveGuaranteeProgress(
          * inquilino ya tiene algo que hacer.
          */
         requestedAt: current?.requestedAt ?? new Date().toISOString(),
+        /*
+         * **Se conserva**, al contrario que en las otras dos acciones, y la diferencia importa: esto
+         * es un autoguardado. Un propietario que marcó "sin seguro" y luego corrige una palabra de la
+         * nota no está pidiendo la póliza, y un `waivedAt: null` aquí habría desmarcado el interruptor
+         * al escribir — sin que nadie pulsara nada y sin nada en pantalla que lo explicara.
+         */
+        waivedAt: current?.waivedAt ?? null,
         activeAt: current?.activeAt ?? null,
         policyNumber: current?.policyNumber ?? "",
         // Un guardado que solo trae nota no debe borrar el enlace, ni al revés.
@@ -231,6 +246,83 @@ export async function saveGuaranteeProgress(
       "guarantee_requested",
       parsed.data.note ||
         `Es con ${GUARANTEE_PROVIDER.name}, sin codeudor. Puede que te escriban para completar el estudio.`,
+    );
+  }
+
+  revalidatePath(applicationRoute(applicationId));
+  return { ok: true };
+}
+
+/**
+ * The landlord says whether this rental needs a policy at all.
+ *
+ * **The stage was written as if the policy were compulsory, and it is not.** Nothing in Colombian law
+ * requires rental insurance; the landlord who is renting to a relative, or to a tenant of six years,
+ * had no way past this stage but to buy something they did not want. So the requirement is theirs to
+ * set, and what the product owes them in exchange is the consequence stated plainly —
+ * `GUARANTEE_WAIVED_NOTE` sits above the switch, not in a tooltip.
+ *
+ * Two rules that are not obvious from the signature:
+ *
+ * - **A policy that exists cannot be waived.** `canWaiveGuarantee` is checked here and not only in
+ *   the panel: what the switch would otherwise do is hide a policy the tenant has already been told
+ *   about, which is a worse thing than a control that is missing.
+ * - **Only waiving notifies.** Turning the requirement back *on* asks the tenant for nothing — the
+ *   landlord goes off to Sura, and applying for it is what notifies, as it already did. A switch that
+ *   rang the tenant's bell in both directions would ring it twice for a landlord who flipped it while
+ *   making up their mind, and the second message would contradict the first.
+ */
+export async function setGuaranteeRequirement(
+  applicationId: string,
+  input: unknown,
+): Promise<GuaranteeActionResult> {
+  const context = await landlordOn(applicationId);
+  if (!context.ok) return { ok: false, message: context.error };
+
+  const parsed = guaranteeWaiverSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: parsed.error.issues[0]?.message ?? "Revisa la opción." };
+  }
+
+  const current = context.application.guarantee;
+
+  if (parsed.data.waived && !canWaiveGuarantee(current)) {
+    return {
+      ok: false,
+      message: "Ya hay una póliza registrada para este arriendo, así que no se puede quitar el seguro.",
+    };
+  }
+
+  const waivedAt = parsed.data.waived ? (current?.waivedAt ?? new Date().toISOString()) : null;
+
+  await adminDb()
+    .collection("applications")
+    .doc(applicationId)
+    .update({
+      guarantee: {
+        // Todo lo demás se conserva: quitar el seguro no borra que se hubiera solicitado antes, ni el
+        // enlace que el inquilino ya recibió, ni la nota. Es una decisión más en el expediente.
+        requestedAt: current?.requestedAt ?? null,
+        waivedAt,
+        activeAt: current?.activeAt ?? null,
+        policyNumber: current?.policyNumber ?? "",
+        tenantLink: current?.tenantLink ?? "",
+        note: current?.note ?? "",
+      },
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+  /*
+   * Sólo al quitarlo, y sólo la primera vez: `waivedAt` se conserva si ya estaba, así que volver a
+   * pulsar el mismo lado del interruptor no vuelve a avisar. Es la misma regla que el autoguardado de
+   * esta etapa ya sigue — se avisa en las transiciones, no en los guardados.
+   */
+  if (parsed.data.waived && !current?.waivedAt) {
+    await tell(
+      { ...context.application, id: applicationId },
+      context.uid,
+      "guarantee_waived",
+      "",
     );
   }
 

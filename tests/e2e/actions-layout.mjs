@@ -1,6 +1,6 @@
 // Comprueba lo que se ve: los dos botones a la misma altura y el de rechazar al extremo.
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
+import { advanceButton, BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -60,7 +60,7 @@ const processUrl = tenant.url();
 
 await owner.goto(processUrl, { waitUntil: "domcontentloaded" });
 await settled(owner);
-const seguir = await owner.getByRole("button", { name: /Continuar a/ }).boundingBox();
+const seguir = await advanceButton(owner).boundingBox();
 const rechazar = await owner.getByRole("button", { name: /Rechazar postulación/ }).boundingBox();
 if (Math.abs(seguir.height - rechazar.height) > 1) throw new Error(`alturas distintas: ${seguir.height} vs ${rechazar.height}`);
 ok("los dos botones miden lo mismo de alto", `${Math.round(seguir.height)}px`);

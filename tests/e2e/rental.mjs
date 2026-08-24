@@ -21,6 +21,7 @@ import {
   config,
   createAccount,
   fixtures,
+  leaseTab,
   MONTHS,
   ok,
   settled,
@@ -209,8 +210,10 @@ const id = new URL(proceso).pathname.split("/").pop();
 ok("proceso creado", id);
 
 /*
- * El proceso, puesto en la última etapa con el primer canon ya confirmado: es el estado desde el
- * que el propietario lo pone en curso, y el que decide si el mes 1 se hereda pagado.
+ * El proceso, puesto en la última etapa con el comprobante subido y **sin veredicto**: es el estado
+ * desde el que el propietario confirma que el dinero llegó, que es lo que ahora termina el proceso
+ * y abre el arriendo de una vez. Sembrar el veredicto aquí no serviría — lo que crea la tenencia es
+ * la acción, no el campo — y además se saltaría precisamente lo que este driver tiene que manejar.
  */
 const subido = new Date(Date.UTC(inicio.getUTCFullYear(), inicio.getUTCMonth(), 11)).toISOString();
 await db
@@ -228,7 +231,8 @@ await db
         accountNumber: "",
         bankName: "",
         holderName: "Marta Propietaria Gómez",
-        holderDocument: "Cédula de ciudadanía 43112233",
+        // Vacío como lo guarda el producto para una llave Bre-B: ahí nadie pide el documento.
+        holderDocument: "",
         note: "",
       },
       receipt: {
@@ -241,29 +245,72 @@ await db
         paidOn: ISO(inicio),
         note: "Primer canon.",
       },
-      verdict: {
-        status: "confirmed",
-        at: new Date(Date.parse(subido) + 3600000).toISOString(),
-        reason: "",
-      },
+      verdict: null,
     },
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-// ---------- poner el arriendo en curso ----------
+// ---------- confirmar el canon, que es lo que abre el arriendo ----------
 await dueño.goto(proceso, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-const continuar = dueño.getByRole("button", { name: /Continuar a/i }).first();
-if ((await continuar.getAttribute("aria-disabled")) === "true") {
-  throw new Error("con el primer canon confirmado sigue bloqueado");
+
+/*
+ * **No hay ningún botón de avanzar**, y ese es el cambio: antes el propietario confirmaba el canon y
+ * después pulsaba "Continuar a Arriendo en curso", un paso que no registraba nada que la
+ * confirmación no hubiera registrado ya — y hasta que lo pulsaba, el inquilino había pagado, él lo
+ * había confirmado y la página de los meses todavía no existía.
+ */
+if ((await dueño.getByRole("button", { name: /Continuar a/i }).count()) !== 0) {
+  throw new Error("la última etapa sigue ofreciendo un botón de avanzar");
 }
-await continuar.click();
+await dueño.locator("#etapa-first-payment").getByRole("button", { name: /Primer canon/i }).first().click();
+await dueño.getByRole("button", { name: /Sí, lo recibí/i }).click();
+
+/*
+ * Se espera **la consecuencia**, no el rótulo: lo que de verdad cambia al confirmar es el estado de
+ * esa tarjeta, que pasa a "Listo", y la insignia de la línea de etapas, que deja de numerar pasos.
+ * Un proceso que nunca se muestra terminado no se distingue de uno atascado en su último paso.
+ */
+const ultima = dueño.locator("#etapa-first-payment");
 await dueño.waitForFunction(
-  () => /Arriendo en curso/.test(document.body.innerText),
+  () => /Listo/.test(document.getElementById("etapa-first-payment")?.innerText ?? ""),
   null,
   { timeout: 30000 },
 );
-ok("el propietario pone el arriendo en curso");
+const insignia = (await ultima.innerText()).trim();
+if (/En curso|Pendiente/.test(insignia)) {
+  throw new Error("la última etapa no se lee como terminada: " + insignia.slice(0, 120));
+}
+ok("el propietario confirma el canon y con eso el proceso queda terminado");
+
+/*
+ * Y la insignia de la línea de etapas dice lo mismo que la tarjeta: "Paso 7 de 7" es cierto hasta
+ * que se confirma y se lee como un paso pendiente después. Se busca dentro de la sección de las
+ * etapas, no en la página entera.
+ */
+const etapas = dueño.getByRole("region", { name: "Etapas del proceso" });
+const cabecera = await etapas.innerText();
+if (!/Proceso completado/.test(cabecera)) {
+  throw new Error("la línea de etapas no dice que el proceso está completado");
+}
+if (/Paso 7 de 7/.test(cabecera)) {
+  throw new Error("la línea de etapas sigue numerando pasos con el proceso terminado");
+}
+ok("y la línea de etapas dice 'Proceso completado', no 'Paso 7 de 7'");
+await etapas
+  .screenshot({ path: `${SHOT_DIR}/proceso-completado.png` })
+  .catch(() => undefined);
+await ultima.screenshot({ path: `${SHOT_DIR}/proceso-etapa-final.png` }).catch(() => undefined);
+
+// Y desde ahí se va al arriendo, que es donde pasa todo lo que sigue.
+const alArriendo = ultima.getByRole("link", { name: /Ir al arriendo/i });
+if ((await alArriendo.count()) !== 1) {
+  throw new Error("la última etapa no ofrece el enlace al arriendo");
+}
+await alArriendo.click();
+await dueño.waitForURL(/\/arriendos\/[A-Za-z0-9]+$/, { timeout: 25000 });
+await settled(dueño);
+ok("y desde ahí se llega al arriendo", new URL(dueño.url()).pathname);
 
 // ---------- la tenencia existe, y el menú lleva a ella ----------
 await inq.goto(BASE + "/inicio", { waitUntil: "domcontentloaded" });
@@ -288,28 +335,70 @@ if (!lista.includes(`Apartamento con patio en Palermo ${STAMP}`)) {
 if (!/1 de \d+/.test(lista)) throw new Error(`no cuenta el primer canon como pagado: ${lista.slice(0, 400)}`);
 ok("la tenencia aparece con el primer mes ya pagado");
 
+/*
+ * **La tarjeta entera abre la tenencia**, no solo el título: se pulsa un trozo cualquiera de ella —
+ * el número de meses pagados, que no es un enlace — y tiene que llevar igual. Antes el único blanco
+ * eran cuatro palabras arriba, que en un teléfono se falla más veces de las que se acierta.
+ */
+const tarjeta = inq.locator("li", { hasText: `Apartamento con patio en Palermo ${STAMP}` }).first();
+/*
+ * Un clic de ratón en ese punto, no `locator.click()` sobre el `<dt>`: quien recibe el clic ahí es
+ * la capa que estira el enlace del título, y Playwright se niega —con razón— a "pulsar" un elemento
+ * que otro tapa. Lo que se comprueba es justo eso, que ese píxel de la tarjeta lleva al arriendo.
+ */
+const punto = await tarjeta.getByText("Meses pagados").boundingBox();
+if (!punto) throw new Error("no encontré el bloque de meses pagados en la tarjeta");
+await inq.mouse.click(punto.x + punto.width / 2, punto.y + punto.height / 2);
+await inq.waitForURL(new RegExp(`/arriendos/${id}$`), { timeout: 25000 });
+await settled(inq);
+ok("la tarjeta del arriendo se abre desde cualquier parte, no solo desde el título");
+
+// Y el enlace al proceso, que vive dentro de esa misma tarjeta, conserva su propio destino.
+await inq.goBack({ waitUntil: "domcontentloaded" });
+await settled(inq);
+await tarjeta.getByRole("link", { name: /Ver el contrato y el proceso/i }).click();
+await inq.waitForURL(new RegExp(`/contratos/${id}$`), { timeout: 25000 });
+await settled(inq);
+ok("y el enlace al proceso dentro de ella sigue llevando al proceso");
+
 // ---------- la tenencia, por dentro ----------
+await inq.goto(BASE + "/arriendos", { waitUntil: "domcontentloaded" });
+await settled(inq);
 await inq.getByRole("link", { name: new RegExp(`Apartamento con patio en Palermo ${STAMP}`) }).first().click();
 await inq.waitForURL(new RegExp(`/arriendos/${id}$`), { timeout: 25000 });
 await settled(inq);
 
+/*
+ * La pantalla tiene tres pestañas — Información, Pagos e Incidentes — y abre en **Pagos**, que es la
+ * pregunta con la que se entra aquí. Los datos de cobro y los meses están ahí sin tocar nada.
+ */
 const dentro = await inq.evaluate(() => document.body.innerText);
 // Los datos de cobro llegan con la tenencia: preguntarlos otra vez el día uno sería pedir algo que
 // el proceso ya tiene.
 for (const frase of ["@ana2026", "Marta Propietaria Gómez", "Comprueba el nombre del titular"]) {
   if (!dentro.includes(frase)) throw new Error(`la tenencia no hereda "${frase}"`);
 }
-ok("los datos de cobro se heredan del primer canon");
+ok("la tenencia abre en Pagos y hereda los datos de cobro del primer canon");
 
-// El canon va etiquetado como el de la postulación, no como el del contrato.
-if (!/seg[úu]n la postulaci[óo]n/i.test(dentro)) {
+/*
+ * El resumen del término vive ahora en "Información": el canon etiquetado como el de la postulación
+ * y cuántos meses van sin pagar. Antes estaban en la misma página que los meses, así que esto se
+ * leía del `innerText` del documento; ahora hay que ir a su pestaña.
+ */
+const info = await leaseTab(inq, "Información");
+const resumen = await info.innerText();
+
+if (!/seg[úu]n la postulaci[óo]n/i.test(resumen)) {
   throw new Error("no dice que el canon es el de la postulación");
 }
-ok("el canon va etiquetado como el de la postulación");
+ok("el canon va etiquetado como el de la postulación, en Información");
 
 // Y hay meses en mora: dos, con su plata.
-if (!/sin pagar/i.test(dentro)) throw new Error("no dice que hay meses sin pagar");
+if (!/sin pagar/i.test(resumen)) throw new Error("no dice que hay meses sin pagar");
 ok("dice cuántos meses van sin pagar");
+
+// De vuelta a Pagos, que es donde pasa el resto de este driver.
+await leaseTab(inq, "Pagos");
 
 /*
  * El mes que toca es el **más viejo en mora**, no el más reciente: la deuda que hay que limpiar es
@@ -419,7 +508,8 @@ ok("el propietario confirma que el canon llegó");
 
 await inq.reload({ waitUntil: "domcontentloaded" });
 await settled(inq);
-const final = await inq.evaluate(() => document.body.innerText);
+// El contador del término está en "Información", no en la pestaña de los meses.
+const final = await (await leaseTab(inq, "Información")).innerText();
 if (!/2 de \d+/.test(final)) throw new Error(`no cuenta dos meses pagados: ${final.slice(0, 400)}`);
 ok("el resumen cuenta dos meses pagados");
 

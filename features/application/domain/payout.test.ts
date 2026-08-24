@@ -48,7 +48,13 @@ const verdict = (
 describe("payoutShape", () => {
   it("pide teléfono a las billeteras", () => {
     for (const method of ["nequi", "daviplata"] as const) {
-      expect(payoutShape(method)).toEqual({ phone: true, key: false, account: false, bankName: false });
+      expect(payoutShape(method)).toEqual({
+        phone: true,
+        key: false,
+        account: false,
+        bankName: false,
+        holderDocument: false,
+      });
     }
   });
 
@@ -59,9 +65,44 @@ describe("payoutShape", () => {
 
   it("pide cuenta a los bancos, y el nombre solo al que no conocemos", () => {
     for (const method of ["bancolombia", "davivienda"] as const) {
-      expect(payoutShape(method)).toEqual({ phone: false, key: false, account: true, bankName: false });
+      expect(payoutShape(method)).toEqual({
+        phone: false,
+        key: false,
+        account: true,
+        bankName: false,
+        holderDocument: true,
+      });
     }
-    expect(payoutShape("other_bank")).toEqual({ phone: false, key: false, account: true, bankName: true });
+    expect(payoutShape("other_bank")).toEqual({
+      phone: false,
+      key: false,
+      account: true,
+      bankName: true,
+      holderDocument: true,
+    });
+  });
+
+  /*
+   * El documento del titular **solo donde se transfiere a una cuenta**: a un Nequi, un Daviplata o
+   * una llave Bre-B se paga con el número o la llave, y la app enseña el nombre de quien recibe
+   * antes de confirmar. Pedirlo ahí era guardar una cédula que nadie al otro lado usa, y el dato que
+   * no se guarda es el que no se puede filtrar.
+   */
+  it("no pide el documento del titular donde nadie lo pide", () => {
+    for (const method of ["nequi", "daviplata", "breb"] as const) {
+      expect(payoutShape(method).holderDocument).toBe(false);
+    }
+    for (const method of ["bancolombia", "davivienda", "other_bank"] as const) {
+      expect(payoutShape(method).holderDocument).toBe(true);
+    }
+  });
+
+  /* Y va con la cuenta, siempre: son la misma pregunta del banco. */
+  it("el documento acompaña a la cuenta y a nada más", () => {
+    for (const method of PAYOUT_METHODS) {
+      const shape = payoutShape(method);
+      expect(shape.holderDocument).toBe(shape.account);
+    }
   });
 
   /* Un método nuevo sin su forma caería en el `default` y pediría cuenta: mejor saberlo aquí. */

@@ -7,7 +7,8 @@ import { getTenantProfile, TenantProfileForm } from "@/features/tenant-profile";
 export const metadata: Metadata = {
   title: "Perfil de inquilino",
   description: "Los datos que envías con cada postulación, guardados una sola vez.",
-  robots: { index: false },
+  // El `noindex, nofollow` lo pone el layout de `(app)` para todo el grupo. Repetirlo aquí con solo
+  // `index: false` **reemplazaba** el objeto entero y se comía el `nofollow`.
 };
 
 export default async function TenantProfilePage() {

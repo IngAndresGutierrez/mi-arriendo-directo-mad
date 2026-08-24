@@ -9,6 +9,7 @@ import { refreshServerSession } from "@/shared/auth/client";
 import { MY_PROPERTIES_ROUTE } from "@/shared/auth/routes";
 import { DEPARTMENTS, type Department } from "@/shared/geo/colombia";
 import { municipalitiesOf } from "@/shared/geo/municipalities";
+import type { GeoPoint } from "@/shared/geo/point";
 import { AmountField } from "@/shared/form/amount-field";
 import { FormAlert } from "@/shared/form/form-alert";
 import { SelectField } from "@/shared/form/select-field";
@@ -36,6 +37,7 @@ import {
   type PublishPropertyFormValues,
   type PublishPropertyInput,
 } from "../validations/property";
+import { LocationPicker } from "./location-picker";
 import { PhotoUploader } from "./photo-uploader";
 
 const TYPE_OPTIONS = PROPERTY_TYPES.map((value) => ({ value, label: PROPERTY_TYPE_LABELS[value] }));
@@ -89,6 +91,11 @@ type PropertyFormProps = {
   readonly addressLine?: string;
   /** The registry number, which lives beside the address and is just as private. */
   readonly registryNumber?: string;
+  /**
+   * The point on the map, which lives there too and for the same reason: five decimals of
+   * latitude is the address in another alphabet. Only for editing, and only for the owner.
+   */
+  readonly mapPoint?: GeoPoint | null;
 };
 
 /**
@@ -102,7 +109,12 @@ type PropertyFormProps = {
  * Publishing and editing share it on purpose: two forms for one shape is how a field ends up
  * being addable but not editable.
  */
-export function PropertyForm({ property, addressLine, registryNumber }: PropertyFormProps) {
+export function PropertyForm({
+  property,
+  addressLine,
+  registryNumber,
+  mapPoint,
+}: PropertyFormProps) {
   const router = useRouter();
   const isEditing = property !== undefined;
   const [photos, setPhotos] = useState<readonly PropertyPhoto[]>(property?.photos ?? []);
@@ -128,6 +140,7 @@ export function PropertyForm({ property, addressLine, registryNumber }: Property
           availableFrom: property.availableFrom,
           address: {
             registryNumber: registryNumber ?? "",
+            point: mapPoint ?? undefined,
             line: addressLine ?? "",
             neighborhood: property.area.neighborhood,
             city: property.area.city,
@@ -152,7 +165,16 @@ export function PropertyForm({ property, addressLine, registryNumber }: Property
           availableFrom: todayISO(),
           // No default department: the city list hangs off it, and a preselected one would
           // quietly publish in the wrong place.
-          address: { registryNumber: "", line: "", neighborhood: "", city: "", department: undefined },
+          address: {
+            registryNumber: "",
+            // No point until the landlord places one: the map is optional, and a default would
+            // publish a zone somebody never chose.
+            point: undefined,
+            line: "",
+            neighborhood: "",
+            city: "",
+            department: undefined,
+          },
           photos: [],
         },
   });
@@ -165,6 +187,15 @@ export function PropertyForm({ property, addressLine, registryNumber }: Property
     value,
     label: value,
   }));
+
+  /*
+   * The picker's "Centrar en el barrio" needs the three public parts of the address as they are
+   * *right now*, so they are watched rather than read on click: `getValues()` inside a child's
+   * event handler would read whatever was there when the child last rendered.
+   */
+  const city = useWatch({ control: form.control, name: "address.city" });
+  const neighborhood = useWatch({ control: form.control, name: "address.neighborhood" });
+  const point = useWatch({ control: form.control, name: "address.point" });
 
   async function onSubmit(values: PublishPropertyInput) {
     const data = new FormData();
@@ -183,6 +214,10 @@ export function PropertyForm({ property, addressLine, registryNumber }: Property
     data.set("minLeaseMonths", String(values.minLeaseMonths));
     data.set("availableFrom", values.availableFrom);
     data.set("address.registryNumber", values.address.registryNumber);
+    // Two fields, because a `FormData` has no nested objects. Empty when there is no point:
+    // `mapPointFrom` in the action reads "either both or neither".
+    data.set("address.lat", values.address.point ? String(values.address.point.lat) : "");
+    data.set("address.lng", values.address.point ? String(values.address.point.lng) : "");
     data.set("address.line", values.address.line);
     data.set("address.neighborhood", values.address.neighborhood);
     data.set("address.city", values.address.city);
@@ -425,6 +460,38 @@ export function PropertyForm({ property, addressLine, registryNumber }: Property
             {...form.register("address.registryNumber")}
           />
         </div>
+
+        {/*
+          After the address, not before it: the map is centred from the barrio and the city, so
+          asking for the point first would be asking for it with nothing to aim the map with.
+        */}
+        <LocationPicker
+          value={(point as GeoPoint | undefined) ?? null}
+          onChange={(next) =>
+            form.setValue("address.point", next ?? undefined, {
+              shouldValidate: form.formState.isSubmitted,
+            })
+          }
+          area={{
+            neighborhood: typeof neighborhood === "string" ? neighborhood : "",
+            city: typeof city === "string" ? city : "",
+            department: typeof department === "string" ? department : "",
+          }}
+        />
+        {errors.address?.point && (
+          <p className="text-sm text-destructive">{errors.address.point.message}</p>
+        )}
+        {/*
+          The section's own error, and it had nowhere to go until the map arrived. `z.flattenError`
+          keys an issue by the **first** segment of its path, so anything the *server* rejects
+          inside the address — a street too short, a city that is not in its department, a point
+          outside Colombia — comes back as `fieldErrors.address` and is set on the object rather
+          than on a field. Without this line the form went quiet: the submit failed and the page
+          said nothing, which is the worst of the three possible outcomes.
+        */}
+        {errors.address?.message && (
+          <p className="text-sm text-destructive">{errors.address.message}</p>
+        )}
       </section>
 
       <section className="space-y-4">

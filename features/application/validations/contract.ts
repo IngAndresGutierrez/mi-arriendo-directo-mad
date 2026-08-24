@@ -40,6 +40,26 @@ export const signatureRequestSchema = z.object({
 });
 
 /**
+ * The drawn signature, as a PNG data URL.
+ *
+ * This schema checks the **shape** and nothing else, and it still accepts the empty string — that
+ * is deliberate. Whether a stroke is *required* depends on the contract (a PDF, with a box marked
+ * for this party) and a schema does not have the contract in front of it: `strokeRequired` answers
+ * that, and `confirmSignature` enforces it. Encoding the requirement here would have made a legacy
+ * image contract unsignable.
+ *
+ * The cap is generous for a signature and small for an image — a 200 KB canvas is somebody sending
+ * something that is not a signature.
+ */
+export const signatureStrokeSchema = z
+  .string()
+  .trim()
+  .regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/, { error: "El trazo no es válido" })
+  .max(200_000, { error: "El trazo es demasiado grande" })
+  .optional()
+  .or(z.literal(""));
+
+/**
  * Entering the code.
  *
  * Digits only and exactly the expected length: anything else is not a code this product issued, and
@@ -53,6 +73,13 @@ export const signatureConfirmSchema = z.object({
     .regex(new RegExp(`^\\d{${OTP_LENGTH}}$`), {
       error: `El código son ${OTP_LENGTH} dígitos`,
     }),
+  /**
+   * El trazo dibujado, en el mismo envío que el código: se firma una vez, así que es una sola
+   * petición. Antes llegaba por fuera del esquema y la acción lo volvía a parsear con un `as`; que
+   * viaje aquí es lo que hace que un trazo con mala forma se rechace **antes** de comparar el
+   * código, sin gastar uno de los cinco intentos en algo que no es el código.
+   */
+  stroke: signatureStrokeSchema,
 });
 
 /**
@@ -88,18 +115,3 @@ export const signatureSpotsSchema = z.object({
       }
     }),
 });
-
-/**
- * The drawn signature, as a PNG data URL.
- *
- * Optional: the code is what signs, and a photographed contract has nowhere to put a stroke. The
- * cap is generous for a signature and small for an image — a 200 KB canvas is somebody sending
- * something that is not a signature.
- */
-export const signatureStrokeSchema = z
-  .string()
-  .trim()
-  .regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/, { error: "El trazo no es válido" })
-  .max(200_000, { error: "El trazo es demasiado grande" })
-  .optional()
-  .or(z.literal(""));

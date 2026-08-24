@@ -64,7 +64,8 @@ export async function saveLeasePayout(
     accountNumber: shape.account && "accountNumber" in data ? data.accountNumber : "",
     bankName: shape.bankName && "bankName" in data ? data.bankName : "",
     holderName: data.holderName,
-    holderDocument: data.holderDocument,
+    // Vacío donde no aplica, como el resto: el esquema ni siquiera lo acepta en esas ramas.
+    holderDocument: shape.holderDocument && "holderDocument" in data ? data.holderDocument : "",
     note: data.note,
   };
 
@@ -89,7 +90,8 @@ export async function saveLeasePayout(
     recipientEmail: tenant?.email ?? null,
     type: "canon_payout_changed",
     applicationId: leaseId,
-    stage: "active",
+    // La última etapa del proceso; en una notificación de arrendamiento el destino sale del tipo.
+    stage: "first_payment",
     propertyTitle: lease.propertyTitle,
     actorName: landlord?.fullName ?? "",
     detail: `Ahora es por ${PAYOUT_METHOD_LABELS[payout.method]}.`,

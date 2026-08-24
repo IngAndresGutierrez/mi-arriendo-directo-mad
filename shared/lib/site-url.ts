@@ -16,6 +16,27 @@
 /** Where a link goes when nothing better is known. */
 export const PRODUCTION_ORIGIN = "https://www.miarriendodirecto.com";
 
+/**
+ * The origin **metadata** is built against: `metadataBase`, the canonical URLs, `robots.txt`, the
+ * sitemap and every absolute URL inside a JSON-LD block.
+ *
+ * It is not `resolveSiteUrl`, and the difference is which question is being asked. A link in an
+ * email has to point at where the person actually is, so it reads the request. A canonical tag has
+ * to name the **one** address a page is published at, and "wherever this request came from" is the
+ * definition of what a canonical tag exists to stop — a preview deployment declaring itself the
+ * canonical home of every listing is how a whole catalogue gets deindexed.
+ *
+ * **`||`, never `??`.** `NEXT_PUBLIC_SITE_URL` is read from the environment, and an environment
+ * variable that exists and is empty is a string: `"" ?? fallback` is `""`, which is how this
+ * project already shipped `auth/invalid-api-key` to production once. Here it would be worse than a
+ * wrong value — `new URL("")` throws, and it throws inside the root layout, which is every page.
+ */
+export function metadataOrigin(): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/$/, "");
+
+  return configured || PRODUCTION_ORIGIN;
+}
+
 /** The hosts this product answers on. Anything else is not us, whatever the header says. */
 function isKnownHost(host: string): boolean {
   const [name] = host.split(":");

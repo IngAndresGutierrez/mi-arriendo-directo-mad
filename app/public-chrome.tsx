@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import Link from "next/link";
 
 import { getSessionUser } from "@/shared/auth/session";
-import { LOGIN_ROUTE, SUPPORT_ROUTE } from "@/shared/auth/routes";
+import { LOGIN_ROUTE, PROPERTIES_ROUTE, SUPPORT_ROUTE } from "@/shared/auth/routes";
 import { Logo } from "@/shared/brand/logo";
 import { AccountMenu } from "@/shared/shell/account-menu";
 import { Button } from "@/shared/ui/button";
@@ -21,8 +21,22 @@ import { TooltipProvider } from "@/shared/ui/tooltip";
  *
  * It lives under `app/` rather than in `shared/shell` so the support page can use the same
  * header the catalog uses instead of a second copy of it.
+ *
+ * **Where the logo goes is decided by whoever renders this, not by the header.** Everything in the
+ * `(public)` route group is the catalog — the list and one property's detail — and there the logo
+ * belongs to the catalog: someone three listings deep who presses it is asking to go back to the
+ * results, not to a login screen they may already be past. `/soporte` renders this same header
+ * outside that group and keeps the default, because from there "el inicio" really is the way in.
+ * A prop and not `usePathname()`: the answer is a fact about the route, known at build time, and
+ * reading it at runtime would make a Client Component out of the whole header for it.
  */
-export async function PublicChrome({ children }: { readonly children: ReactNode }) {
+export async function PublicChrome({
+  children,
+  homeHref = LOGIN_ROUTE,
+}: {
+  readonly children: ReactNode;
+  readonly homeHref?: string;
+}) {
   const user = await getSessionUser();
 
   return (
@@ -39,7 +53,14 @@ export async function PublicChrome({ children }: { readonly children: ReactNode 
       <div className="flex min-h-svh flex-col bg-background lg:fixed lg:inset-0 lg:min-h-0 lg:overflow-hidden">
         <header className="shrink-0 border-b border-border">
           <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-4">
-            <Link href={LOGIN_ROUTE} aria-label="miarriendoDIRECTO.com, ir al inicio">
+            <Link
+              href={homeHref}
+              aria-label={
+                homeHref === PROPERTIES_ROUTE
+                  ? "miarriendoDIRECTO.com, volver a los inmuebles"
+                  : "miarriendoDIRECTO.com, ir al inicio"
+              }
+            >
               <Logo width={170} preload />
             </Link>
 

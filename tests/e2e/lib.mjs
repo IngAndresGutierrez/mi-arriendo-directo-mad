@@ -235,6 +235,67 @@ export async function completeProfile(page, { name, city = "Manizales", departme
   await settled(page);
 }
 
+/**
+ * Que React ya escucha en ese elemento concreto.
+ *
+ * `hydrated()` busca un `<form>` y hay pantallas del producto que no tienen ninguno — el panel de los
+ * meses, el de los incidentes, el interruptor del seguro son campos y botones sueltos. Esta es la
+ * versión general, y hace falta exactamente en un caso: **un evento de una sola oportunidad sobre un
+ * elemento que ya era pulsable**. `setInputFiles` dispara `change` una vez, y un clic sobre un
+ * `Switch` de Radix al que todavía no se le ha enganchado el manejador no cambia nada; en los dos
+ * casos Playwright no reintenta, porque desde su punto de vista la acción se hizo.
+ *
+ * No se pone en `settled()`: la mayoría de las interacciones no lo necesitan y pagarlo en cada
+ * navegación es lo que una vez llevó `documents` de 74s a 104s.
+ */
+export async function reactReady(page, selector, timeout = 20000) {
+  await page.waitForFunction(
+    (sel) => {
+      const el = document.querySelector(sel);
+      return Boolean(el) && Object.keys(el).some((k) => k.startsWith("__react"));
+    },
+    selector,
+    { timeout },
+  );
+}
+
+/**
+ * Cambia de pestaña en la pantalla de un arriendo, y espera a que el panel esté montado.
+ *
+ * Vive aquí y no en un driver porque es **cómo se navega esa pantalla** desde que tiene pestañas:
+ * "Información", "Pagos" e "Incidentes" son tres paneles y Radix desmonta el que no se ve, así que
+ * cualquier aserción sobre el resumen o sobre los incidentes empieza por esto. Dos drivers ya lo
+ * necesitan y el siguiente que toque la tenencia también.
+ *
+ * Se espera la hidratación del rail antes de pulsar: un `click` sobre un `tab` al que Radix todavía
+ * no le ha enganchado el manejador no cambia de pestaña, y Playwright no lo reintenta porque el
+ * elemento ya era pulsable. Y después se espera **la pestaña activa**, no el clic: el panel se monta
+ * en el render siguiente.
+ */
+export async function leaseTab(page, name) {
+  const trigger = page.getByRole("tab", { name: new RegExp(name, "i") });
+  await trigger.waitFor({ state: "visible", timeout: 20000 });
+  await page.waitForFunction(
+    () => {
+      const el = document.querySelector('[data-slot="tabs-trigger"]');
+      return Boolean(el) && Object.keys(el).some((k) => k.startsWith("__react"));
+    },
+    null,
+    { timeout: 20000 },
+  );
+  await trigger.click();
+  await page.waitForFunction(
+    (label) => {
+      const active = document.querySelector('[data-slot="tabs-trigger"][data-state="active"]');
+      return Boolean(active?.textContent?.toLowerCase().includes(label.toLowerCase()));
+    },
+    name,
+    { timeout: 15000 },
+  );
+
+  return page.getByRole("tabpanel");
+}
+
 /** No horizontal scrolling at 390px is a rule for every screen, so it is one helper. */
 export async function assertNoHorizontalScroll(page, where) {
   const size = await page.evaluate(() => ({
@@ -244,6 +305,26 @@ export async function assertNoHorizontalScroll(page, where) {
   if (size.doc > size.win + 1) {
     throw new Error(`scroll horizontal en ${where}: ${JSON.stringify(size)}`);
   }
+}
+
+/**
+ * Las teselas del mapa, respondidas desde aquí y nunca desde OpenStreetMap.
+ *
+ * Dos razones, y ninguna es comodidad. Una corrida de drivers no debe gastar el servicio de
+ * voluntarios que este producto usa en producción — la misma lección que `RESEND_API_KEY=` vacío
+ * en el servidor de e2e, que ya se pagó agotando la cuota de un día con tests. Y un driver que
+ * depende de la red de un tercero se pone rojo por algo que no es el producto: sin esto, cada
+ * imagen fallida en una máquina sin salida a internet es una línea de consola y `assertQuiet` la
+ * convierte en un fallo.
+ *
+ * Leaflet dibuja el mapa igual: las teselas son imágenes, y lo que los drivers afirman son
+ * coordenadas. Se llama en los tres drivers que montan un mapa, no en `watch()`: `page.route` es
+ * asíncrono y meterlo en un ayudante síncrono sería una carrera.
+ */
+export async function stubTiles(page, tile) {
+  await page.route("**tile.openstreetmap.org/**", (route) =>
+    route.fulfill({ status: 200, contentType: "image/png", body: tile }),
+  );
 }
 
 export function assertQuiet(problems) {
@@ -322,6 +403,29 @@ trailer<</Root 1 0 R>>
 `;
 
 /**
+ * Un MP4 con la cabecera de verdad y nada dentro.
+ *
+ * Lo que se maneja con esto es el camino de un video: que el tipo se acepte, que suba al bucket con
+ * su `contentType`, que la acción lo confirme contra Storage y que la ficha lo pinte como `<video>`
+ * y no como una foto. **No se maneja la reproducción** — no hay pistas que decodificar —, y eso está
+ * dicho aquí porque la alternativa sería comprometer un fichero binario de varios megas al repo para
+ * probar el decodificador de Chromium, que no es de este producto.
+ *
+ * `setInputFiles` deduce el mime de la extensión, así que lo que el navegador declara es `video/mp4`.
+ */
+const MP4 = Buffer.concat([
+  // ftyp: tamaño, marca, versión menor, y las marcas compatibles.
+  Buffer.from([0x00, 0x00, 0x00, 0x18]),
+  Buffer.from("ftyp", "ascii"),
+  Buffer.from("isom", "ascii"),
+  Buffer.from([0x00, 0x00, 0x02, 0x00]),
+  Buffer.from("isomiso2", "ascii"),
+  // mdat vacío: la caja donde irían los datos.
+  Buffer.from([0x00, 0x00, 0x00, 0x08]),
+  Buffer.from("mdat", "ascii"),
+]);
+
+/**
  * The files the drivers upload. Written once per run into the shot directory.
  * The two photos differ in colour on purpose: an uploader that dedupes by content would
  * otherwise silently accept one file where the driver believes it sent two.
@@ -333,10 +437,12 @@ export function fixtures() {
     photo1: join(dir, "photo-1.png"),
     photo2: join(dir, "photo-2.png"),
     pdf: join(dir, "documento.pdf"),
+    video: join(dir, "video.mp4"),
   };
   if (!existsSync(files.photo1)) writeFileSync(files.photo1, png(64, [45, 18, 77]));
   if (!existsSync(files.photo2)) writeFileSync(files.photo2, png(64, [0, 229, 255]));
   if (!existsSync(files.pdf)) writeFileSync(files.pdf, PDF, "latin1");
+  if (!existsSync(files.video)) writeFileSync(files.video, MP4);
   return files;
 }
 
@@ -399,6 +505,57 @@ export function adminDb() {
   }
 
   return getFirestore(adminApp);
+}
+
+/**
+ * El botón de seguir **de la barra de arriba**, la que está sobre la línea de etapas.
+ *
+ * Existe porque ese botón vive ahora en dos sitios: ahí arriba, siempre, y al pie de la etapa en
+ * curso cuando el paso ya está listo. Un `getByRole("button", { name: /Continuar a/ })` suelto
+ * encuentra los dos y Playwright falla por ambigüedad — que es como se rompieron cuatro drivers a la
+ * vez el día que se añadió el segundo. Un `.first()` tampoco vale: es una suposición sobre el orden
+ * del documento, no sobre de cuál se está hablando.
+ *
+ * Para el del pie de una etapa, el asidero es su tarjeta: `page.locator("#etapa-<stage>")`.
+ */
+export function advanceButton(page) {
+  return page.locator('[data-slot="stage-actions"]').getByRole("button", { name: /Continuar a/i });
+}
+
+/**
+ * Cloud Storage con el Admin SDK, sobre la misma app que `adminDb()`.
+ *
+ * Existe porque en la suite emulada **no hay URL firmada**: firmar necesita una cuenta de servicio y
+ * un proyecto `demo-` no tiene ninguna. Un driver que quiera comprobar los bytes de un archivo tiene
+ * que leerlos por aquí, que además es una aserción más fuerte que descargar un enlace — mira el
+ * objeto, no la URL.
+ *
+ * El bucket se nombra explícitamente: la app emulada se inicializa solo con el id del proyecto, así
+ * que no hay bucket por defecto que resolver.
+ */
+export function adminStorage() {
+  const require = createRequire(joinPath(REPO, "package.json"));
+  const { getStorage } = require("firebase-admin/storage");
+
+  adminDb();
+  const projectId = process.env.FIREBASE_PROJECT_ID;
+
+  return getStorage(adminApp).bucket(`${projectId}.firebasestorage.app`);
+}
+
+/**
+ * Auth con el Admin SDK, sobre la misma app que `adminDb()`.
+ *
+ * Existe por lo mismo: un driver que llamaba a `initializeApp()` por su cuenta con la cuenta de
+ * servicio real acababa preguntándole al proyecto de verdad por una cuenta que acababa de crear en
+ * el emulador, y moría con `USER_NOT_FOUND` antes de su primera aserción.
+ */
+export function adminAuth() {
+  const require = createRequire(joinPath(REPO, "package.json"));
+  // `adminDb()` es quien decide la app —emulador o cuenta de servicio— y la deja inicializada.
+  adminDb();
+
+  return require("firebase-admin/auth").getAuth(adminApp);
 }
 
 /** `FieldValue`, para los `serverTimestamp()` de los drivers. */

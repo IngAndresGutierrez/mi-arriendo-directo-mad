@@ -14,13 +14,23 @@ const holder = {
     .trim()
     .min(3, { error: "El nombre es demasiado corto" })
     .max(120, { error: "El nombre es demasiado largo" }),
-  holderDocument: z
-    .string({ error: "Escribe el documento del titular" })
-    .trim()
-    .min(5, { error: "El documento es demasiado corto" })
-    .max(60, { error: "El documento es demasiado largo" }),
   note: z.string().trim().max(300, { error: "La nota es demasiado larga" }).default(""),
 };
+
+/**
+ * The holder's identity document, **only on the branches that are a bank transfer**.
+ *
+ * Registering an account in a Colombian bank asks for it; paying a Nequi or Daviplata number does
+ * not, and neither does a Bre-B key — the app shows the recipient's name and the directory resolves
+ * the rest. Asking for it there would collect an identity number nothing on the other side uses,
+ * and the cheapest way not to leak a piece of personal data is not to hold it. `payoutShape` says
+ * the same thing to the form, so the field is not even rendered.
+ */
+const holderDocument = z
+  .string({ error: "Escribe el documento del titular" })
+  .trim()
+  .min(5, { error: "El documento es demasiado corto" })
+  .max(60, { error: "El documento es demasiado largo" });
 
 /**
  * A Colombian mobile, for Nequi and Daviplata.
@@ -81,8 +91,8 @@ export const payoutSchema = z.discriminatedUnion("method", [
   z.object({ method: z.literal("nequi"), phone: mobile, ...holder }),
   z.object({ method: z.literal("daviplata"), phone: mobile, ...holder }),
   z.object({ method: z.literal("breb"), key: brebKey, ...holder }),
-  z.object({ method: z.literal("bancolombia"), ...account, ...holder }),
-  z.object({ method: z.literal("davivienda"), ...account, ...holder }),
+  z.object({ method: z.literal("bancolombia"), ...account, ...holder, holderDocument }),
+  z.object({ method: z.literal("davivienda"), ...account, ...holder, holderDocument }),
   z.object({
     method: z.literal("other_bank"),
     bankName: z
@@ -92,6 +102,7 @@ export const payoutSchema = z.discriminatedUnion("method", [
       .max(60, { error: "El nombre del banco es demasiado largo" }),
     ...account,
     ...holder,
+    holderDocument,
   }),
 ]);
 

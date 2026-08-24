@@ -35,6 +35,23 @@ export async function reserveSlug(base: string, propertyId: string): Promise<str
   return unique;
 }
 
+/**
+ * The map point, or `undefined` — never a half-filled pair.
+ *
+ * The two fields travel separately through a `FormData` and the schema treats the point as one
+ * optional object, so "one of them is missing" has to become "there is no point" here. Coercing
+ * a lone latitude would put the property on the Greenwich meridian, off the coast of Africa,
+ * which the bounds check would then reject with a message about a map the landlord never used.
+ */
+function mapPointFrom(formData: FormData): { lat: string; lng: string } | undefined {
+  const lat = formData.get("address.lat");
+  const lng = formData.get("address.lng");
+
+  return typeof lat === "string" && lat !== "" && typeof lng === "string" && lng !== ""
+    ? { lat, lng }
+    : undefined;
+}
+
 /** Photos are uploaded from the browser into the landlord's own folder, and nowhere else. */
 export function photosBelongTo(uid: string, photos: readonly { path: string }[]): boolean {
   const prefix = `properties/${uid}/`;
@@ -78,6 +95,7 @@ export function parsePropertyForm(
       availableFrom: formData.get("availableFrom"),
       address: {
         registryNumber: formData.get("address.registryNumber"),
+        point: mapPointFrom(formData),
         line: formData.get("address.line"),
         neighborhood: formData.get("address.neighborhood"),
         city: formData.get("address.city"),

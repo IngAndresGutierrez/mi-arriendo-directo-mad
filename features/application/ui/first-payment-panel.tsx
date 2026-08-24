@@ -15,6 +15,7 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { AmountField } from "@/shared/form/amount-field";
 import { formatBytes } from "@/shared/format/bytes";
 import { formatBogotaDateTime, formatShortDate } from "@/shared/format/date";
 import { formatCOP } from "@/shared/format/money";
@@ -57,7 +58,17 @@ export function FirstPaymentPanel({
 }: {
   readonly applicationId: string;
   readonly payment: FirstPayment | null;
-  /** The same receipt with a link signed for the next hour, or `null`. */
+  /**
+   * The same receipt with a link signed for the next hour, or `null`.
+   *
+   * **Only the link comes from here.** What was uploaded is read from `payment.receipt`, which is
+   * the document — the same rule `features/lease` and the contract panel already pay for. Signing
+   * can fail (a deleted file, Cloud Storage down, an environment with no service account), and while
+   * this whole block hung off the signed object a failure took the file name, the amount, the date,
+   * the verdict *and the landlord's confirm buttons* off the screen with it. That last one is what
+   * makes it serious now: confirming is what ends the process and opens the tenancy, so an
+   * unsignable URL left both parties on a screen with the money paid and no way to finish.
+   */
   readonly receipt: (PaymentReceipt & { readonly url: string }) | null;
   /** What the listing said when the tenant applied. A reference, not the contract. */
   readonly monthlyCost: number;
@@ -71,6 +82,9 @@ export function FirstPaymentPanel({
 
   const state = firstPaymentState(payment);
   const payout = payment?.payout ?? null;
+  // El registro sale del documento; el enlace, de la URL firmada. Lo que se pierde cuando no se
+  // puede firmar es poder *abrir* el archivo, y nada más.
+  const stored = payment?.receipt ?? null;
   const verdict = verdictApplies(payment) ? payment?.verdict : null;
 
   // --- el formulario del propietario ---
@@ -179,7 +193,10 @@ export function FirstPaymentPanel({
             )}
             {payout.accountNumber && <Row label="Número de cuenta" value={payout.accountNumber} copyable />}
             <Row label="A nombre de" value={payout.holderName} />
-            <Row label="Documento del titular" value={payout.holderDocument} />
+            {/* Vacío en Nequi, Daviplata y Bre-B, donde nadie pide el documento de quien recibe. */}
+            {payout.holderDocument && (
+              <Row label="Documento del titular" value={payout.holderDocument} />
+            )}
             {payout.note && <Row label="Nota" value={payout.note} />}
           </dl>
         ) : (
@@ -197,25 +214,39 @@ export function FirstPaymentPanel({
       </div>
 
       {/* --- el comprobante --- */}
-      {receipt && (
+      {stored && (
         <div className="space-y-2 rounded-xl border border-border bg-background p-4">
           <p className="text-sm font-medium text-foreground">Comprobante</p>
-          <a
-            className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground hover:bg-background"
-            href={receipt.url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <FileTextIcon className="size-4 shrink-0 text-brand-panel dark:text-brand-panel-muted" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate">{receipt.fileName}</span>
-            <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(receipt.bytes)}</span>
-            <ExternalLinkIcon className="size-4 shrink-0" aria-hidden="true" />
-          </a>
+          {receipt ? (
+            <a
+              className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground hover:bg-background"
+              href={receipt.url}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <FileTextIcon className="size-4 shrink-0 text-brand-panel dark:text-brand-panel-muted" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate">{stored.fileName}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(stored.bytes)}</span>
+              <ExternalLinkIcon className="size-4 shrink-0" aria-hidden="true" />
+            </a>
+          ) : (
+            /* Sin enlace se sigue diciendo qué llegó: lo que falta es poder abrirlo, no el registro. */
+            <div className="flex items-center gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-sm font-medium text-foreground">
+              <FileTextIcon className="size-4 shrink-0 text-brand-panel dark:text-brand-panel-muted" aria-hidden="true" />
+              <span className="min-w-0 flex-1 truncate">{stored.fileName}</span>
+              <span className="shrink-0 text-xs text-muted-foreground">{formatBytes(stored.bytes)}</span>
+            </div>
+          )}
+          {!receipt && (
+            <p className="text-sm text-muted-foreground">
+              No pudimos preparar el enlace para abrirlo. Vuelve a cargar la página en un momento.
+            </p>
+          )}
           <p className="text-sm text-muted-foreground">
-            {formatCOP(receipt.amount)} · pagado el {formatShortDate(receipt.paidOn)} · subido el{" "}
-            {formatBogotaDateTime(receipt.uploadedAt)}
+            {formatCOP(stored.amount)} · pagado el {formatShortDate(stored.paidOn)} · subido el{" "}
+            {formatBogotaDateTime(stored.uploadedAt)}
           </p>
-          {receipt.note && <p className="text-sm text-muted-foreground">{receipt.note}</p>}
+          {stored.note && <p className="text-sm text-muted-foreground">{stored.note}</p>}
           {verdict && (
             <p
               className={
@@ -308,13 +339,21 @@ export function FirstPaymentPanel({
             coincide con lo que decía la pantalla es un inquilino que cree que lo estafaron.
           */}
           <Field id="payout-holder" label="A nombre de" value={holderName} onChange={setHolderName} />
-          <Field
-            id="payout-holder-doc"
-            label="Documento del titular"
-            hint="Como lo pide tu banco: tipo y número."
-            value={holderDocument}
-            onChange={setHolderDocument}
-          />
+          {/*
+            El documento, **solo si el método es una transferencia bancaria**: a un Nequi, un
+            Daviplata o una llave Bre-B se paga con el número o la llave, y la app muestra el nombre
+            de quien recibe antes de confirmar. Pedirlo ahí sería guardar un número de cédula que
+            nadie al otro lado va a usar.
+          */}
+          {shape.holderDocument && (
+            <Field
+              id="payout-holder-doc"
+              label="Documento del titular"
+              hint="Como lo pide tu banco: tipo y número."
+              value={holderDocument}
+              onChange={setHolderDocument}
+            />
+          )}
           <Field
             id="payout-note"
             label="Nota para el inquilino (opcional)"
@@ -337,7 +376,7 @@ export function FirstPaymentPanel({
                     ...(shape.bankName ? { bankName } : {}),
                     ...(shape.account ? { accountType, accountNumber } : {}),
                     holderName,
-                    holderDocument,
+                    ...(shape.holderDocument ? { holderDocument } : {}),
                     note: payoutNote,
                   });
                   if (result.ok) setEditing(false);
@@ -368,12 +407,19 @@ export function FirstPaymentPanel({
           <p className="text-sm font-medium text-foreground">
             {state === "rejected" ? "Sube otro comprobante" : "Sube tu comprobante"}
           </p>
-          <Field
+          {/*
+            Con separadores de miles mientras se escribe, no como un número pelado: `1800000` y
+            `18000000` se distinguen contando ceros, y quien se equivoca en uno declara haber
+            transferido diez veces el canon — justo en el campo que el propietario va a comparar
+            contra su banco. `AmountField` es el mismo control del canon de un anuncio, y lo que
+            sale de él son dígitos crudos: los puntos son presentación, y `Number("1.800.000")` es
+            `NaN`.
+          */}
+          <AmountField
             id="receipt-amount"
-            label="Cuánto transferiste"
+            label="Cuánto transferiste (COP)"
             value={amount}
             onChange={setAmount}
-            inputMode="numeric"
           />
           <div className="space-y-2">
             <Label htmlFor="receipt-date">Fecha del pago</Label>
@@ -417,7 +463,7 @@ export function FirstPaymentPanel({
       )}
 
       {/* --- el propietario responde --- */}
-      {isLandlord && !readOnly && receipt && !verdict && (
+      {isLandlord && !readOnly && stored && !verdict && (
         <div className="space-y-3 rounded-xl border border-dashed border-border p-4">
           <p className="text-sm font-medium text-foreground">¿Llegó el dinero?</p>
           <p className="text-sm text-muted-foreground">

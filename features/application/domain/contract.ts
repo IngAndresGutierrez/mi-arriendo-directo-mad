@@ -182,9 +182,14 @@ export type ContractSignature = {
   /**
    * The drawn signature, as a PNG in `contracts/{applicationId}/strokes/…`, or empty.
    *
-   * Empty is a legitimate signature: the code is what stands for consent, and the stroke is what
-   * makes the document *look* signed. A contract uploaded as a photo cannot be stamped, so there
-   * the stroke has nowhere to go and the signature is no less valid for it.
+   * **Both parties draw, and it is required of both**: `strokeRequired` is the rule and
+   * `confirmSignature` enforces it. What *signs* is still the code — the stroke adds nothing to the
+   * evidence in Decreto 2364's sense — so requiring it is a product decision about the document
+   * reading as signed to whoever opens it a year later, not a legal one.
+   *
+   * Empty therefore means one of two things, and neither is "could not be bothered": a signature
+   * taken before this was required, or a contract with nowhere to stamp it — a legacy upload that
+   * is not a PDF. New uploads are PDFs only, so the second case cannot be created any more.
    */
   readonly strokePath: string;
 };
@@ -235,14 +240,39 @@ export function spotFor(
 /**
  * Whether the landlord has marked where both parties sign.
  *
- * Not a blocker: a contract with no spots is still signable — the code is what signs it — and the
- * stroke simply has nowhere to be drawn. What it gates is whether the drawing pad is offered.
+ * **A blocker now, and it used to be the opposite.** While the drawing was optional a contract with
+ * no spots was signable and the stroke simply had nowhere to go; with both parties required to draw,
+ * marking the boxes is what gives the two strokes somewhere to land, so nobody signs before it is
+ * done — `contractBlocker` answers `no_spots` until then.
+ *
+ * A legacy contract that is not a PDF can never be ready, and that is the case where the drawing
+ * stops being required rather than the case where signing is blocked forever.
  */
 export function spotsReady(contract: Contract | null): boolean {
   return (
     canStamp(contract?.document ?? null) &&
     CONTRACT_PARTIES.every((party) => spotFor(contract, party) !== null)
   );
+}
+
+/**
+ * Whether this party has to draw their signature before their code will be accepted.
+ *
+ * **Required of both parties, the tenant included.** It was optional for a long time, on the
+ * reasoning that a canvas cannot be operated with a keyboard and the code is what legally signs, so
+ * the drawing was an addition and never a gate. Requiring it is a deliberate reversal: the PDF both
+ * parties keep is what they will show a third party, and one that carries no visible signature is a
+ * document they have to explain.
+ *
+ * The accessibility cost that reasoning was protecting is answered where it appears rather than by
+ * dropping the requirement: the pad offers a keyboard-operable way to produce the stroke — the
+ * signer's own name, drawn into the same canvas — so nobody is left unable to sign.
+ *
+ * It is required **exactly when the stroke has somewhere to go**: a PDF, with a box marked for this
+ * party. Demanding a drawing that cannot be stamped would be asking for a file nothing reads.
+ */
+export function strokeRequired(contract: Contract | null, party: ContractParty): boolean {
+  return canStamp(contract?.document ?? null) && spotFor(contract, party) !== null;
 }
 
 /** A spot is inside the page and big enough to hold a signature. */
@@ -310,6 +340,7 @@ export function contractState(contract: Contract | null): ContractState {
  */
 export type ContractBlocker =
   | "no_document"
+  | "no_spots"
   | "awaiting_both"
   | "awaiting_landlord"
   | "awaiting_tenant"
@@ -320,6 +351,20 @@ export function contractBlocker(contract: Contract | null): ContractBlocker {
 
   const landlord = hasSigned(contract, "landlord");
   const tenant = hasSigned(contract, "tenant");
+
+  /*
+   * Las dos firmas se comprueban **antes** que los recuadros, y ese orden es lo que protege a un
+   * contrato firmado cuando el dibujo era opcional: lo que ya está firmado por ambas partes está
+   * firmado, y volver a pedir recuadros ahí sería reabrir una etapa cerrada.
+   */
+  if (landlord && tenant) return null;
+
+  /*
+   * Y para todo lo demás los recuadros van primero, porque son lo que falta primero: con el dibujo
+   * obligatorio nadie puede firmar hasta que estén, así que decir "falta tu firma" a quien no tiene
+   * dónde dibujarla es señalar la puerta equivocada.
+   */
+  if (canStamp(contract?.document ?? null) && !spotsReady(contract)) return "no_spots";
 
   if (!landlord && !tenant) return "awaiting_both";
   if (!landlord) return "awaiting_landlord";
@@ -337,6 +382,10 @@ export function contractBlockerMessage(
       return isLandlord
         ? "Sube el contrato de arrendamiento para que las dos partes puedan firmarlo."
         : "El propietario subirá el contrato aquí para que los dos lo firmen.";
+    case "no_spots":
+      return isLandlord
+        ? "Marca en el PDF dónde firma cada parte: las dos dibujan su firma y ahí es donde se estampa."
+        : "El propietario está marcando en el PDF dónde firma cada parte. En cuanto lo haga, firman los dos.";
     case "awaiting_both":
       return "Falta que firmen las dos partes.";
     case "awaiting_landlord":

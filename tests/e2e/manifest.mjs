@@ -26,6 +26,25 @@ export const COVERS = {
   pagination: ["app/(public)/inmuebles", "features/property/domain/catalog"],
   "listing-scroll": ["app/(public)/inmuebles", "shared/shell/"],
   lightbox: ["app/(public)/inmuebles", "features/property/ui/"],
+  /*
+   * Lo que el sitio le dice a un buscador. Cubre las dos mitades: el catálogo y el detalle, que sí
+   * llevan SEO, y el portal, que no — por eso `app/(app)/layout` está en la lista, porque es el
+   * archivo de una línea del que sale el `noindex` de todas esas pantallas.
+   */
+  seo: [
+    "app/robots.ts",
+    "app/sitemap.ts",
+    "app/opengraph-image",
+    "app/layout.tsx",
+    "app/(app)/layout.tsx",
+    "app/(auth)/",
+    "app/(public)/inmuebles",
+    "features/property/domain/seo",
+    "features/property/data/property",
+    "shared/seo/",
+    "shared/brand/og",
+    "shared/lib/site-url",
+  ],
 
   // Auth and the profile.
   session: ["app/api/session", "shared/auth/", "features/auth/", "app/(auth)/"],
@@ -39,6 +58,20 @@ export const COVERS = {
   // The landlord's properties.
   publish: ["features/property/", "app/(app)/inmuebles", "shared/geo/"],
   "manage-properties": ["features/property/", "app/(app)/mis-inmuebles"],
+  /*
+   * La ubicación en el mapa. `shared/map/` y `shared/geo/point` son suyos y de nadie más, pero
+   * `features/property/` también entra: el punto viaja por el esquema, la acción y el detalle, y
+   * un cambio en cualquiera de los tres rompe la separación entre la coordenada exacta y la
+   * publicada sin que nada más lo note.
+   */
+  map: [
+    "shared/map/",
+    "shared/geo/point",
+    "features/property/",
+    "app/(app)/inmuebles",
+    "app/(app)/mis-inmuebles",
+    "app/(public)/inmuebles",
+  ],
   amount: ["shared/format/money", "features/property/validations"],
 
   // The rental process.
@@ -60,14 +93,25 @@ export const COVERS = {
     "features/application/actions/payout",
     "features/application/ui/first-payment-panel",
     "features/application/ui/stage-actions",
+    "features/application/ui/advance-button",
     "app/(app)/contratos",
   ],
   contract: [
     "features/application/domain/contract",
     "features/application/validations/contract",
     "features/application/actions/contract",
+    /*
+     * La firma misma, que faltaba: el reto, el lienzo y el colocador de recuadros son este driver y
+     * ningún otro, así que un cambio solo en el lienzo no seleccionaba nada. Es el fallo que el
+     * comentario de abajo describe, en pequeño.
+     */
+    "features/application/actions/signature",
+    "features/application/actions/stamp",
     "features/application/ui/contract-panel",
+    "features/application/ui/signature-pad",
+    "features/application/ui/signature-placer",
     "features/application/ui/stage-actions",
+    "features/application/ui/advance-button",
     "shared/format/bytes",
     "app/(app)/contratos",
   ],
@@ -79,6 +123,16 @@ export const COVERS = {
     "app/(app)/arriendos",
     "features/application/actions/advance",
     "shared/format/date",
+  ],
+  // Los incidentes de una tenencia: el reporte del inquilino, con fotos y video.
+  incidents: [
+    "features/lease/domain/incident",
+    "features/lease/validations/incident",
+    "features/lease/data/incident",
+    "features/lease/actions/incident",
+    "features/lease/ui/incident-list",
+    "app/(app)/arriendos",
+    "storage.rules",
   ],
   notifications: ["features/notification/", "shared/lib/site-url"],
 
@@ -92,7 +146,7 @@ export const COVERS = {
 };
 
 /** Drivers that need a landlord, a tenant and a property, so they are the slow ones. */
-export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental"];
+export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental", "incidents", "map"];
 
 /**
  * Rutas tan transversales que cualquier cambio en ellas selecciona **todos** los drivers.

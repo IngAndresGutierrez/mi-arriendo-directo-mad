@@ -54,6 +54,47 @@ describe("publishPropertySchema", () => {
     expect(parsed.title).toBe("Apartamento luminoso en Palermo");
   });
 
+  describe("the point on the map", () => {
+    const withPoint = (point: unknown) =>
+      publishPropertySchema.safeParse({
+        ...VALID_PROPERTY,
+        address: { ...VALID_PROPERTY.address, point },
+      });
+
+    it("is optional: a listing publishes without a map", () => {
+      // Not a convenience. Requiring it would lock every listing published before the map out of
+      // its own edit form, and shut out a landlord whose street OpenStreetMap has not drawn.
+      const parsed = publishPropertySchema.parse(VALID_PROPERTY);
+      expect(parsed.address.point).toBeUndefined();
+    });
+
+    it("accepts a point and coerces the pair the form sends as strings", () => {
+      const result = withPoint({ lat: "5.06786", lng: "-75.49123" });
+      expect(result.success).toBe(true);
+      expect(result.data?.address.point).toEqual({ lat: 5.06786, lng: -75.49123 });
+    });
+
+    it("rejects a point outside Colombia", () => {
+      // The three ways a coordinate arrives wrong, and each one publishes a map of nowhere.
+      expect(withPoint({ lat: 0, lng: 0 }).success).toBe(false); // a zeroed default
+      expect(withPoint({ lat: -75.49123, lng: 5.06786 }).success).toBe(false); // the pair swapped
+      expect(withPoint({ lat: 5.06786, lng: 75.49123 }).success).toBe(false); // the sign dropped
+    });
+
+    it("rejects a pair that is not numbers at all", () => {
+      expect(withPoint({ lat: "por el parque", lng: "-75.49" }).success).toBe(false);
+      expect(withPoint({ lat: 5.06786 }).success).toBe(false);
+      expect(withPoint({}).success).toBe(false);
+    });
+
+    it("says what is wrong on the point, not on the address as a whole", () => {
+      // The form shows this under the map. An issue pathed at `address` would surface on the
+      // street field, telling the landlord to fix something they got right.
+      const result = withPoint({ lat: 0, lng: 0 });
+      expect(result.error?.issues[0]?.path).toEqual(["address", "point"]);
+    });
+  });
+
   describe("money", () => {
     it("rejects a rent below the floor", () => {
       const r = publishPropertySchema.safeParse({ ...VALID_PROPERTY, rent: String(RENT_MIN - 1) });

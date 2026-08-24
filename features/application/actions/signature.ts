@@ -22,6 +22,7 @@ import {
   SIGNATURE_CHANNEL_LABELS,
   OTP_MAX_ATTEMPTS,
   SIGNATURE_CLAUSE_VERSION,
+  strokeRequired,
   type ContractParty,
   type ContractSignature,
   type SignatureChannel,
@@ -31,11 +32,7 @@ import {
   signatureCodeWhatsAppParameters,
   OTP_MINUTES,
 } from "../domain/signature-code";
-import {
-  signatureConfirmSchema,
-  signatureRequestSchema,
-  signatureStrokeSchema,
-} from "../validations/contract";
+import { signatureConfirmSchema, signatureRequestSchema } from "../validations/contract";
 import { stampContract } from "./stamp";
 
 export type SignatureActionResult =
@@ -351,6 +348,17 @@ export async function confirmSignature(
     return { ok: false, message: parsed.error.issues[0]?.message ?? "Revisa el código." };
   }
 
+  /*
+   * El dibujo es obligatorio para las dos partes siempre que haya dónde estamparlo, y se exige
+   * **antes** de mirar el código: un trazo que falta no es un código equivocado, así que no debe
+   * gastar uno de los cinco intentos ni matar el reto que la persona acaba de pedir.
+   */
+  const mustDraw = strokeRequired(context.application.contract, context.party);
+  const stroke = parsed.data.stroke ?? "";
+  if (mustDraw && !stroke) {
+    return { ok: false, message: "Dibuja tu firma antes de confirmar el código." };
+  }
+
   const reference = adminDb().collection(CHALLENGES).doc(challengeId(applicationId, context.party));
   const snapshot = await reference.get();
   const stored = snapshot.data();
@@ -392,21 +400,13 @@ export async function confirmSignature(
   }
 
   /*
-   * El trazo, si vino. Se guarda como archivo en el bucket y no dentro del documento: un PNG en
-   * base64 son decenas de kilobytes que se leerían en cada render de la página, y Firestore tiene
-   * un tope de 1 MB por documento que dos firmas y un contrato largo pueden rozar.
+   * El trazo. Se guarda como archivo en el bucket y no dentro del documento: un PNG en base64 son
+   * decenas de kilobytes que se leerían en cada render de la página, y Firestore tiene un tope de
+   * 1 MB por documento que dos firmas y un contrato largo pueden rozar.
    */
-  const parsedStroke = signatureStrokeSchema.safeParse(
-    typeof (input as { stroke?: unknown })?.stroke === "string" ? (input as { stroke: string }).stroke : "",
-  );
-  if (!parsedStroke.success) {
-    return { ok: false, message: parsedStroke.error.issues[0]?.message ?? "El trazo no es válido." };
-  }
-
   let strokePath = "";
-  const stroke = parsedStroke.data;
   // Sin PDF no hay dónde estampar, así que un trazo sobre una foto no se guarda: sería un archivo
-  // que nada lee, y la firma vale igual porque el código es lo que firma.
+  // que nada lee. Ese es también el único caso en que no se exige.
   if (stroke && canStamp(context.application.contract?.document ?? null)) {
     strokePath = `contracts/${applicationId}/strokes/${context.party}-${Date.now()}.png`;
     try {
@@ -419,8 +419,19 @@ export async function confirmSignature(
         });
     } catch (error) {
       console.error("could not save the stroke:", error instanceof Error ? error.message : error);
-      // Un trazo que no se pudo guardar no invalida la firma: se firma sin dibujo.
       strokePath = "";
+
+      /*
+       * Con el dibujo obligatorio, firmar sin trazo sería prometer un estampado que no está: se
+       * devuelve el fallo y **no se escribe la firma**. El reto sigue en pie — un código correcto
+       * no gasta intentos y no se ha borrado — así que reintentar funciona sin pedir otro código.
+       */
+      if (mustDraw) {
+        return {
+          ok: false,
+          message: "No pudimos guardar tu firma dibujada. Inténtalo de nuevo en un momento.",
+        };
+      }
     }
   }
 

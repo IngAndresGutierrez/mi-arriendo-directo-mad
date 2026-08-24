@@ -15,6 +15,7 @@ import {
   getDoc,
   getDocs,
   limit,
+  orderBy,
   query,
   setDoc,
   updateDoc,
@@ -31,6 +32,7 @@ import {
   PROPERTY_ID,
   APPLICATION_ID,
   NOTIFICATION_ID,
+  INCIDENT_ID,
   LEASE_ID,
   PERIOD_ID,
   seed,
@@ -158,6 +160,41 @@ describe("properties", () => {
     );
   });
 
+  it("the public document CANNOT carry the exact map point", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    const area = { neighborhood: "Palermo", city: "Manizales", department: "Caldas" };
+
+    // A coordinate to five decimals is the address in another alphabet: it belongs in
+    // `private/location`, never here.
+    await assertFails(
+      addDoc(collection(db, "properties"), publishedProperty({
+        area: { ...area, point: { lat: 5.06786, lng: -75.49123 } },
+      })),
+    );
+    // ...and the blunted one is accepted, which is what makes the test above mean something.
+    await assertSucceeds(
+      addDoc(collection(db, "properties"), publishedProperty({
+        area: { ...area, approx: { lat: 5.0675, lng: -75.4925 } },
+      })),
+    );
+  });
+
+  it("rejects a published coordinate that is not a coordinate", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    const area = { neighborhood: "Palermo", city: "Manizales", department: "Caldas" };
+    const withApprox = (approx: unknown) =>
+      addDoc(collection(db, "properties"), publishedProperty({ area: { ...area, approx } }));
+
+    // the pair swapped: Antarctica
+    await assertFails(withApprox({ lat: -75.4925, lng: 5.0675 }));
+    // a zeroed default: the Gulf of Guinea
+    await assertFails(withApprox({ lat: 0, lng: 0 }));
+    // strings that never met the schema
+    await assertFails(withApprox({ lat: "5.0675", lng: "-75.4925" }));
+    // an extra key smuggled in beside them
+    await assertFails(withApprox({ lat: 5.0675, lng: -75.4925, line: "Calle 60 #10-20" }));
+  });
+
   it("rejects a property with no photos", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(addDoc(collection(db, "properties"), publishedProperty({ photos: [] })));
@@ -194,6 +231,15 @@ describe("properties", () => {
     await assertFails(
       setDoc(doc(db, `properties/${PROPERTY_ID}/private/location`), { line: "Otra dirección" }),
     );
+  });
+
+  it("the exact map point is as private as the street it is", async () => {
+    // It lives in the same document, so it inherits the same rule — and this pins that it
+    // stays there, because the temptation is always to move a coordinate somewhere handier.
+    const path = `properties/${PROPERTY_ID}/private/location`;
+    await assertSucceeds(getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), path)));
+    await assertFails(getDoc(doc(actingAs(env, UID_TENANT, "tenant"), path)));
+    await assertFails(getDoc(doc(anonymous(env), path)));
   });
 
   it("rejects an invalid rent (negative or float)", async () => {
@@ -616,6 +662,108 @@ describe("leases", () => {
       );
     });
   });
+
+  describe("its incidents", () => {
+    /*
+     * Un incidente dice dónde vive alguien y qué está roto ahí. Lo leen las dos partes — el
+     * inquilino lo reporta y el propietario es quien tiene que arreglarlo — y nadie más.
+     */
+    it("both parties read an incident; a third party and an anonymous visitor do NOT", async () => {
+      await assertSucceeds(
+        getDoc(
+          doc(actingAs(env, UID_TENANT, "tenant"), `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`),
+        ),
+      );
+      await assertSucceeds(
+        getDoc(
+          doc(
+            actingAs(env, UID_LANDLORD, "landlord"),
+            `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`,
+          ),
+        ),
+      );
+      await assertFails(
+        getDoc(
+          doc(
+            actingAs(env, UID_THIRD_PARTY, "tenant"),
+            `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`,
+          ),
+        ),
+      );
+      await assertFails(
+        getDoc(doc(anonymous(env), `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`)),
+      );
+    });
+
+    it("both parties list the incidents, and a stranger cannot", async () => {
+      await assertSucceeds(
+        getDocs(collection(actingAs(env, UID_TENANT, "tenant"), `leases/${LEASE_ID}/incidents`)),
+      );
+      await assertSucceeds(
+        getDocs(
+          collection(actingAs(env, UID_LANDLORD, "landlord"), `leases/${LEASE_ID}/incidents`),
+        ),
+      );
+      await assertFails(
+        getDocs(
+          collection(actingAs(env, UID_THIRD_PARTY, "tenant"), `leases/${LEASE_ID}/incidents`),
+        ),
+      );
+    });
+
+    /*
+     * El reporte lo escribe la Server Action, como todo lo que hay debajo de una tenencia. Lo que
+     * esto impide en concreto: que el inquilino registre un adjunto que está en la carpeta de otra
+     * persona — o que no existe en el bucket —, y que cualquiera de los dos reescriba o borre lo
+     * que el otro reportó. Nada de eso se puede preguntar desde aquí.
+     */
+    it("neither party writes an incident from the client", async () => {
+      const report = {
+        title: "Se dañó la estufa",
+        description: "No enciende ninguno de los cuatro puestos desde el sábado.",
+        attachments: [],
+        reporterUid: UID_TENANT,
+        reporterName: "Ana Uno Pérez",
+      };
+
+      for (const [uid, role] of [
+        [UID_TENANT, "tenant"],
+        [UID_LANDLORD, "landlord"],
+      ] as const) {
+        const db = actingAs(env, uid, role);
+        await assertFails(
+          setDoc(doc(db, `leases/${LEASE_ID}/incidents/incident-invented`), report),
+        );
+        await assertFails(addDoc(collection(db, `leases/${LEASE_ID}/incidents`), report));
+        await assertFails(
+          updateDoc(doc(db, `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`), {
+            title: "Otra cosa",
+          }),
+        );
+        await assertFails(
+          deleteDoc(doc(db, `leases/${LEASE_ID}/incidents/${INCIDENT_ID}`)),
+        );
+      }
+    });
+
+    /** Como con los meses: una tenencia inventada no presta acceso a lo que se cuelgue de ella. */
+    it("an incident under a tenancy that does not exist is denied", async () => {
+      await assertFails(
+        getDoc(
+          doc(actingAs(env, UID_TENANT, "tenant"), "leases/lease-invented/incidents/whatever"),
+        ),
+      );
+    });
+
+    /** Y la tenencia de otra pareja tampoco: el `get` del padre es lo que decide. */
+    it("a party of one tenancy does not read another tenancy's incidents", async () => {
+      await assertFails(
+        getDocs(
+          collection(actingAs(env, UID_TENANT, "tenant"), "leases/lease-someone-else/incidents"),
+        ),
+      );
+    });
+  });
 });
 
 describe("default closure", () => {
@@ -659,6 +807,27 @@ describe("notifications", () => {
           collection(actingAs(env, UID_TENANT, "tenant"), "notifications"),
           where("recipientUid", "==", UID_TENANT),
           limit(20),
+        ),
+      ),
+    );
+  });
+
+  /*
+   * **La consulta exacta a la que se suscribe la campana**, con su `orderBy` y su `limit(15)`.
+   *
+   * El caso de arriba se quedaba a medias: probaba la forma —filtrada y acotada— pero no la que el
+   * producto usa de verdad. Se añadió después de que un `INTERNAL ASSERTION FAILED` del SDK en el
+   * navegador resultara ser un *listen* rechazado por el servidor en esa suscripción: lo primero que
+   * hubo que averiguar fue si estas reglas la permitían, y no había una prueba que lo dijera.
+   */
+  it("permite exactamente la consulta de la campana", async () => {
+    await assertSucceeds(
+      getDocs(
+        query(
+          collection(actingAs(env, UID_TENANT, "tenant"), "notifications"),
+          where("recipientUid", "==", UID_TENANT),
+          orderBy("createdAt", "desc"),
+          limit(15),
         ),
       ),
     );

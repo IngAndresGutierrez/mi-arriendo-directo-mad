@@ -3,25 +3,34 @@
  * confirma, el propietario escribe la conclusión y solo entonces el proceso avanza.
  */
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fixtures, MONTHS, ok, settled } from "./lib.mjs";
-import { readFileSync } from "node:fs";
-import { createRequire } from "node:module";
-const requireDelProyecto = createRequire("/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/package.json");
-const { cert, initializeApp } = requireDelProyecto("firebase-admin/app");
-const { getFirestore, FieldValue } = requireDelProyecto("firebase-admin/firestore");
+import {
+  adminDb,
+  adminFieldValue,
+  BASE,
+  config,
+  createAccount,
+  fixtures,
+  MONTHS,
+  ok,
+  reactReady,
+  settled,
+} from "./lib.mjs";
+
+/*
+ * `adminDb()` de `lib.mjs`, no un `initializeApp` propio.
+ *
+ * Este driver se inicializaba solo, con la cuenta de servicio **real** leída de `.env.local` y con
+ * rutas absolutas del checkout de quien lo escribió. Con los emuladores apuntados escribía en el
+ * namespace equivocado y moría en `USER_NOT_FOUND` / `5 NOT_FOUND` antes de la primera aserción — y
+ * sin ellos habría escrito en producción, que es lo que el resto de la suite hizo estructuralmente
+ * imposible. Era rojo desde entonces, así que la etapa de la garantía llevaba sin manejarse en un
+ * navegador todo ese tiempo.
+ */
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
 
-const env = Object.fromEntries(
-  readFileSync("/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/.env.local", "utf8")
-    .split("\n").filter((l) => l.includes("=") && !l.startsWith("#"))
-    .map((l) => [l.slice(0, l.indexOf("=")), l.slice(l.indexOf("=") + 1).replace(/^"|"$/g, "")]),
-);
-initializeApp({ credential: cert({
-  projectId: env.FIREBASE_PROJECT_ID, clientEmail: env.FIREBASE_CLIENT_EMAIL,
-  privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-}) });
-const db = getFirestore();
+const db = adminDb();
+const FieldValue = adminFieldValue();
 const problemas = [];
 const b = await chromium.launch();
 
@@ -124,8 +133,8 @@ await db.collection("applications").doc(applicationId).update({
 });
 await dueño.goto(proceso, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-await dueño.waitForFunction(() => document.body.innerText.includes("Paso 5 de 9"), null, { timeout: 20000 });
-ok("el proceso está en la póliza", "paso 5 de 9");
+await dueño.waitForFunction(() => document.body.innerText.includes("Paso 5 de 7"), null, { timeout: 20000 });
+ok("el proceso está en la póliza", "paso 5 de 7");
 
 // Sin póliza no se avanza, y lo dice.
 if ((await dueño.getByRole("button", { name: /Continuar a/i }).first().getAttribute("aria-disabled")) !== "true") {
@@ -135,6 +144,131 @@ if (!(await dueño.evaluate(() => document.body.innerText)).includes("Solicita l
   throw new Error("no dice que falta solicitar la póliza");
 }
 ok("sin póliza el avance está bloqueado y dice por qué");
+
+// ---------- el seguro es opcional: el interruptor ----------
+/*
+ * **La ley no exige póliza**, y la etapa estaba escrita como si sí: un propietario que arrienda a un
+ * familiar no tenía forma de pasar de aquí más que comprar un seguro que no quería. Lo que se maneja
+ * es que apagarlo desbloquea de verdad — no que aparezca un mensaje — y que volver a encenderlo
+ * vuelve a bloquear, que es la mitad que un interruptor de un solo sentido no tendría.
+ */
+await dueño.getByRole("button", { name: /Póliza de arrendamiento/i }).first().click();
+const interruptor = dueño.getByRole("switch", { name: /lleva p[óo]liza de arrendamiento/i });
+await interruptor.waitFor({ state: "visible", timeout: 15000 });
+/*
+ * Y que React ya lo escuche, que es lo que hacía este bloque intermitente: un clic sobre un `Switch`
+ * de Radix antes de la hidratación no cambia nada, y Playwright no lo reintenta porque el elemento ya
+ * era pulsable. Tres corridas seguidas daban 29, 0 y 4 aserciones por esto.
+ */
+await reactReady(dueño, '[data-slot="switch"]');
+if ((await interruptor.getAttribute("aria-checked")) !== "true") {
+  throw new Error("el arriendo no arranca con la póliza pedida por defecto");
+}
+ok("el interruptor arranca encendido: por defecto el arriendo lleva póliza");
+
+await interruptor.click();
+
+/*
+ * La consecuencia, no el rótulo: lo que el producto **escribió**, y sólo entonces la pantalla. Un
+ * `waivedAt` es lo que hace que la etapa deje de bloquear, así que es lo que hay que ver.
+ */
+await dueño.waitForFunction(
+  () => {
+    const boton = [...document.querySelectorAll("button")].find((b) =>
+      /Continuar a/i.test(b.textContent ?? ""),
+    );
+    const alerta = document.querySelector('main [role="alert"]');
+    return (
+      (boton && boton.getAttribute("aria-disabled") !== "true") ||
+      Boolean(alerta?.textContent?.trim())
+    );
+  },
+  null,
+  { timeout: 25000 },
+);
+const alertaSeguro = dueño.locator('main [role="alert"]').first();
+if ((await alertaSeguro.count()) > 0 && (await alertaSeguro.innerText()).trim()) {
+  throw new Error(`el panel respondió con un error: ${(await alertaSeguro.innerText()).trim()}`);
+}
+
+const conRenuncia = (await db.collection("applications").doc(applicationId).get()).data();
+if (!conRenuncia.guarantee?.waivedAt) {
+  throw new Error("apagar el interruptor no dejó constancia de cuándo se decidió");
+}
+ok("apagándolo, el proceso puede avanzar sin póliza", conRenuncia.guarantee.waivedAt);
+
+// Y la consecuencia está dicha, que es la mitad que un interruptor hace fácil saltarse.
+const dicho = await dueño.evaluate(() => document.body.innerText);
+if (!/proh[íi]be pedir dep[óo]sito en efectivo/i.test(dicho)) {
+  throw new Error("no dice que sin póliza no queda ninguna garantía");
+}
+/*
+ * Y el aparato de Sura desaparece: coberturas, cotizador y número de póliza son controles que ya no
+ * hacen nada. Un control que no cambia nada es la misma mentira que un "Continuar" que no continúa.
+ */
+if ((await dueño.getByRole("button", { name: /Ver los datos del cotizador/i }).count()) !== 0) {
+  throw new Error("sin seguro sigue ofreciendo el cotizador de Sura");
+}
+if ((await dueño.locator("#guarantee-policy").count()) !== 0) {
+  throw new Error("sin seguro sigue pidiendo el número de la póliza");
+}
+ok("y deja de ofrecer el cotizador y el número de póliza");
+await dueño
+  .locator("#etapa-guarantee")
+  .screenshot({ path: `${SHOT_DIR}/garantia-sin-seguro.png` })
+  .catch(() => undefined);
+
+// El inquilino lo ve desde su lado, y le avisan.
+await inq.reload({ waitUntil: "domcontentloaded" });
+await settled(inq);
+await inq.getByRole("button", { name: /Póliza de arrendamiento/i }).first().click();
+const suVista = await inq.evaluate(() => document.body.innerText);
+if (!/no tienes que hacer nada/i.test(suVista)) {
+  throw new Error(`al inquilino no le dicen que no tiene que hacer nada: ${suVista.slice(0, 300)}`);
+}
+if (/Ver los datos del cotizador/.test(suVista)) throw new Error("al inquilino le sale el cotizador");
+ok("el inquilino lee que este arriendo va sin póliza, y que no tiene que hacer nada");
+
+const avisos = await db
+  .collection("notifications")
+  .where("applicationId", "==", applicationId)
+  .where("type", "==", "guarantee_waived")
+  .get();
+if (avisos.empty) throw new Error("no le avisaron al inquilino de que no habrá póliza");
+ok("y le llega el aviso");
+
+// ---------- y volver a encenderlo vuelve a bloquear ----------
+await dueño.reload({ waitUntil: "domcontentloaded" });
+await settled(dueño);
+await dueño.getByRole("button", { name: /Póliza de arrendamiento/i }).first().click();
+const deVuelta = dueño.getByRole("switch", { name: /lleva p[óo]liza de arrendamiento/i });
+await deVuelta.waitFor({ state: "visible", timeout: 15000 });
+await reactReady(dueño, '[data-slot="switch"]');
+if ((await deVuelta.getAttribute("aria-checked")) !== "false") {
+  throw new Error("el interruptor no recuerda que quedó apagado");
+}
+await deVuelta.click();
+await dueño.waitForFunction(
+  () => {
+    const boton = [...document.querySelectorAll("button")].find((b) =>
+      /Continuar a/i.test(b.textContent ?? ""),
+    );
+    return boton?.getAttribute("aria-disabled") === "true";
+  },
+  null,
+  { timeout: 25000 },
+);
+const sinRenuncia = (await db.collection("applications").doc(applicationId).get()).data();
+if (sinRenuncia.guarantee?.waivedAt) throw new Error("volver a encenderlo no quitó la renuncia");
+ok("volviéndolo a encender, la etapa vuelve a pedir la póliza");
+
+/*
+ * Se recarga para dejar el panel plegado, que es como empieza siempre, y así el bloque siguiente lo
+ * abre él mismo con un solo clic. Sin esto su clic *cerraba* el panel que este bloque había dejado
+ * abierto, y la aserción sobre las coberturas fallaba por no encontrar un texto que estaba oculto.
+ */
+await dueño.reload({ waitUntil: "domcontentloaded" });
+await settled(dueño);
 
 // ---------- lo que el propietario necesita para cotizar ----------
 await dueño.getByRole("button", { name: /Póliza de arrendamiento/i }).first().click();
@@ -316,6 +450,15 @@ await dueño.waitForFunction(() => {
   return boton && boton.getAttribute("aria-disabled") !== "true";
 }, null, { timeout: 15000 }).catch(() => { throw new Error("con la póliza registrada sigue bloqueado"); });
 ok("con la póliza registrada, el proceso puede avanzar");
+
+/*
+ * Y el interruptor desaparece: ofrecerlo ahora sería ofrecer "des-comprar" un seguro, y lo que de
+ * verdad haría es esconderle al inquilino una póliza de la que ya se le avisó.
+ */
+if ((await dueño.getByRole("switch", { name: /lleva p[óo]liza/i }).count()) !== 0) {
+  throw new Error("con póliza expedida sigue ofreciendo quitar el seguro");
+}
+ok("y con una póliza expedida ya no se puede quitar el seguro");
 
 await inq.reload({ waitUntil: "domcontentloaded" });
 await settled(inq);

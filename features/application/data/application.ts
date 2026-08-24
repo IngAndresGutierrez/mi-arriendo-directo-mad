@@ -4,7 +4,7 @@ import { cache } from "react";
 
 import { adminDb, adminStorage } from "@/shared/firebase/admin";
 
-import type { Application, ApplicationDoc } from "../domain/application";
+import { normalizeStage, type Application, type ApplicationDoc } from "../domain/application";
 import type { ContractDocument, StampedContract } from "../domain/contract";
 import type { PaymentReceipt } from "../domain/payout";
 
@@ -25,10 +25,35 @@ function toApplication(snapshot: Snapshot): Application | null {
 
   const doc = data as unknown as ApplicationDoc;
 
+  /*
+   * The stage a stored value means today, and the completion that goes with it.
+   *
+   * `approved` and `active` are on documents in the database and are no longer stages: the first
+   * became the move to the signature, and the second *was* the tenancy, which is now a timestamp
+   * rather than a step. A process standing on `active` had finished the process, so it reads as
+   * completed here — dated from the history entry that recorded the move, because that is when it
+   * actually happened, and only falling back to `updatedAt` when that entry is missing.
+   */
+  const stage = normalizeStage(doc.stage);
+  const wasActive = (doc.stage as unknown) === "active";
+  const activeAt = wasActive
+    ? (doc.history ?? []).find((event) => (event.stage as unknown) === "active")?.at
+    : undefined;
+
   return {
     ...doc,
     id: snapshot.id,
-    history: (doc.history ?? []).map((event) => ({ ...event, at: iso(event.at) })),
+    stage,
+    completedAt: doc.completedAt
+      ? iso(doc.completedAt)
+      : wasActive
+        ? iso(activeAt ?? doc.updatedAt)
+        : null,
+    history: (doc.history ?? []).map((event) => ({
+      ...event,
+      stage: normalizeStage(event.stage),
+      at: iso(event.at),
+    })),
     // Written by `authorizeBackgroundChecks`, absent on every application made before it existed.
     checksAuthorizedAt: doc.checksAuthorizedAt ? iso(doc.checksAuthorizedAt) : null,
     checkResults: Object.fromEntries(
@@ -51,7 +76,15 @@ function toApplication(snapshot: Snapshot): Application | null {
      * a guarantee recorded before it has no such field and the type would be claiming a string
      * that is `undefined`.
      */
-    guarantee: doc.guarantee ? { ...doc.guarantee, tenantLink: doc.guarantee.tenantLink ?? "" } : null,
+    guarantee: doc.guarantee
+      ? {
+          ...doc.guarantee,
+          tenantLink: doc.guarantee.tenantLink ?? "",
+          // `waivedAt` arrived after the stage shipped too, so every guarantee recorded before the
+          // policy could be declined has no such key — and the type says it is a string or null.
+          waivedAt: doc.guarantee.waivedAt ?? null,
+        }
+      : null,
     /*
      * Written by `uploadContract`, and **normalised here rather than trusted**.
      *

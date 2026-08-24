@@ -110,6 +110,8 @@ export async function applyToProperty(slug: string, formData: FormData): Promise
     message: details.data.message,
     closingNote: "",
     checksAuthorizedAt: null,
+    // Escrito al confirmar el primer canon, que es lo que termina el proceso y abre el arriendo.
+    completedAt: null,
     documentReviews: {},
     checkResults: {},
     history: [{ stage: "submitted", at: now, by: "system" }],

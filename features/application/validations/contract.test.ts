@@ -91,6 +91,27 @@ describe("signatureConfirmSchema", () => {
     expect(signatureConfirmSchema.safeParse({ code: "" }).success).toBe(false);
     expect(signatureConfirmSchema.safeParse({ code: null }).success).toBe(false);
   });
+
+  /*
+   * El trazo viaja con el código, en un solo envío: se firma una vez. Que sea **obligatorio** no se
+   * decide aquí — depende del contrato, y un esquema no lo tiene delante — así que aquí solo se
+   * comprueba que llega, que se valida su forma antes de comparar el código, y que el vacío pasa.
+   */
+  it("carries the stroke in the same submission as the code", () => {
+    const stroke = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
+    const parsed = signatureConfirmSchema.safeParse({ code, stroke });
+    expect(parsed.success && parsed.data.stroke).toBe(stroke);
+  });
+
+  it("refuses a stroke that is not a PNG data URL, before the code is even compared", () => {
+    expect(signatureConfirmSchema.safeParse({ code, stroke: "data:text/html;base64,PHNjcmlwdD4=" }).success).toBe(false);
+    expect(signatureConfirmSchema.safeParse({ code, stroke: "https://ejemplo.test/firma.png" }).success).toBe(false);
+  });
+
+  it("accepts no stroke: whether it is required is the contract's business", () => {
+    expect(signatureConfirmSchema.safeParse({ code }).success).toBe(true);
+    expect(signatureConfirmSchema.safeParse({ code, stroke: "" }).success).toBe(true);
+  });
 });
 
 describe("signatureSpotsSchema", () => {

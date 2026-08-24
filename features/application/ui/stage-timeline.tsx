@@ -7,6 +7,7 @@ import { cn } from "@/shared/lib/utils";
 import { StagePanel } from "./stage-panel";
 
 import {
+  isCompleted,
   isUnbuilt,
   stageDescription,
   stageProgress,
@@ -25,7 +26,7 @@ const STATE_BADGE = {
 } as const;
 
 /**
- * The nine stages, with the process's own place in them.
+ * The seven stages, with the process's own place in them.
  *
  * Every stage is shown, including the ones that have nothing behind them yet: a tenant needs to
  * know what is coming, and a process with holes in it is worse than one that says which parts
@@ -43,9 +44,23 @@ export function StageTimeline({
   application,
   isLandlord,
   work,
+  footer,
 }: {
   readonly application: Application;
   readonly isLandlord: boolean;
+  /**
+   * Whatever takes you out of the stage the process is standing on, at the foot of its card.
+   *
+   * Two things end up here and they are the same role: the button that moves the process on while
+   * there are stages left, and the link to the tenancy once it has reached the last one — where
+   * there is nothing left to advance to and everything happens on another page.
+   *
+   * An **element**, decided by the page: what blocks a stage belongs to another module's rules and
+   * the timeline's job is to lay the stages out, not to work out whether one of them is done. The
+   * page passes `null` when the step is unfinished, because a card that ended in a disabled button
+   * would end in a "no" whose reason is already written at the top of the page.
+   */
+  readonly footer?: ReactNode;
   /**
    * The work of a stage, folded inside its own card.
    *
@@ -55,13 +70,19 @@ export function StageTimeline({
   readonly work?: Partial<Record<Stage, StageWork>>;
 }) {
   const stopped = application.status !== "open";
+  /*
+   * Terminado no es lo mismo que estar en la última etapa: `first_payment` pide el dinero, así que
+   * llegar a ella es tener todo el trabajo por delante. Lo decide `completedAt`, que escribe la
+   * confirmación del canon — la misma que abre el arriendo.
+   */
+  const finished = isCompleted(application);
 
   return (
     <section aria-label="Etapas del proceso" className="space-y-5">
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-semibold text-primary dark:text-foreground">El proceso</h2>
         <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-          {stageProgressLabel(application.stage)}
+          {stageProgressLabel(application)}
         </span>
       </div>
 
@@ -81,9 +102,10 @@ export function StageTimeline({
 
       <ol className="space-y-3">
         {STAGES.map((stage) => {
-          const state = stopped && stageState(stage, application.stage) === "current"
-            ? "pending"
-            : stageState(stage, application.stage);
+          const state =
+            stopped && stageState(stage, application.stage, finished) === "current"
+              ? "pending"
+              : stageState(stage, application.stage, finished);
           const done = state === "done";
           const current = state === "current";
 
@@ -156,6 +178,21 @@ export function StageTimeline({
                   >
                     {work[stage]!.content}
                   </StagePanel>
+                ) : null}
+
+                {/*
+                  Al pie de la etapa donde está el proceso: la pregunta "¿ya terminé este paso?" se
+                  responde al final del paso, y volver a subir nueve tarjetas para pulsar un botón
+                  sobre lo que se acaba de hacer es un recorrido que no dice nada.
+
+                  La condición es `stage === application.stage` y no `current` a propósito: cuando el
+                  proceso termina, su última etapa pasa a leerse "Listo" y deja de haber ninguna "en
+                  curso" — y es justo la tarjeta que tiene que ofrecer el enlace al arriendo.
+                */}
+                {stage === application.stage && footer ? (
+                  <div className="mt-4 flex flex-wrap gap-2 border-t border-border pt-4">
+                    {footer}
+                  </div>
                 ) : null}
 
                 {current && isUnbuilt(stage) && !work?.[stage] ? (

@@ -3,35 +3,17 @@
  * fotografía /contratos desde el lado del propietario y del inquilino.
  */
 import { chromium } from "playwright";
-import { BASE, config, createAccount, settled } from "./lib.mjs";
-import { readFileSync } from "node:fs";
-// firebase-admin vive en el proyecto, playwright aquí: cada uno se resuelve desde su sitio.
-import { createRequire } from "node:module";
-const requireDelProyecto = createRequire(
-  "/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/package.json",
-);
-const { cert, initializeApp } = requireDelProyecto("firebase-admin/app");
-const { getFirestore, FieldValue } = requireDelProyecto("firebase-admin/firestore");
-const { getAuth } = requireDelProyecto("firebase-admin/auth");
+import { adminAuth, adminDb, adminFieldValue, BASE, config, createAccount, settled } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 
-
-const env = Object.fromEntries(
-  readFileSync("/Users/andresgutierrez/Projects/proptech/mi-arriendo-directo/.env.local", "utf8")
-    .split("\n")
-    .filter((line) => line.includes("=") && !line.startsWith("#"))
-    .map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1).replace(/^"|"$/g, "")]),
-);
-
-initializeApp({
-  credential: cert({
-    projectId: env.FIREBASE_PROJECT_ID,
-    clientEmail: env.FIREBASE_CLIENT_EMAIL,
-    privateKey: env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
-  }),
-});
-const db = getFirestore();
+/*
+ * El Admin SDK de `lib.mjs`, no uno propio. Este driver se inicializaba solo con la cuenta de
+ * servicio *real* leída de `.env.local`, así que contra los emuladores escribía en el proyecto
+ * equivocado y moría en la aserción cero con `USER_NOT_FOUND`.
+ */
+const db = adminDb();
+const FieldValue = adminFieldValue();
 
 async function cuenta(email) {
   const r = await createAccount(API_KEY, email);
@@ -53,7 +35,7 @@ for (const [uid, fullName, role, email] of [
     address: { line: "Calle 1 # 2-3", city: "Manizales", department: "Caldas" },
     termsAcceptedAt: new Date().toISOString(), createdAt: FieldValue.serverTimestamp(),
   });
-  await getAuth().setCustomUserClaims(uid, { role });
+  await adminAuth().setCustomUserClaims(uid, { role });
 }
 
 const dossier = {
@@ -85,7 +67,7 @@ for (const [title, slug, rent] of propiedades) {
 const base = {
   landlordUid: dueño, tenantUid: inquilino, tenantName: "Carlos Inquilino Ramírez",
   propertyCity: "Manizales", dossier, desiredMoveIn: "2026-10-01", leaseMonths: 12,
-  message: "", checksAuthorizedAt: null, documentReviews: {}, checkResults: {},
+  message: "", checksAuthorizedAt: null, completedAt: null, documentReviews: {}, checkResults: {},
   history: [], createdAt: FieldValue.serverTimestamp(), updatedAt: FieldValue.serverTimestamp(),
 };
 await db.collection("applications").add({
@@ -99,7 +81,10 @@ await db.collection("applications").add({
 });
 await db.collection("applications").add({
   ...base, propertyId: ids[2], propertySlug: propiedades[2][1], propertyTitle: propiedades[2][0],
-  monthlyCost: 2200000, stage: "active", status: "open", closingNote: "",
+  // Terminado: la última etapa más la marca que escribe la confirmación del canon. `active` dejó de
+  // ser una etapa el día que confirmar el primer canon pasó a cerrar el proceso por sí solo.
+  monthlyCost: 2200000, stage: "first_payment", status: "open", closingNote: "",
+  completedAt: FieldValue.serverTimestamp(),
 });
 
 async function fotografiar(email, nombre) {

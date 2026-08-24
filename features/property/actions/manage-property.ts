@@ -9,7 +9,7 @@ import { MY_PROPERTIES_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { adminDb, adminStorage } from "@/shared/firebase/admin";
 
 import { getOwnedProperty } from "../data/property";
-import { propertySlug } from "../domain/property";
+import { approximateLocation, propertySlug } from "../domain/property";
 import { publishPropertySchema, validateAvailableFrom } from "../validations/property";
 import { parsePropertyForm, photosBelongTo, reserveSlug } from "./form-input";
 
@@ -58,6 +58,7 @@ export async function updateProperty(
   }
 
   const { address, ...listing } = parsed.data;
+  const approx = address.point ? approximateLocation(address.point) : null;
   const base = propertySlug(listing.title, address.city);
   // Only pay for a new reservation when the slug would actually change.
   const slug = base === current.slug || current.slug.startsWith(`${base}-`)
@@ -69,16 +70,25 @@ export async function updateProperty(
   batch.update(propertyRef, {
     ...listing,
     slug,
+    /*
+     * `area` is replaced whole, which is what makes taking the point off the map work: an
+     * `update` with a nested map overwrites the map, so dropping `approx` from the object drops
+     * it from the document. Merging would leave the old coordinate published under an address
+     * that has moved.
+     */
     area: {
       neighborhood: address.neighborhood,
       city: address.city,
       department: address.department,
+      ...(approx ? { approx } : {}),
     },
     updatedAt: FieldValue.serverTimestamp(),
   });
+  // `set`, not `update`: same reason, one level up. A removed point leaves nothing behind.
   batch.set(propertyRef.collection("private").doc("location"), {
     line: address.line,
     registryNumber: address.registryNumber,
+    ...(address.point ? { point: address.point } : {}),
   });
   await batch.commit();
 

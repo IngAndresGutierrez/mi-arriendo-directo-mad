@@ -1,6 +1,6 @@
 import { LoadingScreen, Skeleton } from "@/shared/ui/skeleton";
 
-/** The process page: a heading, the terms of the application, and nine stages. */
+/** The process page: a heading, the terms of the application, and seven stages. */
 export default function Loading() {
   return (
     <LoadingScreen label="Cargando el proceso…">
@@ -13,7 +13,7 @@ export default function Loading() {
         <Skeleton className="mt-6 h-11 w-64 rounded-xl" />
 
         <div className="mt-8 space-y-3">
-          {/* Cinco de las nueve: las que caben antes del pliegue, que es lo que se ve. */}
+          {/* Cinco de las siete: las que caben antes del pliegue, que es lo que se ve. */}
           {[0, 1, 2, 3, 4].map((row) => (
             <Skeleton key={row} className="h-20 w-full rounded-2xl" />
           ))}

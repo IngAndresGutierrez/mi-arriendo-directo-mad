@@ -6,14 +6,19 @@ export {
   canAdvance,
   canClose,
   closedAtLabel,
+  isCompleted,
   isUnbuilt,
   nextStage,
+  normalizeStage,
+  processDescription,
+  processStageLabel,
   stageDescription,
   stageIndex,
   stageProgress,
   stageProgressLabel,
   stageState,
   APPLICATION_STATUS_LABELS,
+  COMPLETED_LABEL,
   STAGES,
   STAGE_DESCRIPTIONS,
   STAGE_DESCRIPTIONS_LANDLORD,
@@ -39,6 +44,7 @@ export { ApplicationForm } from "./ui/application-form";
 export { ApplicationCard } from "./ui/application-card";
 export { RentalsCard } from "./ui/rentals-card";
 export { DossierSummary } from "./ui/dossier-summary";
+export { AdvanceButton } from "./ui/advance-button";
 export { StageActions } from "./ui/stage-actions";
 export { StageTimeline } from "./ui/stage-timeline";
 export { authorizeBackgroundChecks, type AuthorizeResult } from "./actions/authorize-checks";
@@ -83,6 +89,7 @@ export {
   recordGuaranteeRequested,
   saveGuaranteeProgress,
   type GuaranteeActionResult,
+  setGuaranteeRequirement,
 } from "./actions/guarantee";
 export {
   recordReceiptVerdict,
@@ -151,6 +158,7 @@ export {
   type SignatureChannel,
 } from "./domain/contract";
 export {
+  canWaiveGuarantee,
   guaranteeBlocker,
   guaranteeBlockerMessage,
   guaranteeState,

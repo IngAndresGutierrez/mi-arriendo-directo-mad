@@ -98,6 +98,36 @@ describe("payoutSchema", () => {
     }
   });
 
+  /*
+   * El documento del titular **solo donde se transfiere a una cuenta**. A un Nequi, un Daviplata o
+   * una llave Bre-B se paga con el número o la llave, y la app enseña el nombre de quien recibe
+   * antes de confirmar: pedir ahí una cédula era guardar un dato que nadie al otro lado usa.
+   */
+  it("no exige el documento del titular a las billeteras ni a Bre-B", () => {
+    const soloNombre = { holderName: holder.holderName };
+    expect(payoutSchema.safeParse({ method: "nequi", phone: "3001234567", ...soloNombre }).success).toBe(true);
+    expect(payoutSchema.safeParse({ method: "daviplata", phone: "3001234567", ...soloNombre }).success).toBe(true);
+    expect(payoutSchema.safeParse({ method: "breb", key: "@marta2025", ...soloNombre }).success).toBe(true);
+  });
+
+  /* Y si llega igualmente —una pestaña vieja, un cliente cualquiera— no se guarda. */
+  it("y lo descarta si llega de todas formas", () => {
+    const parsed = payoutSchema.safeParse({ method: "nequi", phone: "3001234567", ...holder });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && "holderDocument" in parsed.data).toBe(false);
+  });
+
+  it("sí se lo exige a los bancos, que es donde el banco lo pide", () => {
+    const cuenta = { accountType: "savings", accountNumber: "12345678", holderName: holder.holderName };
+    for (const method of ["bancolombia", "davivienda"] as const) {
+      expect(payoutSchema.safeParse({ method, ...cuenta }).success).toBe(false);
+      expect(payoutSchema.safeParse({ method, ...cuenta, ...holder }).success).toBe(true);
+    }
+    const otro = { method: "other_bank", bankName: "Banco de Occidente", ...cuenta };
+    expect(payoutSchema.safeParse(otro).success).toBe(false);
+    expect(payoutSchema.safeParse({ ...otro, ...holder }).success).toBe(true);
+  });
+
   it("rechaza un método que no ofrecemos", () => {
     expect(payoutSchema.safeParse({ method: "paypal", phone: "3001234567", ...holder }).success).toBe(false);
   });

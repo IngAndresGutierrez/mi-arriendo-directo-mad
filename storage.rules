@@ -32,6 +32,36 @@ service firebase.storage {
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 
+    // incident photos and videos: what the tenant reports going wrong in the property.
+    //
+    // Keyed by uid, like the two blocks above, and here that is forced rather than chosen: Storage
+    // rules cannot read Firestore, so "is this person a party to that tenancy?" is a question they
+    // cannot ask. What they can check is that the path names the uploader. Which tenancy the file
+    // belongs to is recorded in Firestore, where the question *can* be asked, and the landlord —
+    // who by this rule cannot read the object at all — opens it through a URL the server signs.
+    //
+    // Two limits, not one: a video is the point of this feature (a leak that only leaks when the
+    // tap runs is not a still photograph) and 8 MB does not hold one, while a 50 MB *image* is a
+    // mistake nobody makes on purpose. `validSize()` cannot be reused for either.
+    //
+    // Anchored regexes: `matches` is not anchored on its own, so `image/(jpeg|png|webp)` would also
+    // accept a contentType with that substring buried in it.
+    match /incidents/{userId}/{allPaths=**} {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size > 0
+                   && (
+                        (request.resource.contentType.matches('^image/(jpeg|png|webp)$')
+                         && request.resource.size < 8 * 1024 * 1024)
+                     || (request.resource.contentType.matches('^video/(mp4|quicktime|webm)$')
+                         && request.resource.size < 50 * 1024 * 1024)
+                      );
+      // The landlord reads this record: a tenant who could delete the file would leave the report
+      // pointing at nothing. Only the backend removes one, as with the identity documents.
+      allow delete: if false;
+    }
+
     // signed contracts: generated and served by the backend
     match /contracts/{allPaths=**} {
       allow read, write: if false;

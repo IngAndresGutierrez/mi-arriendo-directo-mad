@@ -20,8 +20,12 @@ import { formatCOP } from "@/shared/format/money";
 
 export const metadata: Metadata = {
   title: "Postularme",
-  // A form behind a session: there is nothing here for a crawler to index.
-  robots: { index: false },
+  /*
+   * No `robots` here on purpose: the `(app)` layout says `noindex, nofollow` for the whole group.
+   * This page used to carry `{ index: false }` of its own, and metadata is merged **per field** —
+   * so its own object replaced the layout's whole one and quietly dropped the `nofollow`, which is
+   * how a page meant to be more careful than the rest ended up being less. One place says it now.
+   */
 };
 
 export default async function ApplyPage(props: PageProps<"/postularme/[slug]">) {

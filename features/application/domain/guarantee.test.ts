@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  canWaiveGuarantee,
   guaranteeBlocker,
   guaranteeBlockerMessage,
   guaranteeState,
@@ -9,17 +10,28 @@ import {
   GUARANTEE_MAX_MONTHS,
   GUARANTEE_PLAN,
   GUARANTEE_PROVIDER,
+  GUARANTEE_STATES,
   isProviderLink,
   type Guarantee,
 } from "./guarantee";
 
 const REQUESTED: Guarantee = {
   requestedAt: "2026-09-01T15:00:00.000Z",
+  waivedAt: null,
   activeAt: null,
   policyNumber: "",
   tenantLink: "",
   note: "",
 };
+
+const ACTIVE: Guarantee = {
+  ...REQUESTED,
+  activeAt: "2026-09-03T10:00:00.000Z",
+  policyNumber: "AR-99123",
+};
+
+/** El propietario dijo que este arriendo va sin seguro. */
+const WAIVED: Guarantee = { ...REQUESTED, waivedAt: "2026-09-02T09:00:00.000Z" };
 
 describe("guaranteeState", () => {
   it("is `none` with nothing recorded", () => {
@@ -131,5 +143,76 @@ describe("isProviderLink", () => {
 describe("GUARANTEE_PLAN", () => {
   it("names the tier the panel tells the landlord to pick", () => {
     expect(GUARANTEE_PLAN).toBe("Plus");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// el seguro es opcional
+// ---------------------------------------------------------------------------
+
+describe("waiving the policy", () => {
+  it("is a state of its own, with an empty guarantee still reading `none`", () => {
+    expect(guaranteeState(WAIVED)).toBe("waived");
+    expect(guaranteeState(null)).toBe("none");
+    // Un `waivedAt` es lo único que hace falta: no depende de haberla solicitado antes.
+    expect(guaranteeState({ ...WAIVED, requestedAt: null })).toBe("waived");
+  });
+
+  /*
+   * **Una póliza expedida gana a cualquier renuncia anterior.** Es la línea que impide que un
+   * `waivedAt` viejo esconda un seguro del que ya se avisó al inquilino, y el orden de las cuatro
+   * comprobaciones de `guaranteeState` es toda la regla: invertir las dos primeras hace pasar este
+   * caso a "waived" y el arriendo aparecería sin garantía teniendo una.
+   */
+  it("never outranks a policy that exists", () => {
+    expect(guaranteeState({ ...ACTIVE, waivedAt: "2026-09-02T09:00:00.000Z" })).toBe("active");
+  });
+
+  /** Pero sí gana a una solicitud: pedirla y luego decidir que no es una secuencia normal. */
+  it("outranks a request that was never issued", () => {
+    expect(guaranteeState({ ...REQUESTED, waivedAt: "2026-09-02T09:00:00.000Z" })).toBe("waived");
+  });
+
+  /*
+   * Lo que la función existe para permitir: que la etapa deje de bloquear. Sin esto el propietario
+   * que arrienda a un familiar no tenía forma de pasar de aquí más que comprar un seguro que no
+   * quería.
+   */
+  it("stops blocking the stage", () => {
+    expect(guaranteeBlocker(WAIVED)).toBeNull();
+    expect(guaranteeBlocker(null)).toBe("not_requested");
+    expect(guaranteeBlocker(REQUESTED)).toBe("not_issued");
+  });
+
+  it("blocks on the unanswered question and never on the answer", () => {
+    // Los dos estados que son decisiones dejan pasar; los dos que son preguntas sin responder, no.
+    const blocking = GUARANTEE_STATES.filter((state) =>
+      Boolean(
+        guaranteeBlocker(
+          state === "waived"
+            ? WAIVED
+            : state === "active"
+              ? ACTIVE
+              : state === "requested"
+                ? REQUESTED
+                : null,
+        ),
+      ),
+    );
+    expect(blocking).toEqual(["none", "requested"]);
+  });
+
+  it("can be turned off until a policy exists, and not after", () => {
+    expect(canWaiveGuarantee(null)).toBe(true);
+    expect(canWaiveGuarantee(REQUESTED)).toBe(true);
+    expect(canWaiveGuarantee(WAIVED)).toBe(true);
+    expect(canWaiveGuarantee(ACTIVE)).toBe(false);
+  });
+
+  /** Y la frase que ofrece la salida está en el mensaje del bloqueo, o nadie la encuentra. */
+  it("is offered in the message that says why the stage is stuck", () => {
+    expect(guaranteeBlockerMessage("not_requested", true)).toMatch(/sin p[óo]liza/i);
+    // Al inquilino no se le ofrece: la decisión no es suya.
+    expect(guaranteeBlockerMessage("not_requested", false)).not.toMatch(/marca/i);
   });
 });

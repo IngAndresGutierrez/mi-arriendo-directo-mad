@@ -1,5 +1,5 @@
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
+import { advanceButton, BASE, config, createAccount, fixtures, ok, settled } from "./lib.mjs";
 import { openSession as libOpenSession } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2, pdf: PDF } = fixtures();
@@ -73,9 +73,9 @@ ok("postulación creada");
 // El propietario avanza a la etapa 2.
 await owner.goto(processUrl, { waitUntil: "domcontentloaded" });
 await settled(owner);
-await owner.getByRole("button", { name: /Continuar a/ }).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 9"), null, { timeout: 20000 });
-ok("el proceso tiene 9 etapas y llegó a la 2");
+await advanceButton(owner).click();
+await owner.waitForFunction(() => document.body.innerText.includes("Paso 2 de 7"), null, { timeout: 20000 });
+ok("el proceso tiene 7 etapas y llegó a la 2");
 
 // ---------- la sección vive dentro de la etapa 2, como acordeón ----------
 await tenant.goto(processUrl, { waitUntil: "domcontentloaded" });
@@ -156,7 +156,7 @@ await tenant.screenshot({ path: `${SHOT_DIR}/documentos-inquilino.png`, fullPage
 await owner.reload({ waitUntil: "domcontentloaded" });
 await settled(owner);
 await suAcordeonAbrir(owner);
-const continuar = owner.getByRole("button", { name: /Continuar a/ });
+const continuar = advanceButton(owner);
 if (await continuar.getAttribute("aria-disabled") !== "true") throw new Error("el botón está activo sin revisar nada");
 const motivo = await owner.locator("p", { hasText: /por revisar/ }).first().innerText();
 if (!/5 documentos por revisar/.test(motivo)) throw new Error("no dice cuántos faltan: " + motivo);
@@ -297,8 +297,8 @@ await owner.waitForFunction(() => {
 ok("con todo aprobado, el botón se activa");
 await owner.screenshot({ path: `${SHOT_DIR}/aprobado.png`, fullPage: true });
 
-await owner.getByRole("button", { name: /Continuar a/ }).click();
-await owner.waitForFunction(() => document.body.innerText.includes("Paso 3 de 9"), null, { timeout: 20000 });
+await advanceButton(owner).click();
+await owner.waitForFunction(() => document.body.innerText.includes("Paso 3 de 7"), null, { timeout: 20000 });
 ok("y el proceso avanza a la validación de expedientes");
 
 // Al pasar de un paso a otro, todos los acordeones quedan plegados — sin recargar.
@@ -367,7 +367,7 @@ if (fuentes !== 4) throw new Error(`se ven ${fuentes} consultas, no 4`);
 ok("las cuatro consultas están, cada una con su enlace");
 
 // Sin registrar nada, el proceso no avanza.
-const seguir = owner.getByRole("button", { name: /Continuar a/ });
+const seguir = advanceButton(owner);
 if (await seguir.getAttribute("aria-disabled") !== "true") throw new Error("avanza sin haber consultado nada");
 const razon = await owner.locator("p", { hasText: /por registrar/ }).first().innerText();
 if (!/4 consultas por registrar/.test(razon)) throw new Error("no dice cuántas faltan: " + razon);

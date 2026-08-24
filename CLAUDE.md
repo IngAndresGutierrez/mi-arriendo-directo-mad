@@ -113,13 +113,13 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/mis-inmuebles` | `MY_PROPERTIES_ROUTE` | The landlord's own listings: edit, copy link, delete. |
 | `/postularme/<slug>` | `applyToPropertyRoute(slug)` | Where a tenant applies. Needs a complete profile; redirects to the process if one is already open. |
 | `/contratos` | `CONTRACTS_ROUTE` | Every process the user is part of, on either side: the open ones with their stage rail, the closed ones with why they closed. **It is called "Contratos" because that is what it produces** — everything up to the first canon is the negotiation that *ends* in a signed contract, and the tenancy that runs afterwards is a different thing with a different lifetime. **`/contrato` and `/contrato/<id>` redirect here permanently** (301 in `next.config.ts`): every email already sent points at the old path, and the browser keeps the `#etapa-…` fragment across the redirect. |
-| `/contratos/<id>` | `applicationRoute(id)` | One process: its nine stages. A non-party gets 404, the same answer as a process that does not exist. |
+| `/contratos/<id>` | `applicationRoute(id)` | One process: its seven stages. A non-party gets 404, the same answer as a process that does not exist. |
 | `/arriendos` | `RENTALS_ROUTE` | The tenancies in course, on either side. This is the **other half of the product**: `/contratos` is the negotiation that ends in a signed contract, and this is the year that follows it. The question it answers is not "¿vamos a hacer esto?" but "¿está pagado este mes?". The forward that used to live here was a **307 written in the page and never a 301 nor a rule in `next.config.ts`**, precisely so this page could replace it — a permanent redirect would have been cached against it, and a `next.config.ts` rule resolves before routing and would shadow the route. |
-| `/arriendos/<id>` | `rentalRoute(id)` | One tenancy: the term, where the canon goes, and every month of it. **The id is the application's**: one process produces one tenancy, so `/contratos/<id>` and `/arriendos/<id>` are two halves of one story under one key. A non-party — or an id whose process has not reached `active` yet — is **forwarded to `/contratos/<id>`**, which is both the privacy answer and what keeps every notification sent before the rename working: they all point at `/arriendos/<id>#etapa-…`. |
+| `/arriendos/<id>` | `rentalRoute(id)` | One tenancy: the term, where the canon goes, every month of it, and the incidents the tenant has reported. **The id is the application's**: one process produces one tenancy, so `/contratos/<id>` and `/arriendos/<id>` are two halves of one story under one key. A non-party — or an id whose process has not finished yet, so no tenancy was opened — is **forwarded to `/contratos/<id>`**, which is both the privacy answer and what keeps every notification sent before the rename working: they all point at `/arriendos/<id>#etapa-…`. |
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
 | `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
-| `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
+| `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. **The map lives here**: a circle over the zone, never a pin — see "The map" below. |
 | `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
 
 - `POST /api/session` exchanges the idToken for an httpOnly session cookie (and requires a
@@ -164,6 +164,110 @@ a filter you forget you applied. `h-svh` alone was not enough: the document stil
 header out of view by its own height. Below `lg` the page scrolls as a page, because an inner
 scroller on a phone fights the address bar and pull-to-refresh, and there the facets are behind a
 button anyway. `CATALOG_PAGE_SIZE` is **6**.
+
+## SEO, and the half of the product that deliberately has none
+
+**Two halves, opposite answers.** The catalog and a property's detail exist to be found and shared;
+the management portal is the private workspace of two named people and carries no SEO at all. Every
+decision below follows from that split.
+
+**The words a listing is described with are the domain's, not the page's**
+(`features/property/domain/seo.ts`, pure and unit-tested). The same sentence has to come out of
+three places that never see each other — the `<title>`, the Open Graph card a paste produces, and
+the JSON-LD — and three copies is three chances to describe it differently, with the one people
+notice being the WhatsApp preview.
+
+- **The landlord's own headline is not used.** They write "HERMOSO APTO REMODELADO 😍", which is
+  neither specific nor comparable with the other five links in a group chat. `propertyMetaTitle`
+  produces the fact sheet — *Apartamento en arriendo en Palermo, Manizales · $ 1.400.000* — and the
+  page's `<h1>` stays theirs. Same for the description: what a preview needs is the fact sheet in an
+  identical shape across every listing, not the first 160 characters of a greeting.
+- **The price is the total**, `rent + adminFee`. Publishing the rent alone is the surprise at the end.
+- **Too long degrades in steps, it does not get chopped.** The price goes first, then the
+  neighbourhood; **the city never goes**, because "dónde" is the question before "cuánto". Clamping
+  the whole string instead produced *"Apartamento en arriendo en Ciudadela del Norte La Enea…"*, a
+  title that no longer says which city — caught by its own test rather than in production.
+
+**Neither the street nor any coordinate goes into structured data, and there is no `geo` block at
+all.** This is the same rule as the map, one layer earlier and in the place nobody reviews: a
+`<script>` is not read when looking at a page. Even the blunted `area.approx` stays out — publishing
+it would invite a search engine to draw the pin this product deliberately does not draw.
+`seo.test.ts` asserts the absence over the serialised tree and `tests/e2e/seo.mjs` asserts it again
+over the HTML a stranger receives.
+
+**What is on each public page:**
+
+| | |
+| --- | --- |
+| Detail | `RealEstateListing` whose `about` is an `Accommodation` (an `Offer` hung off the listing says *the web page* costs $1.400.000), `businessFunction: LeaseOut` and `unitCode: MON` so the canon does not read as a sale price, plus a `BreadcrumbList` mirroring the two links the page actually offers. No `aggregateRating`, no `priceValidUntil`: marking up things that do not exist is the one structured-data mistake that earns a manual action. |
+| Catalog | `CollectionPage` + `ItemList` of **the items on the page being rendered**, with positions counted from where the page starts — an `ItemList` claiming 1..6 on page four tells a search engine that four URLs are the same six results. |
+
+**Only the city is canonical, and there is deliberately no `noindex` on the other facets.** A
+`noindex` beside a canonical pointing elsewhere is two contradictory instructions, and Google's
+documented answer to the pair is to trust neither. The canonical alone is the whole instruction;
+discovery of what is behind page four is the sitemap's job.
+
+**`app/robots.ts` and `app/sitemap.ts`.** The sitemap is `force-dynamic` on purpose: prerendered it
+would freeze the catalogue as it looked on deploy day, and freeze it *empty* — on Vercel the service
+account never reaches the build step, so a build-time read has no credentials. It never throws, like
+`listNotifications`, and `lastModified` is each listing's own `updatedAt` rather than "now", because
+a sitemap where everything changed today is a sitemap whose dates get ignored.
+
+**The portal is `noindex, nofollow` from one line in `app/(app)/layout.tsx`**, and `(auth)` has the
+same — with `/` overriding it back to `index: true`, because a route group does not change the URL
+and that file is also the site root. Two pages used to carry `robots: { index: false }` of their own:
+metadata merges **per field**, so their object replaced the layout's whole one and silently dropped
+the `nofollow`. The `Disallow` list in `robots.txt` is about crawl budget rather than secrecy —
+every one of those pages redirects to the login without a session — and the two controls fail in
+different directions, which is why both are there.
+
+**The shared card is generated, not the first photo.** `app/(public)/inmuebles/[slug]/opengraph-image.tsx`
+draws a fixed 1200×630: the photo on the left, and on a brand panel the price, the neighbourhood and
+the rooms. A raw photo is cropped to 1.91:1 by every client, so a portrait shot of a kitchen
+previewed as a cupboard — and the two things anybody decides on were not on the card at all. Four
+things about it:
+
+- **No photo is a different composition, not the same one with a hole**: the fact sheet across the
+  full width, set larger. Half a card of flat purple reads as an image that failed to load.
+- **The photo is fetched here and embedded**, with a timeout and a size cap, so a failure is a value
+  this code can see. Handed to satori as a remote `<img src>`, a 404 throws from inside the layout
+  pass and takes the whole card with it — turning a missing picture into a missing preview.
+- **A slug that no longer resolves still gets a card** ("este anuncio ya no está disponible"), never
+  a 500 that leaves the link previewing as broken.
+- **`revalidate = 3600`.** The route is cached per slug after the first request, and the price is the
+  largest thing on it. Revalidating on the write would be exact and is not available: the path
+  carries a build hash `updateProperty` cannot construct.
+
+`shared/brand/og.ts` holds the three brand hex values, and it is the one place in this product where
+a literal colour is correct: satori lays out inline styles into a PNG with no stylesheet and no
+`var(--primary)` to resolve. If a token in `globals.css` changes, that file changes with it.
+
+**`metadataOrigin()` (`shared/lib/site-url.ts`) is not `resolveSiteUrl()`.** A link in an email must
+point where the person actually is, so it reads the request; a canonical tag must name the *one*
+address a page is published at, and "wherever this request came from" is exactly what a canonical
+exists to stop — a preview deployment declaring itself the canonical home of every listing is how a
+catalogue gets deindexed. It uses `||` and not `??`: an env var that exists and is empty is a string,
+and `new URL("")` throws from inside the root layout, which is every page.
+
+**Inside the catalog, the logo is the way back to the catalog.** Everything in the `(public)` route
+group *is* the catalog — the list and one property's detail — so `app/(public)/layout.tsx` renders
+`PublicChrome` with `homeHref={PROPERTIES_ROUTE}`; `/soporte` renders the same header from outside
+that group and keeps the default, `/`, because from there "el inicio" really is the way in. A prop
+and not `usePathname()`: the answer is a fact about the route, known at build time, and reading it at
+runtime would make a Client Component out of the whole header. Sending somebody browsing listings to
+`/` dropped them on a login screen — a dead end for a visitor, and a way out of what they were
+looking at for anyone already signed in.
+
+**And the detail page carries a "Volver a los inmuebles" arrow**, top left, the same shape the
+process page uses. A real link and not `history.back()`: this page is also reached from a URL pasted
+into WhatsApp, where there is nothing to go back to. What it does not carry across is the filters — the
+catalog keeps its whole state in the URL and this link does not — so the browser's own back gesture
+is still the one that returns the search exactly as it was.
+
+**One `outline` button per card, not one `accent`.** A page of the catalog is six cards, and six cyan
+buttons are six calls to action competing with each other, which is none. What should draw the eye in
+a card is the price; "Ver inmueble" is the shortcut, and the card's own title already leads to the
+same page.
 
 **The catalog filters, counts, sorts and paginates in memory**, over one query capped by
 `CATALOG_MAX_SCAN`. That is deliberate: faceted search needs a count per option computed against
@@ -274,6 +378,70 @@ risk of leaving a field unconnected.
 | `shared/ui/nav-item.tsx` | `NavItem`: a menu entry. Without `href` it renders disabled with a "Pronto" badge. `activeOn` marks the section on routes that do not hang off its path; `shortLabel` is what the narrow rail shows instead of a name too long to sit under an icon. |
 | `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: wraps mocked-up UI whose function does not exist yet. |
 
+## The map, and the one rule that shapes it
+
+A landlord can place the property on a map when they publish it, and the public detail page draws
+it. **The exact point is stored where the street is stored, and only a blunted one is published** —
+`features/property/domain/property.ts`.
+
+That is the whole design, and it follows from one fact: a coordinate to five decimals *is* the
+address. Paste it into any map and the street name comes back. So the split that already exists
+between `properties/{id}` and `properties/{id}/private/location` had to hold for the coordinate too,
+or the map would have undone it one field at a time.
+
+| Where | What | Who reads it |
+| --- | --- | --- |
+| `properties/{id}/private/location.point` | the exact point, as placed | the owner, an admin |
+| `properties/{id}.area.approx` | that point snapped to a **0.005° grid** — a cell of ~550 m | everybody |
+
+`approximateLocation()` does the snapping and it **snaps, never jitters**. Random noise looks safer
+and is worse: it changes on every render, so anyone who loads the page a few times averages it away
+and recovers the real point. A deterministic snap gives up the same information every time, and that
+is the guarantee — the reader learns the cell and nothing inside it.
+
+The public map draws a **circle of `APPROX_RADIUS_M` = 400 m and never a pin**, and that number is
+proven rather than chosen: the worst case is a point in the corner of its cell, half a diagonal from
+the centre (~394 m), and `property.test.ts` asserts it across seven points from Leticia to San
+Andrés. Weaken `LOCATION_GRID` and that test fails before a tenant is shown a circle their rental is
+not in. The owner — and only the owner — also sees their own point inside the circle, for the same
+reason the street is on that page for them alone.
+
+Four more things worth keeping:
+
+- **It is optional, and it stays optional.** Requiring it would lock every listing published before
+  the map out of its own edit form (publishing and editing are the same form), and would shut out a
+  landlord whose street OpenStreetMap has not drawn — which in rural Colombia is most of them. A
+  listing with no point renders its location in words, exactly as before, and the map is added to
+  that section rather than replacing it.
+- **The picker is a crosshair over a map that moves, not a pin that drags.** A draggable marker
+  cannot be operated with a keyboard at all, and this is the one screen where that would mean not
+  being able to publish; a map pans with the arrow keys and zooms with `+`/`−` for free, so the
+  accessible path *is* the control instead of an escape hatch beside it. It reports on `moveend`, so
+  what is under the crosshair is what is stored — and **nothing is reported below zoom 14**
+  (`MIN_PICK_ZOOM`), because a pan at country zoom is a department, not a location. Without that
+  guard a landlord who idly dragged the map acquired a point a hundred kilometres from their house.
+- **"Centrar en el barrio" asks a geocoder only what the listing already publishes** — barrio, city,
+  department. Not the street: sending it to Nominatim to be logged would give away, through the back
+  door, exactly what `private/location` exists to keep. It is Server-Action-gated (an unauthenticated
+  keyless geocoder proxy is an open proxy, and the abuse arrives under this product's name) and
+  answering nothing is the **expected** case, not an error — OSM's coverage of small Colombian towns
+  is thin, and the point can always be placed by hand.
+- **Tiles come from OpenStreetMap's own servers, which is a decision with an expiry date.**
+  `shared/map/tiles.ts` is one constant and one attribution string for that reason: OSMF's policy is
+  written for light use by small sites and a public catalogue that takes off is neither. When traffic
+  arrives the change is a keyed provider in `TILE_URL`; what must not happen is that decision being
+  made silently by growth. Driver runs never touch those servers — `stubTiles` in
+  `tests/e2e/lib.mjs`, the same lesson as the empty `RESEND_API_KEY`.
+
+Leaflet is **148 KB in its own chunk**, behind `next/dynamic` with no SSR (it reads `window` on
+import) and referenced by no page entry in the build manifest: only the publish form and a property's
+detail page ever download it. Both boundaries are a thin `"use client"` wrapper, because `ssr: false`
+is not allowed inside a Server Component.
+
+`tests/e2e/map.mjs` makes the assertion nothing else can: that the HTML a stranger receives contains
+neither coordinate, anywhere — not in the map, not in a `data-` attribute, not in the RSC payload at
+the end of the document. It was verified by leaking the point on purpose and watching it go red.
+
 ## Where someone lives
 The **city depends on its department**, in the profile as in the property form: two selects, the
 second offering the municipalities of the first (`shared/geo/municipalities.ts` — the 1.122 from
@@ -294,10 +462,40 @@ through: a pair that does not exist.
 
 ## The rental process (`features/application`)
 
-Nine stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
+Seven stages, in `domain/application.ts`, and the landlord moves it **one stage at a time** —
 nothing advances by itself, because each of these is a decision someone makes off the platform
-and then records here. `submitted → tenant_data → background_check → interview → guarantee → approved →
-contract_signature → first_payment → active`.
+and then records here. `submitted → tenant_data → background_check → interview → guarantee →
+contract_signature → first_payment`.
+
+**Except the end, which is the one deliberate exception**: confirming the first canon *is* the
+decision, so it ends the process and opens the tenancy in the same movement. There is no eighth
+stage to advance to.
+
+**Two stages were removed, and both for the same reason: they recorded nothing.** `approved`
+("Postulación aprobada") sat between the policy and the signature — but deciding to go to the
+signature *is* approving, so it was one decision written down twice. The notification survived it:
+`application_approved` is now sent on landing on `contract_signature`, because "tu postulación fue
+aprobada" is the sentence the tenant was waiting for and "avanzaste a Firma del contrato" is not.
+And `active` ("Arriendo en curso") was never a stage at all — it was the tenancy, listed among the
+steps of the negotiation that produces it, and until somebody pressed a button to reach it the
+tenant had paid, the landlord had confirmed, and the page with the months on it did not exist.
+
+**What says the process finished is `completedAt`, a timestamp on the application** — like
+`waivedAt`, `checksAuthorizedAt` and `acceptedClauseAt`, and for the same reason: *when* it ended is
+part of the record both parties read, and a bare flag answers "no" identically whether it ended
+yesterday or is still on stage three. `isCompleted()` is the one question, read from the one field;
+it used to be `stage === "active"`, which meant every screen that needed to know had to know the
+name of the last stage. The **status stays `open`**: an application whose tenancy is running has not
+been rejected or withdrawn, and it is still the document both parties come back to for the contract
+they signed. `stageState` and `stageProgressLabel` take the completion rather than deriving it from
+the position — the last stage is the one that asks for the money, so "last" and "finished" stopped
+being the same thing the day `active` went.
+
+**`approved` and `active` are still written on documents in the database**, so `normalizeStage()`
+maps them (to `contract_signature` and `first_payment`) and the converter in `data/application.ts`
+marks a stored `active` as completed, dated from its own history entry. A stage the code no longer
+knows lands as `stageIndex() === -1`, which reads as "before the first step" in every comparison —
+no migration to run, and the old links and old notifications keep meaning what they meant.
 
 There is no separate "revisión de documentos" stage: reviewing them **is** stage two, where each
 one is approved or rejected. A stage repeating what the previous one settled is a stage everybody
@@ -363,7 +561,7 @@ credentials the message is logged and the other two channels still go out - the 
 Resend without a key.
 
 **A phone on `notify()` is what says "this one also goes over WhatsApp".** Every other movement of
-a process is news, and news belongs in the bell and the inbox: a phone that buzzes for each of nine
+a process is news, and news belongs in the bell and the inbox: a phone that buzzes for each of seven
 stages is a phone somebody mutes, and then the reminder arrives muted too.
 
 Times are stored as instants and shown in Colombian time. The form's two fields are read as
@@ -393,6 +591,25 @@ will not pay rent, and that decision is the landlord's. What blocks is not havin
 finding *is* notified, with its note; a clean result is not — four "no encontré nada" would make
 the bell useless on the day it matters.
 
+**The advance button is in two places, and it is one control.** `AdvanceButton` renders at the top,
+beside "Rechazar postulación", and again at the **foot of the stage being worked on** — the question
+"am I done with this step?" is answered at the end of the step, and scrolling back up past seven cards
+to press a button about what you just finished is a scroll that means nothing. Two rules keep the
+pair honest. The one at the top is **always** there and, when the stage is blocked, stays visible
+with the reason: that is where somebody goes to find out what is missing. The one at the foot renders
+**only when the step is done** — a card that ended in a disabled button would end in a "no" whose
+reason is already written above it — and the page decides that from the *same* `blockedBecause` it
+hands the top one, computed once, because two buttons that disagreed about whether the step is
+finished is exactly the incoherence a second button invites. This is also the one place where two
+`accent` buttons are legitimately on screen at once: they are not two calls to action competing for a
+decision, they are the same one within reach twice.
+
+Its stable handle is `data-slot="stage-actions"` on the top row, and a stage's card is
+`#etapa-<stage>`. A driver that matches `Continuar a` without scoping to one of them now finds two
+buttons and fails on ambiguity — which is how four drivers broke at once the day the second one
+landed. `advanceButton(page)` in `tests/e2e/lib.mjs` is the top one; `.first()` is a guess about
+document order, not a statement about which button you mean.
+
 **A finished stage keeps its panel**, folded shut and without its buttons. Looking up what was
 uploaded three stages ago is a normal thing to want, and a process that hides what was agreed the
 moment it moves on is a record nobody can audit. The buttons go because a control that no longer
@@ -401,7 +618,7 @@ panel, decided by the page, which is the only place that knows which stage the p
 
 **Every panel starts folded, and a change of stage folds them all.** The header carries the
 state — "5 de 5 subidos", "2 de 4 consultadas" — so what a click reveals is the controls, not the
-news; nine stages each unfolding on their own would be a page nobody can see the shape of.
+news; seven stages each unfolding on their own would be a page nobody can see the shape of.
 `resetOn` carries the current stage, so moving forward leaves the timeline collapsed instead of
 growing a section at a time.
 
@@ -448,9 +665,59 @@ requested policy is a wait, and signing a contract on a study the insurer may st
 the landlord with nothing behind it. `requested` exists as its own state anyway, because Sura's
 study takes days and both sides need somewhere to look during them.
 
+**But the policy itself is optional, and the stage used to be written as if it were not.** Nothing
+in Colombian law requires rental insurance, so a landlord renting to a relative — or to a tenant of
+six years — had no way past this stage but to buy something they did not want. There is a **switch**
+at the top of the panel, landlord-only: *"Este arriendo lleva póliza de arrendamiento"*. Off, the
+state is `waived` and `guaranteeBlocker` answers `null`, so the process advances with no policy at
+all. Five things about it:
+
+- **The consequence is stated beside the switch, not in a tooltip.** Ley 820 forbids a cash deposit,
+  so with the policy declined there is *nothing* behind the lease — the policy is not one guarantee
+  among several. `GUARANTEE_WAIVED_NOTE` says it, in brand purple rather than red: this product says
+  "this matters" without saying "this is wrong", because the decision is legitimately theirs.
+- **`waivedAt` is a timestamp, not a `required: boolean`** — like `requestedAt`, `activeAt`,
+  `checksAuthorizedAt` and `acceptedClauseAt`. *When* it was decided is part of the record both
+  parties read, and a bare boolean answers "no" identically whether it was decided today or never
+  asked at all.
+- **An issued policy outranks a waiver**, and the order of the four checks in `guaranteeState` is the
+  whole rule: swapping the first two makes a lease with a policy read as having none. A waiver *does*
+  outrank a mere request, because applying and then thinking better of it is ordinary. And
+  `canWaiveGuarantee` removes the switch once a policy exists — offering it then would be offering to
+  un-buy a policy the tenant has already been told about.
+- **The three older write paths disagree about the waiver on purpose.**
+  `recordGuaranteeRequested` and `recordGuaranteePolicy` clear it (asking for a policy *is* wanting
+  one); `saveGuaranteeProgress` **preserves** it, because that one is an autosave — a landlord who
+  declined the policy and then fixes a word in the note is not asking for it, and clearing it there
+  would flip the switch back while they typed, with nothing on screen to explain it.
+- **Only waiving notifies** (`guarantee_waived`). Turning the requirement back on asks the tenant for
+  nothing; applying for the policy is what notifies, as it already did. A switch that rang the bell in
+  both directions would ring it twice for a landlord making up their mind, and the second message
+  would contradict the first. `waivedAt` is preserved when already set, so re-pressing the same side
+  does not re-notify — the same "notify on transitions, not on saves" rule this stage already follows.
+
+With no policy the panel **stops rendering the Sura apparatus** — coverages, quoter sheet, link field
+and policy number are all controls that no longer do anything. The record of the decision is what
+stays, and it renders for whoever does *not* have the switch (the tenant, and the landlord once the
+stage is past): with the switch in front of you it repeated its own warning word for word, two
+paragraphs saying the same thing.
+
 The tenant reads the same coverages and the same state, and is told that Sura may write to them to
 complete the study: it is their default the policy insures and their inbox it reaches, so learning
-about it from a phone call would mean finding out last about something that is about them.
+about it from a phone call would mean finding out last about something that is about them. When the
+landlord has declined it they are told the opposite, plainly — nobody will study their profile and
+Sura will not write — because that is exactly the expectation the other notification set.
+
+**`shared/ui/switch.tsx` is hand-written over the Radix primitive**, like `tabs.tsx`, so
+`shadcn add` cannot rewrite `button.tsx` on the way past. Its checked colour is `--brand-panel` and
+never `--primary`: in dark mode `--primary` *is* the cyan.
+
+**`tests/e2e/guarantee.mjs` was red for a long time and nobody knew what it was hiding.** It
+self-initialised the Admin SDK with the *real* service account read from `.env.local`, at an absolute
+path, so against the emulators it died before its first assertion — which means the whole guarantee
+stage had gone unverified in a browser for as long as that was true. Swapping it to `adminDb()` /
+`adminFieldValue()` from `lib.mjs` was the entire fix, and it is green at 29 assertions now. Two of
+the other three drivers in that group (`interview`, `rentals-layout`, `reminders`) still have it.
 
 **There is no deposit stage, and there must never be one.** Ley 820 de 2003 forbids cash
 deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
@@ -506,10 +773,20 @@ cost, its deliverability in Colombia is worse than WhatsApp's, and an SMS one-ti
 SIM swap is the standard attack against exactly this. It would trade an administrative gate for a
 frailer channel with an invoice.
 
-**The signature is also drawn, and stamped where the landlord said.** On top of the code, each
-party can draw with the mouse or a finger, and the stroke is stamped onto the page at the box the
-landlord marked while looking at the rendered PDF. Three things make that work without breaking
-anything the code established:
+**The signature is also drawn, and both parties have to draw it.** On top of the code, each party
+draws with the mouse or a finger, and the stroke is stamped onto the page at the box the landlord
+marked while looking at the rendered PDF. It is **required of both**, tenant included: what signs is
+still the code, and the drawing is what makes the PDF they keep read as a signed contract instead of
+a document they have to explain. `strokeRequired(contract, party)` is the rule — true exactly when
+the stroke has somewhere to go, a PDF with a box marked for that party — and `confirmSignature`
+enforces it, so a client that posts a code with no stroke is refused before the code is even
+compared. **The pad is visible from the first step**, beside the clause and the "mándame el código"
+button, and not inside the step that asks for the code: it lived there while it was optional, which
+meant somebody opening the stage saw no canvas anywhere and the mandatory half of the errand was
+hidden behind the next click — reported, exactly, as "no veo la opción para dibujar la firma". One
+instance, not one per step: two canvases would share the same `stroke` and the second would come up
+blank with the sign button already enabled. Four things make that work without breaking anything the
+code established:
 
 - **Coordinates are normalised 0..1**, never pixels. The landlord marks on a preview rendered at
   whatever width their screen gave it; the stamping happens server-side against the real page box.
@@ -518,10 +795,23 @@ anything the code established:
 - **The stamped PDF is derived and carries its own hash.** Stamping changes the bytes, so hashing it
   as "the signed document" would invalidate the very signatures it displays. The original's hash
   stays the anchor.
-- **Drawing is never the gate.** A canvas cannot be operated with a keyboard, and that is not fixed
-  by trying harder — so the stroke is optional and the code is what signs. Signing without drawing
-  is the same path, not a lesser one. A contract uploaded as a photo has no page to mark, and it is
-  signed exactly the same way.
+- **Marking the boxes is now a gate, and it used to be the opposite.** While the drawing was
+  optional a contract with no spots was signable and the stroke simply had nowhere to go; with both
+  parties required to draw, nobody signs until the landlord has marked where. `contractBlocker`
+  answers `no_spots` until then and the panel does not offer the form — offering it would be
+  offering a control that the server will refuse. The two signatures are checked *before* the boxes,
+  which is what keeps a contract signed under the old rule signed.
+- **A canvas cannot be operated with a keyboard, and the answer is a keyboard path, not an
+  exemption.** This was the reason the drawing stayed optional for a long time, and it was a real
+  reason: making it a gate with nothing else on offer shuts out anybody who cannot draw, on the one
+  screen where that means they cannot rent. So the pad has **"Usar mi nombre como firma"**, which
+  draws the signer's name — from their profile, never typed in, so the stroke and the name on record
+  cannot disagree — into the same canvas and produces the same PNG through the same `onChange`. It
+  is not a lesser path: same stamping, same audit trail. A driver presses it with `press("Enter")`
+  precisely so nobody can quietly turn the requirement back into an exclusion.
+- **A contract that is not a PDF is the one case where the stroke is not required**, because there
+  is no page to stamp. No new upload can be an image, so this only ever applies to one stored
+  before that rule.
 
 Two costs worth knowing. `pdfjs-dist` is **420 KB in its own chunk**, behind `next/dynamic` with no
 SSR, referenced by no `app/` entry — only the landlord, only on this stage, ever downloads it.
@@ -546,6 +836,19 @@ Four rules there, each of which cost a decision:
 - **The holder is its own field**, never read from the profile: the account may be a spouse's, an
   agency's or a company's, and a tenant who transfers to a name that does not match the screen is a
   tenant who thinks they have been scammed. The panel tells them to check it.
+- **Their identity document is asked only for a bank transfer**, and this is the one asymmetry in
+  `payoutShape`. Nequi and Daviplata are paid to a phone number and their app shows the recipient's
+  name before the transfer is confirmed; a Bre-B key resolves through the directory the banks share.
+  Nobody types the recipient's document in any of the three, so asking for it collected an identity
+  number nothing on the other side would ever use — and the cheapest way not to leak a piece of
+  personal data is not to hold it. Registering an account in a Colombian bank does ask for it, so
+  there it stays. `holderDocument` is the field, empty for the three; the *name* stays required
+  everywhere, because that is what the tenant checks before pressing send.
+- **The amount the tenant declares is typed with thousands separators**, through the same
+  `AmountField` the listing's rent uses: `1800000` and `18000000` are told apart by counting zeros,
+  and a zero too many here declares ten times the canon in the very field the landlord compares
+  against their bank. What leaves the component is raw digits — the separators are presentation, and
+  `Number("1.800.000")` is `NaN`. The monthly canon in `/arriendos` uses it too.
 - **A Bre-B key is validated loosely, on purpose.** It has five shapes — an `@alias`, a phone, an
   email, a document number, a merchant code — and the only real check is against the directory the
   banks share, which this product does not query. Rejecting a key that works is worse than accepting
@@ -556,13 +859,61 @@ Four rules there, each of which cost a decision:
   corrected receipt does not leave "rechazado" standing with nothing to fix. `verdictApplies` is one
   comparison and it is unit-tested by weakening it.
 
-**Confirming does not close the process.** It unblocks the button and the landlord still presses it,
-like the eight stages before — nothing here advances by itself, and making the last stage the one
-exception would be the worst place to break that.
+**Confirming *is* what closes the process**, and this is the one place where something moves without
+the landlord moving it — because it is the same decision, not an extra one. It used to unblock a
+"Continuar a Arriendo en curso" that the landlord then pressed, a step that recorded nothing the
+confirmation had not, and until it was pressed the tenant had paid, the landlord had confirmed and
+the page with the months on it did not exist. `recordReceiptVerdict` now writes the verdict, stamps
+`completedAt`, opens the tenancy with `startLease` and rings the bell once, in that order: the
+tenancy is idempotent through its own id and never throws, so a tenancy that failed to open is a
+screen the next attempt fixes, while a rolled-back confirmation is not. After that the stage takes
+no more writes — `partyOn` refuses a second receipt on a finished process, because the next month is
+already waiting on the other page.
+
+**The record is read from the document; only the link comes from the signed URL.** The same rule
+`features/lease` and the contract panel already pay for, and this panel was breaking it: the file
+name, the amount, the verdict *and the landlord's confirm buttons* all hung off the object carrying
+the signed URL. That is now load-bearing rather than cosmetic — confirming is what ends the process
+— so an environment that cannot sign (a deleted file, Cloud Storage down, no service account) used
+to leave both parties on a screen with the money paid and no way to finish it.
 
 The amount shown is `monthlyCost`, **labelled as the one from the application**. The contract governs
 the canon and this product does not read it, so presenting a figure as authoritative would be
 inventing one; the tenant states what they actually transferred and the landlord confirms.
+
+**A signed contract stops offering what no longer does anything.** "Dónde firma cada parte" and the
+note field both disappear once both signatures are in: the stamped PDF is generated exactly once, as
+the second signature lands, so moving a box afterwards would save coordinates no document ever reads
+again, and the note travels inside the upload's `FormData`, so with nothing left to upload it is a
+field you can type into that nothing saves. Both are the "Continuar" that does not continue, in
+miniature. What was written stays readable — the note beside the file, where each party signed drawn
+into the contract itself — because hiding a control is not the same as hiding a record.
+
+**The record is read from the document; only the link comes from the signed URL.** The same rule
+`features/lease` already paid for, and this panel was breaking it: everything — the file name, the
+signature log, "cambiar"/"quitar", the whole signing form — hung off the object carrying the signed
+URL, so a signature that could not be produced (a deleted file, Cloud Storage down, an environment
+with no service account) left the screen saying "sube el contrato" with the contract already
+uploaded and one party already signed. What is lost when a URL cannot be signed is being able to
+*open* the file, and nothing else. Same for the stamped PDF. This is also what makes the stage
+drivable at all in the emulated suite, which has no service account and therefore no signed URLs:
+before it, `tests/e2e/contract.mjs` died seven assertions in, so everything about the signature
+itself was unverified in a browser.
+
+**A finished process reads as finished, and the last stage is not finished by being last.**
+`stageState` used to give whichever stage came last no `current` state at all, on the grounds that
+reaching it *was* finishing — true while the last stage was `active`, which asked for nothing.
+`first_payment` asks for the money, so the same rule would mark a process as over the moment it
+arrived at the step with all of its work still ahead. Both now take `completedAt`: the last stage is
+"En curso" until the canon is confirmed and "Listo" the instant it is. The badge over the timeline
+says the same thing — `stageProgressLabel` answers **"Proceso completado"** instead of "Paso 7 de 7",
+which is true right up until it is misleading. The card on `/inicio` reads it too, where it becomes
+"Arriendo en curso · Proceso completado": that is what somebody needs at a glance, that this one is
+not asking them for anything. `processStageLabel` and `processDescription` are the single place that
+decides it, so the home card and the list cannot end up saying different things. That last card is
+also where the **link to the tenancy** lives — the same footer slot that carries "Continuar a …" on
+every other stage, because both answer "what takes me out of here", and once the process is done the
+answer is another page.
 
 `UNBUILT_STAGES` is now **empty**, and the constant is kept rather than deleted: `isUnbuilt` is what
 says out loud that something happens off the platform, and the next stage added will need it.
@@ -594,24 +945,29 @@ says out loud that something happens off the platform, and the next stage added 
 
 `/contratos` is the negotiation that **ends** in a signed contract. This is the year that follows
 it, and the question it answers is not "¿vamos a hacer esto?" but "¿está pagado este mes?". It is a
-separate domain because it has a separate lifetime: nine stages happen once, twelve canons happen
+separate domain because it has a separate lifetime: seven stages happen once, twelve canons happen
 twelve times.
 
 `leases/{leaseId}` with **`leaseId == applicationId`** — one process produces one tenancy, so a
 second identifier would be a second thing that can disagree with the first (the same reasoning as
 `propertySlugs/{slug}`, whose document id *is* the slug). It could not live on the application
 document either: `LiveApplication` subscribes to that one, so a canon paid in month seven would wake
-both parties and re-render a nine-stage page that has not changed since March.
+both parties and re-render a seven-stage page that has not changed since March.
 
-**The tenancy opens when the landlord advances the process to `active`**, in `advanceApplication` —
-nothing here advances by itself, and that stage is not a resting place, it is the day the months
-start. `startLease()` never throws and is idempotent through `create()`: the stage has already moved,
-and a tenancy that failed to open is a screen the next attempt fixes, while a rolled-back advance is
-not. Landing on `active` notifies `lease_started`, not `stage_advanced`: the news is that there is
-now a page with the months on it.
+**The tenancy opens the moment the landlord confirms the first canon**, in `recordReceiptVerdict` —
+the same write that stamps `completedAt`. It used to hang off a stage of its own, `active`, which the
+landlord advanced to *after* confirming and which recorded nothing the confirmation had not.
+`startLease()` never throws and is idempotent through `create()`: the confirmation is already
+written, and a tenancy that failed to open is a screen the next attempt fixes, while a rolled-back
+confirmation is not. It notifies `lease_started`, not `canon_confirmed`: the two are one fact now, and
+the news that matters is that there is a page with the months on it — which is where that
+notification lands, unlike the one it replaced. (`canon_confirmed` stays in the union, unsent: there
+are notifications with that type stored, and a type the switch does not cover is a bell with an empty
+body.)
 
-**The first canon is the first month.** The landlord confirmed it before the process could reach
-`active`, so `startLease` carries the receipt *and* the verdict verbatim onto `periods/{first}`.
+**The first canon is the first month**, and now literally the same act: the confirmation that ends
+the process is the write this runs after, so `startLease` carries the receipt *and* the verdict
+verbatim onto `periods/{first}`.
 Without that the tenant would open this screen and be asked to pay a month they had just paid, and
 the only record of having paid it would be on the other page. The payout comes across for the same
 reason: asking again on day one is asking for something the process already has.
@@ -675,15 +1031,143 @@ first time `/arriendos` was opened there. So: **a new `where(...).orderBy(...)` 
 `features/lease/data/lease-indexes.test.ts` pins the pair so a query added without its index fails in
 `pnpm test` instead of on somebody's screen; it is worth copying that guard for the next collection.
 
+**The whole tenancy card opens the tenancy**, not just its title — four words at the top is a hit
+area people miss more often than they find on a phone. It is the title link stretched over the card
+(`after:absolute after:inset-0`) rather than an `<a>` wrapped around everything, because the card
+also holds the link to the process and an anchor inside an anchor is invalid HTML the browser
+repairs by dropping one. That second link sits above the overlay with `relative z-10`. One
+consequence for the drivers: a `locator.click()` on anything inside the card is now correctly
+refused as intercepted, so the way to assert it is a real `mouse.click()` at that point.
+
 **Every month carries `data-month` and `data-state`.** They are how a driver asks the product what
 state a month ended in instead of recomputing it: an assertion that restates the rule is a second
 copy of the rule, and the copy nobody looks at is this one.
 
-**Not built, and deliberately so for now**: incidents (`periods` has a sibling `incidents` in the
-agreed shape), the daily reminder cron that would tell the tenant a canon is due, the IPC raise at
-renewal, and the closing described above. A landlord recording "me pagó en efectivo" without a tenant
+**Incidents are built**: `leases/{leaseId}/incidents/{incidentId}`, the sibling of `periods` the
+agreed shape always had. **Only the tenant reports one; both parties manage it.** An incident is what
+the person living there finds, so a landlord "reporting" one about a property they do not occupy would
+be a note about their own tenant with no way for the tenant to answer.
+
+The five states are `reported → in_progress → awaiting_confirmation → resolved`, plus `withdrawn`,
+and **`awaiting_confirmation` is the one that makes the domain honest — it is the canon's shape
+again.** The landlord says "ya lo arreglé" and that does *not* close it: whether the shower works is
+something only the person showering can say, exactly as whether the money landed is something only
+the person whose account it is can say. A repair the landlord can mark finished by themselves is a
+repair that gets marked finished without being finished. So **only the tenant resolves**, only the
+tenant withdraws their own report, and once the landlord has said it is fixed they have no button
+left — just the message box, because there is nothing to do but wait.
+
+`withdrawn` and `resolved` are both the tenant closing it and they are kept apart for the reason
+"rechazada en la entrevista" and "rechazada al recibirla" are: different things happened. A withdrawn
+one is not reopened — they report again. A **resolved** one the tenant *can* reopen, because a leak
+that comes back is the same leak and filing it again would throw away the record of the first repair.
+
+**The state is derived from the thread, never stored beside it** — `incidentState()` reads the last
+update that moved it. Same choice `leaseSummary` makes over the periods and for the same reason: a
+stored status is a second source of truth, and the day a write lands twice the field and the thread
+disagree with no way to tell which is lying. The thread is inline on the document (capped by
+`MAX_INCIDENT_UPDATES`), so deriving it costs nothing and a list of incidents stays one query.
+
+**There is deliberately no "this is not my responsibility" transition, and no cost split.** Who pays
+under *Ley 820* — the landlord owes the repairs the property needs to stay habitable, the tenant owes
+the damage they caused — is what decides who pays for a boiler, and a product that computed it would
+be telling both parties something it does not know. A landlord who thinks a broken window is the
+tenant's doing writes that, in a message the tenant reads; there is no button that makes it true. The
+thread keeps the disagreement instead of adjudicating it.
+
+**A button's label depends on where the incident is coming from, not only where it is going.** Three
+different things move one to `in_progress` — taking it on, a repair that did not work, and a leak
+returning months later — and labelling all three "Está en arreglo" (which the first version did) gave
+a resolved incident a button claiming somebody was already fixing it. `transitionLabel(from, to)`.
+
+**`updates` is optional in the domain types and nowhere else.** Every incident reported before the
+thread existed has no such key and those documents are in the database now; the converter defaults it,
+and `incidentState`/`allAttachments` tolerate its absence anyway, because a pure function that is only
+total because its one caller is careful is a function waiting for a second caller. Skipping that cost a
+`Cannot read properties of undefined (reading 'length')` that took out the whole list.
+
+**Images *and* video, and the video is the point.** A photo answers "is it broken?"; a video answers
+"it only leaks when the tap runs" and "listen to this noise", which is the half of a repair argument a
+still frame cannot carry. `video/quicktime` is accepted because an iPhone records `.mov` by default —
+leaving it out would reject the file most Colombian tenants would actually produce. Two limits, not
+one: 8 MB for a photo, **50 MB for a video** (`attachmentLimit` is a function of the type, because a
+40 MB image and a 40 MB video are the same number and two different answers).
+
+**The files do not go through the Server Action, and that is forced.** A Server Action's request body
+is capped at **1 MB** by Next and `next.config.ts` sets no `bodySizeLimit`, so the browser uploads
+straight to Cloud Storage with the web SDK — the route the listing photos and the identity documents
+already take — and the action records what landed. Raising the limit to fit a video would raise it for
+*every* action in the product. Three consequences worth keeping:
+
+- The path is `incidents/{uid}/…`, **keyed by uid and not by tenancy**, because Storage rules cannot
+  read Firestore: "is this person a party to lease X?" is a question they cannot ask. What they check
+  is that the path names the uploader; which tenancy it belongs to is recorded in Firestore, where the
+  question *can* be asked. The landlord cannot read the object at all and opens it through a URL the
+  server signs — same as an identity document.
+- The action therefore carries the real gate: party to *this* tenancy **and** its tenant, every path
+  inside the caller's own folder, and **every object confirmed to exist in the bucket** with the type
+  and size it claims. That last one is what a schema cannot do — without it a client writes a report
+  carrying five attachments that were never uploaded, and the landlord opens five broken previews.
+  The bucket's own metadata is what gets stored, so the numbers on screen are never the client's word.
+- **Files are held in the browser and uploaded on submit**, not on pick. `incidents/**` denies
+  `delete` to every client — the landlord reads this record, and a tenant who could delete the file
+  would leave the report pointing at nothing — so a file uploaded on pick and then removed from the
+  form would sit in the bucket for ever with nothing referring to it.
+
+The notification carries the **title or the note, never the description**: a description is what the
+tenant wrote about their home with the door broken, and an email is forwarded, quoted and left open on
+a laptop. There is **a type per move** rather than one `incident_updated`, because the copy is the
+point — "dicen que ya está arreglado" is a task the tenant has to act on, while "hay un mensaje nuevo"
+is news, and a notification that does not say which of the two it is gets ignored. All six are lease
+notifications, so they land on `/arriendos/<id>#incidente-<id>`. Everything in the section is `brand`,
+never `accent` — the one cyan action on that page is the month that has to be paid, and a tenancy with
+rent due and a broken boiler still has one first thing to do.
+
+**`toNotification` was dropping the anchor, and had been since the anchors existed.** The converter
+names every field it copies, so `period` — and then `incident` — never reached the bell: the same
+notification landed on September in an email and at the top of a twelve-month page in the app. The
+emails were fine, which is why nobody noticed: `renderNotificationEmail` reads the `NotifyInput` on
+the way out, not the stored document on the way back in. A field added to the document needs a line
+in that converter.
+
+## The tenancy has three tabs
+
+`/arriendos/<id>` is **Información · Pagos · Incidentes** — the term and the summary, where the canon
+goes plus every month, and the reports. Three subjects, three panels.
+
+**Información is listed first and Pagos is the one that opens.** The question this page exists to
+answer is "¿está pagado este mes?", and the month that needs something is what somebody came for;
+opening on a summary would put a reference card in front of the only action on the screen.
+
+**`LeaseTabs` is a Client Component for one reason: the anchors.** Every notification about a month
+links to `#mes-2026-09` and every one about a report to `#incidente-<id>`, and Radix unmounts the
+panel that is not showing — so a link whose target is not mounted scrolls nowhere and fails silently,
+which is the worst kind of regression because the email looks fine and the click looks like nothing
+happened. The hash picks the tab, in the browser, because **a fragment is never sent to the server**
+and no Server Component can read it. The mapping is derived from `periodAnchor("")` and
+`incidentAnchor("")`, never from literals. The tab is deliberately *not* written into the URL on
+click: the hash is a contract with links that already exist, and a `?tab=` every click rewrote would
+be a second source of truth beside it.
+
+Two React details that are not optional there. The `setState` that applies the hash is scheduled with
+`requestAnimationFrame`, not called in the effect body — the compiler flags the second, and a frame
+later is also what the scroll needs, since the tab has to be mounted first. And the scroll is its own
+effect keyed on the tab, so it only fires when the panel holding the anchor is actually there.
+
+The panels are passed in as **already-created JSX**, not components: an element crosses the RSC
+boundary, a function does not.
+
+**`pnpm e2e` has `leaseTab(page, name)` in `tests/e2e/lib.mjs`** because this is now how that screen
+is navigated — it waits for the rail to hydrate before clicking (Radix will not switch on a click it
+has no handler for yet, and Playwright will not retry a click on an element that was already
+actionable) and then waits for the active tab, not for the click. Splitting this page cost `rental`
+three assertions that read the summary out of `document.body.innerText`.
+
+**Not built, and deliberately so for now**: who pays for a repair (above), the daily reminder cron
+that would tell the tenant a canon is due, the IPC raise at renewal, and the closing described
+above. A landlord recording "me pagó en efectivo" without a tenant
 receipt is not built either — the flow is symmetric with the first canon on purpose. `/arriendos`
-also does **not** mark the property `rented`, which the process does not do at `active` either.
+also does **not** mark the property `rented`, which the process does not do on finishing either.
 
 ## Notifications and email (`features/notification`)
 
@@ -693,7 +1177,7 @@ than stored with it, so fixing a confusing sentence fixes the ones already sent.
 
 The email carries what the bell cannot: an **absolute link straight to the stage**,
 `/contratos/<id>#etapa-<stage>`. The timeline gives every stage that id, so the email lands on
-the step it is about instead of at the top of a page with nine of them.
+the step it is about instead of at the top of a page with seven of them.
 
 **Email goes out through Resend**, over its REST API — no SDK, because sending is a `POST` with
 five fields. The `from` domain is derived from `RESEND_EMAIL_DOMAIN` rather than written by hand,
@@ -711,7 +1195,7 @@ fail silently until the SPF/DKIM records were pointed at the new account. That i
 live rental processes waiting on notifications, traded for one invoice.
 
 **The plan matters, and it is the daily cap that bites.** Resend's free tier is 3,000 a month but
-**100 a day**; Pro at $20 removes the daily limit. A rental that reaches `active` walks nine stages
+**100 a day**; Pro at $20 removes the daily limit. A rental that reaches its tenancy walks seven stages
 and each movement notifies the other party, plus two reminders per confirmed interview — of the order
 of ten to fifteen emails per completed rental. A hundred a day is therefore seven to ten *processes
 moving*, platform-wide, which arrives sooner than it sounds. **Driver runs must not spend that
@@ -757,6 +1241,76 @@ documents is five waits with the list unusable.
 `miarriendodirecto.com` is already verified in that Resend account (SPF/DKIM), and it is the
 same domain the links point at — a message about a rental arriving from another domain reads as
 phishing, correctly.
+
+### The bell rings, and it announces an arrival three ways
+
+A grey icon with a four-pixel sticker on it is a notification system people discover the next day.
+So something arriving **sounds**, **swings the bell once**, and **says so in a `role="status"` live
+region**. Three channels because each one fails on its own: the sound is blocked until the first
+gesture and can be switched off, the swing is off under `prefers-reduced-motion`, and neither is any
+use to somebody listening to the page. What never fails is the count, which is why it is on the
+button's accessible name and not only in the badge.
+
+**The gate is identity, not "the snapshot changed".** `domain/arrivals.ts` — `firstSnapshot` /
+`nextSnapshot` — rings only for a document id that was not there before, and rings **once** for a
+batch. That is not fussiness: opening the panel writes `readAt` on every unread notification through
+a Server Action, so the Admin SDK's write comes back on the bell's own subscription with
+`hasPendingWrites` false and nothing new in it. A bell that rang on any change would chime at
+somebody for having read their own notifications. The unit test breaks if the rule is weakened to a
+count comparison, and `tests/e2e/notifications.mjs` drives the same case in a browser.
+
+**The sound is synthesised, not a file.** Two sine notes a fifth apart (A5 → E6) with a fast attack
+and an exponential decay: no asset in `public/`, no request, and no decode before the first one can
+play — which matters, because the moment a notification arrives is the moment there is no time to
+fetch anything. `PEAK_GAIN` is 0.09 on purpose; this is news, not an alarm, and it may arrive while
+somebody is on a call.
+
+**The autoplay policy is the whole difficulty, and it is honoured rather than worked around.** A
+browser will not let a page make noise before the person has interacted with it: an `AudioContext`
+created outside a gesture starts `suspended`, and `resume()` does nothing. So `armChime()` waits for
+the first click, tap or keypress anywhere in the document and creates the context **there**, and
+`playChime()` refuses to schedule anything unless the context is already `running`. Scheduling into
+a suspended one would be worse than silence — `currentTime` does not advance while suspended, so
+every held-back note fires at once on the next resume, which is a chime for a notification from ten
+minutes ago at the instant somebody clicks something unrelated. The cost is real and stated in the
+module: a notification arriving before the person has touched the page at all is silent, and the
+badge, the swing and the live region still say so.
+
+**A noise with no reachable off switch gets silenced at the operating system**, and then the
+reminder ten minutes before an interview arrives silenced too. So the toggle is in the panel's
+header — where somebody is standing when the sound annoys them — it is remembered in
+`localStorage` (a UI preference, not personal data, so this is not the rule that forbids that), and
+it is read through **`useSyncExternalStore`**: `localStorage` is an external store, so copying it
+into state from an effect is both a second source of truth and the thing the React compiler
+refuses. `subscribeSoundPreference` also listens for `storage`, so muting it in one tab mutes it in
+the others. Turning it **on** plays the chime: a sound setting whose effect you only discover hours
+later is one nobody trusts. The ring path calls `readSoundEnabled()` at the moment it rings rather
+than reading state, so there is no copy of the preference inside the subscription's closure to go
+stale — that subscription is set up once and outlives every change to it.
+
+**The strong state is brand purple with a cyan count, and it is not a cyan button.** Unread, the
+bell is a filled `bg-brand-panel` control; read, an outlined one with a purple icon. The old version
+was `text-muted-foreground` in both, which is the colour this design system uses for text that does
+not matter, on the one control whose whole job is to say that something does. It is not `accent`
+because of the one-cyan-per-view rule: the bell is chrome, on every screen, so a cyan bell would
+compete with all of them. A twenty-pixel cyan badge on a purple control is a signal; a cyan button
+is a call to action. The badge is `text-accent-foreground` — white on `#00E5FF` does not pass AA —
+and the old `bg-destructive` red is gone, because news is not an error.
+
+The swing lives in `app/globals.css` (`--animate-bell-ring` plus the `@keyframes`), not in the
+component: a loose `@keyframes` inside a React file is exactly the CSS nobody finds on the day it has
+to change. Its `prefers-reduced-motion` override is deliberately **outside any `@layer`**, because
+unlayered CSS beats Tailwind's layered utilities and that settles the specificity without a fight.
+It replays by using the ring counter as the icon's `key`: remounting restarts a CSS animation and
+toggling a class does not.
+
+**The sound is driven by counting oscillators, not by listening.** `tests/e2e/notifications.mjs`
+patches `AudioContext.prototype.createOscillator` through `addInitScript` and counts, which is the
+only way to tell "it rang" from "the browser blocked it" — and it asserts the negative too: after
+`readAt` is rewritten the count must not move, and a `0` there is proved to mean *silence* rather
+than *blocked* by toggling the sound on immediately afterwards and watching the count jump. The
+counter resets on every navigation, so each block takes its own baseline, and the arrival is driven
+on a page that **never navigates**: what lands in the first snapshot is what was already on screen.
 
 ## Live updates
 

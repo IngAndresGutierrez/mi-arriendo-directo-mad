@@ -53,6 +53,13 @@ export type NotifyInput = {
    */
   readonly period?: string;
   /**
+   * The incident's id, on the notification that says one was reported.
+   *
+   * Same job as `period`: it is what the link needs to land on the report instead of at the top of
+   * the tenancy.
+   */
+  readonly incident?: string;
+  /**
    * E.164, and only for what is worth a WhatsApp: a reminder minutes before a call.
    *
    * Passing a phone is what says "this one also goes out over WhatsApp". Every other movement of
@@ -88,6 +95,7 @@ export async function notify(input: NotifyInput): Promise<void> {
       // Firestore rejects `undefined`, and a notification with no detail simply has none.
       ...(input.detail ? { detail: input.detail } : {}),
       ...(input.period ? { period: input.period } : {}),
+      ...(input.incident ? { incident: input.incident } : {}),
       readAt: null,
       createdAt: FieldValue.serverTimestamp(),
     });

@@ -6,11 +6,15 @@ import { ArrowLeftIcon } from "lucide-react";
 import {
   focusMonth,
   getLeaseFor,
+  incidentRows,
   leaseSchedule,
   leaseSummary,
+  listIncidents,
   listPeriods,
   monthRows,
+  IncidentList,
   LeaseSummaryPanel,
+  LeaseTabs,
   LivePeriods,
   MonthList,
   PayoutCard,
@@ -51,9 +55,22 @@ export default async function RentalPage(props: PageProps<"/arriendos/[id]">) {
    * three have to agree: the derived calendar, the documents that exist for it, and a signed URL
    * per receipt — and only the server can produce the third.
    */
-  const [rows, periods] = await Promise.all([monthRows(lease, today), listPeriods(lease.id)]);
+  const [rows, periods, incidents] = await Promise.all([
+    monthRows(lease, today),
+    listPeriods(lease.id),
+    // Los incidentes son otra subcolección y no dependen de los meses: en paralelo, o la página
+    // paga dos viajes de ida y vuelta por lo que puede pedir a la vez.
+    listIncidents(lease.id),
+  ]);
   const summary = leaseSummary(leaseSchedule(lease, today), periods, today);
   const focus = focusMonth(rows, isLandlord);
+  const reports = await incidentRows(incidents);
+
+  /*
+   * Los meses que piden algo, contados aquí y no en el cliente: es la misma cuenta que ya hace
+   * `leaseSummary` sobre los mismos documentos, y el rail sólo necesita el número.
+   */
+  const openMonths = summary.overdue + summary.inReview;
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -86,14 +103,34 @@ export default async function RentalPage(props: PageProps<"/arriendos/[id]">) {
         </Link>
       </p>
 
-      <div className="mt-6 space-y-6">
-        <LeaseSummaryPanel lease={lease} summary={summary} today={today} />
-        <PayoutCard leaseId={lease.id} payout={lease.payout} isLandlord={isLandlord} />
-        <MonthList
-          leaseId={lease.id}
-          rows={rows}
-          focus={focus?.month.id ?? null}
-          isLandlord={isLandlord}
+      {/*
+        Tres pestañas, y lo que va en cada una responde a una pregunta distinta: qué es este
+        arriendo, si está pagado, y qué se dañó. Los paneles se pasan **ya construidos** — un
+        elemento JSX cruza la frontera RSC, una función no —, así que la página sigue siendo la que
+        decide qué hay dentro y `LeaseTabs` sólo decide cuál se ve.
+
+        Ojo con el orden y el defecto: "Información" va primera porque es lo que nombra la pantalla,
+        pero la pestaña abierta es **Pagos**, que es la pregunta con la que la gente entra aquí.
+      */}
+      <div className="mt-6">
+        <LeaseTabs
+          openMonths={openMonths}
+          incidentCount={reports.length}
+          info={<LeaseSummaryPanel lease={lease} summary={summary} today={today} />}
+          payments={
+            <>
+              <PayoutCard leaseId={lease.id} payout={lease.payout} isLandlord={isLandlord} />
+              <MonthList
+                leaseId={lease.id}
+                rows={rows}
+                focus={focus?.month.id ?? null}
+                isLandlord={isLandlord}
+              />
+            </>
+          }
+          incidents={
+            <IncidentList leaseId={lease.id} rows={reports} isLandlord={isLandlord} />
+          }
         />
       </div>
     </div>

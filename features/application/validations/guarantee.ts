@@ -61,3 +61,15 @@ export const guaranteeProgressSchema = z
   .refine((value) => value.tenantLink !== "" || value.note !== "", {
     error: "No hay nada que guardar",
   });
+
+/**
+ * The landlord's answer to "does this rental need a policy?".
+ *
+ * One boolean, because it is a switch and a switch has two positions. It arrives from a control the
+ * landlord flips, so there is no note beside it: what a landlord wants to say about *why* goes in the
+ * note field the panel already has, and asking for a reason to decline something the law never
+ * required would be this product editorialising about their decision.
+ */
+export const guaranteeWaiverSchema = z.object({
+  waived: z.boolean({ error: "No pudimos leer la opción del seguro" }),
+});

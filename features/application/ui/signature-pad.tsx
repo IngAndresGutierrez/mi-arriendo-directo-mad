@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EraserIcon } from "lucide-react";
+import { EraserIcon, TypeIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
 
@@ -12,26 +12,47 @@ import { Button } from "@/shared/ui/button";
  * of it. What a library would add here is a bezier smoother, and a signature is more recognisable
  * for being exactly the line the hand made.
  *
- * **A canvas is not operable with a keyboard, and that is not solved by trying harder.** So this is
- * offered as an addition, never as the gate: the one-time code is what signs, and the panel lets
- * anybody sign without drawing. That is the accessible path, and it is the same path — not a
- * lesser one bolted on the side.
+ * **Both parties draw, and it is required of both.** It used to be optional, on the reasoning that
+ * a canvas cannot be operated with a keyboard and the code is what legally signs — so making it a
+ * gate would have shut out anybody who cannot draw. That reasoning was right about the cost and
+ * wrong about the fix: the cost is answered here, by **"Usar mi nombre como firma"**, which produces
+ * the same stroke from the keyboard in one press. So there is no signer this stage cannot serve, and
+ * the PDF both parties keep carries a visible signature instead of a blank line.
  *
  * The drawing is captured at twice the CSS size (`RESOLUTION`), because it ends up scaled into a
  * box on a PDF page and a 1:1 canvas stamps as a blurry line.
  */
 const RESOLUTION = 2;
 
+/**
+ * La firma escrita, cuando se pulsa el botón: cursiva y con respaldos, porque ninguna de estas
+ * fuentes está en todos los sistemas y un `font` que el navegador no resuelve cae en la de por
+ * defecto — que es la del resto de la página y no se lee como una firma.
+ */
+const scriptFont = (size: number) =>
+  `italic ${size}px "Segoe Script", "Brush Script MT", "Apple Chancery", "Lucida Handwriting", cursive`;
+
 export function SignaturePad({
   onChange,
+  signerName = "",
   disabled = false,
 }: {
   /** The PNG data URL, or `""` once cleared. */
   readonly onChange: (dataUrl: string) => void;
+  /**
+   * The signer's name as their profile has it, for the keyboard path.
+   *
+   * Their **own** name and not free text: the stamped page already prints the name on record under
+   * the stroke, and letting somebody type a different one there would put two names on one
+   * signature. Empty hides the button rather than offering one that draws nothing.
+   */
+  readonly signerName?: string;
   readonly disabled?: boolean;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
+  /** El morado resuelto del token, guardado porque lo usan el trazo y el texto. */
+  const ink = useRef("currentColor");
   const [hasInk, setHasInk] = useState(false);
 
   useEffect(() => {
@@ -60,7 +81,9 @@ export function SignaturePad({
      * devuelve cadena vacía si la hoja de estilos todavía no se aplicó.
      */
     const brand = getComputedStyle(canvas).getPropertyValue("--brand-panel").trim();
-    context.strokeStyle = brand || "currentColor";
+    ink.current = brand || "currentColor";
+    context.strokeStyle = ink.current;
+    context.fillStyle = ink.current;
   }, []);
 
   function positionOf(event: React.PointerEvent<HTMLCanvasElement>) {
@@ -113,6 +136,44 @@ export function SignaturePad({
     onChange(canvas.toDataURL("image/png"));
   }
 
+  /**
+   * La firma, escrita en vez de dibujada.
+   *
+   * **Este es el camino de teclado, y no es una versión menor**: sale el mismo PNG por el mismo
+   * `onChange`, se estampa en el mismo recuadro y el registro que la acompaña —el código, la hora,
+   * el hash del archivo— es idéntico. Existe porque el dibujo pasó a ser obligatorio, y un lienzo
+   * no se opera con el teclado.
+   */
+  function writeName() {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context || !signerName || disabled) return;
+
+    const width = canvas.width / RESOLUTION;
+    const height = canvas.height / RESOLUTION;
+    context.clearRect(0, 0, width, height);
+
+    context.fillStyle = ink.current;
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+
+    /*
+     * Se reduce el cuerpo hasta que quepa, en vez de estirar el texto: una firma comprimida en
+     * horizontal deja de parecer una firma. Nunca baja de 10 px, que es cuando el problema es el
+     * nombre y no el tamaño.
+     */
+    let size = Math.round(height * 0.5);
+    context.font = scriptFont(size);
+    while (size > 10 && context.measureText(signerName).width > width * 0.9) {
+      size -= 2;
+      context.font = scriptFont(size);
+    }
+
+    context.fillText(signerName, width / 2, height / 2, width * 0.9);
+    setHasInk(true);
+    onChange(canvas.toDataURL("image/png"));
+  }
+
   function clear() {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
@@ -124,7 +185,7 @@ export function SignaturePad({
   }
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" data-slot="signature-pad">
       <canvas
         ref={canvasRef}
         /*
@@ -139,14 +200,29 @@ export function SignaturePad({
         aria-label="Dibuja tu firma"
       />
       <div className="flex flex-wrap items-center gap-2">
+        {/*
+          El camino de teclado va primero, y como control de verdad y no como enlace de última
+          hora: para quien no puede dibujar es *la* forma de firmar, y una salida escondida al final
+          de la fila es una salida que no se encuentra.
+        */}
+        {signerName && (
+          <Button type="button" variant="brand" size="xl" disabled={disabled} onClick={writeName}>
+            <TypeIcon aria-hidden="true" />
+            Usar mi nombre como firma
+          </Button>
+        )}
         <Button type="button" variant="ghost" size="xl" disabled={disabled || !hasInk} onClick={clear}>
           <EraserIcon aria-hidden="true" />
           Borrar y volver a dibujar
         </Button>
-        <p className="text-sm text-muted-foreground">
-          {hasInk ? "Se dibujará en el contrato." : "Con el ratón o con el dedo. Es opcional."}
-        </p>
       </div>
+      <p className="text-sm text-muted-foreground">
+        {hasInk
+          ? "Se dibujará en el contrato."
+          : signerName
+            ? "Obligatoria: con el ratón, con el dedo, o pulsando el botón para firmar con tu nombre."
+            : "Obligatoria: con el ratón o con el dedo."}
+      </p>
     </div>
   );
 }

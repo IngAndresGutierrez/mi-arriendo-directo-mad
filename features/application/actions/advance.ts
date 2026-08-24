@@ -3,10 +3,9 @@
 import { FieldValue } from "firebase-admin/firestore";
 import { revalidatePath } from "next/cache";
 
-import { startLease } from "@/features/lease";
 import { notify, type NotificationType } from "@/features/notification";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
-import { applicationRoute, CONTRACTS_ROUTE, RENTALS_ROUTE } from "@/shared/auth/routes";
+import { applicationRoute, CONTRACTS_ROUTE } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
 
 import { getApplicationFor } from "../data/application";
@@ -16,19 +15,18 @@ import { canAdvance, canClose, nextStage, type Stage } from "../domain/applicati
  * Which notification a stage deserves.
  *
  * Most advances are a status line, but two of them are a task: landing on `tenant_data` is
- * "sube tus documentos", and landing on `approved` is the answer the tenant has been waiting
- * for. Telling them apart is the difference between a notification that gets acted on and one
- * that gets ignored along with the rest.
+ * "sube tus documentos", and landing on `contract_signature` is the answer the tenant has been
+ * waiting for. Telling them apart is the difference between a notification that gets acted on and
+ * one that gets ignored along with the rest.
+ *
+ * That second one used to belong to a stage of its own, `approved`, which recorded nothing the
+ * next stage did not: deciding to sign *is* approving. The stage went and **the notification
+ * stayed**, because "tu postulación fue aprobada" is the sentence the tenant has been waiting for
+ * and "avanzaste a Firma del contrato" is not it.
  */
 function typeForStage(stage: Stage): NotificationType {
   if (stage === "tenant_data") return "documents_requested";
-  if (stage === "approved") return "application_approved";
-  /*
-   * `active` is the one advance that lands somewhere else. "Avanzaste a Arriendo en curso" would
-   * point back at the process, which from that moment has nothing left to do, and the thing the
-   * tenant needs to know is that there is now a page with the months on it.
-   */
-  if (stage === "active") return "lease_started";
+  if (stage === "contract_signature") return "application_approved";
 
   return "stage_advanced";
 }
@@ -72,19 +70,6 @@ export async function advanceApplication(id: string): Promise<StageResult> {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-  /*
-   * Reaching the ninth stage opens the tenancy: `active` is not a resting place, it is the day the
-   * months start. It is a separate document (`leases/{id}`, same id) rather than more fields here,
-   * because `LiveApplication` subscribes to *this* document — a canon paid in month seven would
-   * otherwise wake both parties and re-render a nine-stage page that has not changed since March.
-   *
-   * `startLease` never throws and is idempotent: the stage has already moved, and a tenancy that
-   * failed to open is a screen the next attempt fixes, while a rolled-back advance is not.
-   */
-  if (target === "active") {
-    await startLease({ ...application, stage: target });
-  }
-
   const [landlord] = await Promise.all([getProfile(user.uid)]);
   const tenant = await getProfile(application.tenantUid);
 
@@ -100,7 +85,6 @@ export async function advanceApplication(id: string): Promise<StageResult> {
 
   revalidatePath(applicationRoute(id));
   revalidatePath(CONTRACTS_ROUTE);
-  if (target === "active") revalidatePath(RENTALS_ROUTE);
 
   return { ok: true, stage: target };
 }

@@ -1,15 +1,19 @@
 import { STAGE_LABELS, type Stage } from "@/features/application/client";
-import { periodAnchor, periodLabel } from "@/features/lease/client";
+import { incidentAnchor, periodAnchor, periodLabel } from "@/features/lease/client";
 import { applicationRoute, rentalRoute } from "@/shared/auth/routes";
 
 /**
  * What happened. One type per movement of a rental process, from the point of view of whoever
  * is being told about it.
  *
- * `documents_requested` and `application_approved` are stages that also arrive as
+ * `documents_requested` and `application_approved` are stage movements that also arrive as
  * `stage_advanced` would — they are their own type because what they ask of the reader is
  * different. "Avanzaste a Datos y documentos" is a status line; "te piden tus documentos" is a
  * task, and a notification that does not say which of the two it is gets ignored.
+ *
+ * `application_approved` outlived the stage it was named after: `approved` is gone as a step, and
+ * the sentence is now sent on landing on `contract_signature`, which is the same decision. The
+ * words are what the tenant was waiting for and they did not stop being true.
  */
 export const NOTIFICATION_TYPES = [
   "application_received",
@@ -24,6 +28,7 @@ export const NOTIFICATION_TYPES = [
   "interview_reminder_soon",
   "guarantee_requested",
   "guarantee_active",
+  "guarantee_waived",
   "contract_ready",
   "contract_signed",
   "payout_ready",
@@ -44,6 +49,12 @@ export const NOTIFICATION_TYPES = [
   "canon_receipt_uploaded",
   "canon_receipt_rejected",
   "canon_paid",
+  "incident_reported",
+  "incident_in_progress",
+  "incident_awaiting_confirmation",
+  "incident_resolved",
+  "incident_withdrawn",
+  "incident_comment",
 ] as const;
 
 export type NotificationType = (typeof NOTIFICATION_TYPES)[number];
@@ -72,6 +83,13 @@ export type NotificationDoc = {
    * notification about the process rather than the tenancy.
    */
   readonly period?: string;
+  /**
+   * Which incident, on the notifications that are about one.
+   *
+   * Here for the same reason `period` is: it is what the link needs. A report of a leak has to land
+   * on the leak, not at the top of a page with a year of months and four other reports on it.
+   */
+  readonly incident?: string;
   /** ISO 8601, or `null` while unread. */
   readonly readAt: string | null;
   readonly createdAt: unknown;
@@ -181,6 +199,17 @@ export function notificationCopy(
           ? `${sentence(`El arriendo de ${property} ya tiene su garantía: ${notification.detail}`)} Sigue la firma del contrato.`
           : `El arriendo de ${property} ya tiene su póliza. Sigue la firma del contrato.`,
       };
+    case "guarantee_waived":
+      /*
+       * Para el inquilino esto es sobre todo **una cosa menos que hacer**: nadie va a estudiar su
+       * perfil y Sura no le va a escribir, que es justo lo que la otra notificación de esta etapa le
+       * había dicho que esperara. Se dice sin adornos y sin opinar sobre la decisión del propietario:
+       * la ley no exige póliza, así que no hay nada que reprochar ni nada que celebrar.
+       */
+      return {
+        title: "Este arriendo va sin póliza de arrendamiento",
+        body: `${who} decidió no pedir póliza para ${property}. No tienes que hacer nada por el seguro.`,
+      };
     case "contract_ready":
       return {
         title: "Hay un contrato para firmar",
@@ -217,6 +246,12 @@ export function notificationCopy(
           : `${who} rechazó el comprobante del primer canon de ${property}. Sube otro.`,
       };
     case "canon_confirmed":
+      /*
+       * **Ya no se manda**, y se queda: hay notificaciones con este tipo guardadas, y un tipo que
+       * el switch no cubre es una campana con el cuerpo vacío. Lo que lo sustituyó es
+       * `lease_started`, que dice lo mismo y además lleva al arriendo en vez de al proceso, que
+       * desde ese momento no tiene nada que hacer.
+       */
       return {
         title: "El propietario confirmó el primer canon",
         body: `${who} confirmó que recibió el primer canon del arriendo de ${property}. Con eso el arriendo queda en curso.`,
@@ -247,9 +282,14 @@ export function notificationCopy(
         body: `El proceso de ${property} pasó a la etapa "${STAGE_LABELS[notification.stage]}".`,
       };
     case "lease_started":
+      /*
+       * La confirmación del primer canon y el arranque del arriendo son un solo hecho desde que no
+       * hay un botón entre los dos, así que se cuentan en una sola frase: quien la recibe necesita
+       * saber que le confirmaron el pago *y* dónde va a vivir el arriendo a partir de ahora.
+       */
       return {
         title: "Tu arriendo quedó en curso",
-        body: `El arriendo de ${property} ya está andando. En "Arriendos" vas a ver mes a mes lo que se paga y lo que falta.`,
+        body: `${who} confirmó que recibió el primer canon de ${property}. El proceso terminó: en "Arriendos" vas a ver mes a mes lo que se paga y lo que falta.`,
       };
     case "canon_payout_changed":
       /*
@@ -283,6 +323,57 @@ export function notificationCopy(
           ? `${who} confirmó que recibió el canon de ${month} de ${property}.`
           : `${who} confirmó que recibió el canon de ${property}.`,
       };
+    case "incident_reported":
+      /*
+       * El título, que es el `detail`, y nunca la descripción ni un adjunto. Lo que sale del
+       * producto en un correo es lo mínimo que sigue llevando a alguien a la página: la descripción
+       * es lo que el inquilino escribió sobre su casa con algo roto dentro, y un correo se reenvía
+       * y se queda abierto en un portátil.
+       */
+      return {
+        title: "El inquilino reportó un incidente",
+        body: notification.detail
+          ? `${sentence(`${who} reportó un incidente en ${property}: ${notification.detail}`)} Ábrelo en el arriendo para ver la descripción y los archivos.`
+          : `${who} reportó un incidente en ${property}. Ábrelo en el arriendo para ver qué pasó.`,
+      };
+    case "incident_in_progress":
+      return {
+        title: "Están arreglando el incidente",
+        body: notification.detail
+          ? `${sentence(`${who} puso en arreglo un incidente de ${property}: ${notification.detail}`)}`
+          : `${who} puso en arreglo un incidente de ${property}.`,
+      };
+    case "incident_awaiting_confirmation":
+      /*
+       * La única de las cinco que es una **tarea**, y por eso es la que dice qué hacer: sin la
+       * confirmación del inquilino el incidente no se cierra, porque si la ducha funciona lo sabe
+       * quien se ducha. Un aviso que no distingue una tarea de una noticia se ignora.
+       */
+      return {
+        title: "Dicen que ya arreglaron lo que reportaste",
+        body: notification.detail
+          ? `${sentence(`${who} dice que arregló el incidente de ${property}: ${notification.detail}`)} Revísalo y confirma si de verdad quedó bien.`
+          : `${who} dice que arregló el incidente de ${property}. Revísalo y confirma si de verdad quedó bien.`,
+      };
+    case "incident_resolved":
+      return {
+        title: "El incidente quedó resuelto",
+        body: `${who} confirmó que el incidente de ${property} quedó arreglado.`,
+      };
+    case "incident_withdrawn":
+      return {
+        title: "El inquilino cerró el incidente",
+        body: notification.detail
+          ? `${sentence(`${who} cerró un incidente de ${property}: ${notification.detail}`)}`
+          : `${who} cerró un incidente que había reportado en ${property}.`,
+      };
+    case "incident_comment":
+      return {
+        title: "Hay un mensaje nuevo en un incidente",
+        body: notification.detail
+          ? `${sentence(`${who} escribió sobre un incidente de ${property}: ${notification.detail}`)}`
+          : `${who} escribió sobre un incidente de ${property}.`,
+      };
   }
 }
 
@@ -310,6 +401,12 @@ const LEASE_NOTIFICATION_TYPES: readonly NotificationType[] = [
   "canon_receipt_uploaded",
   "canon_receipt_rejected",
   "canon_paid",
+  "incident_reported",
+  "incident_in_progress",
+  "incident_awaiting_confirmation",
+  "incident_resolved",
+  "incident_withdrawn",
+  "incident_comment",
 ];
 
 export function isLeaseNotification(type: NotificationType): boolean {
@@ -326,10 +423,21 @@ export function isLeaseNotification(type: NotificationType): boolean {
 export function notificationPath(
   notification: Pick<Notification, "applicationId" | "stage" | "type"> & {
     readonly period?: string;
+    readonly incident?: string;
   },
 ): string {
   if (isLeaseNotification(notification.type)) {
-    const anchor = notification.period ? `#${periodAnchor(notification.period)}` : "";
+    /*
+     * A month or a report, and never both: the two are different sections of the tenancy, and a
+     * notification is about one thing. The incident is checked first only because a report has no
+     * month — if a future notification ever carried the two, the one it is *about* would have to be
+     * decided from the type, as everything else here already is.
+     */
+    const anchor = notification.incident
+      ? `#${incidentAnchor(notification.incident)}`
+      : notification.period
+        ? `#${periodAnchor(notification.period)}`
+        : "";
 
     return `${rentalRoute(notification.applicationId)}${anchor}`;
   }

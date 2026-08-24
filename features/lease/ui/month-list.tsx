@@ -15,6 +15,7 @@ import { receiptFileProblem, RECEIPT_CONTENT_TYPES } from "@/features/applicatio
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { AmountField } from "@/shared/form/amount-field";
 import { formatBytes } from "@/shared/format/bytes";
 import { formatBogotaDateTime, formatShortDate } from "@/shared/format/date";
 import { formatCOP } from "@/shared/format/money";
@@ -445,16 +446,17 @@ function MonthBody({
       {canUpload ? (
         <div className="space-y-3 rounded-xl border border-border bg-background p-4">
           <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <Label htmlFor={`amount-${row.month.id}`}>Cuánto transferiste</Label>
-              <Input
-                id={`amount-${row.month.id}`}
-                inputMode="numeric"
-                value={amount}
-                onChange={(event) => setAmount(event.target.value)}
-                className="mt-1.5"
-              />
-            </div>
+            {/*
+              El monto con separadores de miles mientras se escribe: un cero de más aquí es declarar
+              diez veces el canon, y es el número que el propietario compara contra su banco. Mismo
+              control que el primer canon y que el canon de un anuncio; devuelve dígitos crudos.
+            */}
+            <AmountField
+              id={`amount-${row.month.id}`}
+              label="Cuánto transferiste (COP)"
+              value={amount}
+              onChange={setAmount}
+            />
             <div>
               <Label htmlFor={`paid-on-${row.month.id}`}>Fecha del pago</Label>
               <Input

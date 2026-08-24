@@ -11,6 +11,13 @@ export const metadata: Metadata = {
   title: "Iniciar sesión",
   description:
     "Accede a tu portal de miarriendoDIRECTO.com para gestionar tus inmuebles, postulaciones y pagos.",
+  /*
+   * **Overrides the group's `noindex`, on purpose.** `(auth)` is `noindex` because signing up and
+   * completing a profile are not search results — but a route group does not change the URL, so
+   * this file is also `/`: the site root, and where somebody searching for the brand has to land.
+   * Without this line the homepage of the domain would be asking not to be indexed.
+   */
+  robots: { index: true, follow: true },
 };
 
 export default async function LoginPage(props: PageProps<"/">) {

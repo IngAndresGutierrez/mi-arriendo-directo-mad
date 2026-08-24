@@ -3,8 +3,11 @@ import "server-only";
 import { cache } from "react";
 
 import { adminDb } from "@/shared/firebase/admin";
+import { isGeoPoint, roundPoint } from "@/shared/geo/point";
 
-import { propertySlug } from "../domain/property";
+import { propertyDetailRoute } from "@/shared/auth/routes";
+
+import { propertyIdFromSlug, propertySlug } from "../domain/property";
 import type { Property, PropertyDoc, PropertyLocation } from "../domain/property";
 
 /** Firestore hands back `DocumentData`: nothing here is typed until this module says so. */
@@ -32,6 +35,16 @@ function toProperty(snapshot: Snapshot): Property | null {
     id: snapshot.id,
     // Documents published before slugs existed still get a canonical URL, derived on read.
     slug: doc.slug || propertySlug(doc.title, doc.area?.city ?? ""),
+    /*
+     * The published coordinate is checked here, not trusted, for the same reason the private
+     * one is in `getPropertyLocation`: a listing published before the map has no `approx`, and
+     * this is the one field on the document that goes straight into Leaflet. A `NaN` there is
+     * not an error, it is a map centred on nowhere with a circle nobody can see.
+     */
+    area: {
+      ...doc.area,
+      ...(isGeoPoint(doc.area?.approx) ? { approx: roundPoint(doc.area.approx) } : { approx: undefined }),
+    },
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };
@@ -48,6 +61,9 @@ function toProperty(snapshot: Snapshot): Property | null {
  */
 export const getVisibleProperty = cache(
   async (id: string, viewerUid: string | null): Promise<Property | null> => {
+    // Igual que en la búsqueda por slug: un id vacío es "no existe", no una excepción.
+    if (!id) return null;
+
     const snapshot = await adminDb().collection("properties").doc(id).get();
     const property = toProperty(snapshot as unknown as Snapshot);
     if (!property) return null;
@@ -77,13 +93,23 @@ export const getPropertyLocation = cache(
     const data = location.data();
     const line = data?.line;
 
-    return typeof line === "string"
-      ? {
-          line,
-          // Empty on listings published before the registry number was required.
-          registryNumber: typeof data?.registryNumber === "string" ? data.registryNumber : "",
-        }
-      : null;
+    if (typeof line !== "string") return null;
+
+    /*
+     * The point is validated on the way out, not trusted. This document is written by the
+     * Admin SDK today, but it is also the oldest document shape in the product: the ones
+     * written before the map have no `point`, and a hand-edited one in the console can have
+     * anything. `isGeoPoint` is what stops that reaching Leaflet, where a `NaN` is not an error
+     * but a map centred on nowhere.
+     */
+    const point = data?.point;
+
+    return {
+      line,
+      // Empty on listings published before the registry number was required.
+      registryNumber: typeof data?.registryNumber === "string" ? data.registryNumber : "",
+      ...(isGeoPoint(point) ? { point: roundPoint(point) } : {}),
+    };
   },
 );
 
@@ -96,6 +122,15 @@ export const getPropertyLocation = cache(
  */
 export const getVisiblePropertyBySlug = cache(
   async (slug: string, viewerUid: string | null): Promise<Property | null> => {
+    /*
+     * An empty segment is "no such listing", not a crash. `doc("")` **throws** —
+     * `Value for argument "documentPath" is not a valid resource path` — which is a 500 where a
+     * 404 belongs, and it is not hypothetical: Next collects the metadata routes at build time by
+     * calling them with an empty param, so the Open Graph card beside the detail page failed the
+     * build with it before this line existed.
+     */
+    if (!slug) return null;
+
     const reservation = await adminDb().collection("propertySlugs").doc(slug).get();
     const propertyId = reservation.data()?.propertyId;
     if (typeof propertyId !== "string") return null;
@@ -160,6 +195,45 @@ export const CATALOG_MAX_SCAN = 500;
  * alone, and the Security Rules require this same filter for a client-side `list`, so the
  * server read and the rule agree on what "public" means.
  */
+/**
+ * The property behind a URL segment, and the address it should be read at.
+ *
+ * The slug alone is a listing's address now, but two older shapes are still pasted in messages
+ * and indexed: `<slug>-<id>` from when the id was appended, and a bare `<id>` from before slugs
+ * existed. Both resolve, and the caller redirects — a link somebody already shared must not rot,
+ * and a search engine holding the old shape has to be told where it moved.
+ *
+ * It lives here rather than in the page because **two files need it**: the page, and the Open Graph
+ * image beside it. Two copies of "which URLs resolve to a listing" is two chances for the card a
+ * link produces to disagree with the page it opens.
+ *
+ * `viewerUid` is what lets an owner preview a listing that is not `available`; a crawler passes
+ * `null` and sees only what everybody sees.
+ */
+export async function resolvePublicProperty(
+  segment: string,
+  viewerUid: string | null,
+): Promise<{ property: Property; canonical: string } | null> {
+  /*
+   * The segment comes out of a URL, and this is the boundary where it stops being untrusted. It
+   * arrives **empty or `undefined`** more often than the type suggests: Next collects the metadata
+   * routes at build time by calling them with no param at all, which is how the Open Graph card
+   * beside the detail page took the build down with
+   * `Cannot read properties of undefined (reading 'split')`.
+   */
+  if (!segment) return null;
+
+  const bySlug = await getVisiblePropertyBySlug(segment, viewerUid);
+  const legacyId = bySlug
+    ? null
+    : (propertyIdFromSlug(segment) ?? (/^[A-Za-z0-9]{20}$/.test(segment) ? segment : null));
+
+  const property = bySlug ?? (legacyId ? await getVisibleProperty(legacyId, viewerUid) : null);
+  if (!property) return null;
+
+  return { property, canonical: propertyDetailRoute(property.slug) };
+}
+
 export async function listAvailableProperties(
   limit = CATALOG_MAX_SCAN,
 ): Promise<readonly Property[]> {

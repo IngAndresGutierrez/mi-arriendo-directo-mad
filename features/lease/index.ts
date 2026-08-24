@@ -33,6 +33,41 @@ export {
   type ScheduledMonth,
 } from "./domain/lease";
 export {
+  allAttachments,
+  allowedTransitions,
+  attachmentLimit,
+  attachmentProblem,
+  attachmentsLabel,
+  canTransition,
+  incidentAnchor,
+  incidentState,
+  isIncidentOpen,
+  transitionRequiresNote,
+  INCIDENT_STATES,
+  INCIDENT_STATE_LABELS,
+  incidentFolder,
+  isImageAttachment,
+  isOwnAttachmentPath,
+  isVideoAttachment,
+  INCIDENT_CONTENT_TYPES,
+  INCIDENT_DESCRIPTION_MAX,
+  INCIDENT_IMAGE_MAX_BYTES,
+  INCIDENT_TITLE_MAX,
+  INCIDENT_VIDEO_MAX_BYTES,
+  MAX_INCIDENT_ATTACHMENTS,
+  type Incident,
+  type IncidentAttachment,
+  type IncidentState,
+  type IncidentUpdate,
+} from "./domain/incident";
+export {
+  incidentRows,
+  listIncidents,
+  type IncidentRow,
+  type SignedAttachment,
+} from "./data/incident";
+export { reportIncident, updateIncident, type IncidentActionResult } from "./actions/incident";
+export {
   focusMonth,
   getLeaseFor,
   leaseIdsAmong,
@@ -53,6 +88,8 @@ export {
 } from "./actions/canon";
 export { LeaseCard } from "./ui/lease-card";
 export { LeaseSummaryPanel } from "./ui/lease-summary-panel";
+export { LeaseTabs } from "./ui/lease-tabs";
 export { LivePeriods } from "./ui/live-periods";
+export { IncidentList } from "./ui/incident-list";
 export { MonthList } from "./ui/month-list";
 export { PayoutCard } from "./ui/payout-card";

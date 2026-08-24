@@ -43,7 +43,7 @@ export function renderNotificationEmail(
   notification: Pick<
     Notification,
     "type" | "stage" | "propertyTitle" | "actorName" | "applicationId"
-  > & { readonly detail?: string; readonly period?: string },
+  > & { readonly detail?: string; readonly period?: string; readonly incident?: string },
   to: string,
   baseUrl: string,
 ): Email {

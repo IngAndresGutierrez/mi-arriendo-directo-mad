@@ -149,7 +149,7 @@ describe("notificationPath", () => {
 
   it("builds an anchor a URL can carry for every stage", () => {
     expect(stageAnchor("tenant_data")).toBe("etapa-tenant-data");
-    expect(stageAnchor("active")).toBe("etapa-active");
+    expect(stageAnchor("first_payment")).toBe("etapa-first-payment");
     expect(stageAnchor("first_payment")).not.toContain("_");
   });
 
@@ -161,7 +161,7 @@ describe("notificationPath", () => {
     expect(
       notificationPath({
         applicationId: "abc",
-        stage: "active",
+        stage: "first_payment",
         type: "canon_receipt_uploaded",
         period: "2026-09",
       }),
@@ -169,7 +169,7 @@ describe("notificationPath", () => {
   });
 
   it("points at the tenancy with no anchor when no month is named", () => {
-    expect(notificationPath({ applicationId: "abc", stage: "active", type: "lease_started" })).toBe(
+    expect(notificationPath({ applicationId: "abc", stage: "first_payment", type: "lease_started" })).toBe(
       "/arriendos/abc",
     );
   });
@@ -177,14 +177,79 @@ describe("notificationPath", () => {
   it("knows which types belong to the tenancy and which to the process", () => {
     expect(isLeaseNotification("canon_paid")).toBe(true);
     expect(isLeaseNotification("lease_started")).toBe(true);
+    expect(isLeaseNotification("incident_reported")).toBe(true);
     expect(isLeaseNotification("canon_confirmed")).toBe(false);
     expect(isLeaseNotification("stage_advanced")).toBe(false);
+  });
+
+  /** Un reporte de una gotera aterriza en la gotera, no arriba de una página con doce meses. */
+  it("points at the incident inside the tenancy", () => {
+    expect(
+      notificationPath({
+        applicationId: "abc",
+        stage: "first_payment",
+        type: "incident_reported",
+        incident: "inc-7",
+      }),
+    ).toBe("/arriendos/abc#incidente-inc-7");
+  });
+});
+
+describe("the incident notification", () => {
+  const base = {
+    stage: "first_payment" as const,
+    propertyTitle: "Apartamento en Chapinero",
+    actorName: "Carlos Ramírez",
+    applicationId: "abc",
+  };
+
+  it("names what happened and sends the landlord to the tenancy to read it", () => {
+    const copy = notificationCopy({
+      ...base,
+      type: "incident_reported",
+      detail: "Se rompió el sifón del lavaplatos",
+    });
+
+    expect(copy.title).toMatch(/incidente/i);
+    expect(copy.body).toContain("Carlos Ramírez");
+    expect(copy.body).toContain("Se rompió el sifón del lavaplatos");
+    expect(copy.body).toMatch(/arriendo/i);
+  });
+
+  it("still says something when the title is missing", () => {
+    const copy = notificationCopy({ ...base, type: "incident_reported" });
+
+    expect(copy.body).toContain("Apartamento en Chapinero");
+  });
+
+  /*
+   * Lo que **no** sale en el correo: la descripción y los adjuntos. Es lo que el inquilino escribió
+   * sobre su casa con algo roto dentro, y un correo se reenvía y se queda abierto en un portátil. El
+   * título dice qué pasó y el enlace dice dónde leer el resto, detrás de la sesión.
+   */
+  it("carries the title and the link, and never the description", () => {
+    const email = renderNotificationEmail(
+      {
+        ...base,
+        type: "incident_reported",
+        detail: "Se rompió el sifón del lavaplatos",
+        incident: "inc-7",
+      },
+      "dueno@example.com",
+      "https://miarriendodirecto.com",
+    );
+
+    expect(email.text).toContain("https://miarriendodirecto.com/arriendos/abc#incidente-inc-7");
+    expect(email.text).toContain("Se rompió el sifón del lavaplatos");
+    expect(email.text).toMatch(/Ver el arriendo/);
+    // La descripción nunca se le pasa a `notify`, así que no hay forma de que aparezca aquí.
+    expect(email.text).not.toMatch(/goteando|debajo del mueble/i);
   });
 });
 
 describe("the tenancy's notifications", () => {
   const base = {
-    stage: "active",
+    stage: "first_payment",
     propertyTitle: "Apartamento en Chapinero",
     actorName: "Ana Uno Pérez",
   } as const;
@@ -271,5 +336,35 @@ describe("relativeTime", () => {
 
   it("gives a date once counting days stops being useful", () => {
     expect(relativeTime("2026-06-01T15:00:00Z", now)).toMatch(/1 de junio/);
+  });
+});
+
+describe("the waived guarantee", () => {
+  const base = {
+    stage: "guarantee" as const,
+    propertyTitle: "Apartaestudio en los Alcazares",
+    actorName: "Ana Pérez",
+    applicationId: "abc",
+  };
+
+  /*
+   * Para el inquilino esto es una cosa menos que hacer, y es justo lo contrario de lo que la otra
+   * notificación de esta etapa le había dicho que esperara ("puede que Sura te escriba").
+   */
+  it("tells the tenant there is nothing for them to do", () => {
+    const copy = notificationCopy({ ...base, type: "guarantee_waived" });
+
+    expect(copy.title).toMatch(/sin p[óo]liza/i);
+    expect(copy.body).toContain("Ana Pérez");
+    expect(copy.body).toContain("Apartaestudio en los Alcazares");
+    expect(copy.body).toMatch(/no tienes que hacer nada/i);
+  });
+
+  /** Es del proceso, no de la tenencia: lleva a la etapa de la garantía. */
+  it("points at the guarantee stage of the process", () => {
+    expect(isLeaseNotification("guarantee_waived")).toBe(false);
+    expect(notificationPath({ ...base, type: "guarantee_waived" })).toBe(
+      "/contratos/abc#etapa-guarantee",
+    );
   });
 });

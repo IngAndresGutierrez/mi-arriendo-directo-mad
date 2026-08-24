@@ -26,6 +26,8 @@ export const NOTIFICATION_ID = "notification-1";
 /** The tenancy: its id **is** the application's, so one process produces one of these. */
 export const LEASE_ID = APPLICATION_ID;
 export const PERIOD_ID = "2026-09";
+/** One thing that went wrong in the property while the tenancy runs. */
+export const INCIDENT_ID = "incident-1";
 
 export async function createTestEnvironment(): Promise<RulesTestEnvironment> {
   return initializeTestEnvironment({
@@ -123,7 +125,11 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       }),
     );
     // The street lives apart from the public document: the catalog is world-readable.
-    await db.doc(`properties/${PROPERTY_ID}/private/location`).set({ line: "Calle 60 #10-20" });
+    await db.doc(`properties/${PROPERTY_ID}/private/location`).set({
+      line: "Calle 60 #10-20",
+      // The exact map point lives here too: it is the address, expressed as two numbers.
+      point: { lat: 4.64831, lng: -74.06276 },
+    });
 
     await db.doc(`properties/property-draft`).set(
       publishedProperty({
@@ -223,6 +229,25 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       dueDate: "2026-09-15",
       receipt: null,
       verdict: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // An incident the tenant reported: same audience as a month, so the same rule has to hold.
+    await db.doc(`leases/${LEASE_ID}/incidents/${INCIDENT_ID}`).set({
+      title: "Gotera en el techo del cuarto",
+      description: "Cada vez que llueve entra agua por la esquina, junto a la ventana.",
+      attachments: [
+        {
+          path: `incidents/${UID_TENANT}/abc-gotera.jpg`,
+          fileName: "gotera.jpg",
+          contentType: "image/jpeg",
+          bytes: 240_000,
+          uploadedAt: "2026-09-20T15:00:00.000Z",
+        },
+      ],
+      reporterUid: UID_TENANT,
+      reporterName: "Ana Uno Pérez",
       createdAt: new Date(),
       updatedAt: new Date(),
     });

@@ -1,6 +1,7 @@
 import "server-only";
 
-// Not `"use server"`: this is called *by* the action that advances a process, never from a form.
+// Not `"use server"`: this is called *by* the action that confirms the first canon, never from a
+// form.
 // Published as an action it would let anyone conjure a tenancy for an application they can name.
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -11,21 +12,25 @@ import { bogotaToday } from "@/shared/format/date";
 import { periodOf, shiftMonths } from "../domain/lease";
 
 /**
- * Opens the tenancy the moment a process reaches its ninth stage.
+ * Opens the tenancy the moment the landlord confirms the first canon arrived.
  *
- * **The first canon is the first month.** The landlord confirmed it before the process could get
- * here, so the tenancy starts with September already paid: the receipt and the verdict are carried
- * over verbatim onto `periods/{first}`. Without that, the tenant would open this screen and be
- * asked to pay a month they had just paid — and the only record of having paid it would be on the
- * other page.
+ * **The first canon is the first month**, and now literally the same act: the confirmation that
+ * ends the process is the write this runs after, so the tenancy starts with that month already
+ * paid — the receipt and the verdict are carried over verbatim onto `periods/{first}`. Without
+ * that, the tenant would open this screen and be asked to pay a month they had just paid, and the
+ * only record of having paid it would be on the other page.
+ *
+ * It used to hang off a stage of its own, `active`, which the landlord advanced to after
+ * confirming. That stage recorded nothing the confirmation had not, and until somebody pressed it
+ * the tenancy did not exist.
  *
  * **Idempotent by construction.** The tenancy's id *is* the application's, so `create()` is what
- * makes running this twice impossible rather than a thing to remember; a second advance to `active`
- * cannot exist, but a retried request can.
+ * makes running this twice impossible rather than a thing to remember; the action refuses a second
+ * verdict on the same receipt, but a retried request can still arrive.
  *
- * It never throws. Like `notify()`, it runs after the write that matters — the stage moved — and a
- * failure here must not undo it or show the landlord an error about work that succeeded. What it
- * costs is a tenancy that has to be opened by the next attempt, and what it logs is why.
+ * It never throws. Like `notify()`, it runs after the write that matters — the canon was confirmed
+ * — and a failure here must not undo it or show the landlord an error about work that succeeded.
+ * What it costs is a tenancy that has to be opened by the next attempt, and what it logs is why.
  */
 export async function startLease(application: Application, now: Date = new Date()): Promise<void> {
   /*
@@ -65,7 +70,7 @@ export async function startLease(application: Application, now: Date = new Date(
     });
   } catch (error) {
     // ALREADY_EXISTS is the expected shape of a retry and not worth a line in the log; anything
-    // else is, and neither is worth failing the advance that already happened.
+    // else is, and neither is worth failing the confirmation that already happened.
     const code = (error as { code?: number | string }).code;
     if (code !== 6 && code !== "already-exists") {
       console.error(`could not open the tenancy for ${application.id}:`, error);
@@ -81,8 +86,8 @@ export async function startLease(application: Application, now: Date = new Date(
    *
    * Written after the tenancy and not inside a transaction on purpose: if this one fails the
    * tenancy still exists and the month reads as unpaid, which is a wrong screen somebody can fix
-   * by uploading the receipt again. A transaction would instead leave the process at `active` with
-   * no tenancy at all, which is a screen nobody can fix.
+   * by uploading the receipt again. A transaction would instead leave the process finished with no
+   * tenancy at all, which is a screen nobody can fix.
    */
   try {
     await lease
