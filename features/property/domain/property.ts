@@ -17,6 +17,7 @@
  * means the same thing in any time zone, and a `Timestamp` would drift a day.
  */
 import type { Department } from "@/shared/geo/colombia";
+import { roundPoint, type GeoPoint } from "@/shared/geo/point";
 
 /**
  * Structural view of a Firestore `Timestamp`. The domain must not import the SDK — it is the
@@ -92,11 +93,18 @@ export type PropertyPhoto = {
   readonly url: string;
 };
 
-/** The public part of the address. The street lives in `PropertyLocation`. */
+/**
+ * The public part of the address. The street lives in `PropertyLocation`.
+ *
+ * `approx` is the only coordinate that may appear in a world-readable document, and it is
+ * deliberately blunt: see `approximateLocation`. Optional, because every listing published
+ * before the map existed has none and must keep rendering.
+ */
 export type PropertyArea = {
   readonly neighborhood: string;
   readonly city: string;
   readonly department: Department;
+  readonly approx?: GeoPoint;
 };
 
 /** Shape persisted in `properties/{id}`. Everything here is world-readable when available. */
@@ -154,6 +162,15 @@ export type PropertyLocation = {
   readonly line: string;
   /** `050-123456` — the registry number. Empty on listings published before it was required. */
   readonly registryNumber: string;
+  /**
+   * Where the property is, to the metre.
+   *
+   * It sits here rather than on the public document because **a precise coordinate is the
+   * address**: paste it into any map and the street name comes back. Storing it beside the
+   * street is the same decision, expressed twice. Absent when the landlord did not place a
+   * point — which is allowed, and is what every listing published before the map has.
+   */
+  readonly point?: GeoPoint;
 };
 
 /**
@@ -200,4 +217,44 @@ export function propertyMonthlyCost(property: Pick<Property, "rent" | "adminFee"
  */
 export function publicLocationLabel(area: PropertyArea): string {
   return `${area.neighborhood}, ${area.city}`;
+}
+
+/**
+ * How coarse the coordinate on the public document is, in degrees.
+ *
+ * `0.005°` is a cell of about 550 m on a side anywhere in Colombia. That is neighbourhood
+ * precision, which is exactly what the listing already publishes in words ("Palermo,
+ * Manizales") — so the map adds a picture of what a tenant could already read, and nothing more.
+ */
+export const LOCATION_GRID = 0.005;
+
+/**
+ * The radius the public map draws around that coordinate, in metres.
+ *
+ * It is not a decorative number: the property is **provably** inside it. The worst case is a
+ * point in the corner of its cell, half a diagonal from the centre — `sqrt(2) · 550/2 ≈ 394 m` —
+ * and `property.test.ts` asserts it across the country rather than trusting this comment.
+ *
+ * So the circle is a true statement to a tenant ("it is somewhere in here") instead of the
+ * usual vague blob, and it stays true if someone changes `LOCATION_GRID`, because the test
+ * fails first.
+ */
+export const APPROX_RADIUS_M = 400;
+
+/**
+ * The coordinate a listing may publish, from the one the landlord placed.
+ *
+ * The point is snapped to the centre of its `LOCATION_GRID` cell — **not jittered**. Random
+ * noise looks safer and is worse: it changes on every render, so anyone who loads the page a
+ * few times averages it away and recovers the real point. A deterministic snap gives up the
+ * same information every time, which is the definition of the guarantee this makes: the reader
+ * learns the cell, and nothing inside it.
+ *
+ * Pure, so it can be checked. The exact point never leaves `properties/{id}/private/location`.
+ */
+export function approximateLocation(point: GeoPoint): GeoPoint {
+  const snap = (value: number): number =>
+    Math.floor(value / LOCATION_GRID) * LOCATION_GRID + LOCATION_GRID / 2;
+
+  return roundPoint({ lat: snap(point.lat), lng: snap(point.lng) });
 }

@@ -20,18 +20,26 @@ import {
 } from "@/shared/ui/dialog";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { Switch } from "@/shared/ui/switch";
 import { useRouter } from "next/navigation";
 import { cn } from "@/shared/lib/utils";
 import { formatCOP } from "@/shared/format/money";
 
-import { recordGuaranteePolicy, saveGuaranteeProgress } from "../actions/guarantee";
 import {
+  recordGuaranteePolicy,
+  saveGuaranteeProgress,
+  setGuaranteeRequirement,
+} from "../actions/guarantee";
+import {
+  canWaiveGuarantee,
   guaranteeState,
   isProviderLink,
   GUARANTEE_COVERAGES,
   GUARANTEE_PLAN,
   GUARANTEE_LIMIT_NOTE,
   GUARANTEE_PROVIDER,
+  GUARANTEE_WAIVED_NOTE,
+  GUARANTEE_WAIVED_TENANT_NOTE,
   type Guarantee,
 } from "../domain/guarantee";
 
@@ -94,6 +102,20 @@ export function GuaranteePanel({
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const saved = useRef({ tenantLink: guarantee?.tenantLink ?? "", note: guarantee?.note ?? "" });
   const state = guaranteeState(guarantee);
+  const waived = state === "waived";
+  /*
+   * El interruptor desaparece cuando ya hay póliza: ofrecerlo entonces sería ofrecer "des-comprar"
+   * un seguro, y lo que de verdad haría es esconderle al inquilino una póliza de la que ya se le
+   * avisó. La acción lo comprueba igual — esto es lo que evita el control, no la regla.
+   */
+  const canWaive = canWaiveGuarantee(guarantee);
+  /*
+   * Quién tiene el interruptor delante. Se calcula una vez porque lo leen dos sitios, y el segundo es
+   * el que decide si repetir la consecuencia o no: la primera versión la pintaba en los dos y la
+   * etapa decía dos veces la misma frase, una debajo de la otra. Es el mismo fallo que el panel de
+   * documentos tuvo con su encabezado, en pequeño.
+   */
+  const showsSwitch = isLandlord && !readOnly && canWaive;
 
   /*
    * El guardado sin botón. Se dispara cuando el valor deja de cambiar, no en cada tecla: pegar un
@@ -149,6 +171,78 @@ export function GuaranteePanel({
 
   return (
     <div className="space-y-4">
+      {/*
+        El interruptor va **arriba de todo**, porque es la pregunta anterior a la etapa: si este
+        arriendo lleva seguro o no. Debajo de la tarjeta de coberturas se leería como una opción sobre
+        la póliza que se está describiendo, y no es eso — es si hay póliza.
+      */}
+      {showsSwitch ? (
+        <div className="rounded-xl border border-border bg-background p-4">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="guarantee-required" className="block text-sm font-medium">
+                Este arriendo lleva póliza de arrendamiento
+              </Label>
+              <p className="mt-1 text-sm text-muted-foreground">
+                La ley no exige seguro. Si vas a arrendar sin él, apágalo y el proceso sigue sin
+                pedirte póliza.
+              </p>
+            </div>
+            <Switch
+              id="guarantee-required"
+              checked={!waived}
+              disabled={pending}
+              aria-describedby={waived ? "guarantee-waived-note" : undefined}
+              onCheckedChange={(next) =>
+                run(() => setGuaranteeRequirement(applicationId, { waived: !next }))
+              }
+            />
+          </div>
+
+          {/*
+            La consecuencia, y sólo cuando está apagado. Es la mitad que un interruptor hace fácil
+            saltarse: sin póliza no hay nada detrás del arriendo, porque la ley prohíbe el depósito
+            en efectivo. No es un error, así que no va en rojo — va en morado de marca, que es como
+            este producto dice "esto importa" sin decir "esto está mal".
+          */}
+          {waived ? (
+            <p
+              id="guarantee-waived-note"
+              className="mt-3 rounded-lg border border-brand-panel/25 bg-brand-panel/[0.04] px-3 py-2 text-sm text-brand-panel dark:border-brand-panel-muted/30 dark:bg-brand-panel-muted/10 dark:text-brand-panel-muted"
+            >
+              {GUARANTEE_WAIVED_NOTE}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/*
+        Sin póliza no se pinta el aparato de Sura: coberturas, cotizador, enlace y número de póliza
+        son controles que ya no hacen nada, y un control que no cambia nada es la misma mentira que un
+        "Continuar" que no continúa. Lo que queda es el registro de la decisión.
+      */}
+      {waived ? (
+        /*
+          La tarjeta del registro, **para quien no tiene el interruptor**: el inquilino, y el
+          propietario cuando la etapa ya pasó. Con el interruptor delante esta tarjeta repetía palabra
+          por palabra la consecuencia que ya está dentro de él, dos párrafos seguidos diciendo lo
+          mismo.
+        */
+        showsSwitch ? null : (
+          <div className="rounded-xl border border-border bg-background p-4">
+            <p className="text-sm font-medium text-foreground">Sin póliza de arrendamiento</p>
+            <p className="mt-1 text-sm text-muted-foreground">
+              {isLandlord
+                ? "Este arriendo va sin póliza de arrendamiento, por tu decisión en esta etapa."
+                : GUARANTEE_WAIVED_TENANT_NOTE}
+            </p>
+            {guarantee?.note ? (
+              <p className="mt-2 text-sm text-muted-foreground">{guarantee.note}</p>
+            ) : null}
+          </div>
+        )
+      ) : (
+      <>
       <div className="rounded-xl border border-border bg-background p-4">
         <div className="flex flex-wrap items-center gap-2">
           <span
@@ -431,6 +525,9 @@ export function GuaranteePanel({
             )}
           </div>
         )
+      )}
+
+      </>
       )}
 
       {error && (

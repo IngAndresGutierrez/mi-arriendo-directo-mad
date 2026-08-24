@@ -236,6 +236,30 @@ export async function completeProfile(page, { name, city = "Manizales", departme
 }
 
 /**
+ * Que React ya escucha en ese elemento concreto.
+ *
+ * `hydrated()` busca un `<form>` y hay pantallas del producto que no tienen ninguno — el panel de los
+ * meses, el de los incidentes, el interruptor del seguro son campos y botones sueltos. Esta es la
+ * versión general, y hace falta exactamente en un caso: **un evento de una sola oportunidad sobre un
+ * elemento que ya era pulsable**. `setInputFiles` dispara `change` una vez, y un clic sobre un
+ * `Switch` de Radix al que todavía no se le ha enganchado el manejador no cambia nada; en los dos
+ * casos Playwright no reintenta, porque desde su punto de vista la acción se hizo.
+ *
+ * No se pone en `settled()`: la mayoría de las interacciones no lo necesitan y pagarlo en cada
+ * navegación es lo que una vez llevó `documents` de 74s a 104s.
+ */
+export async function reactReady(page, selector, timeout = 20000) {
+  await page.waitForFunction(
+    (sel) => {
+      const el = document.querySelector(sel);
+      return Boolean(el) && Object.keys(el).some((k) => k.startsWith("__react"));
+    },
+    selector,
+    { timeout },
+  );
+}
+
+/**
  * Cambia de pestaña en la pantalla de un arriendo, y espera a que el panel esté montado.
  *
  * Vive aquí y no en un driver porque es **cómo se navega esa pantalla** desde que tiene pestañas:
@@ -281,6 +305,26 @@ export async function assertNoHorizontalScroll(page, where) {
   if (size.doc > size.win + 1) {
     throw new Error(`scroll horizontal en ${where}: ${JSON.stringify(size)}`);
   }
+}
+
+/**
+ * Las teselas del mapa, respondidas desde aquí y nunca desde OpenStreetMap.
+ *
+ * Dos razones, y ninguna es comodidad. Una corrida de drivers no debe gastar el servicio de
+ * voluntarios que este producto usa en producción — la misma lección que `RESEND_API_KEY=` vacío
+ * en el servidor de e2e, que ya se pagó agotando la cuota de un día con tests. Y un driver que
+ * depende de la red de un tercero se pone rojo por algo que no es el producto: sin esto, cada
+ * imagen fallida en una máquina sin salida a internet es una línea de consola y `assertQuiet` la
+ * convierte en un fallo.
+ *
+ * Leaflet dibuja el mapa igual: las teselas son imágenes, y lo que los drivers afirman son
+ * coordenadas. Se llama en los tres drivers que montan un mapa, no en `watch()`: `page.route` es
+ * asíncrono y meterlo en un ayudante síncrono sería una carrera.
+ */
+export async function stubTiles(page, tile) {
+  await page.route("**tile.openstreetmap.org/**", (route) =>
+    route.fulfill({ status: 200, contentType: "image/png", body: tile }),
+  );
 }
 
 export function assertQuiet(problems) {

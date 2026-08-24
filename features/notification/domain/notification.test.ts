@@ -338,3 +338,33 @@ describe("relativeTime", () => {
     expect(relativeTime("2026-06-01T15:00:00Z", now)).toMatch(/1 de junio/);
   });
 });
+
+describe("the waived guarantee", () => {
+  const base = {
+    stage: "guarantee" as const,
+    propertyTitle: "Apartaestudio en los Alcazares",
+    actorName: "Ana Pérez",
+    applicationId: "abc",
+  };
+
+  /*
+   * Para el inquilino esto es una cosa menos que hacer, y es justo lo contrario de lo que la otra
+   * notificación de esta etapa le había dicho que esperara ("puede que Sura te escriba").
+   */
+  it("tells the tenant there is nothing for them to do", () => {
+    const copy = notificationCopy({ ...base, type: "guarantee_waived" });
+
+    expect(copy.title).toMatch(/sin p[óo]liza/i);
+    expect(copy.body).toContain("Ana Pérez");
+    expect(copy.body).toContain("Apartaestudio en los Alcazares");
+    expect(copy.body).toMatch(/no tienes que hacer nada/i);
+  });
+
+  /** Es del proceso, no de la tenencia: lleva a la etapa de la garantía. */
+  it("points at the guarantee stage of the process", () => {
+    expect(isLeaseNotification("guarantee_waived")).toBe(false);
+    expect(notificationPath({ ...base, type: "guarantee_waived" })).toBe(
+      "/contratos/abc#etapa-guarantee",
+    );
+  });
+});

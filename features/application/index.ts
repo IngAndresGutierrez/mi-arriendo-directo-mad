@@ -84,6 +84,7 @@ export {
   recordGuaranteeRequested,
   saveGuaranteeProgress,
   type GuaranteeActionResult,
+  setGuaranteeRequirement,
 } from "./actions/guarantee";
 export {
   recordReceiptVerdict,
@@ -152,6 +153,7 @@ export {
   type SignatureChannel,
 } from "./domain/contract";
 export {
+  canWaiveGuarantee,
   guaranteeBlocker,
   guaranteeBlockerMessage,
   guaranteeState,

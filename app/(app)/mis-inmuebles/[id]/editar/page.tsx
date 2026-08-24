@@ -41,10 +41,13 @@ export default async function EditPropertyPage(props: PageProps<"/mis-inmuebles/
       </p>
 
       <PropertyForm
-          property={property}
-          addressLine={location?.line ?? ""}
-          registryNumber={location?.registryNumber ?? ""}
-        />
+        property={property}
+        addressLine={location?.line ?? ""}
+        registryNumber={location?.registryNumber ?? ""}
+        // From `private/location`, which only the owner can read — and this page is only ever
+        // rendered for them.
+        mapPoint={location?.point ?? null}
+      />
     </div>
   );
 }

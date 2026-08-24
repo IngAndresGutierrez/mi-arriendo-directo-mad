@@ -160,6 +160,41 @@ describe("properties", () => {
     );
   });
 
+  it("the public document CANNOT carry the exact map point", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    const area = { neighborhood: "Palermo", city: "Manizales", department: "Caldas" };
+
+    // A coordinate to five decimals is the address in another alphabet: it belongs in
+    // `private/location`, never here.
+    await assertFails(
+      addDoc(collection(db, "properties"), publishedProperty({
+        area: { ...area, point: { lat: 5.06786, lng: -75.49123 } },
+      })),
+    );
+    // ...and the blunted one is accepted, which is what makes the test above mean something.
+    await assertSucceeds(
+      addDoc(collection(db, "properties"), publishedProperty({
+        area: { ...area, approx: { lat: 5.0675, lng: -75.4925 } },
+      })),
+    );
+  });
+
+  it("rejects a published coordinate that is not a coordinate", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    const area = { neighborhood: "Palermo", city: "Manizales", department: "Caldas" };
+    const withApprox = (approx: unknown) =>
+      addDoc(collection(db, "properties"), publishedProperty({ area: { ...area, approx } }));
+
+    // the pair swapped: Antarctica
+    await assertFails(withApprox({ lat: -75.4925, lng: 5.0675 }));
+    // a zeroed default: the Gulf of Guinea
+    await assertFails(withApprox({ lat: 0, lng: 0 }));
+    // strings that never met the schema
+    await assertFails(withApprox({ lat: "5.0675", lng: "-75.4925" }));
+    // an extra key smuggled in beside them
+    await assertFails(withApprox({ lat: 5.0675, lng: -75.4925, line: "Calle 60 #10-20" }));
+  });
+
   it("rejects a property with no photos", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(addDoc(collection(db, "properties"), publishedProperty({ photos: [] })));
@@ -196,6 +231,15 @@ describe("properties", () => {
     await assertFails(
       setDoc(doc(db, `properties/${PROPERTY_ID}/private/location`), { line: "Otra dirección" }),
     );
+  });
+
+  it("the exact map point is as private as the street it is", async () => {
+    // It lives in the same document, so it inherits the same rule — and this pins that it
+    // stays there, because the temptation is always to move a coordinate somewhere handier.
+    const path = `properties/${PROPERTY_ID}/private/location`;
+    await assertSucceeds(getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), path)));
+    await assertFails(getDoc(doc(actingAs(env, UID_TENANT, "tenant"), path)));
+    await assertFails(getDoc(doc(anonymous(env), path)));
   });
 
   it("rejects an invalid rent (negative or float)", async () => {

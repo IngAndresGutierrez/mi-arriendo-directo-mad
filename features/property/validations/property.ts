@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { DEPARTMENTS } from "@/shared/geo/colombia";
 import { isMunicipalityOf } from "@/shared/geo/municipalities";
+import { isInColombia } from "@/shared/geo/point";
 import {
   AREA_MAX,
   AREA_MIN,
@@ -78,8 +79,27 @@ const registryNumber = z
     error: "Solo números, con o sin guion. Por ejemplo: 050-123456",
   });
 
+/**
+ * The point the landlord placed on the map, when they placed one.
+ *
+ * **Optional, and it stays optional.** Requiring it would lock every listing published before
+ * the map existed out of its own edit form — the same form publishes and edits — and would also
+ * shut out a landlord whose street is simply not drawn yet, which in rural Colombia is common.
+ * A listing with no point renders its location as text, exactly as it did before.
+ *
+ * The bounds check is not a border, it is the guard against the three ways a coordinate arrives
+ * wrong: swapped, zeroed, or with the sign dropped. See `COLOMBIA_BOUNDS`.
+ */
+const mapPoint = z
+  .object({
+    lat: z.coerce.number({ error: "Ubica el inmueble en el mapa" }),
+    lng: z.coerce.number({ error: "Ubica el inmueble en el mapa" }),
+  })
+  .refine(isInColombia, { error: "El punto del mapa no está en Colombia" });
+
 const address = z.object({
   registryNumber,
+  point: mapPoint.optional(),
   line: z
     .string({ error: "Ingresa la dirección" })
     .trim()

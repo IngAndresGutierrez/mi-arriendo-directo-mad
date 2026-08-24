@@ -24,6 +24,7 @@ export const NOTIFICATION_TYPES = [
   "interview_reminder_soon",
   "guarantee_requested",
   "guarantee_active",
+  "guarantee_waived",
   "contract_ready",
   "contract_signed",
   "payout_ready",
@@ -193,6 +194,17 @@ export function notificationCopy(
         body: notification.detail
           ? `${sentence(`El arriendo de ${property} ya tiene su garantía: ${notification.detail}`)} Sigue la firma del contrato.`
           : `El arriendo de ${property} ya tiene su póliza. Sigue la firma del contrato.`,
+      };
+    case "guarantee_waived":
+      /*
+       * Para el inquilino esto es sobre todo **una cosa menos que hacer**: nadie va a estudiar su
+       * perfil y Sura no le va a escribir, que es justo lo que la otra notificación de esta etapa le
+       * había dicho que esperara. Se dice sin adornos y sin opinar sobre la decisión del propietario:
+       * la ley no exige póliza, así que no hay nada que reprochar ni nada que celebrar.
+       */
+      return {
+        title: "Este arriendo va sin póliza de arrendamiento",
+        body: `${who} decidió no pedir póliza para ${property}. No tienes que hacer nada por el seguro.`,
       };
     case "contract_ready":
       return {

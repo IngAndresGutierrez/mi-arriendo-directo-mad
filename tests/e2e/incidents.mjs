@@ -34,6 +34,7 @@ import {
   launch,
   leaseTab,
   ok,
+  reactReady,
   openSession,
   settled,
 } from "./lib.mjs";
@@ -48,26 +49,6 @@ const { browser, problems } = await launch();
 const TITULO = "Se rompió el sifón del lavaplatos";
 const DESCRIPCION =
   "Desde anoche gotea debajo del mueble de la cocina. Puse una olla para recoger el agua, pero el mueble ya está mojado.";
-
-/**
- * Que React ya escucha en ese elemento.
- *
- * `hydrated()` de `lib.mjs` no sirve en esta pantalla: busca un `<form>` y aquí no hay ninguno — el
- * panel de los meses y este son botones y campos sueltos. Y hace falta de verdad, no por prudencia:
- * `setInputFiles` pone los ficheros y dispara `change` **una sola vez**, así que un input al que
- * todavía no se le ha enganchado el manejador se come el evento y no hay nada que reintentar. Es
- * exactamente el falso positivo que costó una tarde en `session.mjs`.
- */
-async function reactReady(page, selector) {
-  await page.waitForFunction(
-    (sel) => {
-      const el = document.querySelector(sel);
-      return Boolean(el) && Object.keys(el).some((k) => k.startsWith("__react"));
-    },
-    selector,
-    { timeout: 20000 },
-  );
-}
 
 /** Los incidentes que el producto escribió de verdad, no lo que la pantalla dice. */
 async function incidentesEscritos(leaseId) {

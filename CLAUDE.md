@@ -119,7 +119,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
 | `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
-| `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. |
+| `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. **The map lives here**: a circle over the zone, never a pin — see "The map" below. |
 | `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
 
 - `POST /api/session` exchanges the idToken for an httpOnly session cookie (and requires a
@@ -273,6 +273,70 @@ risk of leaving a field unconnected.
 | `shared/shell/app-drawer.tsx` | `AppDrawer`: below `lg`, the bar with the hamburger plus the same menu in a drawer. Owns the open state. |
 | `shared/ui/nav-item.tsx` | `NavItem`: a menu entry. Without `href` it renders disabled with a "Pronto" badge. `activeOn` marks the section on routes that do not hang off its path; `shortLabel` is what the narrow rail shows instead of a name too long to sit under an icon. |
 | `shared/ui/coming-soon-card.tsx` | `ComingSoonCard`: wraps mocked-up UI whose function does not exist yet. |
+
+## The map, and the one rule that shapes it
+
+A landlord can place the property on a map when they publish it, and the public detail page draws
+it. **The exact point is stored where the street is stored, and only a blunted one is published** —
+`features/property/domain/property.ts`.
+
+That is the whole design, and it follows from one fact: a coordinate to five decimals *is* the
+address. Paste it into any map and the street name comes back. So the split that already exists
+between `properties/{id}` and `properties/{id}/private/location` had to hold for the coordinate too,
+or the map would have undone it one field at a time.
+
+| Where | What | Who reads it |
+| --- | --- | --- |
+| `properties/{id}/private/location.point` | the exact point, as placed | the owner, an admin |
+| `properties/{id}.area.approx` | that point snapped to a **0.005° grid** — a cell of ~550 m | everybody |
+
+`approximateLocation()` does the snapping and it **snaps, never jitters**. Random noise looks safer
+and is worse: it changes on every render, so anyone who loads the page a few times averages it away
+and recovers the real point. A deterministic snap gives up the same information every time, and that
+is the guarantee — the reader learns the cell and nothing inside it.
+
+The public map draws a **circle of `APPROX_RADIUS_M` = 400 m and never a pin**, and that number is
+proven rather than chosen: the worst case is a point in the corner of its cell, half a diagonal from
+the centre (~394 m), and `property.test.ts` asserts it across seven points from Leticia to San
+Andrés. Weaken `LOCATION_GRID` and that test fails before a tenant is shown a circle their rental is
+not in. The owner — and only the owner — also sees their own point inside the circle, for the same
+reason the street is on that page for them alone.
+
+Four more things worth keeping:
+
+- **It is optional, and it stays optional.** Requiring it would lock every listing published before
+  the map out of its own edit form (publishing and editing are the same form), and would shut out a
+  landlord whose street OpenStreetMap has not drawn — which in rural Colombia is most of them. A
+  listing with no point renders its location in words, exactly as before, and the map is added to
+  that section rather than replacing it.
+- **The picker is a crosshair over a map that moves, not a pin that drags.** A draggable marker
+  cannot be operated with a keyboard at all, and this is the one screen where that would mean not
+  being able to publish; a map pans with the arrow keys and zooms with `+`/`−` for free, so the
+  accessible path *is* the control instead of an escape hatch beside it. It reports on `moveend`, so
+  what is under the crosshair is what is stored — and **nothing is reported below zoom 14**
+  (`MIN_PICK_ZOOM`), because a pan at country zoom is a department, not a location. Without that
+  guard a landlord who idly dragged the map acquired a point a hundred kilometres from their house.
+- **"Centrar en el barrio" asks a geocoder only what the listing already publishes** — barrio, city,
+  department. Not the street: sending it to Nominatim to be logged would give away, through the back
+  door, exactly what `private/location` exists to keep. It is Server-Action-gated (an unauthenticated
+  keyless geocoder proxy is an open proxy, and the abuse arrives under this product's name) and
+  answering nothing is the **expected** case, not an error — OSM's coverage of small Colombian towns
+  is thin, and the point can always be placed by hand.
+- **Tiles come from OpenStreetMap's own servers, which is a decision with an expiry date.**
+  `shared/map/tiles.ts` is one constant and one attribution string for that reason: OSMF's policy is
+  written for light use by small sites and a public catalogue that takes off is neither. When traffic
+  arrives the change is a keyed provider in `TILE_URL`; what must not happen is that decision being
+  made silently by growth. Driver runs never touch those servers — `stubTiles` in
+  `tests/e2e/lib.mjs`, the same lesson as the empty `RESEND_API_KEY`.
+
+Leaflet is **148 KB in its own chunk**, behind `next/dynamic` with no SSR (it reads `window` on
+import) and referenced by no page entry in the build manifest: only the publish form and a property's
+detail page ever download it. Both boundaries are a thin `"use client"` wrapper, because `ssr: false`
+is not allowed inside a Server Component.
+
+`tests/e2e/map.mjs` makes the assertion nothing else can: that the HTML a stranger receives contains
+neither coordinate, anywhere — not in the map, not in a `data-` attribute, not in the RSC payload at
+the end of the document. It was verified by leaking the point on purpose and watching it go red.
 
 ## Where someone lives
 The **city depends on its department**, in the profile as in the property form: two selects, the
@@ -467,9 +531,59 @@ requested policy is a wait, and signing a contract on a study the insurer may st
 the landlord with nothing behind it. `requested` exists as its own state anyway, because Sura's
 study takes days and both sides need somewhere to look during them.
 
+**But the policy itself is optional, and the stage used to be written as if it were not.** Nothing
+in Colombian law requires rental insurance, so a landlord renting to a relative — or to a tenant of
+six years — had no way past this stage but to buy something they did not want. There is a **switch**
+at the top of the panel, landlord-only: *"Este arriendo lleva póliza de arrendamiento"*. Off, the
+state is `waived` and `guaranteeBlocker` answers `null`, so the process advances with no policy at
+all. Five things about it:
+
+- **The consequence is stated beside the switch, not in a tooltip.** Ley 820 forbids a cash deposit,
+  so with the policy declined there is *nothing* behind the lease — the policy is not one guarantee
+  among several. `GUARANTEE_WAIVED_NOTE` says it, in brand purple rather than red: this product says
+  "this matters" without saying "this is wrong", because the decision is legitimately theirs.
+- **`waivedAt` is a timestamp, not a `required: boolean`** — like `requestedAt`, `activeAt`,
+  `checksAuthorizedAt` and `acceptedClauseAt`. *When* it was decided is part of the record both
+  parties read, and a bare boolean answers "no" identically whether it was decided today or never
+  asked at all.
+- **An issued policy outranks a waiver**, and the order of the four checks in `guaranteeState` is the
+  whole rule: swapping the first two makes a lease with a policy read as having none. A waiver *does*
+  outrank a mere request, because applying and then thinking better of it is ordinary. And
+  `canWaiveGuarantee` removes the switch once a policy exists — offering it then would be offering to
+  un-buy a policy the tenant has already been told about.
+- **The three older write paths disagree about the waiver on purpose.**
+  `recordGuaranteeRequested` and `recordGuaranteePolicy` clear it (asking for a policy *is* wanting
+  one); `saveGuaranteeProgress` **preserves** it, because that one is an autosave — a landlord who
+  declined the policy and then fixes a word in the note is not asking for it, and clearing it there
+  would flip the switch back while they typed, with nothing on screen to explain it.
+- **Only waiving notifies** (`guarantee_waived`). Turning the requirement back on asks the tenant for
+  nothing; applying for the policy is what notifies, as it already did. A switch that rang the bell in
+  both directions would ring it twice for a landlord making up their mind, and the second message
+  would contradict the first. `waivedAt` is preserved when already set, so re-pressing the same side
+  does not re-notify — the same "notify on transitions, not on saves" rule this stage already follows.
+
+With no policy the panel **stops rendering the Sura apparatus** — coverages, quoter sheet, link field
+and policy number are all controls that no longer do anything. The record of the decision is what
+stays, and it renders for whoever does *not* have the switch (the tenant, and the landlord once the
+stage is past): with the switch in front of you it repeated its own warning word for word, two
+paragraphs saying the same thing.
+
 The tenant reads the same coverages and the same state, and is told that Sura may write to them to
 complete the study: it is their default the policy insures and their inbox it reaches, so learning
-about it from a phone call would mean finding out last about something that is about them.
+about it from a phone call would mean finding out last about something that is about them. When the
+landlord has declined it they are told the opposite, plainly — nobody will study their profile and
+Sura will not write — because that is exactly the expectation the other notification set.
+
+**`shared/ui/switch.tsx` is hand-written over the Radix primitive**, like `tabs.tsx`, so
+`shadcn add` cannot rewrite `button.tsx` on the way past. Its checked colour is `--brand-panel` and
+never `--primary`: in dark mode `--primary` *is* the cyan.
+
+**`tests/e2e/guarantee.mjs` was red for a long time and nobody knew what it was hiding.** It
+self-initialised the Admin SDK with the *real* service account read from `.env.local`, at an absolute
+path, so against the emulators it died before its first assertion — which means the whole guarantee
+stage had gone unverified in a browser for as long as that was true. Swapping it to `adminDb()` /
+`adminFieldValue()` from `lib.mjs` was the entire fix, and it is green at 29 assertions now. Two of
+the other three drivers in that group (`interview`, `rentals-layout`, `reminders`) still have it.
 
 **There is no deposit stage, and there must never be one.** Ley 820 de 2003 forbids cash
 deposits on urban housing leases in Colombia. `guarantee` — a co-signer or an insurance policy —
@@ -966,6 +1080,76 @@ documents is five waits with the list unusable.
 `miarriendodirecto.com` is already verified in that Resend account (SPF/DKIM), and it is the
 same domain the links point at — a message about a rental arriving from another domain reads as
 phishing, correctly.
+
+### The bell rings, and it announces an arrival three ways
+
+A grey icon with a four-pixel sticker on it is a notification system people discover the next day.
+So something arriving **sounds**, **swings the bell once**, and **says so in a `role="status"` live
+region**. Three channels because each one fails on its own: the sound is blocked until the first
+gesture and can be switched off, the swing is off under `prefers-reduced-motion`, and neither is any
+use to somebody listening to the page. What never fails is the count, which is why it is on the
+button's accessible name and not only in the badge.
+
+**The gate is identity, not "the snapshot changed".** `domain/arrivals.ts` — `firstSnapshot` /
+`nextSnapshot` — rings only for a document id that was not there before, and rings **once** for a
+batch. That is not fussiness: opening the panel writes `readAt` on every unread notification through
+a Server Action, so the Admin SDK's write comes back on the bell's own subscription with
+`hasPendingWrites` false and nothing new in it. A bell that rang on any change would chime at
+somebody for having read their own notifications. The unit test breaks if the rule is weakened to a
+count comparison, and `tests/e2e/notifications.mjs` drives the same case in a browser.
+
+**The sound is synthesised, not a file.** Two sine notes a fifth apart (A5 → E6) with a fast attack
+and an exponential decay: no asset in `public/`, no request, and no decode before the first one can
+play — which matters, because the moment a notification arrives is the moment there is no time to
+fetch anything. `PEAK_GAIN` is 0.09 on purpose; this is news, not an alarm, and it may arrive while
+somebody is on a call.
+
+**The autoplay policy is the whole difficulty, and it is honoured rather than worked around.** A
+browser will not let a page make noise before the person has interacted with it: an `AudioContext`
+created outside a gesture starts `suspended`, and `resume()` does nothing. So `armChime()` waits for
+the first click, tap or keypress anywhere in the document and creates the context **there**, and
+`playChime()` refuses to schedule anything unless the context is already `running`. Scheduling into
+a suspended one would be worse than silence — `currentTime` does not advance while suspended, so
+every held-back note fires at once on the next resume, which is a chime for a notification from ten
+minutes ago at the instant somebody clicks something unrelated. The cost is real and stated in the
+module: a notification arriving before the person has touched the page at all is silent, and the
+badge, the swing and the live region still say so.
+
+**A noise with no reachable off switch gets silenced at the operating system**, and then the
+reminder ten minutes before an interview arrives silenced too. So the toggle is in the panel's
+header — where somebody is standing when the sound annoys them — it is remembered in
+`localStorage` (a UI preference, not personal data, so this is not the rule that forbids that), and
+it is read through **`useSyncExternalStore`**: `localStorage` is an external store, so copying it
+into state from an effect is both a second source of truth and the thing the React compiler
+refuses. `subscribeSoundPreference` also listens for `storage`, so muting it in one tab mutes it in
+the others. Turning it **on** plays the chime: a sound setting whose effect you only discover hours
+later is one nobody trusts. The ring path calls `readSoundEnabled()` at the moment it rings rather
+than reading state, so there is no copy of the preference inside the subscription's closure to go
+stale — that subscription is set up once and outlives every change to it.
+
+**The strong state is brand purple with a cyan count, and it is not a cyan button.** Unread, the
+bell is a filled `bg-brand-panel` control; read, an outlined one with a purple icon. The old version
+was `text-muted-foreground` in both, which is the colour this design system uses for text that does
+not matter, on the one control whose whole job is to say that something does. It is not `accent`
+because of the one-cyan-per-view rule: the bell is chrome, on every screen, so a cyan bell would
+compete with all of them. A twenty-pixel cyan badge on a purple control is a signal; a cyan button
+is a call to action. The badge is `text-accent-foreground` — white on `#00E5FF` does not pass AA —
+and the old `bg-destructive` red is gone, because news is not an error.
+
+The swing lives in `app/globals.css` (`--animate-bell-ring` plus the `@keyframes`), not in the
+component: a loose `@keyframes` inside a React file is exactly the CSS nobody finds on the day it has
+to change. Its `prefers-reduced-motion` override is deliberately **outside any `@layer`**, because
+unlayered CSS beats Tailwind's layered utilities and that settles the specificity without a fight.
+It replays by using the ring counter as the icon's `key`: remounting restarts a CSS animation and
+toggling a class does not.
+
+**The sound is driven by counting oscillators, not by listening.** `tests/e2e/notifications.mjs`
+patches `AudioContext.prototype.createOscillator` through `addInitScript` and counts, which is the
+only way to tell "it rang" from "the browser blocked it" — and it asserts the negative too: after
+`readAt` is rewritten the count must not move, and a `0` there is proved to mean *silence* rather
+than *blocked* by toggling the sound on immediately afterwards and watching the count jump. The
+counter resets on every navigation, so each block takes its own baseline, and the arrival is driven
+on a page that **never navigates**: what lands in the first snapshot is what was already on screen.
 
 ## Live updates
 

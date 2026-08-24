@@ -51,7 +51,15 @@ function toApplication(snapshot: Snapshot): Application | null {
      * a guarantee recorded before it has no such field and the type would be claiming a string
      * that is `undefined`.
      */
-    guarantee: doc.guarantee ? { ...doc.guarantee, tenantLink: doc.guarantee.tenantLink ?? "" } : null,
+    guarantee: doc.guarantee
+      ? {
+          ...doc.guarantee,
+          tenantLink: doc.guarantee.tenantLink ?? "",
+          // `waivedAt` arrived after the stage shipped too, so every guarantee recorded before the
+          // policy could be declined has no such key — and the type says it is a string or null.
+          waivedAt: doc.guarantee.waivedAt ?? null,
+        }
+      : null,
     /*
      * Written by `uploadContract`, and **normalised here rather than trusted**.
      *

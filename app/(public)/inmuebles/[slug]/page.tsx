@@ -13,6 +13,7 @@ import {
   PropertyFacts,
   PropertyGallery,
   PropertyPriceCard,
+  PropertyZoneMap,
   PROPERTY_STATUS_LABELS,
   PROPERTY_TYPE_LABELS,
   type Property,
@@ -164,6 +165,21 @@ export default async function PropertyDetailPage(props: DetailProps) {
             dirección exacta se comparte con el inquilino cuando el propietario aprueba su
             postulación.
           </p>
+
+          {/*
+            The map, when the landlord placed a point. It is not a fallback for the sentence
+            above and never replaces it: a listing with no point still says where it is, and a
+            reader whose map fails to load reads the same thing. What the circle adds is the
+            shape of the neighbourhood, which is the part words are bad at.
+
+            `exact` only for the owner — the same rule as the street on this page, and it comes
+            from `private/location`, which nobody else can read anyway.
+          */}
+          {property.area.approx && (
+            <div className="pt-2">
+              <PropertyZoneMap approx={property.area.approx} exact={location?.point ?? null} />
+            </div>
+          )}
         </section>
 
         <PropertyPriceCard

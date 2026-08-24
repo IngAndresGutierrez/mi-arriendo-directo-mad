@@ -39,6 +39,20 @@ export const COVERS = {
   // The landlord's properties.
   publish: ["features/property/", "app/(app)/inmuebles", "shared/geo/"],
   "manage-properties": ["features/property/", "app/(app)/mis-inmuebles"],
+  /*
+   * La ubicación en el mapa. `shared/map/` y `shared/geo/point` son suyos y de nadie más, pero
+   * `features/property/` también entra: el punto viaja por el esquema, la acción y el detalle, y
+   * un cambio en cualquiera de los tres rompe la separación entre la coordenada exacta y la
+   * publicada sin que nada más lo note.
+   */
+  map: [
+    "shared/map/",
+    "shared/geo/point",
+    "features/property/",
+    "app/(app)/inmuebles",
+    "app/(app)/mis-inmuebles",
+    "app/(public)/inmuebles",
+  ],
   amount: ["shared/format/money", "features/property/validations"],
 
   // The rental process.
@@ -113,7 +127,7 @@ export const COVERS = {
 };
 
 /** Drivers that need a landlord, a tenant and a property, so they are the slow ones. */
-export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental", "incidents"];
+export const SLOW = ["documents", "apply", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental", "incidents", "map"];
 
 /**
  * Rutas tan transversales que cualquier cambio en ellas selecciona **todos** los drivers.

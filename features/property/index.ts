@@ -2,6 +2,8 @@
  * Public API of the property module. Anything not exported here is internal to the feature.
  */
 export {
+  approximateLocation,
+  APPROX_RADIUS_M,
   LEASE_TERMS,
   LEASE_TERM_LABELS,
   propertyIdFromSlug,
@@ -39,3 +41,4 @@ export { CatalogToolbar } from "./ui/catalog-toolbar";
 export { PropertyFacts } from "./ui/property-facts";
 export { PropertyGallery } from "./ui/property-gallery";
 export { PropertyPriceCard } from "./ui/property-price-card";
+export { PropertyZoneMap } from "./ui/property-zone-map";

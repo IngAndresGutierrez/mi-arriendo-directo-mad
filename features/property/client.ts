@@ -6,6 +6,7 @@
  * pure half has a door of its own. Everything here is domain: constants, labels and types.
  */
 export {
+  APPROX_RADIUS_M,
   LEASE_TERMS,
   LEASE_TERM_LABELS,
   PARKING_LABELS,

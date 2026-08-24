@@ -1,5 +1,6 @@
+import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
-import { BASE, config, createAccount, fillBirthdate, fixtures, MONTHS, ok, settled } from "./lib.mjs";
+import { BASE, config, createAccount, fillBirthdate, fixtures, MONTHS, ok, settled, stubTiles } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
 
@@ -22,6 +23,9 @@ console.log("UID=" + su.localId);
 const b = await chromium.launch();
 const ctx = await b.newContext({ viewport: { width: 1280, height: 1000 }, permissions: ["clipboard-read", "clipboard-write"] });
 const p = await ctx.newPage();
+// El formulario de publicar monta un mapa: las teselas se responden aquí, no en los
+// servidores de OpenStreetMap. El motivo está en `stubTiles`.
+await stubTiles(p, readFileSync(PHOTO_1));
 const problems = [];
 p.on("pageerror", (e) => problems.push("pageerror: " + e.message));
 p.on("console", (m) => { if (m.type() === "error") problems.push("console: " + m.text().slice(0, 120)); });

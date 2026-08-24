@@ -64,6 +64,7 @@ export {
   type SignatureChannel,
 } from "./domain/contract";
 export {
+  canWaiveGuarantee,
   guaranteeState,
   isProviderLink,
   GUARANTEE_PLAN,

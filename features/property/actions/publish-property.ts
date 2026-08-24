@@ -8,7 +8,7 @@ import { requireCompleteProfile } from "@/features/profile";
 import { MY_PROPERTIES_ROUTE } from "@/shared/auth/routes";
 import { adminAuth, adminDb } from "@/shared/firebase/admin";
 
-import { propertySlug } from "../domain/property";
+import { approximateLocation, propertySlug } from "../domain/property";
 import { publishPropertySchema, validateAvailableFrom } from "../validations/property";
 import { parsePropertyForm, photosBelongTo, reserveSlug } from "./form-input";
 
@@ -29,7 +29,11 @@ export type PublishPropertyResult =
  * Two things this action decides, and they are product decisions rather than plumbing:
  *
  * 1. **The street address is written apart**, into `properties/{id}/private/location`. The
- *    catalog document is world-readable and Security Rules cannot hide a field.
+ *    catalog document is world-readable and Security Rules cannot hide a field. The map point
+ *    goes with it, for the same reason and one more: a coordinate to five decimals *is* the
+ *    address, so publishing it would undo the split. What the public document gets is
+ *    `approximateLocation()` of it — a cell of about 550 m, which is the neighbourhood the
+ *    listing already names in words.
  * 2. **Publishing makes you a landlord.** Every account starts as `tenant`; in a peer-to-peer
  *    marketplace nobody applies to become a landlord, they become one by publishing. The claim
  *    is promoted here, and the caller must re-mint its session cookie afterwards — the cookie
@@ -60,6 +64,7 @@ export async function publishProperty(formData: FormData): Promise<PublishProper
 
   const { address, ...listing } = parsed.data;
   const propertyRef = adminDb().collection("properties").doc();
+  const approx = address.point ? approximateLocation(address.point) : null;
 
   const slug = await reserveSlug(propertySlug(listing.title, address.city), propertyRef.id);
 
@@ -73,14 +78,18 @@ export async function publishProperty(formData: FormData): Promise<PublishProper
       neighborhood: address.neighborhood,
       city: address.city,
       department: address.department,
+      // Absent rather than null when there is no point: `area` is validated key by key in
+      // `firestore.rules`, and a null there would have to be spelled out in the rule as well.
+      ...(approx ? { approx } : {}),
     },
     createdAt: FieldValue.serverTimestamp(),
     updatedAt: FieldValue.serverTimestamp(),
   });
-  // The street never enters the public document.
+  // Neither the street nor the exact point enters the public document.
   batch.set(propertyRef.collection("private").doc("location"), {
     line: address.line,
     registryNumber: address.registryNumber,
+    ...(address.point ? { point: address.point } : {}),
   });
   await batch.commit();
 

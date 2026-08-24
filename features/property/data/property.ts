@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 
 import { adminDb } from "@/shared/firebase/admin";
+import { isGeoPoint, roundPoint } from "@/shared/geo/point";
 
 import { propertySlug } from "../domain/property";
 import type { Property, PropertyDoc, PropertyLocation } from "../domain/property";
@@ -32,6 +33,16 @@ function toProperty(snapshot: Snapshot): Property | null {
     id: snapshot.id,
     // Documents published before slugs existed still get a canonical URL, derived on read.
     slug: doc.slug || propertySlug(doc.title, doc.area?.city ?? ""),
+    /*
+     * The published coordinate is checked here, not trusted, for the same reason the private
+     * one is in `getPropertyLocation`: a listing published before the map has no `approx`, and
+     * this is the one field on the document that goes straight into Leaflet. A `NaN` there is
+     * not an error, it is a map centred on nowhere with a circle nobody can see.
+     */
+    area: {
+      ...doc.area,
+      ...(isGeoPoint(doc.area?.approx) ? { approx: roundPoint(doc.area.approx) } : { approx: undefined }),
+    },
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };
@@ -77,13 +88,23 @@ export const getPropertyLocation = cache(
     const data = location.data();
     const line = data?.line;
 
-    return typeof line === "string"
-      ? {
-          line,
-          // Empty on listings published before the registry number was required.
-          registryNumber: typeof data?.registryNumber === "string" ? data.registryNumber : "",
-        }
-      : null;
+    if (typeof line !== "string") return null;
+
+    /*
+     * The point is validated on the way out, not trusted. This document is written by the
+     * Admin SDK today, but it is also the oldest document shape in the product: the ones
+     * written before the map have no `point`, and a hand-edited one in the console can have
+     * anything. `isGeoPoint` is what stops that reaching Leaflet, where a `NaN` is not an error
+     * but a map centred on nowhere.
+     */
+    const point = data?.point;
+
+    return {
+      line,
+      // Empty on listings published before the registry number was required.
+      registryNumber: typeof data?.registryNumber === "string" ? data.registryNumber : "",
+      ...(isGeoPoint(point) ? { point: roundPoint(point) } : {}),
+    };
   },
 );
 

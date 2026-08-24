@@ -170,6 +170,29 @@ service cloud.firestore {
             && incoming().area.department.size() <= 40
             && !('line' in incoming().area)
             && !('address' in incoming())
+            /*
+             * The map, and the reason it is two fields and not one.
+             *
+             * `area.approx` is the blunted coordinate the public map draws a 400 m circle
+             * around. `point` is the exact one, and it is FORBIDDEN here: five decimals of
+             * latitude is the address written in another alphabet, so allowing it would undo
+             * the whole `private/location` split one field at a time.
+             *
+             * The parentheses are not optional: `&&` binds tighter than `||`, so without them
+             * an absent `approx` would swallow every check after it.
+             */
+            && !('point' in incoming().area)
+            && (!('approx' in incoming().area) || (
+                 incoming().area.approx.keys().hasOnly(['lat', 'lng'])
+                 && incoming().area.approx.lat is number
+                 && incoming().area.approx.lng is number
+                 // Colombia, islands included. Not a border: a guard against a swapped or
+                 // zeroed pair. Mirrors `COLOMBIA_BOUNDS` in shared/geo/point.ts.
+                 && incoming().area.approx.lat >= -4.4
+                 && incoming().area.approx.lat <= 13.6
+                 && incoming().area.approx.lng >= -82.2
+                 && incoming().area.approx.lng <= -66.7
+               ))
             && incoming().slug is string
             && incoming().slug.size() > 0
             && incoming().slug.size() <= 80

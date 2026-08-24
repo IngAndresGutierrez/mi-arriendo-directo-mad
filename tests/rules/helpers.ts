@@ -125,7 +125,11 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       }),
     );
     // The street lives apart from the public document: the catalog is world-readable.
-    await db.doc(`properties/${PROPERTY_ID}/private/location`).set({ line: "Calle 60 #10-20" });
+    await db.doc(`properties/${PROPERTY_ID}/private/location`).set({
+      line: "Calle 60 #10-20",
+      // The exact map point lives here too: it is the address, expressed as two numbers.
+      point: { lat: 4.64831, lng: -74.06276 },
+    });
 
     await db.doc(`properties/property-draft`).set(
       publishedProperty({
