@@ -90,10 +90,16 @@ const soon = (await sidebar.locator('[aria-disabled="true"]').allTextContents())
  * arriendo empieza después — y salió el día que `/arriendos` existió, que es exactamente para lo que
  * estaba la entrada deshabilitada.
  */
-if (JSON.stringify(soon) !== JSON.stringify(["Facturación"])) {
-  throw new Error("las secciones futuras cambiaron: " + JSON.stringify(soon));
+/*
+ * **Hoy no queda ninguna.** "Facturación" era la última deshabilitada y se retiró: una entrada
+ * "Pronto" se gana el sitio mientras es una promesa que alguien espera —"Arriendos" estuvo aquí por
+ * eso— y una permanente deja de leerse como hoja de ruta y empieza a leerse como sección
+ * abandonada. La afirmación no desaparece, cambia de signo: el menú no ofrece nada que no exista.
+ */
+if (soon.length !== 0) {
+  throw new Error("el menú volvió a ofrecer secciones que no existen: " + JSON.stringify(soon));
 }
-ok("y las futuras se marcan 'Pronto'", JSON.stringify(soon));
+ok("el menú no ofrece ninguna sección sin construir");
 
 // Y Arriendos es un enlace, no una promesa.
 if (!visibles.includes("/arriendos")) {

@@ -15,7 +15,18 @@ export const COVERS = {
   nav: ["shared/shell/app-nav", "shared/shell/app-shell", "shared/ui/nav-item", "app/(app)/inicio"],
   "nav-profile": ["shared/shell/app-nav", "shared/ui/nav-item", "features/profile/"],
   drawer: ["shared/shell/app-drawer", "shared/shell/app-nav"],
-  "sidebar-collapse": ["shared/shell/app-sidebar", "shared/shell/sidebar-state", "shared/ui/nav-item"],
+  /*
+   * `shared/shell/app-nav` entra aquí y faltaba: este driver afirma **sobre la lista de secciones**
+   * —cuáles salen deshabilitadas, y que el rail y el drawer muestran lo mismo— así que un cambio en
+   * `NAV` es exactamente lo que tiene que seleccionarlo. Se vio al retirar "Facturación": `--since`
+   * eligió ocho drivers y dejó fuera el único que comprobaba la lista que acababa de cambiar.
+   */
+  "sidebar-collapse": [
+    "shared/shell/app-sidebar",
+    "shared/shell/app-nav",
+    "shared/shell/sidebar-state",
+    "shared/ui/nav-item",
+  ],
   header: ["shared/shell/account-menu", "app/(public)/", "shared/shell/"],
 
   /*

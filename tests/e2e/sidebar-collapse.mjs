@@ -69,10 +69,11 @@ ok("la flecha lo expande", `${narrow}px -> ${wide}px`);
 // número fijo convierte eso en un fallo del driver en vez de en información.
 const soon = (await sidebar.locator('[aria-disabled="true"]').filter({ hasText: "Pronto" }).allTextContents())
   .map((t) => t.replace("Pronto", "").trim());
-if (JSON.stringify(soon) !== JSON.stringify(["Facturación"])) {
-  throw new Error("las secciones futuras cambiaron: " + JSON.stringify(soon));
+// Ninguna hoy: "Facturación" era la última y se retiró. Ver la nota en `nav.mjs`.
+if (soon.length !== 0) {
+  throw new Error("el rail volvió a ofrecer secciones que no existen: " + JSON.stringify(soon));
 }
-ok("expandido las futuras muestran 'Pronto'", JSON.stringify(soon));
+ok("expandido, el rail no ofrece secciones sin construir");
 await p.screenshot({ path: `${SHOT_DIR}/rail-expandido.png` });
 
 // ---------- se queda así ----------
@@ -149,11 +150,15 @@ const drawer = p.getByRole("dialog");
 await drawer.waitFor({ state: "visible" });
 const enDrawer = (await drawer.locator('[aria-disabled="true"]').filter({ hasText: "Pronto" }).allTextContents())
   .map((t) => t.replace("Pronto", "").trim());
-if (JSON.stringify(enDrawer) !== JSON.stringify(["Facturación"])) {
-  throw new Error("el drawer perdió los distintivos: " + JSON.stringify(enDrawer));
+/*
+ * El drawer y el rail renderizan **la misma lista** (`AppNav`), así que esto afirma la mitad que
+ * importa: que no discrepan. Si mañana vuelve una entrada deshabilitada, tiene que salir en los dos.
+ */
+if (enDrawer.length !== 0) {
+  throw new Error("el drawer ofrece secciones que el rail no: " + JSON.stringify(enDrawer));
 }
 if (await drawer.getByRole("button", { name: /menú/i }).filter({ hasText: "" }).count() === 0) { /* nada */ }
-ok("390px: el drawer sigue igual, expandido y con 'Pronto'");
+ok("390px: el drawer muestra lo mismo que el rail");
 const overflow = await p.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 1);
 if (overflow) throw new Error("scroll horizontal a 390px");
 ok("390px sin scroll horizontal");

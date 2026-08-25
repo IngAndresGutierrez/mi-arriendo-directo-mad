@@ -6,7 +6,6 @@ import {
   BuildingIcon,
   CalendarClockIcon,
   ClipboardListIcon,
-  CreditCardIcon,
   FileTextIcon,
   HouseIcon,
   IdCardIcon,
@@ -31,8 +30,18 @@ import { cn } from "@/shared/lib/utils";
 import { SignOutButton } from "./sign-out-button";
 
 /**
- * Product sections. The ones without an `href` do not exist yet: they render disabled with a
- * "Pronto" badge instead of linking to a 404.
+ * Product sections.
+ *
+ * **Every entry here now leads somewhere**, and that is new: "Facturación" was the last one
+ * without an `href`, rendering disabled with a "Pronto" badge, and it is gone. A disabled entry
+ * earns its place while it is a promise somebody is waiting on — "Arriendos" sat here for exactly
+ * that reason, because a menu that stopped at "Contratos" said the year after a signature did not
+ * exist. Billing is not that: nobody is looking for it, nothing in the product refers to it, and a
+ * permanent "Pronto" stops reading as a roadmap and starts reading as an abandoned section.
+ *
+ * `NavItem` keeps the disabled/"Pronto" behaviour even though nothing uses it today. It is the same
+ * call `UNBUILT_STAGES` makes by staying an empty constant: the capability is what says out loud
+ * that a section is coming, and the next one added will need it.
  *
  * There is no "Publicar" entry. Publishing is something you do *to* your properties, not a
  * separate place in the product: the action lives inside "Mis inmuebles", next to the list it
@@ -70,7 +79,6 @@ const NAV: readonly NavEntry[] = [
    * delegar es una puerta a un cuarto vacío, y a un inquilino le sobra del todo.
    */
   { label: "Soporte", icon: LifeBuoyIcon, href: SUPPORT_ROUTE },
-  { label: "Facturación", icon: CreditCardIcon },
   { label: "Ajustes", icon: SettingsIcon, href: SETTINGS_ROUTE },
 ];
 
