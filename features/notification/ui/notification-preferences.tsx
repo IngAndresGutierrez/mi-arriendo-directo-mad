@@ -167,7 +167,18 @@ export function NotificationPreferencesCard({
 
       {/* Cabecera de columnas: solo desde `sm`, donde hay sitio para una rejilla. */}
       <div className="hidden items-center gap-4 border-b border-border px-6 py-2 sm:grid sm:grid-cols-[1fr_5rem_5rem]">
-        <span className="sr-only">Tipo de aviso</span>
+        {/*
+          Celda vacía y **en flujo**, que es todo el arreglo: aquí había un `<span className="sr-only">`
+          y `sr-only` incluye `position: absolute`, así que ese hijo no ocupaba columna. La rejilla
+          colocaba solo dos elementos en flujo y las dos etiquetas caían en las columnas 1 y 2 en vez
+          de 2 y 3 — "CORREO" centrado sobre la descripción y "WHATSAPP" sobre el interruptor del
+          correo. Cada cabecera quedaba encima del control de al lado.
+
+          No lleva texto para lector de pantalla porque no hace falta: cada `Switch` se nombra a sí
+          mismo con `aria-label`, ya que un `<button role="switch">` de Radix no lo toma de un
+          `<label for>`. Una cabecera de tabla que solo existe para alinear es decoración.
+        */}
+        <span aria-hidden="true" />
         {NOTIFICATION_CHANNELS.map((channel) => (
           <span
             key={channel}
