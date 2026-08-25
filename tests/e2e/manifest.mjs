@@ -149,6 +149,13 @@ export const COVERS = {
    * El driver `collaborators` se fue con el modelo de invitaciones. Lo reemplaza `colaborador`,
    * que maneja la entrada por teléfono y los encargos — la funcionalidad que sí quedó.
    */
+  /* El barrido del recordatorio: su ruta, el dominio que decide y el emisor por el que sale. */
+  "errand-reminders": [
+    "app/api/cron/errand-reminders",
+    "features/collaboration/actions/remind-errands",
+    "features/collaboration/domain/errand",
+    "vercel.json",
+  ],
   colaborador: [
     "app/(collaborator)/",
     "features/collaboration/",

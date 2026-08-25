@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/interview-reminders",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/errand-reminders",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

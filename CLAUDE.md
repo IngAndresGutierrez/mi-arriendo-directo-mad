@@ -1544,6 +1544,30 @@ Es copia deliberada del guardia del arriendo, porque el emulador **no aplica ín
 pasa `pnpm verify`, `pnpm build`, `pnpm test:rules` y todos los drivers, y lo primero que dice lo
 contrario es un `9 FAILED_PRECONDITION` en producción.
 
+**El propietario ve y gestiona lo que repartió, en `/encargos` dentro del portal.** Esa mitad faltó
+en la primera versión: `listErrandsForLandlord` existía y ninguna pantalla la usaba, así que un
+encargo aceptado y uno ignorado se veían igual desde ese lado. La tarjeta lleva el motivo de un
+rechazo **en la lista, no detrás de un clic** —es con lo que se decide qué hacer ahora— y el teléfono
+del colaborador como `tel:`, porque cuando algo se tuerce lo que se hace es llamar.
+
+**"Encargos" es la única entrada condicional del menú, y la condición es tener inmuebles
+publicados** (`hasProperties`: un documento con `select()`). Encargar es una acción *sobre* un
+inmueble, así que quien no tiene ninguno no tiene nada que delegar y a un inquilino le sobra del
+todo. **No es un custom claim** a propósito — un claim puesto después es un claim que la cookie de
+sesión no lleva, haría falta `PATCH /api/session`, y olvidarlo se ve como un menú que sigue mal hasta
+cerrar sesión; además no sobreviviría a publicar el primer inmueble, que es justo cuando la entrada
+tiene que aparecer. El driver comprueba **las dos caras**: sin inmuebles no está, con uno sí. Por
+separado, la primera pasaría con la entrada borrada y la segunda con la entrada siempre visible.
+
+**Las tres transiciones avisan al propietario**, y esto también faltaba: escribían la marca de
+tiempo y no notificaban a nadie. Son tres tipos (`errand_accepted`, `errand_declined`,
+`errand_completed`) y no un `errand_updated` con el resultado dentro, por la razón de siempre: la
+copia es el punto. "Confirmó que va" es una preocupación menos, "no puede" es una tarea urgente y "ya
+lo hizo" es un cierre. **El motivo del rechazo viaja dentro del aviso**, no solo en la pantalla — es
+lo único con lo que el propietario decide qué hacer, y obligarle a abrir la app para leerlo convierte
+el aviso en un recado. Viajan por `collaboration` y no por `applicationId`, como los cuatro tipos que
+ya existían sin proceso detrás.
+
 **El modelo viejo se retiró entero**, y esto es lo que ya no existe: `/encargos` y `/encargos/<id>`,
 `/colaboradores`, las entradas "Encargos" y "Colaboradores" del menú, la colección `collaborations`
 con sus capacidades e invitaciones, `inviteCollaborator` / `acceptCollaboration` /

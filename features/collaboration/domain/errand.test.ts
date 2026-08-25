@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 
 import {
   errandMessage,
+  reminderDue,
+  reminderMessage,
+  ERRAND_REMINDER_MINUTES,
   errandState,
   availableActions,
   isClosed,
@@ -166,5 +169,74 @@ describe("errandMessage", () => {
     // Twilio bills per 160-character segment and a split message arrives out of order often enough
     // to matter. This is not a hard limit on the type, it is a check that the shape is sane.
     expect(errandMessage(one, "jueves 27 de agosto, 3:00 p. m.", link).length).toBeLessThan(320);
+  });
+});
+
+describe("reminderDue", () => {
+  const at = "2026-08-26T20:00:00.000Z";
+  const accepted = { dueAt: at, acceptedAt: "2026-08-20T10:00:00.000Z" };
+  const minutes = (n: number) => new Date(Date.parse(at) - n * 60_000);
+
+  it("fires inside the hour before", () => {
+    expect(reminderDue(accepted, minutes(59))).toBe(true);
+    expect(reminderDue(accepted, minutes(1))).toBe(true);
+  });
+
+  it("does not fire before the window opens", () => {
+    expect(reminderDue(accepted, minutes(ERRAND_REMINDER_MINUTES + 1))).toBe(false);
+  });
+
+  it("treats the exact hour mark as inside", () => {
+    // The sweep runs every five minutes, so the boundary decides whether the first tick catches it.
+    expect(reminderDue(accepted, minutes(ERRAND_REMINDER_MINUTES))).toBe(true);
+  });
+
+  it("stops once the hour has arrived", () => {
+    // Past `dueAt` a reminder is an interruption: they either turned up or did not.
+    expect(reminderDue(accepted, new Date(at))).toBe(false);
+    expect(reminderDue(accepted, minutes(-5))).toBe(false);
+  });
+
+  it("never reminds an errand nobody confirmed", () => {
+    // The rule the interview reminder holds too: a proposal nobody accepted is not an appointment.
+    expect(reminderDue({ dueAt: at }, minutes(30))).toBe(false);
+  });
+
+  it("never reminds twice", () => {
+    // The sweep wakes every five minutes: without this the same person gets it twelve times an hour.
+    expect(reminderDue({ ...accepted, remindedAt: "2026-08-26T19:05:00.000Z" }, minutes(30))).toBe(false);
+  });
+
+  it("never reminds something already closed", () => {
+    for (const closed of [{ completedAt: "x" }, { declinedAt: "x" }, { cancelledAt: "x" }]) {
+      expect(reminderDue({ ...accepted, ...closed }, minutes(30))).toBe(false);
+    }
+  });
+
+  it("does not throw on an unparseable date", () => {
+    expect(reminderDue({ dueAt: "no es una fecha", acceptedAt: "x" }, minutes(30))).toBe(false);
+  });
+});
+
+describe("reminderMessage", () => {
+  it("says which errand, where and when", () => {
+    const text = reminderMessage(
+      { title: "Mostrar el apartamento", propertyArea: "Palermo, Manizales" },
+      "jueves 27 de agosto, 3:00 p. m.",
+    );
+
+    expect(text).toContain("Mostrar el apartamento");
+    expect(text).toContain("Palermo, Manizales");
+    expect(text).toContain("jueves 27 de agosto");
+    expect(text).toMatch(/una hora/i);
+  });
+
+  it("cabe en un SMS sin partirse", () => {
+    const text = reminderMessage(
+      { title: "Mostrar el apartamento a un interesado", propertyArea: "Palermo, Manizales" },
+      "jueves 27 de agosto, 3:00 p. m.",
+    );
+
+    expect(text.length).toBeLessThan(320);
   });
 });

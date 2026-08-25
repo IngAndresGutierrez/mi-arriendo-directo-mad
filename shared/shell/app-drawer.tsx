@@ -21,8 +21,11 @@ import { AppNav } from "./app-nav";
  */
 export function AppDrawer({
   bell,
+  showErrands = false,
 }: {
   readonly bell?: React.ReactNode;
+  /** Whether this person has properties: it decides the one conditional menu entry. */
+  readonly showErrands?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -92,7 +95,7 @@ export function AppDrawer({
           </SheetClose>
         </div>
 
-        <AppNav onNavigate={() => setOpen(false)} />
+        <AppNav showErrands={showErrands} onNavigate={() => setOpen(false)} />
       </SheetContent>
     </Sheet>
   );

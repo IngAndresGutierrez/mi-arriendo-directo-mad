@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { listNotifications, NotificationBell } from "@/features/notification";
+import { hasProperties } from "@/features/property";
 import { getSessionUser } from "@/shared/auth/session";
 import { AppShell } from "@/shared/shell/app-shell";
 
@@ -20,16 +21,24 @@ export async function ProductChrome({ children }: { readonly children: ReactNode
   // Rendered here rather than fetched by the bell on open: a popover that loads when you click
   // it shows a spinner every time for something that was already on the page.
   /*
-   * **One read now, not two.** The second one existed to decide whether the menu offered "Encargos",
-   * and it went with that entry: a collaborator is no longer a user of this product, so nobody
-   * reading this chrome can have an errand. One query fewer on every product screen is the small
-   * dividend of that removal.
+   * Dos lecturas independientes, en paralelo.
+   *
+   * La segunda decide si el menú ofrece "Encargos", y la pregunta cambió: antes era "¿te
+   * encargaron algo?" —cuando el colaborador vivía dentro del portal— y ahora es "¿tienes
+   * inmuebles?". Encargar algo es una acción sobre un inmueble, así que quien no tiene ninguno no
+   * tiene nada que delegar, y un inquilino no ve la entrada nunca.
+   *
+   * `hasProperties` lee un solo documento con `select()` y no lanza: falla escondiendo una entrada
+   * del menú, no tumbando la pantalla.
    */
-  const { items, unread } = user
-    ? await listNotifications(user.uid)
-    : { items: [], unread: 0 };
+  const [{ items, unread }, owns] = await Promise.all([
+    user ? listNotifications(user.uid) : Promise.resolve({ items: [], unread: 0 }),
+    user ? hasProperties(user.uid) : Promise.resolve(false),
+  ]);
 
   return (
-    <AppShell bell={<NotificationBell notifications={items} unread={unread} />}>{children}</AppShell>
+    <AppShell bell={<NotificationBell notifications={items} unread={unread} />} showErrands={owns}>
+      {children}
+    </AppShell>
   );
 }

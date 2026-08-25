@@ -23,9 +23,12 @@ import { isSidebarCollapsed, SIDEBAR_COOKIE } from "./sidebar-state";
 export async function AppShell({
   children,
   bell,
+  showErrands = false,
 }: {
   readonly children: ReactNode;
   readonly bell?: ReactNode;
+  /** Whether this person has properties: it decides the one conditional menu entry. */
+  readonly showErrands?: boolean;
   /**
    * Whether the menu offers "Encargos".
    *
@@ -39,10 +42,10 @@ export async function AppShell({
   return (
     <TooltipProvider>
       <div className="flex min-h-svh bg-background">
-        <AppSidebar defaultCollapsed={collapsed} />
+        <AppSidebar defaultCollapsed={collapsed} showErrands={showErrands} />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <AppDrawer bell={bell} />
+          <AppDrawer bell={bell} showErrands={showErrands} />
 
           {/*
             The cap keeps the reading width sane on a wide monitor — without it a single card

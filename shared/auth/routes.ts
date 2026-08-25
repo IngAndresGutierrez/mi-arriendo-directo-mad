@@ -68,6 +68,18 @@ export const EMAIL_ACTION_ROUTE = "/cuenta/accion";
  */
 export const COLLABORATOR_ROUTE = "/colaborador";
 
+/**
+ * Los encargos **desde el lado del propietario**: los que ha repartido y cómo van.
+ *
+ * Recupera la URL que tenía la pantalla del colaborador antes de que se retirara aquel modelo, y el
+ * cambio de dueño es deliberado: `/encargos` dentro del portal es de quien los reparte, y
+ * `/colaborador` fuera de él es de quien los hace. Cada uno vive donde tiene sesión.
+ */
+export const ERRANDS_ROUTE = "/encargos";
+
+/** Crear uno sin partir de un inmueble: el formulario abre con un selector. */
+export const NEW_ERRAND_ROUTE = "/encargos/nuevo";
+
 /** One errand, from the collaborator's side. Keyed by id: it is private to its two parties. */
 export function collaboratorErrandRoute(errandId: string): string {
   return `${COLLABORATOR_ROUTE}/${errandId}`;

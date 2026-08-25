@@ -160,6 +160,46 @@ export async function listLandlordProperties(landlordUid: string): Promise<reado
 }
 
 /**
+ * Does this person have any property at all?
+ *
+ * **One document, not a hundred.** `listLandlordProperties` would answer the same question and pull
+ * the whole listing to do it, on every product screen — this runs on the chrome that wraps all of
+ * them. `limit(1)` with `select()` asks Firestore for the existence and nothing else.
+ *
+ * It decides whether the menu offers "Encargos": encargar algo es una acción sobre un inmueble, so
+ * somebody with none has nothing to delegate and the entry would be a door onto an empty room. A
+ * tenant never sees it.
+ *
+ * **No custom claim for this**, deliberately, and it is the trap this project has already paid for
+ * once: a claim set after the fact is a claim the session cookie was signed before, so it needs
+ * `PATCH /api/session` to be re-minted — and forgetting that shows up as a menu that stays wrong
+ * until the person signs out. It also would not survive publishing the first property, which is
+ * exactly the moment the entry has to appear.
+ *
+ * Never throws: it is read by the layout that wraps every screen behind a session, the same
+ * contract `listNotifications` has. A failed read hides a menu entry; a thrown one takes the
+ * product down.
+ */
+export const hasProperties = cache(async (landlordUid: string): Promise<boolean> => {
+  if (!landlordUid) return false;
+
+  try {
+    const snapshot = await adminDb()
+      .collection("properties")
+      .where("landlordUid", "==", landlordUid)
+      .select()
+      .limit(1)
+      .get();
+
+    return !snapshot.empty;
+  } catch (error) {
+    console.error("hasProperties: could not read the listings:", error);
+
+    return false;
+  }
+});
+
+/**
  * A property the caller owns, whatever its status — the read every mutation starts from.
  *
  * Returns `null` for a stranger, the same answer as "there is no such property": a caller

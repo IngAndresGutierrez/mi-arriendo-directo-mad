@@ -63,6 +63,21 @@ try {
   ok("el propietario entra");
 
   const p = session;
+
+  /*
+   * **Sin inmuebles, "Encargos" no aparece.** Es la mitad del requisito que se pierde de vista: la
+   * entrada es para quien reparte trabajo sobre sus inmuebles, así que un inquilino —que nunca
+   * publica— no debe verla jamás. Esta cuenta todavía no ha publicado nada, así que aquí está en el
+   * mismo estado que un inquilino.
+   */
+  {
+    const menu = p.getByRole("navigation", { name: "Navegación principal" });
+    if (await menu.getByRole("link", { name: "Encargos", exact: true }).count()) {
+      throw new Error("el menú ofrece Encargos sin tener inmuebles publicados");
+    }
+    ok("sin inmuebles, el menú no ofrece Encargos");
+  }
+
   await p.goto(BASE + "/inmuebles/publicar", { waitUntil: "domcontentloaded" });
   await settled(p);
   await p.getByLabel("Título del anuncio").fill(`Apartamento del encargo ${STAMP}`);
@@ -94,18 +109,20 @@ try {
 
   // ---------- el menú ya no ofrece lo retirado ----------
   /*
-   * Las dos entradas se fueron con el modelo de invitaciones. Se comprueba sobre el menú y no sobre
-   * la página entera: "Encargos" aparece como palabra en otros sitios, y un selector sin ámbito
-   * afirmaría algo distinto de lo que dice.
+   * Y con un inmueble publicado, aparece. Las dos comprobaciones valen juntas: por separado, la de
+   * arriba pasaría con la entrada borrada del todo y esta con la entrada siempre visible.
+   *
+   * "Colaboradores" sigue fuera, y esa sí se fue para siempre con el modelo de invitaciones. Se
+   * comprueba sobre el menú y no sobre la página: "Encargos" aparece como palabra en otros sitios y
+   * un selector sin ámbito afirmaría algo distinto de lo que dice.
    */
   {
     const menu = p.getByRole("navigation", { name: "Navegación principal" });
-    for (const gone of ["Encargos", "Colaboradores"]) {
-      if (await menu.getByRole("link", { name: gone, exact: true }).count()) {
-        throw new Error(`el menú todavía ofrece "${gone}"`);
-      }
+    await menu.getByRole("link", { name: "Encargos", exact: true }).waitFor({ timeout: 15000 });
+    if (await menu.getByRole("link", { name: "Colaboradores", exact: true }).count()) {
+      throw new Error("el menú todavía ofrece Colaboradores");
     }
-    ok("el menú ya no ofrece Encargos ni Colaboradores");
+    ok("con un inmueble publicado, el menú ofrece Encargos y no Colaboradores");
   }
 
   // ---------- encargar ----------
@@ -144,6 +161,36 @@ try {
   }
   await settled(p);
   ok("el encargo se crea y vuelve a Mis inmuebles");
+
+  // ---------- el propietario ve lo que repartió ----------
+  /*
+   * La otra mitad que faltaba: la consulta del propietario existía y ninguna pantalla la usaba, así
+   * que un encargo aceptado y uno ignorado se veían igual desde este lado. Se reportó así.
+   */
+  await p.getByRole("link", { name: "Encargos", exact: true }).first().click();
+  await p.waitForURL(/\/encargos$/, { timeout: 20000 });
+  await settled(p);
+  if (!(await p.getByText(TITLE).count())) {
+    throw new Error("el propietario no ve el encargo que acaba de crear");
+  }
+  if (!(await p.getByText("Carlos Colaborador").count())) {
+    throw new Error("el encargo no dice a quién se lo encargó");
+  }
+  ok("el propietario ve su encargo, con el colaborador y su estado");
+
+  // ---------- y puede crear otro sin salir de aquí ----------
+  /*
+   * La segunda puerta al mismo formulario. Lo que la distingue es el selector de inmueble: desde la
+   * tarjeta de uno el inmueble viene decidido, desde aquí hay que elegirlo, y ese campo es el único
+   * que puede faltar sin que se note hasta pulsar.
+   */
+  await p.getByRole("link", { name: /Nuevo encargo/i }).first().click();
+  await p.waitForURL(/\/encargos\/nuevo$/, { timeout: 20000 });
+  await settled(p);
+  if (!(await p.getByLabel("¿De qué inmueble?").count())) {
+    throw new Error("el formulario desde /encargos no ofrece elegir el inmueble");
+  }
+  ok("desde encargos se puede crear otro, eligiendo el inmueble");
 
   // ---------- el colaborador entra por su cuenta ----------
   const colabCtx = await b.newContext({ viewport: { width: 390, height: 844 } });

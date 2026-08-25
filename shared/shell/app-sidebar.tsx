@@ -29,8 +29,11 @@ import {
  */
 export function AppSidebar({
   defaultCollapsed,
+  showErrands = false,
 }: {
   readonly defaultCollapsed: boolean;
+  /** Whether this person has properties: it decides the one conditional menu entry. */
+  readonly showErrands?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
@@ -110,7 +113,7 @@ export function AppSidebar({
         </Tooltip>
       </div>
 
-      <AppNav collapsed={collapsed} />
+      <AppNav showErrands={showErrands} collapsed={collapsed} />
     </div>
   );
 }

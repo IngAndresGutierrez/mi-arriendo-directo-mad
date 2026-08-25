@@ -50,7 +50,7 @@ export {
 export { catalogQuery, parseCatalogFilters, parseCityFilter } from "./validations/catalog";
 export { publishProperty } from "./actions/publish-property";
 export { deleteProperty, updateProperty } from "./actions/manage-property";
-export { getOwnedProperty, listLandlordProperties } from "./data/property";
+export { getOwnedProperty, hasProperties, listLandlordProperties } from "./data/property";
 export { PropertyForm } from "./ui/property-form";
 export { PropertyManageCard } from "./ui/property-manage-card";
 export { PropertyCard } from "./ui/property-card";

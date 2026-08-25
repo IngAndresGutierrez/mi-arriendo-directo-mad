@@ -1,6 +1,7 @@
 import { STAGE_LABELS, type Stage } from "@/features/application/client";
 import { incidentAnchor, periodAnchor, periodLabel } from "@/features/lease/client";
 import {
+  ERRANDS_ROUTE,
   HOME_ROUTE,
   applicationRoute,
   rentalRoute,
@@ -48,6 +49,18 @@ export const NOTIFICATION_TYPES = [
   "collaborator_accepted",
   "collaborator_declined",
   "collaborator_revoked",
+  /*
+   * Lo que el colaborador hace con un encargo, y va al **propietario**.
+   *
+   * Tres tipos y no un `errand_updated` con el resultado dentro, por la misma razón que las
+   * visitas: la copia es el punto. "Confirmó que va" es una preocupación menos; "no puede" es una
+   * tarea urgente —hay que buscar a otro antes del jueves—; "ya lo hizo" es un cierre. Un solo
+   * tipo obligaría a leer el cuerpo para saber cuál de las tres cosas pasó, y una notificación que
+   * no dice qué pasó es una que se ignora.
+   */
+  "errand_accepted",
+  "errand_declined",
+  "errand_completed",
   /*
    * A visit arranged by a collaborator rather than by the owner, and it is its own type because the
    * copy is the point: the tenant is being told a **stranger** will meet them at a door, and
@@ -251,6 +264,31 @@ export function notificationCopy(
         body: notification.detail
           ? `${who} propone ${notification.detail} para mostrarte ${property} en nombre del propietario. Confirma el día o pide otro; el punto de encuentro está en la etapa de la visita.`
           : `${who} propuso un día para mostrarte ${property} en nombre del propietario. Confirma el día o pide otro.`,
+      };
+    /*
+     * Las tres del encargo. `detail` lleva el título —"Mostrar el apartamento"— porque el
+     * propietario puede tener varios encargos abiertos a la vez y "Carlos aceptó" no dice cuál.
+     *
+     * En la de rechazo el motivo va **dentro del cuerpo**: es lo único que le permite decidir qué
+     * hacer a continuación, y obligarle a abrir la pantalla para leerlo convierte un aviso en un
+     * recado. Es la misma razón por la que un documento rechazado manda el motivo y uno aprobado no.
+     */
+    case "errand_accepted":
+      return {
+        title: "Confirmaron tu encargo",
+        body: `${who} confirmó que va${notification.detail ? `: ${notification.detail}` : ""}.`,
+      };
+    case "errand_declined":
+      return {
+        title: "No pueden con el encargo",
+        body: notification.detail
+          ? `${who} no puede: ${notification.detail}. Busca a alguien más o cambia la fecha.`
+          : `${who} no puede con el encargo. Busca a alguien más o cambia la fecha.`,
+      };
+    case "errand_completed":
+      return {
+        title: "Terminaron el encargo",
+        body: `${who} marcó el encargo como terminado${notification.detail ? `: ${notification.detail}` : ""}.`,
       };
     case "collaborator_invited":
       /*
@@ -557,6 +595,16 @@ const COLLABORATION_NOTIFICATION_TYPES: readonly NotificationType[] = [
   "collaborator_accepted",
   "collaborator_declined",
   "collaborator_revoked",
+  "errand_accepted",
+  "errand_declined",
+  "errand_completed",
+];
+
+/** Las tres que sí se emiten hoy, y todas llegan al propietario: su lista de encargos. */
+const ERRAND_NOTIFICATION_TYPES: readonly NotificationType[] = [
+  "errand_accepted",
+  "errand_declined",
+  "errand_completed",
 ];
 
 export function isCollaborationNotification(type: NotificationType): boolean {
@@ -587,7 +635,14 @@ export function notificationPath(
    * `/encargos` and `/colaboradores` no longer exist and a bell that opens a 404 is worse than one
    * that opens the home screen.
    */
-  if (isCollaborationNotification(notification.type)) return HOME_ROUTE;
+  if (isCollaborationNotification(notification.type)) {
+    /*
+     * Los tres de encargo llevan a la lista del propietario, que es donde se gestionan. Los cuatro
+     * viejos ya no los emite nadie y sus dos pantallas no existen, así que caen en el inicio: una
+     * campana que abre un 404 es peor que una que abre la portada.
+     */
+    return ERRAND_NOTIFICATION_TYPES.includes(notification.type) ? ERRANDS_ROUTE : HOME_ROUTE;
+  }
 
   if (isLeaseNotification(notification.type)) {
     /*

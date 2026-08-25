@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { headers } from "next/headers";
 
-import { sendSms, sendWhatsAppTwilio } from "@/features/notification";
+import { notify, sendSms, sendWhatsAppTwilio } from "@/features/notification";
+import type { NotificationType } from "@/features/notification";
 import { requireUser } from "@/shared/auth/session";
-import { COLLABORATOR_ROUTE, collaboratorErrandRoute } from "@/shared/auth/routes";
+import { getProfile } from "@/features/profile";
+import { COLLABORATOR_ROUTE, ERRANDS_ROUTE, collaboratorErrandRoute } from "@/shared/auth/routes";
 import { formatBogotaWeekdayTime } from "@/shared/format/date";
 import { adminDb } from "@/shared/firebase/admin";
 import { resolveSiteUrl } from "@/shared/lib/site-url";
@@ -76,31 +78,49 @@ async function announce(errand: Errand): Promise<void> {
  * an errand it has already accepted is refused rather than quietly writing a second timestamp.
  */
 export async function acceptErrand(input: unknown): Promise<ErrandActionResult> {
-  return transition(input, acceptErrandSchema, "accept", (parsed) => ({
-    acceptedAt: new Date(),
-    updatedAt: new Date(),
-    _id: parsed.errandId,
-  }));
+  return transition(
+    input,
+    acceptErrandSchema,
+    "accept",
+    (parsed) => ({ acceptedAt: new Date(), updatedAt: new Date(), _id: parsed.errandId }),
+    (errand) => ({ type: "errand_accepted", detail: errand.title }),
+  );
 }
 
 /** The collaborator cannot make it. The reason is required — see the schema's note. */
 export async function declineErrand(input: unknown): Promise<ErrandActionResult> {
-  return transition(input, declineErrandSchema, "decline", (parsed) => ({
-    declinedAt: new Date(),
-    declineReason: parsed.reason,
-    updatedAt: new Date(),
-    _id: parsed.errandId,
-  }));
+  return transition(
+    input,
+    declineErrandSchema,
+    "decline",
+    (parsed) => ({
+      declinedAt: new Date(),
+      declineReason: parsed.reason,
+      updatedAt: new Date(),
+      _id: parsed.errandId,
+    }),
+    /*
+     * El motivo va dentro del aviso, no solo en la pantalla: es lo único con lo que el propietario
+     * decide qué hacer ahora, y obligarle a abrir la app para leerlo convierte el aviso en un recado.
+     */
+    (_errand, parsed) => ({ type: "errand_declined", detail: parsed.reason }),
+  );
 }
 
 /** The collaborator is done. The note is optional; evidence is whatever they uploaded. */
 export async function completeErrand(input: unknown): Promise<ErrandActionResult> {
-  return transition(input, completeErrandSchema, "complete", (parsed) => ({
-    completedAt: new Date(),
-    completionNote: parsed.note,
-    updatedAt: new Date(),
-    _id: parsed.errandId,
-  }));
+  return transition(
+    input,
+    completeErrandSchema,
+    "complete",
+    (parsed) => ({
+      completedAt: new Date(),
+      completionNote: parsed.note,
+      updatedAt: new Date(),
+      _id: parsed.errandId,
+    }),
+    (errand, parsed) => ({ type: "errand_completed", detail: parsed.note || errand.title }),
+  );
 }
 
 /**
@@ -115,6 +135,8 @@ async function transition<Parsed extends { errandId: string }>(
   schema: { safeParse: (value: unknown) => { success: true; data: Parsed } | { success: false } },
   action: "accept" | "decline" | "complete",
   patch: (parsed: Parsed) => Record<string, unknown> & { _id: string },
+  /** What the landlord is told. `detail` is what makes it say *which* errand. */
+  announcement: (errand: Errand, parsed: Parsed) => { type: NotificationType; detail: string },
 ): Promise<ErrandActionResult> {
   const user = await requireUser();
 
@@ -133,8 +155,35 @@ async function transition<Parsed extends { errandId: string }>(
   const { _id, ...fields } = patch(parsed.data);
   await adminDb().collection(COLLECTION).doc(_id).update(fields);
 
+  /*
+   * **El propietario se entera, y esto faltaba.** Las tres transiciones escribían la marca de
+   * tiempo y no avisaban a nadie: quien repartió el encargo no sabía que lo habían confirmado ni
+   * —peor— que lo habían rechazado, que es justo la que hay que saber a tiempo para buscar a otro.
+   *
+   * `notify()` nunca lanza y corre después de que lo que importa ya está escrito, así que un fallo
+   * al avisar deja a alguien sin enterarse pero no deshace la aceptación. El correo sale del mismo
+   * sitio, con la misma copia: se deriva del tipo, no se escribe dos veces.
+   */
+  const { type, detail } = announcement(errand, parsed.data);
+  const landlord = await getProfile(errand.landlordUid);
+
+  await notify({
+    recipientUid: errand.landlordUid,
+    recipientEmail: landlord?.email ?? null,
+    type,
+    // Un encargo no cuelga de ningún proceso: viaja por `collaboration`, como los cuatro tipos que
+    // ya existían sin `applicationId` detrás.
+    applicationId: "",
+    stage: "submitted",
+    propertyTitle: errand.propertyTitle,
+    actorName: errand.collaboratorName,
+    detail,
+    collaboration: _id,
+  });
+
   revalidatePath(COLLABORATOR_ROUTE);
   revalidatePath(collaboratorErrandRoute(_id));
+  revalidatePath(ERRANDS_ROUTE);
 
   return { ok: true };
 }

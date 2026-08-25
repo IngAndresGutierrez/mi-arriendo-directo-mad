@@ -35,9 +35,20 @@ import { createErrandFormSchema } from "../validations/errand";
 export function ErrandForm({
   propertyId,
   propertyTitle,
+  properties,
 }: {
   readonly propertyId: string;
   readonly propertyTitle: string;
+  /**
+   * The landlord's listings, when the errand is being created from `/encargos` instead of from one
+   * property.
+   *
+   * **Two entry points, one form.** Coming from a property the choice is already made and asking
+   * again would be asking somebody to confirm what they just clicked; coming from the errands list
+   * there is nothing to infer, so it becomes a select. A second component would be the same fields
+   * twice, and the copy of a form is the one that stops matching the schema.
+   */
+  readonly properties?: readonly { readonly id: string; readonly title: string }[];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -97,12 +108,34 @@ export function ErrandForm({
       >
         {error ? <FormAlert>{error}</FormAlert> : null}
 
-        <input type="hidden" {...register("propertyId")} />
+        {properties ? null : <input type="hidden" {...register("propertyId")} />}
 
         <fieldset className="space-y-4">
           <legend className="text-sm font-medium text-foreground">
-            El encargo — {propertyTitle}
+            {properties ? "El encargo" : `El encargo — ${propertyTitle}`}
           </legend>
+
+          {properties ? (
+            <Controller
+              control={control}
+              name="propertyId"
+              render={({ field }) => (
+                <SelectField
+                  id="errand-property"
+                  label="¿De qué inmueble?"
+                  placeholder="Elige el inmueble"
+                  value={field.value ?? ""}
+                  onValueChange={field.onChange}
+                  error={errors.propertyId?.message}
+                  disabled={isPending}
+                  options={properties.map((property) => ({
+                    value: property.id,
+                    label: property.title,
+                  }))}
+                />
+              )}
+            />
+          ) : null}
 
           <Controller
             control={control}

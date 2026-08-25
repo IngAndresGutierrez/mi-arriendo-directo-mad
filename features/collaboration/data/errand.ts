@@ -55,6 +55,7 @@ function toErrand(snapshot: Snapshot): Errand | null {
     declinedAt: optionalIso(doc.declinedAt),
     completedAt: optionalIso(doc.completedAt),
     cancelledAt: optionalIso(doc.cancelledAt),
+    remindedAt: optionalIso(doc.remindedAt),
   };
 }
 

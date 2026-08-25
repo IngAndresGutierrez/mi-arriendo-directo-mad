@@ -5,6 +5,7 @@
 import {
   BuildingIcon,
   CalendarClockIcon,
+  ClipboardListIcon,
   CreditCardIcon,
   FileTextIcon,
   HouseIcon,
@@ -15,6 +16,7 @@ import {
 
 import {
   CONTRACTS_ROUTE,
+  ERRANDS_ROUTE,
   HOME_ROUTE,
   MY_PROPERTIES_ROUTE,
   PUBLISH_PROPERTY_ROUTE,
@@ -58,11 +60,13 @@ const NAV: readonly NavEntry[] = [
     href: TENANT_PROFILE_ROUTE,
   },
   /*
-   * **No hay entrada de "Colaboradores" ni de "Encargos", y no es un olvido.** Un colaborador ya no
-   * es usuario de este producto: entra por `/colaborador` con un código a su teléfono, ve lo que le
-   * encargaron y nada más. Delegar un trabajo se hace desde el inmueble que lo necesita —el botón
-   * "Encargar" de su tarjeta—, que es donde se toma la decisión, igual que publicar no es un sitio
-   * aparte sino algo que le haces a tus inmuebles.
+   * **No hay entrada de "Colaboradores", y no es un olvido.** Un colaborador ya no es usuario de
+   * este producto: entra por `/colaborador` con un código a su teléfono y ve lo que le encargaron.
+   * Dar de alta a uno se hace escribiendo su nombre y su número al encargar, no en una sección.
+   *
+   * "Encargos" sí está, y es **la única entrada condicional del menú**: se inserta más abajo, solo
+   * para quien tiene inmuebles publicados. Ver los encargos que repartes cuando no tienes nada que
+   * delegar es una puerta a un cuarto vacío, y a un inquilino le sobra del todo.
    */
   { label: "Soporte", icon: LifeBuoyIcon, href: SUPPORT_ROUTE },
   { label: "Facturación", icon: CreditCardIcon },
@@ -77,16 +81,29 @@ const NAV: readonly NavEntry[] = [
 export function AppNav({
   collapsed = false,
   onNavigate,
+  showErrands = false,
 }: {
   readonly collapsed?: boolean;
   readonly onNavigate?: () => void;
+  /**
+   * Whether this person has any property published.
+   *
+   * The one conditional entry in the menu. Decided on the server — see `ProductChrome` — so the
+   * first paint is already right instead of the menu growing an item after hydration.
+   */
+  readonly showErrands?: boolean;
 }) {
   /*
-   * Una sola lista, sin ramas. Había una entrada condicional —"Encargos", solo para quien tuviera
-   * uno— y se fue con el resto: el colaborador ya no entra por aquí, así que el menú vuelve a ser
-   * el mismo para todo el que lo ve.
+   * Detrás de "Mis inmuebles", que es de donde se encarga algo: el orden mental es publicar,
+   * mirar lo publicado, y después lo que delegaste sobre ello.
    */
-  const entries = NAV;
+  const entries = showErrands
+    ? [
+        ...NAV.slice(0, 2),
+        { label: "Encargos", icon: ClipboardListIcon, href: ERRANDS_ROUTE },
+        ...NAV.slice(2),
+      ]
+    : NAV;
 
   return (
     <nav

@@ -142,8 +142,19 @@ export function PropertyManageCard({ property }: { readonly property: Property }
             Handing a job on this flat to somebody else. It belongs here rather than in a section of
             its own for the same reason "Publicar" is not in the menu: you decide it while looking at
             the property that needs it, not by going somewhere to manage collaborators.
+
+            **`brand` while "Editar" stays `outline`**, and the difference is deliberate rather than
+            decorative: the two sat side by side in the same variant and read as one repeated button.
+            What separates them is where they reach. Editing changes this listing and nothing else —
+            routine, self-contained, undoable by editing again. Encargar leaves the product: it texts
+            a real person, creates an account for them and commits them to a time. That is a control
+            worth a beat of hesitation, which is exactly the level `brand` exists for.
+
+            Not `accent`: a page of listings is a column of cards, and one cyan button per card is
+            six calls to action competing with each other, which is none — the same rule the public
+            catalogue follows with its single `outline` per card.
           */}
-          <Button asChild variant="outline" size="lg">
+          <Button asChild variant="brand" size="lg">
             <Link href={assignErrandRoute(property.id)}>
               <UserPlusIcon aria-hidden="true" />
               Encargar

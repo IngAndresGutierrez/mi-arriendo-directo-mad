@@ -54,6 +54,17 @@ export const ERRAND_STATE_LABELS: Readonly<Record<ErrandState, string>> = {
   cancelled: "Cancelado",
 };
 
+/**
+ * How long before an errand its reminder goes out.
+ *
+ * **One reminder, an hour ahead**, where the interview has two. The difference is what the person
+ * has to do about it: an interview is a call you take from wherever you are, so a day's notice buys
+ * you a diary entry. An errand is somewhere you have to *be* — with keys, across a city — and an
+ * hour is the window in which knowing still changes what you do. A day-before reminder for a job
+ * that was confirmed a week ago is noise; ten minutes before is too late to leave.
+ */
+export const ERRAND_REMINDER_MINUTES = 60;
+
 /** A file the collaborator attached when closing the errand. Same shape as a property photo. */
 export type ErrandEvidence = {
   readonly path: string;
@@ -105,12 +116,21 @@ export type ErrandDoc = {
   readonly evidence?: readonly ErrandEvidence[];
   readonly cancelledAt?: StoredTimestamp;
   readonly cancelReason?: string;
+  /** Cuándo salió el recordatorio. Marca de tiempo, no bandera: ver `reminderDue`. */
+  readonly remindedAt?: StoredTimestamp;
 };
 
 /** What a component receives: same data, every date an ISO string. */
 export type Errand = Omit<
   ErrandDoc,
-  "dueAt" | "createdAt" | "updatedAt" | "acceptedAt" | "declinedAt" | "completedAt" | "cancelledAt"
+  | "dueAt"
+  | "createdAt"
+  | "updatedAt"
+  | "acceptedAt"
+  | "declinedAt"
+  | "completedAt"
+  | "cancelledAt"
+  | "remindedAt"
 > & {
   readonly id: string;
   readonly dueAt: string;
@@ -120,6 +140,7 @@ export type Errand = Omit<
   readonly declinedAt?: string;
   readonly completedAt?: string;
   readonly cancelledAt?: string;
+  readonly remindedAt?: string;
 };
 
 /** The dates `errandState` reads. Taking the fields rather than the document keeps it pure. */
@@ -128,6 +149,7 @@ type Marks = {
   readonly declinedAt?: string;
   readonly completedAt?: string;
   readonly cancelledAt?: string;
+  readonly remindedAt?: string;
 };
 
 /**
@@ -232,4 +254,52 @@ export function errandMessage(
   link: string,
 ): string {
   return `Tienes un encargo en miarriendoDIRECTO: ${errand.title} · ${errand.propertyArea} · ${when}. Míralo y confírmalo aquí: ${link}`;
+}
+
+/**
+ * Is this errand's reminder due right now?
+ *
+ * **Only a confirmed errand is reminded.** One nobody accepted is not an appointment, and reminding
+ * somebody about a job they never took on is noise about nothing — the same rule `dueReminder` holds
+ * for interviews, and the reason both of them check the acceptance before the clock.
+ *
+ * **Nothing goes out once the hour has arrived.** Past `dueAt` a reminder is an interruption: the
+ * person either turned up or did not, and a message at that point cannot change either.
+ *
+ * `remindedAt` is a timestamp rather than a flag, like every other mark on this document, and it is
+ * what makes the sweep idempotent: the cron wakes every five minutes, so without it the same
+ * collaborator would get the same reminder twelve times an hour.
+ *
+ * Takes `now` instead of reading the clock, so the interesting cases — an hour and one minute out,
+ * a minute past — can be asked about at all.
+ */
+export function reminderDue(
+  errand: Pick<Errand, "dueAt" | "acceptedAt" | "remindedAt"> & Marks,
+  now: Date,
+): boolean {
+  if (isClosed(errand)) return false;
+  if (!errand.acceptedAt) return false;
+  if (errand.remindedAt) return false;
+
+  const at = Date.parse(errand.dueAt);
+  if (Number.isNaN(at)) return false;
+
+  const from = at - ERRAND_REMINDER_MINUTES * 60_000;
+
+  return now.getTime() >= from && now.getTime() < at;
+}
+
+/**
+ * The line that reaches the collaborator's phone an hour before.
+ *
+ * Shorter than the one that announced the errand and deliberately so: they already know what the
+ * job is — they confirmed it — so what this has to carry is *when* and *where*, which is what
+ * somebody about to leave the house needs. The title is there to say which errand, not to explain
+ * it again.
+ */
+export function reminderMessage(
+  errand: Pick<Errand, "title" | "propertyArea">,
+  when: string,
+): string {
+  return `Recordatorio: en una hora tienes "${errand.title}" en ${errand.propertyArea} (${when}). miarriendoDIRECTO`;
 }
