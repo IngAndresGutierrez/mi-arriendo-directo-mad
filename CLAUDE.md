@@ -1051,6 +1051,89 @@ says out loud that something happens off the platform, and the next stage added 
   declared to them and a later edit cannot rewrite it. `tenantProfiles` is readable by its owner
   alone — not by a landlord with an open application — and is never listable.
 
+## Colaboradores (`features/collaboration`)
+
+A landlord who lives in another city — or simply has a job — cannot be at a door every time an
+applicant wants to see the apartment. So they delegate the **errand**: `collaborations/{id}` is an
+edge, `landlord → collaborator`, scoped **per property and per capability**, and the whole design
+follows from three things it deliberately is not.
+
+**Not a role.** `role` is global and singular, and the same person is the landlord of their own
+apartment and a collaborator on their cousin's — a fourth role would stop them publishing. The
+product already refuses declared identity: nobody applies to become a landlord, they *become* one by
+publishing, and `DEFAULT_USER_ROLE` is what everybody starts as. A collaborator is an account like
+any other plus an edge. **No custom claim either**: the menu's "Encargos" entry is decided by one
+bounded query in `ProductChrome`, because a claim set after the fact needs `PATCH /api/session` to
+be re-minted and forgetting that shows up as a menu that is wrong until the person signs out.
+
+**Not a party to the process**, and this is the load-bearing decision. A collaborator never reads
+`applications/{id}`: that document is **indivisible** and carries the dossier — document number,
+income, the reference's phone. `getApplicationFor` answers `null` to them and must keep doing so.
+What they get is a **projection** built for the errand (`features/application/data/errand.ts`), on a
+screen of their own. Handing them the process page with the interface hiding parts of it is how a
+cédula leaks: eight stage panels, each with its own sensitive fields, each needing a flag, and the
+one somebody forgets is the leak — the same shape as the metadata merge that silently dropped
+`nofollow`. There is deliberately **no exported function in that module that reads without
+authorizing**: `authorizeErrand` does both at once, so an unchecked read is not something a call
+site can reach for. `tests/e2e/collaborators.mjs` asserts the absence over `page.content()` — the
+HTML *and* the RSC payload — and it was verified by leaking the document number on purpose.
+
+**Not a decision.** Delegating who opens a door is not delegating who gets the apartment. The
+collaborator proposes the visit and nothing else: they cannot advance the process, reject the
+application, record what the tenant thought of the flat, sign, touch the payout or confirm a canon.
+Each of those follows from a rule already written down — above all Decreto 2364, which requires the
+signature's creation data to belong exclusively to the signer.
+
+**Per property**, not per portfolio and not per applicant. A landlord with a building hires one
+person to show it to everybody, so per-applicant is friction on every application; portfolio-wide
+hands over twelve private addresses at once.
+
+**Acceptance is where the permission comes from.** `hasCapability` reads only `accepted`, so an
+invitation grants nothing at all until answered — nobody is conscripted into seeing a stranger's
+name and phone, the same way a proposed time is not an appointment until the tenant confirms it.
+`canTransition` is what stops the case that matters: accepting a grant the landlord already revoked
+would hand back an access nobody meant to give. `declined` and `revoked` stay apart for the reason
+`withdrawn` and `resolved` do on an incident — different things happened.
+
+**The invited person must already have an account**, and that is a stated limitation rather than an
+oversight. A pending invitation keyed by an email needs a *claim* mechanism, and every version of
+that has a security question in it: who may claim it, what happens when they change address, and
+what stops a query by email from enumerating who was invited where. `inviteCollaborator` says the
+whole errand instead — register *with that address*, then invite again. The cost is a small
+disclosure (the landlord learns whether an address has an account) and it is accepted knowingly:
+the alternative is a button that silently does nothing.
+
+**The tenant is told who is coming.** `Visit.shownBy` is a record, not a permission, and
+`visitHostLine` is the one formatter for it — it says *"en nombre del propietario"* rather than
+naming the landlord, because what the tenant needs is the relationship. The notification is its own
+type, `visit_proposed_by_collaborator`, because the copy is the point: they are meeting a stranger
+somewhere, and "Carlos propone el jueves" without saying who Carlos is reads like a wrong number.
+The **meeting point still never leaves in a notification** — that rule does not weaken because
+somebody else arranged the visit.
+
+**Two screens.** `/colaboradores` is the landlord's roster; `/encargos` is the collaborator's front
+door and it exists because without it the feature is unreachable — a collaborator is not a party to
+anything, so `/inicio` greets them with an empty "Tus contratos en curso" and `/contratos` with
+nothing at all. The invite form **clears itself on success**, and that is not tidiness: the habeas
+data declaration is about the address in the box beside it, so a tick carried over to the next
+invitation is a permission granted about one person being reused for another.
+
+**Habeas data.** The collaborator is a **new category of recipient** — not an encargado, since they
+are not a provider — so `/privacidad` names them and says exactly what they receive and what they
+do not. The policy is at **version 2** and `reconsentFrom` stays at **1**: the finalidad did not
+change (managing the rental; showing the property is an act of that same process), what changed is
+*who* executes it, which is an information duty. **That call deserves a lawyer's eye** and the
+reasoning is written beside the constant. `ERASURE_PLAN` deletes grants in both directions — a
+permission is not a two-party record, and one that outlives the account that granted it is exactly
+what must not be left behind — while the name already written into a visit's `shownBy` stays.
+
+**Not built, deliberately:** `handle_incidents`. It is the obvious second capability and
+`COLLABORATOR_CAPABILITIES` has one value, because a capability the landlord can tick and nothing
+enforces is a permission they believe they granted. Adding it is a value in that list plus the
+checks that read it. The **interview is not delegable** either, and that is a product decision
+rather than a gap: a collaborator can hold a meeting, but the interview is where the landlord judges
+the person.
+
 ## The tenancy (`features/lease`)
 
 `/contratos` is the negotiation that **ends** in a signed contract. This is the year that follows
@@ -1336,9 +1419,156 @@ the link is in the body rather than the subject, so `sendEmail`'s log line does 
 that matters is the last one — **signing in with the new password, and the old one no longer
 working**: everything else can be right and still leave the account on the old password.
 
+**`url` in `generatePasswordResetLink` is the *continue* URL, not where the emailed link points.**
+Where the link points is the **action URL** in the Firebase console. This pointed at
+`/recuperar/confirmar` and it was a real bug reported from the screen: the reset completed on
+Firebase's page, Firebase forwarded to the confirm screen with no `oobCode`, and that screen — whose
+whole job is to consume a code — answered *"este enlace está incompleto"* about a password that had
+just been changed successfully. It is `LOGIN_ROUTE` now, and `password-reset.mjs` asserts the
+continue URL is not the confirm screen; the assertion was proved by putting the bug back.
+
+**And reaching `/recuperar/confirmar` with no code is not an error.** The likeliest way to get there
+is having just finished on Firebase's page, so `missing` and `rejected` are separate states: a dead
+link says so and offers a new one, a missing code says *"aquí no hay nada que cambiar"* and offers to
+sign in.
+
+**Firebase's own copy is in Spanish because `notification.defaultLocale` says so.** It was `"en"`,
+which is what rendered *"Password changed — you can now sign in with your new password"* on Google's
+hosted action page. It also drove Firebase's **email templates**, and those matter for the one email
+this product does not send itself: `sendEmailVerification` at signup was going out in English.
+Setting the locale to `es` fixed both at once and the templates flipped to Spanish on their own,
+which is how you can tell nobody had customised them. It is one field in the Identity Platform
+config (`admin/v2/projects/{id}/config`, `updateMask=notification.defaultLocale`), not a code change.
+
+**`notification.sendEmail.callbackUri` is where Firebase's emailed links point, and it is one global
+setting for every action type.** `EMAIL_ACTION_ROUTE` (`/cuenta/accion`) exists because of that: it
+owns `resetPassword` and forwards every other mode to Google's handler with the query untouched.
+Pointing the setting straight at `/recuperar/confirmar` — the obvious move — would have answered
+"este enlace no sirve" to every new account confirming its address, because `sendEmailVerification`
+runs at signup. **Deploy the route before flipping the setting**: until it is live, that URL is a
+404, and a 404 on every reset link is worse than Google's page.
+
+**A password reset revokes the refresh tokens, which kills every open `onSnapshot`.** The backend
+answers `permission-denied`, and that is the session ending rather than a rule denying anything —
+the identical failure `isSigningOut()` already covers for sign-out, which that flag cannot see here
+because the session can die in another tab or on another device. `shared/auth/subscription-error.ts`
+(`reportOrRecover`) is the general answer, shared by the bell and `useLiveRefresh`: on a
+`permission-denied` it asks the credential to renew itself — a revoked one cannot — and on failure
+refreshes the route so the server guard, which verifies with `checkRevoked`, sends the person to the
+login instead of leaving them on a portal that stopped being theirs. Only `permission-denied` pays
+for that network call; `failed-precondition` is a missing index and must still be reported as-is.
+
+**And asking whether the credential is alive is not enough on its own.** The first version of
+`reportOrRecover` did only that, and the bug came back from production in a new shape: reset the
+password, sign in again, and the bell logs `permission-denied` while the new session is perfectly
+healthy. A subscription is created **once** — the effect's deps are `[router]` — so the listener
+that was denied belongs to the token that had just been revoked, while `credentialRevoked()` answers
+about the new one and says everything is fine. It was the right question about the wrong credential.
+So a healthy credential now **rebuilds the subscription once** before anything is reported, which
+also fixes a second thing nobody had noticed: a denied bell used to stay dead until the page was
+reloaded, because nothing ever tried again. The one-retry guard lives in each caller, not in the
+helper — the helper cannot know how many times it has been called.
+
+**The emulator cannot test that, and the driver says so instead of pretending.** Verified by hand:
+after `accounts:resetPassword` the Auth emulator still accepts the previous idToken with a 200, so
+the denial never happens locally. An assertion was written, confirmed to stay green with the fix
+disabled, and removed — a test that cannot fail is worse than none, because it reads as coverage.
+Same shape as the composite-index gap.
+
 **Not built:** changing a password from inside an account (it should ask for the current one), and
 `/recuperar` deliberately redirects a signed-in visitor to the portal rather than pretending to be
-that flow.
+that flow — which is also why the driver requests the second reset from a sessionless context.
+
+## Encargos y el colaborador (`features/collaboration`)
+
+Un colaborador es una **figura esporádica**: alguien que muestra un apartamento el jueves y no
+vuelve a aparecer en un mes. Todo el diseño sale de ahí.
+
+**Entra con un código de un solo uso a su teléfono, nunca con contraseña** — y explícitamente no con
+el número de teléfono como su propia contraseña, que fue lo primero que se pidió. Un número no es un
+secreto: está en WhatsApp, en una tarjeta y en doce chats reenviados, así que eso habría dejado los
+encargos —con direcciones, horas y nombres de terceros— legibles para cualquiera que lo supiera, que
+además es dato personal bajo la Ley 1581. Lo que lo reemplaza no le cuesta nada de más: el código
+llega por el mismo canal que el encargo y no hay nada que recordar entre un trabajo y el siguiente.
+La mecánica es la de la firma del contrato a propósito —seis dígitos, cinco intentos, diez minutos,
+salado y hasheado, nunca en claro—: una segunda implementación de OTP más débil en el mismo producto
+sería la que alguien ataca.
+
+**Es un usuario de Firebase de verdad**, creado desde el número, sin correo, sin contraseña y sin
+perfil. No por capricho: las reglas hablan `request.auth.uid`, y una segunda noción de identidad al
+lado obligaría a escribir cada regla dos veces. Lo que cambia no es el mecanismo sino la superficie —
+vive entero fuera de `(app)`, en `/colaborador`, donde `requireCompleteProfile()` lo rebotaría para
+siempre porque no tiene perfil que completar.
+
+**Ahí murió el bloqueo `no_account`.** Invitar exigía que el colaborador ya tuviera cuenta, buscada
+por correo: para un esporádico eso significaba registrarse, verificar una dirección y completar un
+perfil antes de que le pudieran pedir abrir una puerta una vez. Ahora el propietario escribe nombre y
+número y la cuenta se crea sola. `collaboratorPhones/{e164}` es la reserva que hace único y
+resoluble el número en un solo `get`, igual que `propertySlugs/{slug}` con la URL de un anuncio.
+
+**El nombre, el teléfono, el título y la zona van copiados en el encargo**, no leídos del documento
+del colaborador ni del inmueble. Es la instantánea del dossier dentro de una postulación otra vez: el
+propietario no puede leer `collaborators/{uid}` —ese documento es del colaborador y de nadie más— y
+un anuncio editado o borrado después no puede vaciar un encargo ya hecho.
+
+**El estado se deriva de las marcas de tiempo, no se guarda.** `errandState` lee `cancelledAt →
+completedAt → declinedAt → acceptedAt`, y **el orden es toda la regla**: cancelar gana sobre todo
+porque el propietario que lo llama atrás lo termina pase lo que pase, y terminar gana sobre aceptar
+porque terminar implica haberlo tomado. Un `status` guardado sería una segunda fuente de verdad, y el
+día que una escritura entre dos veces el campo y la historia se contradicen sin manera de saber cuál
+miente — la misma decisión que toma `incidentState()`.
+
+**`availableActions` es una lista, y la usan la pantalla y la acción.** Ese es el motivo de que
+devuelva una lista en vez de que cada lado decida: un control que el servidor rechazaría es una
+mentira, y dos copias de "¿cuándo se puede aceptar esto?" son dos cosas que se separan. **Rechazar
+desaparece una vez aceptado**: echarse atrás de algo confirmado es una conversación, no un botón — el
+propietario dejó de buscar a otra persona por esa confirmación.
+
+**Los dos canales, no uno con el otro de respaldo.** SMS y WhatsApp salen a la vez por Twilio: quien
+tiene WhatsApp silenciado recibe el SMS, y a quien la operadora le come el SMS le llega el WhatsApp.
+`errandMessage` es una sola función porque un SMS y un WhatsApp que describen el mismo encargo
+distinto es el error que nadie ve —nadie recibe los dos y los compara— y lleva **qué, dónde y
+cuándo, nunca quién es el inquilino**: un mensaje se lee en la pantalla bloqueada.
+
+**Dos senders de WhatsApp conviven a propósito.** `send-whatsapp.ts` es Meta y lo usan los
+recordatorios de entrevista y el código de firma, posiblemente contra plantillas ya aprobadas allí;
+`send-whatsapp-twilio.ts` es el de esta cuenta. Cambiarle el proveedor a los otros por debajo es un
+cambio aparte con su propia forma de fallar en silencio. **Y una regla que no depende del proveedor**:
+fuera de la ventana de 24 horas que abre el mensaje de la persona, WhatsApp solo entrega **plantillas
+aprobadas** — es regla de WhatsApp, no de Twilio. Sin `TWILIO_WHATSAPP_TEMPLATE_SID` se manda texto
+libre, que sirve para el sandbox y no para producción, y el módulo lo dice en el log en vez de
+aparentar que funcionó.
+
+**Los dos índices compuestos están en `firestore.indexes.json` y `errand-indexes.test.ts` los fija.**
+Es copia deliberada del guardia del arriendo, porque el emulador **no aplica índices**: uno que falte
+pasa `pnpm verify`, `pnpm build`, `pnpm test:rules` y todos los drivers, y lo primero que dice lo
+contrario es un `9 FAILED_PRECONDITION` en producción.
+
+**El modelo viejo se retiró entero**, y esto es lo que ya no existe: `/encargos` y `/encargos/<id>`,
+`/colaboradores`, las entradas "Encargos" y "Colaboradores" del menú, la colección `collaborations`
+con sus capacidades e invitaciones, `inviteCollaborator` / `acceptCollaboration` /
+`declineCollaboration` / `revokeCollaboration`, `CollaboratorRoster`, `InvitationCard`, la proyección
+`VisitErrand` con su `ErrandPanel`, y el driver `collaborators.mjs`.
+
+Se fue porque **exigía que el colaborador estuviera registrado**: para alguien a quien le pides abrir
+una puerta una vez al mes, eso era registrarse, verificar un correo y completar un perfil antes de
+servir de algo. `inviteCollaborator` lo decía en voz alta con el bloqueo `no_account`.
+
+Tres consecuencias que valen la pena tener escritas:
+
+- **`proposeVisit` perdió su segunda entrada.** Un colaborador llegaba a proponer el día de la visita
+  a través de un encargo que le daba `show_property` sobre el inmueble; ahora no es parte del proceso
+  y no puede moverlo. Mostrar sigue siendo delegable —es un encargo de tipo `showing`— pero el
+  encargo es un trabajo con su propio aceptar/rechazar/terminar, no un asiento en el proceso.
+- **Los cuatro tipos de notificación `collaborator_*` siguen en la unión, sin emisor.** Es la misma
+  decisión que `canon_confirmed`: hay notificaciones guardadas con esos tipos, y un tipo que el
+  `switch` no cubre es una campana con el cuerpo vacío. Lo que cambió es a dónde llevan, porque las
+  dos pantallas que apuntaban ya no existen y una campana que abre un 404 es peor que una que abre
+  el inicio.
+- **La regla de `collaborations` no se reemplazó por una más laxa: se borró.** Sin `match`, la
+  clausura explícita del final deniega la colección entera, que es más estricto que lo que había.
+  `deleteAccount` la sigue barriendo, así que una solicitud de supresión se honra sobre datos que
+  este producto ya no usa.
 
 ## Notifications and email (`features/notification`)
 

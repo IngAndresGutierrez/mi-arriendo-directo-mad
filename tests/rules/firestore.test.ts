@@ -397,6 +397,105 @@ describe("applications", () => {
   });
 
   /*
+   * Los encargos del colaborador.
+   *
+   * Las dos partes leen el suyo y **nadie más**, que es lo único que sostiene la promesa de esta
+   * función: delegar quién abre una puerta no es delegar quién se queda con el apartamento. Un
+   * tercero que pudiera leer la colección tendría la dirección, la hora y el nombre de quien va.
+   *
+   * Y **ningún cliente escribe**: aceptar, rechazar y terminar son Server Actions. Un colaborador
+   * que pudiera escribir `completedAt` cerraría un trabajo sin haberlo hecho, y el propietario se
+   * enteraría al llegar.
+   */
+  it("only the two parties read an errand, and nobody writes one", async () => {
+    const errandId = "errand-1";
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc(`errands/${errandId}`).set({
+        landlordUid: UID_LANDLORD,
+        collaboratorUid: UID_THIRD_PARTY,
+        collaboratorName: "Carlos Colaborador Ruiz",
+        collaboratorPhone: "+573001234567",
+        propertyId: PROPERTY_ID,
+        propertyTitle: "Apartamento en Chapinero",
+        propertyArea: "Chapinero, Bogotá",
+        type: "showing",
+        title: "Mostrar el apartamento",
+        description: "El interesado llega a las 3.",
+        dueAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    });
+
+    // Las dos partes sí.
+    await assertSucceeds(getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `errands/${errandId}`)));
+    await assertSucceeds(getDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `errands/${errandId}`)));
+
+    // El inquilino del proceso no es parte del encargo: no lo ve.
+    await assertFails(getDoc(doc(actingAs(env, UID_TENANT, "tenant"), `errands/${errandId}`)));
+    await assertFails(getDoc(doc(anonymous(env), `errands/${errandId}`)));
+
+    // Ni una escritura, ni siquiera del colaborador sobre el suyo.
+    const collaborator = actingAs(env, UID_THIRD_PARTY, "tenant");
+    await assertFails(setDoc(doc(collaborator, `errands/${errandId}`), { completedAt: new Date() }));
+    await assertFails(updateDoc(doc(collaborator, `errands/${errandId}`), { completedAt: new Date() }));
+    await assertFails(deleteDoc(doc(collaborator, `errands/${errandId}`)));
+    await assertFails(
+      setDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), "errands/inventado"), { title: "x" }),
+    );
+  });
+
+  /*
+   * El registro del colaborador es suyo y de nadie más — **ni siquiera del propietario que le da
+   * trabajo**. Lo que el propietario necesita (el nombre y el teléfono que él mismo escribió) va
+   * copiado en cada encargo, que es la misma instantánea que hace el dossier del inquilino dentro
+   * de una postulación.
+   */
+  it("a collaborator's own record is not readable by the landlord who hires them", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc(`collaborators/${UID_THIRD_PARTY}`).set({
+        name: "Carlos Colaborador Ruiz",
+        phone: "+573001234567",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    });
+
+    await assertSucceeds(
+      getDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `collaborators/${UID_THIRD_PARTY}`)),
+    );
+    await assertFails(
+      getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `collaborators/${UID_THIRD_PARTY}`)),
+    );
+    await assertFails(getDoc(doc(anonymous(env), `collaborators/${UID_THIRD_PARTY}`)));
+    await assertFails(
+      setDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), `collaborators/${UID_THIRD_PARTY}`), {
+        name: "Otro",
+      }),
+    );
+  });
+
+  /*
+   * El reto de entrada y el índice teléfono→uid no los declara ninguna regla: los deniega la
+   * clausura del final. Si alguien los declarara más arriba sin darse cuenta, un SHA-256 de seis
+   * dígitos legible desde el navegador se rompe con un millón de intentos — y el índice sería un
+   * oráculo para saber qué teléfonos tienen cuenta.
+   */
+  it("nobody reaches a collaborator's sign-in challenge or the phone index", async () => {
+    const key = "1111111111111111111111111111111111111111111111111111111111111111";
+    for (const db of [
+      actingAs(env, UID_LANDLORD, "landlord"),
+      actingAs(env, UID_THIRD_PARTY, "tenant"),
+      anonymous(env),
+    ]) {
+      await assertFails(getDoc(doc(db, `collaboratorChallenges/${key}`)));
+      await assertFails(setDoc(doc(db, `collaboratorChallenges/${key}`), { codeHash: "x" }));
+      await assertFails(getDoc(doc(db, "collaboratorPhones/+573001234567")));
+      await assertFails(setDoc(doc(db, "collaboratorPhones/+573001234567"), { uid: "x" }));
+    }
+  });
+
+  /*
    * El primer canon añade dos cosas que moverían el proceso si un cliente pudiera escribirlas: los
    * datos de cobro y, sobre todo, **el veredicto** — que es lo único que cierra la etapa. Un
    * inquilino que pudiera escribir `confirmed` cerraría el arriendo sin que el dinero llegara.
@@ -535,6 +634,19 @@ describe("the slug index", () => {
     await assertFails(getDocs(collection(anonymous(env), "propertySlugs")));
   });
 });
+
+/*
+ * A collaborator is an edge, not a party. These tests pin BOTH halves of that: the edge is readable
+ * by the two people it names, and holding one buys **no** access to the process, the tenancy or the
+ * dossier — which is why `UID_THIRD_PARTY`, the stranger every other block here uses, is the
+ * collaborator in the seed.
+ */
+/*
+ * **El bloque de `collaborations` se fue con la funcionalidad.** No se sustituye por reglas más
+ * laxas: sin `match` para esa colección, la clausura explícita del final la deniega entera, que es
+ * más estricto que lo que había. Lo que queda protegido y probado es `errands` y `collaborators`,
+ * más arriba.
+ */
 
 describe("contracts and payments", () => {
   it("only the parties read the contract", async () => {

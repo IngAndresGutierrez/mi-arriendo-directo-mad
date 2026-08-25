@@ -38,6 +38,7 @@ function toNotification(snapshot: Snapshot): Notification | null {
      */
     ...(doc.period ? { period: doc.period } : {}),
     ...(doc.incident ? { incident: doc.incident } : {}),
+    ...(doc.collaboration ? { collaboration: doc.collaboration } : {}),
     readAt: doc.readAt ? iso(doc.readAt) : null,
     createdAt: iso(doc.createdAt),
   };

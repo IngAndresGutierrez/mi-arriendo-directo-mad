@@ -94,6 +94,17 @@ export const ERASURE_PLAN: readonly ErasureItem[] = [
   { what: "Los archivos que subiste: cédula, desprendibles y certificados", fate: "deleted", why: "" },
   { what: "Tus inmuebles publicados y sus fotos", fate: "deleted", why: "" },
   { what: "Tus notificaciones", fate: "deleted", why: "" },
+  /*
+   * Las colaboraciones se van en las dos direcciones: las que concediste sobre tus inmuebles y las
+   * que aceptaste sobre los de otros. Es un permiso, no un registro contractual — no hay una
+   * segunda persona cuya prueba se destruya al borrarlo, y un permiso que sobrevive a la cuenta que
+   * lo dio es exactamente lo que no debe quedar.
+   */
+  {
+    what: "Los permisos para mostrar inmuebles: los que diste y los que aceptaste",
+    fate: "deleted",
+    why: "",
+  },
   {
     what: "Los contratos que firmaste y el registro de las firmas",
     fate: "kept",
@@ -103,6 +114,11 @@ export const ERASURE_PLAN: readonly ErasureItem[] = [
     what: "Los arriendos que llegaste a tener, con sus meses y sus incidencias",
     fate: "kept",
     why: "Es el registro de una relación contractual de dos partes, y la ley obliga a conservarlo.",
+  },
+  {
+    what: "El nombre con el que apareces en una visita que mostraste",
+    fate: "kept",
+    why: "Le dijimos al inquilino quién iba a abrirle la puerta. Borrarlo dejaría a esa persona con una visita que nadie mostró.",
   },
   {
     what: "Los procesos cerrados, con lo que declaraste en cada uno",

@@ -19,11 +19,17 @@ export async function ProductChrome({ children }: { readonly children: ReactNode
 
   // Rendered here rather than fetched by the bell on open: a popover that loads when you click
   // it shows a spinner every time for something that was already on the page.
-  const { items, unread } = user ? await listNotifications(user.uid) : { items: [], unread: 0 };
+  /*
+   * **One read now, not two.** The second one existed to decide whether the menu offered "Encargos",
+   * and it went with that entry: a collaborator is no longer a user of this product, so nobody
+   * reading this chrome can have an errand. One query fewer on every product screen is the small
+   * dividend of that removal.
+   */
+  const { items, unread } = user
+    ? await listNotifications(user.uid)
+    : { items: [], unread: 0 };
 
   return (
-    <AppShell bell={<NotificationBell notifications={items} unread={unread} />}>
-      {children}
-    </AppShell>
+    <AppShell bell={<NotificationBell notifications={items} unread={unread} />}>{children}</AppShell>
   );
 }

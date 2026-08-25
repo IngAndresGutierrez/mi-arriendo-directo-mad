@@ -10,7 +10,7 @@ import { adminDb } from "@/shared/firebase/admin";
 
 import { getApplicationFor } from "../data/application";
 import type { Application } from "../domain/application";
-import { visitWhen, type Visit } from "../domain/visit";
+import { visitWhen, type Visit, type VisitHost } from "../domain/visit";
 import {
   declineVisitSchema,
   proposeVisitSchema,
@@ -41,6 +41,55 @@ async function partyOn(applicationId: string): Promise<PartyContext> {
 }
 
 /**
+ * Who is arranging this visit: the owner, or somebody they asked to help.
+ *
+ * Two entry points, one body. A collaborator is **not a party**, so `partyOn` above cannot see them
+ * at all — `getApplicationFor` answers `null` by design — and the errand's own gate is what
+ * authorizes them: a live `show_property` grant on this property, and not being a party to this
+ * application. Sharing the write is what keeps the two paths from drifting on the thing that
+ * matters, which is that proposing replaces the whole arrangement.
+ */
+type HostContext =
+  | { readonly ok: false; readonly error: string }
+  | {
+      readonly ok: true;
+      readonly uid: string;
+      readonly application: Application;
+      /** Filled in for a collaborator, `null` when the owner shows it themselves. */
+      readonly shownBy: VisitHost | null;
+    };
+
+async function hostOn(applicationId: string): Promise<HostContext> {
+  const user = await requireCompleteProfile();
+
+  const own = await getApplicationFor(applicationId, user.uid);
+  if (own) {
+    if (own.status !== "open") return { ok: false, error: "Este proceso ya está cerrado." };
+    if (own.stage !== "visit") {
+      return { ok: false, error: "El proceso ya no está en la etapa de la visita." };
+    }
+    if (own.landlordUid !== user.uid) {
+      return { ok: false, error: "Solo el propietario propone la visita." };
+    }
+
+    return { ok: true, uid: user.uid, application: own, shownBy: null };
+  }
+
+  /*
+   * **There is no second way in any more.** A collaborator used to reach this through an errand that
+   * granted `show_property` on the property, and that whole mechanism is gone: a collaborator is no
+   * longer a user of this product, so they are not a party to a process and cannot move one.
+   *
+   * Showing a flat is still delegated — it is an errand of type `showing` in
+   * `features/collaboration` — but the errand is a job with its own accept/decline/done, not a seat
+   * at the process. `shownBy` stays in the type because the notification copy for a visit shown by
+   * somebody else is worth keeping for the day that comes back, and because there are stored
+   * notifications of that type already.
+   */
+  return { ok: false, error: "Este proceso no existe o no es tuyo." };
+}
+
+/**
  * The landlord proposes a day, an hour and where to meet.
  *
  * Proposing again **replaces the whole arrangement, the verdict included**. A confirmation belongs
@@ -53,13 +102,9 @@ export async function proposeVisit(
   applicationId: string,
   input: unknown,
 ): Promise<VisitActionResult> {
-  const context = await partyOn(applicationId);
+  const context = await hostOn(applicationId);
   if (!context.ok) return { ok: false, message: context.error };
-  const { uid, application } = context;
-
-  if (application.landlordUid !== uid) {
-    return { ok: false, message: "Solo el propietario propone la visita." };
-  }
+  const { uid, application, shownBy } = context;
 
   const parsed = proposeVisitSchema.safeParse(input);
   if (!parsed.success) {
@@ -80,6 +125,7 @@ export async function proposeVisit(
     declinedAt: null,
     declineNote: "",
     verdict: null,
+    shownBy,
   };
 
   await adminDb().collection("applications").doc(applicationId).update({
@@ -87,7 +133,7 @@ export async function proposeVisit(
     updatedAt: FieldValue.serverTimestamp(),
   });
 
-  const [landlord, tenant] = await Promise.all([
+  const [host, tenant] = await Promise.all([
     getProfile(uid),
     getProfile(application.tenantUid),
   ]);
@@ -95,11 +141,16 @@ export async function proposeVisit(
   await notify({
     recipientUid: application.tenantUid,
     recipientEmail: tenant?.email ?? null,
-    type: "visit_proposed",
+    /*
+     * A different type when somebody other than the owner is coming, because the copy is the point:
+     * the tenant is being told a **stranger** will meet them somewhere, and "Carlos propone el
+     * jueves" without saying who Carlos is reads like a wrong number.
+     */
+    type: shownBy ? "visit_proposed_by_collaborator" : "visit_proposed",
     applicationId,
     stage: application.stage,
     propertyTitle: application.propertyTitle,
-    actorName: landlord?.fullName ?? "",
+    actorName: host?.fullName ?? "",
     /*
      * When, and **never where**. The meeting point is the one field in this process that gives away
      * the address, and an email is forwarded, quoted and left open on a laptop — the same rule that

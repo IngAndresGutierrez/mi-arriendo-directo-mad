@@ -41,6 +41,37 @@ export const PASSWORD_RESET_ROUTE = "/recuperar";
  * this is additive: with the console untouched the flow still completes on Firebase's page.
  */
 export const PASSWORD_RESET_CONFIRM_ROUTE = "/recuperar/confirmar";
+
+/**
+ * Firebase's email **action handler**, pointed at this site.
+ *
+ * One URL receives every kind of emailed action — reset a password, verify an address, undo an email
+ * change — because `notification.sendEmail.callbackUri` is a single global setting. This route owns
+ * `resetPassword` and forwards the rest to Google's hosted handler untouched, which is what makes
+ * pointing the console at it safe: `sendEmailVerification` runs at signup, so a URL that only knew
+ * how to reset passwords would have broken every new account confirming its address.
+ */
+export const EMAIL_ACTION_ROUTE = "/cuenta/accion";
+
+/**
+ * The collaborator's own area, and it is deliberately **outside the product**.
+ *
+ * A collaborator is a sporadic figure: somebody asked to show a flat on Thursday who is not seen
+ * again for a month. They are not a party to any process, so `/inicio` would greet them with an
+ * empty "tus contratos en curso" and `/contratos` with nothing at all — correctly, in both cases,
+ * which is the tell that they never belonged inside `(app)`.
+ *
+ * So this area has its own front door: they sign in with a one-time code sent to the same phone the
+ * errand arrives on, and what they see is their errands and nothing else. No profile to complete, no
+ * menu of sections they cannot open, and `requireCompleteProfile()` — which they would fail for ever,
+ * having no profile — nowhere near it.
+ */
+export const COLLABORATOR_ROUTE = "/colaborador";
+
+/** One errand, from the collaborator's side. Keyed by id: it is private to its two parties. */
+export function collaboratorErrandRoute(errandId: string): string {
+  return `${COLLABORATOR_ROUTE}/${errandId}`;
+}
 /** Onboarding: there is a session but the profile is not complete yet. */
 export const COMPLETE_PROFILE_ROUTE = "/registro/completar-perfil";
 
@@ -80,6 +111,8 @@ export function rentalRoute(id: string): string {
 /** The tenant's reusable dossier. */
 export const TENANT_PROFILE_ROUTE = "/perfil-inquilino";
 
+
+
 /**
  * Where to reach a person. It is a page rather than a link straight to WhatsApp because the
  * menu entry has to lead somewhere the browser's back button can return from, and because the
@@ -112,6 +145,11 @@ export const COOKIES_ROUTE = "/cookies";
  * the rights they apply to, and a separate page would be a second place for them to drift.
  */
 export const PRIVACY_RIGHTS_ANCHOR = `${PRIVACY_ROUTE}#derechos`;
+/** Handing a job on this property to somebody else. Keyed by id, like editing it. */
+export function assignErrandRoute(propertyId: string): string {
+  return `${MY_PROPERTIES_ROUTE}/${propertyId}/encargar`;
+}
+
 /** Editing one of them. Keyed by id, not by slug: the slug is what the edit may change. */
 export function editPropertyRoute(id: string): string {
   return `${MY_PROPERTIES_ROUTE}/${id}/editar`;

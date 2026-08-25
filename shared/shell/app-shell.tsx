@@ -26,6 +26,13 @@ export async function AppShell({
 }: {
   readonly children: ReactNode;
   readonly bell?: ReactNode;
+  /**
+   * Whether the menu offers "Encargos".
+   *
+   * Data and not a slot: the shell is not rendering somebody else's UI, it is deciding whether one
+   * of its own entries exists. Resolved by the route group's layout, which may depend on a feature
+   * — `shared/` may not.
+   */
 }) {
   const collapsed = isSidebarCollapsed((await cookies()).get(SIDEBAR_COOKIE)?.value);
 

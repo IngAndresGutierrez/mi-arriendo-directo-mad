@@ -138,11 +138,22 @@ export const COVERS = {
     "features/application/validations/slot",
     "features/application/actions/visit",
     "features/application/ui/visit-panel",
+    "features/collaboration/domain/collaboration",
     "features/application/ui/stage-actions",
     "features/application/ui/advance-button",
     "features/application/domain/application",
     "features/notification/domain/notification",
     "app/(app)/contratos",
+  ],
+  /*
+   * El driver `collaborators` se fue con el modelo de invitaciones. Lo reemplaza `colaborador`,
+   * que maneja la entrada por teléfono y los encargos — la funcionalidad que sí quedó.
+   */
+  colaborador: [
+    "app/(collaborator)/",
+    "features/collaboration/",
+    "app/(app)/mis-inmuebles",
+    "shared/shell/app-nav",
   ],
   interview: [
     "features/application/domain/interview",
@@ -218,7 +229,7 @@ export const COVERS = {
 };
 
 /** Drivers that need a landlord, a tenant and a property, so they are the slow ones. */
-export const SLOW = ["documents", "apply", "visit", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental", "incidents", "map"];
+export const SLOW = ["documents", "apply", "visit", "collaborators", "interview", "guarantee", "notifications", "reminders", "withdraw", "rental", "incidents", "map"];
 
 /**
  * Rutas tan transversales que cualquier cambio en ellas selecciona **todos** los drivers.

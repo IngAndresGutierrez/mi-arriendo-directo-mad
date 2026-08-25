@@ -29,10 +29,32 @@ export const PERIOD_ID = "2026-09";
 /** One thing that went wrong in the property while the tenancy runs. */
 export const INCIDENT_ID = "incident-1";
 
+/**
+ * A collaborator's standing on one property. The id is the pair — `{propertyId}__{uid}` — so one
+ * person has one situation per property and a second document cannot contradict the first.
+ */
+export const COLLABORATION_ID = `${PROPERTY_ID}__${UID_THIRD_PARTY}`;
+
+/**
+ * Which port the rules emulator is on. 8080 unless told otherwise.
+ *
+ * It is configurable for the same reason `NEXT_DIST_DIR` exists for the e2e server: **the emulated
+ * driver suite already occupies 8080**, and with the port hardcoded the two cannot run on one
+ * machine — `pnpm test:rules` dies with "port taken" and the honest-looking response is to skip the
+ * one check that is mandatory when a collection is added. Pointing this suite at another port is
+ * safer than stopping the other emulator, and much safer than sharing one: `clearFirestore()` plus
+ * `singleProjectMode` would wipe the driver suite's data out from under it.
+ */
+const EMULATOR_PORT = Number(process.env.RULES_EMULATOR_PORT ?? 8080);
+
 export async function createTestEnvironment(): Promise<RulesTestEnvironment> {
   return initializeTestEnvironment({
     projectId: PROJECT_ID,
-    firestore: { rules: readFileSync("firestore.rules", "utf8"), host: "127.0.0.1", port: 8080 },
+    firestore: {
+      rules: readFileSync("firestore.rules", "utf8"),
+      host: "127.0.0.1",
+      port: EMULATOR_PORT,
+    },
   });
 }
 
@@ -148,6 +170,13 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
         area: { neighborhood: "Laureles", city: "Medellín", department: "Antioquia" },
       }),
     );
+
+    /*
+     * **No `collaborations` are seeded any more.** That model — an invitation answered by a
+     * registered user — was retired: a collaborator is now somebody with a phone number and an
+     * errand, not a user of this product. `UID_THIRD_PARTY` stays the stranger every other block
+     * here uses, which is what those blocks were really proving.
+     */
 
     await db.doc(`applications/${APPLICATION_ID}`).set({
       propertyId: PROPERTY_ID,

@@ -28,7 +28,17 @@ export const SESSION_COOKIE = "session";
  */
 export const SESSION_MAX_AGE_MS = 60 * 60 * 24 * 7 * 1000;
 
-export type UserRole = "tenant" | "landlord" | "admin";
+/**
+ * `collaborator` is **not** a fourth kind of user of the product: it is somebody who was asked to
+ * do one job and can see that job and nothing else.
+ *
+ * They have a real Firebase account — created from a phone number, with no email, no password and
+ * no profile — because the Security Rules speak `request.auth.uid` and inventing a second notion of
+ * identity beside that would mean writing every rule twice. What makes them different is not the
+ * mechanism but the surface: they live entirely outside `(app)`, on `/colaborador`, and
+ * `requireCompleteProfile()` would bounce them for ever since they have no profile to complete.
+ */
+export type UserRole = "tenant" | "landlord" | "admin" | "collaborator";
 
 export type SessionUser = {
   readonly uid: string;
@@ -37,7 +47,7 @@ export type SessionUser = {
   readonly role: UserRole;
 };
 
-const ROLES = new Set<string>(["tenant", "landlord", "admin"]);
+const ROLES = new Set<string>(["tenant", "landlord", "admin", "collaborator"]);
 
 function normalizeRole(value: unknown): UserRole {
   return typeof value === "string" && ROLES.has(value) ? (value as UserRole) : "tenant";

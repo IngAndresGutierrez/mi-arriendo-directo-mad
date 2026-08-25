@@ -19,7 +19,11 @@ import { AppNav } from "./app-nav";
  * The drawer is what a phone needs — 250px of permanent menu would leave nothing for the
  * property form — and exactly what a wide screen does not.
  */
-export function AppDrawer({ bell }: { readonly bell?: React.ReactNode }) {
+export function AppDrawer({
+  bell,
+}: {
+  readonly bell?: React.ReactNode;
+}) {
   const [open, setOpen] = useState(false);
 
   return (

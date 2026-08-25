@@ -23,5 +23,10 @@ export { markNotificationsRead } from "./actions/mark-read";
 export { sendEmail } from "./actions/send-email";
 export { sendSms } from "./actions/send-sms";
 export { sendWhatsApp } from "./actions/send-whatsapp";
+/*
+ * El de Twilio, que es otro proveedor y no un reemplazo: ver la nota en el módulo. Lo usa el
+ * colaborador, cuyos dos canales —SMS y WhatsApp— salen de la misma cuenta.
+ */
+export { sendWhatsAppTwilio, type WhatsAppMessage } from "./actions/send-whatsapp-twilio";
 export { type WhatsAppTemplateMessage } from "./domain/whatsapp";
 export { NotificationBell } from "./ui/notification-bell";

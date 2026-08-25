@@ -27,7 +27,11 @@ import {
  *
  * Below `lg` this is not rendered and `AppDrawer` takes over.
  */
-export function AppSidebar({ defaultCollapsed }: { readonly defaultCollapsed: boolean }) {
+export function AppSidebar({
+  defaultCollapsed,
+}: {
+  readonly defaultCollapsed: boolean;
+}) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
   function toggle() {

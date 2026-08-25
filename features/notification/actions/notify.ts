@@ -60,6 +60,12 @@ export type NotifyInput = {
    */
   readonly incident?: string;
   /**
+   * The collaboration's id, on the four notifications that are about an errand rather than a
+   * process. Those pass an **empty `applicationId`**: there is no process behind them, and
+   * `notificationPath` answers from the type before it reads it.
+   */
+  readonly collaboration?: string;
+  /**
    * E.164, and only for what is worth a WhatsApp: a reminder minutes before a call.
    *
    * Passing a phone is what says "this one also goes out over WhatsApp". Every other movement of
@@ -96,6 +102,7 @@ export async function notify(input: NotifyInput): Promise<void> {
       ...(input.detail ? { detail: input.detail } : {}),
       ...(input.period ? { period: input.period } : {}),
       ...(input.incident ? { incident: input.incident } : {}),
+      ...(input.collaboration ? { collaboration: input.collaboration } : {}),
       readAt: null,
       createdAt: FieldValue.serverTimestamp(),
     });

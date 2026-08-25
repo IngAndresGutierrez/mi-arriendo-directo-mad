@@ -1,6 +1,10 @@
 import { STAGE_LABELS, type Stage } from "@/features/application/client";
 import { incidentAnchor, periodAnchor, periodLabel } from "@/features/lease/client";
-import { applicationRoute, rentalRoute } from "@/shared/auth/routes";
+import {
+  HOME_ROUTE,
+  applicationRoute,
+  rentalRoute,
+} from "@/shared/auth/routes";
 
 /**
  * What happened. One type per movement of a rental process, from the point of view of whoever
@@ -32,6 +36,24 @@ export const NOTIFICATION_TYPES = [
    */
   "visit_interested",
   "visit_not_interested",
+  /*
+   * The collaborator's errand: somebody the landlord asked to show one of their properties.
+   *
+   * These four are the only notifications in the product that are **not about a process**, which is
+   * why they carry `collaboration` instead of `applicationId` and why `notificationPath` has to
+   * branch on the type before it reads either. Two of them land on the collaborator's own screen
+   * and two on the landlord's roster — derivable from the type, like everything else here.
+   */
+  "collaborator_invited",
+  "collaborator_accepted",
+  "collaborator_declined",
+  "collaborator_revoked",
+  /*
+   * A visit arranged by a collaborator rather than by the owner, and it is its own type because the
+   * copy is the point: the tenant is being told a **stranger** will meet them at a door, and
+   * "Carlos propone el jueves" without saying who Carlos is reads like a wrong number.
+   */
+  "visit_proposed_by_collaborator",
   "interview_proposed",
   "interview_confirmed",
   "interview_declined",
@@ -101,6 +123,15 @@ export type NotificationDoc = {
    * on the leak, not at the top of a page with a year of months and four other reports on it.
    */
   readonly incident?: string;
+  /**
+   * Which collaboration, on the four notifications that are about one.
+   *
+   * Here for the same reason `period` and `incident` are: it is what the link needs. And like both
+   * of them it must be copied in `toNotification` — a field added to the document without a line in
+   * that converter is a field the bell never sees, which is the bug that left every month's anchor
+   * dead for as long as the anchors had existed.
+   */
+  readonly collaboration?: string;
   /** ISO 8601, or `null` while unread. */
   readonly readAt: string | null;
   readonly createdAt: unknown;
@@ -207,6 +238,48 @@ export function notificationCopy(
         body: notification.detail
           ? `${sentence(`${who} visitó ${property} y no le interesa: ${notification.detail}`)} El proceso no sigue: puedes rechazar la postulación o proponer otra visita.`
           : `${who} visitó ${property} y no le interesa. El proceso no sigue: puedes rechazar la postulación o proponer otra visita.`,
+      };
+    case "visit_proposed_by_collaborator":
+      /*
+       * Quién, y **en nombre de quién**. Al inquilino le va a abrir la puerta alguien que no es el
+       * dueño, y un aviso que solo dice "Carlos propone el jueves" se lee como un número
+       * equivocado. No nombra al propietario porque no hace falta —"en nombre del propietario"
+       * dice la relación— y sigue sin decir dónde: eso se lee en la página.
+       */
+      return {
+        title: "Te van a mostrar el inmueble",
+        body: notification.detail
+          ? `${who} propone ${notification.detail} para mostrarte ${property} en nombre del propietario. Confirma el día o pide otro; el punto de encuentro está en la etapa de la visita.`
+          : `${who} propuso un día para mostrarte ${property} en nombre del propietario. Confirma el día o pide otro.`,
+      };
+    case "collaborator_invited":
+      /*
+       * Lo que hay que decir es **qué le están pidiendo** y sobre qué inmueble: "te invitaron a
+       * colaborar" no dice si va a abrir una puerta o a firmar algo. Y que hace falta aceptar,
+       * porque sin eso la invitación no da acceso a nada.
+       */
+      return {
+        title: "Te pidieron ayuda con un inmueble",
+        body: `${who} te pidió ayuda para mostrar ${property}. Acéptalo en "Encargos" para poder agendar las visitas.`,
+      };
+    case "collaborator_accepted":
+      return {
+        title: "Aceptaron ayudarte",
+        body: `${who} aceptó ayudarte a mostrar ${property}. Ya puede proponer las visitas.`,
+      };
+    case "collaborator_declined":
+      return {
+        title: "No aceptaron ayudarte",
+        body: `${who} no va a ayudarte con ${property}. Puedes invitar a otra persona.`,
+      };
+    case "collaborator_revoked":
+      /*
+       * Sin reproche y sin adornos: retirar un acceso es una decisión normal del propietario, y
+       * quien lo recibe necesita saber que ya no tiene que ir a ninguna puerta.
+       */
+      return {
+        title: "Ya no colaboras en ese inmueble",
+        body: `${who} retiró tu acceso a ${property}. No tienes que hacer nada más ahí.`,
       };
     case "interview_proposed":
       return {
@@ -472,6 +545,26 @@ export function isLeaseNotification(type: NotificationType): boolean {
 }
 
 /**
+ * The notifications that are about a **collaboration** rather than about a process.
+ *
+ * They are the only ones in the product with no application behind them, so they carry an empty
+ * `applicationId` and `notificationPath` has to answer before it reads it. Which of the two screens
+ * they land on is derived from the type — invited and revoked reach the collaborator, accepted and
+ * declined reach the landlord — because the recipient is not a field this function can see.
+ */
+const COLLABORATION_NOTIFICATION_TYPES: readonly NotificationType[] = [
+  "collaborator_invited",
+  "collaborator_accepted",
+  "collaborator_declined",
+  "collaborator_revoked",
+];
+
+export function isCollaborationNotification(type: NotificationType): boolean {
+  return COLLABORATION_NOTIFICATION_TYPES.includes(type);
+}
+
+
+/**
  * Where a notification takes you.
  *
  * The process, at the stage it is about — or the tenancy, at the month it is about. Both ids are
@@ -484,6 +577,18 @@ export function notificationPath(
     readonly incident?: string;
   },
 ): string {
+  /*
+   * Checked first, and before anything reads `applicationId`: these four have none.
+   *
+   * **Nothing sends them any more** — the invitation flow they belonged to is gone, along with both
+   * screens they used to point at. They stay in the union and keep their copy for the same reason
+   * `canon_confirmed` does: there are stored notifications of these types, and a type the switch
+   * does not cover is a bell with an empty body. What changed is where they land, because
+   * `/encargos` and `/colaboradores` no longer exist and a bell that opens a 404 is worse than one
+   * that opens the home screen.
+   */
+  if (isCollaborationNotification(notification.type)) return HOME_ROUTE;
+
   if (isLeaseNotification(notification.type)) {
     /*
      * A month or a report, and never both: the two are different sections of the tenancy, and a

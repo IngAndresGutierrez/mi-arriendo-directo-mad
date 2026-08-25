@@ -70,7 +70,18 @@ function toApplication(snapshot: Snapshot): Application | null {
     ),
     // Written by `proposeVisit`; absent on every application older than that stage — which is
     // every application made before the visit was added, including the ones still running.
-    visit: doc.visit ?? null,
+    visit: doc.visit
+      ? {
+          ...doc.visit,
+          /*
+           * `shownBy` arrived after the stage shipped, so every visit arranged before collaborators
+           * existed has no such key — and the type says it is an object or `null`. Defaulted here
+           * rather than trusted, like `spots` and `waivedAt`: one converter, and every consumer
+           * downstream can rely on the shape.
+           */
+          shownBy: doc.visit.shownBy ?? null,
+        }
+      : null,
     // Written by `proposeInterview`; absent on every application older than that stage.
     interview: doc.interview ?? null,
     /*

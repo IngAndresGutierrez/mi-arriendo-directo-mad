@@ -159,6 +159,41 @@ export async function sendPasswordReset(email: string): Promise<void> {
   await sendPasswordResetEmail(auth, email);
 }
 
+/**
+ * Turns a collaborator's custom token into the same httpOnly session cookie everybody else carries.
+ *
+ * The server has already proved who they are — it checked the code that went to their phone — and
+ * minted a token for that uid. This is the second half: sign the web SDK in with it, then exchange
+ * the resulting idToken for the cookie through the endpoint every other sign-in uses.
+ *
+ * **Nothing about this session is special**, which is the point. A separate cookie or a bespoke
+ * session for collaborators would mean `getSessionUser`, `requireUser` and every Security Rule
+ * learning a second notion of identity; instead they are a Firebase user with a `collaborator`
+ * claim, and everything downstream keeps speaking `request.auth.uid`.
+ *
+ * `false` rather than throwing: the caller is a form that has to say something useful, and the two
+ * ways this fails — a token the SDK refuses, an endpoint that answers 401 — read the same to the
+ * person holding the phone.
+ */
+export async function signInWithCollaboratorToken(token: string): Promise<boolean> {
+  try {
+    const credential = await signInWithCustomToken(auth, token);
+    const idToken = await credential.user.getIdToken();
+
+    const response = await fetch("/api/session", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ idToken }),
+    });
+
+    return response.ok;
+  } catch (error) {
+    console.error("collaborator sign-in failed:", error);
+
+    return false;
+  }
+}
+
 export async function signOutUser(): Promise<void> {
   // Set before the revoke, not after: the denial arrives inside that call, not once it returns.
   signingOut = true;

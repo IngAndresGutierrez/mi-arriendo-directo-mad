@@ -71,6 +71,22 @@ export type Visit = {
   readonly declineNote: string;
   /** What the tenant said after going, or `null` while they have not. */
   readonly verdict: VisitVerdict | null;
+  /**
+   * Who is going to open the door, when it is not the owner.
+   *
+   * `null` means the landlord shows it themselves, which is the ordinary case. It is filled in when
+   * a **collaborator** arranges the visit — somebody the landlord asked to help with this property —
+   * and it exists because the tenant is about to meet a stranger somewhere: a name is the difference
+   * between an appointment and a message from a number they do not know. It is a *record*, not a
+   * permission; the permission lives in `features/collaboration`.
+   */
+  readonly shownBy: VisitHost | null;
+};
+
+/** Who is showing the property, when it is not the owner. Their name as their profile has it. */
+export type VisitHost = {
+  readonly uid: string;
+  readonly name: string;
 };
 
 /**
@@ -165,6 +181,19 @@ export function visitBlockerMessage(blocker: VisitBlocker, isLandlord: boolean):
     default:
       return null;
   }
+}
+
+/**
+ * Who the tenant is meeting, in words. `null` when it is the owner and there is nothing to explain.
+ *
+ * One formatter so the panel, the list and the notification cannot end up describing the same
+ * person three ways — and it says *"en nombre del propietario"* rather than naming the landlord,
+ * because what the tenant needs is the relationship, not a second name to keep track of.
+ */
+export function visitHostLine(visit: Pick<Visit, "shownBy">): string | null {
+  if (!visit.shownBy?.name) return null;
+
+  return `${visit.shownBy.name}, en nombre del propietario`;
 }
 
 /**

@@ -4,9 +4,9 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckIcon, LinkIcon, PencilIcon, Trash2Icon } from "lucide-react";
+import { CheckIcon, LinkIcon, PencilIcon, Trash2Icon, UserPlusIcon } from "lucide-react";
 
-import { editPropertyRoute, propertyDetailRoute } from "@/shared/auth/routes";
+import { assignErrandRoute, editPropertyRoute, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
@@ -136,6 +136,17 @@ export function PropertyManageCard({ property }: { readonly property: Property }
             <Link href={editPropertyRoute(property.id)}>
               <PencilIcon aria-hidden="true" />
               Editar
+            </Link>
+          </Button>
+          {/*
+            Handing a job on this flat to somebody else. It belongs here rather than in a section of
+            its own for the same reason "Publicar" is not in the menu: you decide it while looking at
+            the property that needs it, not by going somewhere to manage collaborators.
+          */}
+          <Button asChild variant="outline" size="lg">
+            <Link href={assignErrandRoute(property.id)}>
+              <UserPlusIcon aria-hidden="true" />
+              Encargar
             </Link>
           </Button>
           <Button

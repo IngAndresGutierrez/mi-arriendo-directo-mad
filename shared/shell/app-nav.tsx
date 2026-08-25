@@ -57,6 +57,13 @@ const NAV: readonly NavEntry[] = [
     icon: IdCardIcon,
     href: TENANT_PROFILE_ROUTE,
   },
+  /*
+   * **No hay entrada de "Colaboradores" ni de "Encargos", y no es un olvido.** Un colaborador ya no
+   * es usuario de este producto: entra por `/colaborador` con un código a su teléfono, ve lo que le
+   * encargaron y nada más. Delegar un trabajo se hace desde el inmueble que lo necesita —el botón
+   * "Encargar" de su tarjeta—, que es donde se toma la decisión, igual que publicar no es un sitio
+   * aparte sino algo que le haces a tus inmuebles.
+   */
   { label: "Soporte", icon: LifeBuoyIcon, href: SUPPORT_ROUTE },
   { label: "Facturación", icon: CreditCardIcon },
   { label: "Ajustes", icon: SettingsIcon },
@@ -74,13 +81,20 @@ export function AppNav({
   readonly collapsed?: boolean;
   readonly onNavigate?: () => void;
 }) {
+  /*
+   * Una sola lista, sin ramas. Había una entrada condicional —"Encargos", solo para quien tuviera
+   * uno— y se fue con el resto: el colaborador ya no entra por aquí, así que el menú vuelve a ser
+   * el mismo para todo el que lo ve.
+   */
+  const entries = NAV;
+
   return (
     <nav
       aria-label="Navegación principal"
       className={cn("flex min-h-0 flex-1 flex-col py-2", collapsed ? "px-2" : "px-3")}
     >
       <ul className={cn("flex flex-col", collapsed ? "gap-2" : "gap-1")}>
-        {NAV.map((entry) => (
+        {entries.map((entry) => (
           <li key={entry.label}>
             <NavItem {...entry} collapsed={collapsed} onNavigate={onNavigate} />
           </li>

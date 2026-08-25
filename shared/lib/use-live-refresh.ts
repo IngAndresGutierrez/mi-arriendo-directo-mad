@@ -32,8 +32,10 @@ export function useLiveRefresh(path: string, version: string): void {
   useEffect(() => {
     let stop: (() => void) | undefined;
     let cancelled = false;
+    // Un solo reintento por montaje, igual que en la campana y por el mismo motivo.
+    let retried = false;
 
-    void (async () => {
+    async function subscribe(): Promise<void> {
       const user = await ensureClientSession();
       if (!user || cancelled) return;
 
@@ -64,11 +66,25 @@ export function useLiveRefresh(path: string, version: string): void {
 
           // Misma historia que en la campana, y por eso el helper es compartido: la sesión puede
           // morir en otra pestaña (un cambio de contraseña revoca los tokens) y aquí llega como un
-          // `permission-denied` que parece de reglas.
-          void reportOrRecover(error, "live updates stopped:", router);
+          // `permission-denied` que parece de reglas — o la suscripción quedó atada al token
+          // anterior, y entonces lo que hace falta es rehacerla, no reportarla.
+          void reportOrRecover(
+            error,
+            "live updates stopped:",
+            router,
+            retried
+              ? undefined
+              : () => {
+                  retried = true;
+                  stop?.();
+                  void subscribe();
+                },
+          );
         },
       );
-    })();
+    }
+
+    void subscribe();
 
     return () => {
       cancelled = true;

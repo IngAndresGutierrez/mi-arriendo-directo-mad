@@ -29,6 +29,19 @@ type ListenError = { readonly code?: string; readonly message?: string };
  * — which is the truthful end to this. Staying quiet would leave them on a portal that stopped
  * being theirs, wondering why nothing updates.
  *
+ * **And when the credential is fine, the listener is rebuilt before anything is reported.** That
+ * case is real and was reported from production: reset the password, sign in again, and the bell
+ * logs `permission-denied` even though the new session is perfectly healthy. A listener is created
+ * once, under one credential, and the effect that made it never runs again — so the subscription
+ * that was denied belongs to the token that has just been revoked, while `credentialRevoked()`
+ * answers about the *new* one and says everything is fine. Asking that question alone was the bug:
+ * it is the right question about the wrong credential.
+ *
+ * Re-subscribing settles it and fixes a second thing at the same time. Until now a denied bell
+ * stayed dead until the page was reloaded, because nothing ever tried again. `retry` is called at
+ * most once per subscription — the caller owns that guard — so a query the rules genuinely refuse
+ * costs one extra attempt and then reports, instead of looping.
+ *
  * It is shared by the bell and by `useLiveRefresh` because the two had the same gap and fixing one
  * of them would have left the other still shouting about the deployed rules.
  */
@@ -36,6 +49,8 @@ export async function reportOrRecover(
   error: ListenError,
   label: string,
   router: Pick<AppRouterInstance, "refresh">,
+  /** Rebuilds the subscription. Pass it **only** while a retry is still owed; see the note above. */
+  retry?: () => void,
 ): Promise<void> {
   /*
    * Only `permission-denied` is worth the network call. `failed-precondition` is a missing composite
@@ -43,10 +58,18 @@ export async function reportOrRecover(
    * are — asking about the credential there would delay a genuine diagnosis to answer a question
    * nobody asked.
    */
-  if (error.code === "permission-denied" && (await credentialRevoked())) {
-    router.refresh();
+  if (error.code === "permission-denied") {
+    if (await credentialRevoked()) {
+      router.refresh();
 
-    return;
+      return;
+    }
+
+    if (retry) {
+      retry();
+
+      return;
+    }
   }
 
   console.error(label, error.code, error.message);

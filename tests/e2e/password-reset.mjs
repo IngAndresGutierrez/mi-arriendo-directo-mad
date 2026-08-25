@@ -201,58 +201,80 @@ try {
   await p.getByRole("heading", { level: 1, name: /El enlace no sirve/i }).waitFor({ timeout: 20000 });
   ok("el mismo código no se puede usar otra vez");
 
-  // ---------- una pestaña del portal abierta mientras cambian la contraseña ----------
+  // ---------- el enrutador de acciones de Firebase ----------
   /*
-   * El fallo que se reportó desde la pantalla, y el que ningún test unitario alcanza.
+   * `/cuenta/accion` es a donde apunta el `callbackUri` de Firebase, y **recibe todos los tipos de
+   * acción**, no solo el de contraseña: verificar un correo, deshacer un cambio de correo, quitar
+   * un segundo factor. Este producto manda verificación en el registro, así que apuntar el ajuste
+   * global directamente a `/recuperar/confirmar` habría contestado "este enlace no sirve" a cada
+   * cuenta nueva confirmando su dirección.
    *
-   * Restablecer la contraseña **revoca los refresh tokens**, así que cualquier `onSnapshot` que
-   * siga enganchado —la campana, la página de un proceso, la de un arriendo— recibe
-   * `permission-denied`. No es una regla negando nada: es la sesión acabándose. `isSigningOut()`
-   * no lo cubre porque es una bandera de módulo y aquí la sesión muere sin que esta pestaña haya
-   * tocado nada.
-   *
-   * Se afirma sobre la consola, que es donde dolía: el error decía "live notifications stopped" y
-   * mandaba a mirar las reglas desplegadas y los índices, que es exactamente donde no estaba.
+   * Las dos mitades se comprueban juntas porque la afirmación solo vale entera: reconoce lo suyo y
+   * **no toca** lo que no es suyo.
    */
-  const portalProblems = [];
-  const portalCtx = await b.newContext({ viewport: { width: 1440, height: 1100 } });
-  const portal = watch(await portalCtx.newPage(), "portal", portalProblems);
-
-  await portal.goto(BASE + LOGIN_PATH, { waitUntil: "domcontentloaded" });
-  await settled(portal);
-  await portal.getByLabel("Correo electrónico").fill(email);
-  await portal.getByLabel("Contraseña").fill(NEW_PASSWORD);
-  await portal.getByRole("button", { name: /Ingresar|Iniciar/i }).click();
-  await portal.waitForURL(/completar-perfil|\/inicio/, { timeout: 30000 });
-  await settled(portal);
-
-  // Otra pestaña cambia la contraseña de esa misma cuenta.
-  await p.goto(BASE + "/recuperar", { waitUntil: "domcontentloaded" });
-  await settled(p);
-  await p.getByLabel("Correo electrónico").fill(email);
-  await p.getByRole("button", { name: /Enviarme el enlace/i }).click();
-  await p.getByRole("heading", { level: 1, name: /Revisa tu correo/i }).waitFor({ timeout: 20000 });
-
-  const segundo = await latestOobCode();
-  if (!segundo?.oobCode) throw new Error("no se emitió el segundo código");
-  await p.goto(BASE + `/recuperar/confirmar?oobCode=${encodeURIComponent(segundo.oobCode)}`, {
+  await p.goto(BASE + "/cuenta/accion?mode=resetPassword&oobCode=abc123&lang=es", {
     waitUntil: "domcontentloaded",
   });
   await settled(p);
-  await p.getByLabel("Contraseña nueva").fill("OtraClaveMas7");
-  await p.getByRole("button", { name: /Guardar la contraseña/i }).click();
-  await p.getByRole("heading", { level: 1, name: /Contraseña actualizada/i }).waitFor({ timeout: 25000 });
-
-  // Se le da tiempo a la pestaña del portal a recibir la negación y reaccionar.
-  await portal.waitForTimeout(6000);
-
-  const gritó = portalProblems.filter((problem) => /live (notifications|updates) stopped/i.test(problem));
-  if (gritó.length) {
-    throw new Error(`la sesión se acabó y la consola lo reportó como fallo de reglas: ${gritó[0]}`);
+  {
+    const url = new URL(p.url());
+    if (url.pathname !== "/recuperar/confirmar") {
+      throw new Error("un reset no aterrizó en la pantalla de contraseña: " + url.pathname);
+    }
+    if (url.searchParams.get("oobCode") !== "abc123") {
+      throw new Error("se perdió el oobCode por el camino");
+    }
   }
-  ok("con la sesión revocada, la suscripción no acusa un fallo de reglas");
+  ok("mode=resetPassword se queda aquí, con su código");
 
-  await portalCtx.close();
+  /*
+   * Y una verificación de correo se reenvía a Google **con la query intacta**. Se afirma sobre el
+   * destino sin llegar a cargarlo: la petición saldría a internet, y un driver que depende de la
+   * red de Google falla los días que Google va lento. Basta con ver a dónde manda.
+   */
+  /*
+   * Se lee la cabecera `Location` **desde node**, no con un `fetch` del navegador.
+   *
+   * La primera versión lo hacía dentro de la página con `redirect: "manual"`, y esa afirmación no
+   * podía fallar: en el navegador *cualquier* redirección manual —al mismo origen o a otro— devuelve
+   * `opaqueredirect`, así que reenviar a Google y mandarlo por error a `/recuperar/confirmar` se ven
+   * exactamente igual. Se comprobó rompiendo el `mode ===` a propósito: seguía verde. El `fetch` de
+   * node sí expone la cabecera, que es lo único que distingue las dos cosas.
+   */
+  const forwarded = await fetch(
+    BASE + "/cuenta/accion?mode=verifyEmail&oobCode=xyz789&apiKey=k&lang=es",
+    { redirect: "manual" },
+  );
+  const location = forwarded.headers.get("location") ?? "";
+  if (location.includes("/recuperar/confirmar")) {
+    throw new Error("una verificación de correo acabó en la pantalla de contraseña: " + location);
+  }
+  if (!location.includes("/__/auth/action")) {
+    throw new Error("verifyEmail no se reenvió al handler de Firebase: " + (location || "(sin Location)"));
+  }
+  // Y con la query entera: `apiKey` y `lang` los lee ese handler, y perder uno rompe el enlace.
+  for (const expected of ["oobCode=xyz789", "apiKey=k", "lang=es"]) {
+    if (!location.includes(expected)) throw new Error(`el reenvío perdió ${expected}: ${location}`);
+  }
+  ok("mode=verifyEmail se reenvía a Firebase con la query intacta");
+
+  /*
+   * ---------- lo que este driver NO puede comprobar ----------
+   *
+   * Restablecer la contraseña **revoca los refresh tokens** en Firebase de verdad, así que cualquier
+   * `onSnapshot` todavía enganchado —la campana, la página de un proceso— recibe `permission-denied`.
+   * Eso es la sesión acabándose, no una regla, y `shared/auth/subscription-error.ts` existe para no
+   * reportarlo como si lo fuera. Se reportó desde producción con ese texto exacto.
+   *
+   * **El emulador de Auth no revoca nada.** Comprobado a mano: después de `accounts:resetPassword`,
+   * el idToken anterior sigue siendo aceptado con 200. Así que aquí la condición no se puede
+   * provocar, y una afirmación sobre ella pasaría siempre — que es peor que no tenerla, porque
+   * parecería cubierta. Se escribió, se comprobó que seguía verde con el arreglo desactivado, y se
+   * quitó.
+   *
+   * Es el mismo hueco que los índices compuestos: el emulador no los aplica, así que falta uno pasa
+   * todo el listón local y solo falla en producción. Si algún día el emulador revoca, esto vuelve.
+   */
 
   // ---------- un teléfono ----------
   await p.goto(BASE + "/recuperar", { waitUntil: "domcontentloaded" });

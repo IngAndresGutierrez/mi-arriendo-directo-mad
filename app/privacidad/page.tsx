@@ -151,6 +151,20 @@ export default function PrivacyPage() {
             Con la otra parte del arriendo, que es el punto del producto: si te postulas, el
             propietario recibe una copia de tu dossier y de tus documentos. Nadie más los ve.
           </p>
+          {/*
+            El colaborador. Es una **categoría nueva de destinatario** y por eso está aquí y no en
+            la lista de encargados: no es un proveedor nuestro, es una persona que el propietario
+            designa. Se dice exactamente qué recibe y qué no, porque el alcance es la única cosa que
+            hace que esto no sea "el propietario le pasa tus datos a alguien".
+          */}
+          <p>
+            Un propietario puede pedirle a otra persona que muestre su inmueble por él —un familiar,
+            un portero, alguien que vive en la ciudad—. Si esa persona acepta, y solo mientras el
+            propietario mantenga ese permiso, recibe <strong>tu nombre y tu teléfono</strong> para
+            poder encontrarse contigo, junto con el día y el lugar de la visita. No recibe tus
+            documentos, ni tus ingresos, ni tus antecedentes, ni el contrato, ni nada del pago.
+            Verás su nombre en la etapa de la visita antes de encontrarte con ella.
+          </p>
           <p>
             Y con los proveedores que hacen funcionar la plataforma, que actúan como{" "}
             <strong>encargados</strong> y solo tratan los datos para prestarnos su servicio:
@@ -192,9 +206,10 @@ export default function PrivacyPage() {
 
         <LegalSection id="terceros" heading="7. Datos de otras personas que tú nos das">
           <p>
-            Si nos das los datos de otra persona —la referencia de tu perfil de inquilino, o el
-            titular de la cuenta donde recibes el canon— declaras que cuentas con su autorización
-            para entregárnoslos y que le informaste para qué. Esa persona puede ejercir sus
+            Si nos das los datos de otra persona —la referencia de tu perfil de inquilino, el
+            titular de la cuenta donde recibes el canon, o alguien a quien invitas a mostrar tu
+            inmueble— declaras que cuentas con su autorización para entregárnoslos y que le
+            informaste para qué. Esa persona puede ejercir sus
             derechos ante nosotros por el mismo canal que tú.
           </p>
         </LegalSection>

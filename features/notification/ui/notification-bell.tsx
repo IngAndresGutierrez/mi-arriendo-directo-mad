@@ -126,8 +126,15 @@ export function NotificationBell({
   useEffect(() => {
     let stop: (() => void) | undefined;
     let cancelled = false;
+    /*
+     * Un solo reintento por montaje. `subscribe()` se puede volver a llamar porque una negación con
+     * la credencial sana suele ser una suscripción creada bajo el token anterior —tras cambiar la
+     * contraseña y volver a entrar— y hasta ahora eso dejaba la campana muerta hasta recargar. El
+     * guardia vive aquí y no en el helper: el helper no sabe cuántas veces lo han llamado.
+     */
+    let retried = false;
 
-    void (async () => {
+    async function subscribe(): Promise<void> {
       const user = await ensureClientSession();
       if (!user || cancelled) return;
 
@@ -193,10 +200,23 @@ export function NotificationBell({
            * `checkRevoked`, así que un refresco hace que el guard mande al login en vez de dejar a
            * la persona mirando un portal que ya no es suyo.
            */
-          void reportOrRecover(error, "live notifications stopped:", router);
+          void reportOrRecover(
+            error,
+            "live notifications stopped:",
+            router,
+            retried
+              ? undefined
+              : () => {
+                  retried = true;
+                  stop?.();
+                  void subscribe();
+                },
+          );
         },
       );
-    })();
+    }
+
+    void subscribe();
 
     return () => {
       cancelled = true;

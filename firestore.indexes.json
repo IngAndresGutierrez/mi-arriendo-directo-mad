@@ -165,6 +165,34 @@
           "order": "DESCENDING"
         }
       ]
+    },
+    {
+      "collectionGroup": "errands",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "collaboratorUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueAt",
+          "order": "DESCENDING"
+        }
+      ]
+    },
+    {
+      "collectionGroup": "errands",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
+          "fieldPath": "landlordUid",
+          "order": "ASCENDING"
+        },
+        {
+          "fieldPath": "dueAt",
+          "order": "DESCENDING"
+        }
+      ]
     }
   ],
   "fieldOverrides": []

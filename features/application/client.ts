@@ -36,11 +36,13 @@ export {
   type CheckStatus,
 } from "./domain/background-check";
 export {
+  visitHostLine,
   visitState,
   visitWhen,
   VISIT_OUTCOME_LABELS,
   VISIT_STATE_LABELS,
   type Visit,
+  type VisitHost,
   type VisitOutcome,
   type VisitState,
 } from "./domain/visit";
@@ -120,3 +122,16 @@ export {
  * donde la escribió la etapa del primer canon y el arriendo la reutiliza tal cual.
  */
 export { payoutSchema, type PayoutInput } from "./validations/payout";
+
+/*
+ * Las reglas del hueco horario —el día, la hora y "¿está en el futuro?"— leídas como hora de pared
+ * de Bogotá.
+ *
+ * Salen por aquí porque los encargos del colaborador son la **tercera** cosa de este producto que
+ * concierta un momento al que alguien tiene que presentarse, después de la entrevista y la visita.
+ * Esas dos ya comparten el módulo por el mismo motivo: tres copias de "convierte estos dos campos a
+ * un instante" son tres oportunidades de quedar una hora corrido. Cruzar el límite por la entrada
+ * pública es lo que hace `features/lease` con `Payout`; si un cuarto dominio los necesita, se mudan
+ * a `shared/`.
+ */
+export { BOGOTA_OFFSET, toInstant, validateSlot } from "./validations/slot";

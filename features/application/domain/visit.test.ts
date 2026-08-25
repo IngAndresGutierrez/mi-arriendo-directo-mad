@@ -5,6 +5,7 @@ import {
   visitBlockerMessage,
   visitHasPassed,
   visitState,
+  visitHostLine,
   visitTime,
   visitWhen,
   VISIT_OUTCOMES,
@@ -24,6 +25,7 @@ const visit = (over: Partial<Visit> = {}): Visit => ({
   declinedAt: null,
   declineNote: "",
   verdict: null,
+  shownBy: null,
   ...over,
 });
 
@@ -143,6 +145,28 @@ describe("visitWhen", () => {
   it("una fecha rota no rompe la pantalla", () => {
     expect(visitWhen({ at: "" })).toBe("");
     expect(visitTime("mañana")).toBe("");
+  });
+});
+
+describe("visitHostLine", () => {
+  /*
+   * Nada que explicar cuando abre el dueño, que es el caso normal. Cuando no, el inquilino va a
+   * encontrarse con un desconocido en algún sitio, y un nombre es la diferencia entre una cita y un
+   * mensaje de un número que no conoce.
+   */
+  it("no dice nada cuando el dueño muestra el inmueble", () => {
+    expect(visitHostLine(visit())).toBeNull();
+    expect(visitHostLine(visit({ shownBy: { uid: "carlos", name: "" } }))).toBeNull();
+  });
+
+  /*
+   * Y dice la **relación**, no un segundo nombre que el inquilino tenga que recordar: lo que
+   * necesita saber es de parte de quién viene esa persona.
+   */
+  it("nombra a quien va y de parte de quién viene", () => {
+    const line = visitHostLine(visit({ shownBy: { uid: "carlos", name: "Carlos Ruiz" } }));
+    expect(line).toContain("Carlos Ruiz");
+    expect(line).toMatch(/en nombre del propietario/i);
   });
 });
 

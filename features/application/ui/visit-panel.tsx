@@ -10,6 +10,7 @@ import {
   MessageSquareIcon,
   ThumbsDownIcon,
   ThumbsUpIcon,
+  UserIcon,
 } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
@@ -19,6 +20,7 @@ import { cn } from "@/shared/lib/utils";
 
 import { confirmVisit, declineVisit, proposeVisit, recordVisitVerdict } from "../actions/visit";
 import {
+  visitHostLine,
   visitState,
   visitTime,
   visitWhen,
@@ -226,6 +228,22 @@ function Appointment({
         <ClockIcon className="size-4 shrink-0" aria-hidden="true" />
         {visitTime(visit.at)} (hora de Colombia)
       </p>
+
+      {/*
+        Quién va a abrir la puerta, cuando no es el dueño. Va **arriba del punto de encuentro** a
+        propósito: el inquilino está a punto de encontrarse con un desconocido en una dirección, y
+        el nombre es lo que convierte eso en una cita en vez de en un mensaje raro. Igual que el
+        punto de encuentro, se lee aquí y nunca sale en un correo.
+      */}
+      {visitHostLine(visit) ? (
+        <p className="flex items-start gap-2 text-sm">
+          <UserIcon className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+          <span className="text-foreground">
+            {isLandlord ? "Lo muestra " : "Te lo muestra "}
+            <span className="font-medium">{visitHostLine(visit)}</span>
+          </span>
+        </p>
+      ) : null}
 
       {/*
         El punto de encuentro, que solo vive aquí: es el único campo del proceso que entrega la

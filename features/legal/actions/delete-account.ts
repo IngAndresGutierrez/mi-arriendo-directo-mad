@@ -109,6 +109,24 @@ export async function deleteAccount(formData: FormData): Promise<DeleteAccountRe
   );
 
   /*
+   * --- the permissions, in both directions -----------------------------------------------------
+   *
+   * The grants this person handed out over their own properties, and the ones they accepted over
+   * somebody else's. Both go, and unlike a contract or a tenancy there is no second party whose
+   * evidence is destroyed by removing them: a collaboration is a **permission**, not a record of an
+   * agreement, and a permission that outlives the account that granted it is precisely the thing
+   * that must not be left behind.
+   *
+   * Two queries because Firestore cannot OR across two fields — the same reason
+   * `listApplicationsFor` is two — and each is a single equality filter, so neither needs an index.
+   * What survives is the name already written into a visit's `shownBy`: see `ERASURE_PLAN`.
+   */
+  await deleteCollection(db.collection("collaborations").where("landlordUid", "==", user.uid));
+  await deleteCollection(
+    db.collection("collaborations").where("collaboratorUid", "==", user.uid),
+  );
+
+  /*
    * --- the profile itself, as a tombstone ----------------------------------------------------
    *
    * The document stays and every identifying field goes. It is not sentiment: `leases` and the

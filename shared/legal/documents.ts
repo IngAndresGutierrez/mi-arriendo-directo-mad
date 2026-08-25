@@ -68,11 +68,23 @@ export const LEGAL_DOCUMENTS: Readonly<Record<ConsentKind, LegalDocument>> = {
     reconsentFrom: 1,
     effectiveDate: FIRST_EFFECTIVE_DATE,
   },
+  /*
+   * v2: el colaborador. El propietario puede pedirle a otra persona que muestre su inmueble, y esa
+   * persona recibe el nombre y el teléfono de quien se postuló — una **categoría nueva de
+   * destinatario**, que la política ahora nombra.
+   *
+   * **`reconsentFrom` se queda en 1, y esa es la decisión que hay que revisar con un abogado.** El
+   * criterio del art. 2.2.2.25.2.5 es el cambio de *finalidad*, y la finalidad no cambió: sigue
+   * siendo gestionar el arriendo, y mostrar el inmueble es un acto de ese mismo proceso. Lo que
+   * cambió es *quién* lo ejecuta, y eso es un deber de información —cumplido nombrándolo en la
+   * política y mostrando su nombre en la etapa antes de la visita— y no una finalidad nueva.
+   * Subirlo obligaría a cada persona con un proceso abierto a re-autorizar en mitad del trámite.
+   */
   privacy: {
     kind: "privacy",
-    version: 1,
+    version: 2,
     reconsentFrom: 1,
-    effectiveDate: FIRST_EFFECTIVE_DATE,
+    effectiveDate: "2026-08-25",
   },
 };
 

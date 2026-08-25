@@ -278,6 +278,48 @@ service cloud.firestore {
       }
     }
 
+    // -------------------------- collaborators & errands ---------------------
+    //
+    // A collaborator is a sporadic figure: somebody who shows a flat on Thursday and is not seen
+    // again for a month. They sign in with a one-time code sent to their phone — never a password,
+    // and emphatically not the phone number as its own password, which would have left encargos
+    // carrying addresses and other people's names readable by anyone who knew the number.
+    //
+    // `collaboratorPhones/{e164}` (the uid lookup) and `collaboratorChallenges/{...}` (the salted
+    // code) are declared **nowhere**: the explicit closure at the end denies them, which is the
+    // same protection `signatureChallenges` relies on. A rules test pins both, so declaring either
+    // one higher up by accident fails the suite rather than production.
+    match /collaborators/{collaboratorUid} {
+      // Their own record, and nobody else's — not even a landlord who gives them work. What a
+      // landlord needs (the name, the phone they typed) is copied onto each encargo instead, the
+      // same snapshot the tenant dossier makes inside an application.
+      allow get: if isOwner(collaboratorUid) || isAdmin();
+      allow list: if isAdmin();
+      allow create, update, delete: if false;   // Server Actions only
+    }
+
+    match /errands/{errandId} {
+      allow get:  if isErrandLandlord() || isErrandCollaborator() || isAdmin();
+      // Bounded `list`, like applications: the client cannot sweep the collection. A rule is
+      // evaluated per candidate document and `request.query` exposes no filters, so the bound is
+      // the only thing that can be checked here.
+      allow list: if isAdmin()
+                  || (isSignedIn()
+                      && request.query.limit <= 50
+                      && (isErrandLandlord() || isErrandCollaborator()));
+
+      // Every transition — accepted, declined, done, cancelled — is a Server Action. A collaborator
+      // who could write `completedAt` would close a job without doing it.
+      allow create, update, delete: if false;
+
+      function isErrandLandlord() {
+        return isSignedIn() && current().landlordUid == uid();
+      }
+      function isErrandCollaborator() {
+        return isSignedIn() && current().collaboratorUid == uid();
+      }
+    }
+
     // ----------------------------- notifications ----------------------------
     // What the bell shows. Each one belongs to exactly one person.
     //
@@ -425,6 +467,16 @@ service cloud.firestore {
         }
       }
     }
+
+    // ------------------------ collaborations (retired) ----------------------
+    // The invitation model — a standing grant of `show_property` on a property, answered by a
+    // registered user — is gone, and with it this collection's rule. It is **not** replaced by a
+    // laxer one: with no `match` here the explicit closure below denies every path under
+    // `collaborations/`, which is stricter than what was here before and is the right answer for
+    // documents that no code reads any more.
+    //
+    // Legacy documents may still exist in production. `deleteAccount` still sweeps them, so an
+    // erasure request is honoured for data this product no longer uses.
 
     // --------------------------- explicit closure ---------------------------
     // Any path not declared above is denied.
