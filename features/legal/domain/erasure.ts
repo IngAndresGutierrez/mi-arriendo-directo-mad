@@ -94,6 +94,7 @@ export const ERASURE_PLAN: readonly ErasureItem[] = [
   { what: "Los archivos que subiste: cédula, desprendibles y certificados", fate: "deleted", why: "" },
   { what: "Tus inmuebles publicados y sus fotos", fate: "deleted", why: "" },
   { what: "Tus notificaciones", fate: "deleted", why: "" },
+  { what: "Tus preferencias de avisos", fate: "deleted", why: "" },
   /*
    * Las colaboraciones se van en las dos direcciones: las que concediste sobre tus inmuebles y las
    * que aceptaste sobre los de otros. Es un permiso, no un registro contractual — no hay una

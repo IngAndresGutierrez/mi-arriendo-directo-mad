@@ -10,3 +10,14 @@ export {
   type Notification,
   type NotificationType,
 } from "./domain/notification";
+export {
+  CATEGORY_COPY,
+  CHANNEL_LABELS,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_CHANNELS,
+  channelApplies,
+  type NotificationCategory,
+  type NotificationChannel,
+  type NotificationPreferences,
+} from "./domain/preferences";

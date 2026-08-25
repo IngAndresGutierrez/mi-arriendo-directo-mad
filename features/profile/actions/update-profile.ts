@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { FieldValue } from "firebase-admin/firestore";
 import { z } from "zod";
 
-import { HOME_ROUTE, TENANT_PROFILE_ROUTE } from "@/shared/auth/routes";
+import { HOME_ROUTE, SETTINGS_ROUTE, TENANT_PROFILE_ROUTE } from "@/shared/auth/routes";
 import { requireUser } from "@/shared/auth/session";
 import { adminDb } from "@/shared/firebase/admin";
 import { toE164 } from "@/shared/phone/countries";
@@ -86,6 +86,9 @@ export async function updateProfile(formData: FormData): Promise<UpdateProfileRe
     });
 
   revalidatePath(TENANT_PROFILE_ROUTE);
+  // Las dos pantallas que editan estos datos son puertas del mismo documento, así que la que
+  // no se usó esta vez tiene que dejar de servir lo que había en caché.
+  revalidatePath(SETTINGS_ROUTE);
   revalidatePath(HOME_ROUTE);
 
   return { ok: true };

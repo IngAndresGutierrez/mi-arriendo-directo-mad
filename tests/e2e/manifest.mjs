@@ -18,6 +18,29 @@ export const COVERS = {
   "sidebar-collapse": ["shared/shell/app-sidebar", "shared/shell/sidebar-state", "shared/ui/nav-item"],
   header: ["shared/shell/account-menu", "app/(public)/", "shared/shell/"],
 
+  /*
+   * Los ajustes de la cuenta. Cubre las tres piezas que compone la pantalla y que viven en tres
+   * módulos distintos: el bloque de datos del perfil, las preferencias de avisos y el panel de
+   * seguridad. `features/notification/actions/notify` está aquí porque es donde una preferencia
+   * deja de ser un interruptor y pasa a decidir si sale un correo.
+   */
+  ajustes: [
+    "app/(app)/ajustes",
+    "features/notification/domain/preferences",
+    "features/notification/validations/preferences",
+    "features/notification/data/preferences",
+    "features/notification/actions/save-preferences",
+    "features/notification/actions/notify",
+    "features/notification/ui/notification-preferences",
+    "features/auth/data/security",
+    "features/auth/ui/security-panel",
+    "features/auth/ui/change-password-form",
+    "features/auth/ui/sign-out-everywhere",
+    "features/profile/ui/account-form",
+    "features/profile/actions/update-profile",
+    "shared/auth/client",
+  ],
+
   // The public catalog.
   // `features/property/ui/` belongs here as much as it does to `lightbox`: `PropertyCard` *is*
   // the catalogue's unit, so a change to the card that only selected `lightbox` was a real miss.

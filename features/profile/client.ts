@@ -3,6 +3,7 @@
  * validate against, with none of the reading or writing.
  */
 export { AccountFields } from "./ui/account-fields";
+export { AccountForm, type AccountFormValues } from "./ui/account-form";
 /*
  * A Server Action belongs here too: a `"use server"` module is exactly what a Client Component
  * is meant to import — Next replaces it with a reference. What it cannot import is the barrel

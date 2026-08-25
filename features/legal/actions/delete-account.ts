@@ -73,6 +73,15 @@ export async function deleteAccount(formData: FormData): Promise<DeleteAccountRe
   await deleteCollection(profileRef.collection("documents"));
 
   /*
+   * Y las preferencias de avisos, que son un ajuste de esta cuenta y de nadie más.
+   *
+   * No hay una segunda persona cuya prueba se destruya al borrarlas, así que no hay excepción que
+   * defender: se van con la cuenta. Sin esta línea quedarían huérfanas bajo un `users/{uid}` que ya
+   * es una lápida — datos personales de alguien que pidió que no quedara nada.
+   */
+  await deleteCollection(profileRef.collection("settings"));
+
+  /*
    * The uploaded files: identity document, payslips, certificates.
    *
    * These go even though the closed applications that referenced them stay. The verdicts live on

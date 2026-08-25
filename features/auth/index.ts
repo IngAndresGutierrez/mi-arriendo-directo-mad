@@ -6,6 +6,12 @@ export { LoginForm } from "./ui/login-form";
 export { SignupForm } from "./ui/signup-form";
 export { NewPasswordForm } from "./ui/new-password-form";
 export { PasswordResetForm } from "./ui/password-reset-form";
+/*
+ * Los ajustes de seguridad de la cuenta. `getAccountSecurity` es `server-only` y lo lee la página;
+ * `SecurityPanel` es lo que la página dibuja con el resultado.
+ */
+export { getAccountSecurity, type AccountSecurity, type SignInMethod } from "./data/security";
+export { SecurityPanel } from "./ui/security-panel";
 export { createSessionSchema } from "./validations/auth";
 /*
  * `requestPasswordReset` is deliberately **not** here. It imports the Admin SDK, so exporting it

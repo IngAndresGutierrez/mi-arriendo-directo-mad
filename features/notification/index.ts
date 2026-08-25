@@ -30,3 +30,24 @@ export { sendWhatsApp } from "./actions/send-whatsapp";
 export { sendWhatsAppTwilio, type WhatsAppMessage } from "./actions/send-whatsapp-twilio";
 export { type WhatsAppTemplateMessage } from "./domain/whatsapp";
 export { NotificationBell } from "./ui/notification-bell";
+/*
+ * Las preferencias de avisos. El dominio es puro y también sale por `client.ts`; la lectura y la
+ * pantalla se exponen aquí porque quien las compone es un Server Component.
+ */
+export {
+  CATEGORY_COPY,
+  CHANNEL_LABELS,
+  DEFAULT_NOTIFICATION_PREFERENCES,
+  NOTIFICATION_CATEGORIES,
+  NOTIFICATION_CHANNELS,
+  allowsChannel,
+  categoryOf,
+  channelApplies,
+  normalizePreferences,
+  type NotificationCategory,
+  type NotificationChannel,
+  type NotificationPreferences,
+} from "./domain/preferences";
+export { readNotificationPreferences } from "./data/preferences";
+export { saveNotificationPreferences } from "./actions/save-preferences";
+export { NotificationPreferencesCard } from "./ui/notification-preferences";

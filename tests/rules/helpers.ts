@@ -149,6 +149,14 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       userAgent: "Mozilla/5.0",
     });
 
+    // Qué avisos quiere recibir. Lo escribe `saveNotificationPreferences` con el Admin SDK.
+    await db.doc(`users/${UID_TENANT}/settings/notifications`).set({
+      process: { email: true, whatsapp: true },
+      lease: { email: false, whatsapp: true },
+      reminders: { email: true, whatsapp: true },
+      errands: { email: true, whatsapp: true },
+    });
+
     await db.doc(`properties/${PROPERTY_ID}`).set(
       publishedProperty({
         title: "Apartamento en Chapinero",

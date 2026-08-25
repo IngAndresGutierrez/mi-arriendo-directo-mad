@@ -123,6 +123,20 @@ export function rentalRoute(id: string): string {
 /** The tenant's reusable dossier. */
 export const TENANT_PROFILE_ROUTE = "/perfil-inquilino";
 
+/**
+ * Los ajustes de la cuenta: quién eres en la plataforma, qué avisos quieres y cómo entras.
+ *
+ * **No es `/perfil-inquilino` con otro nombre, y la diferencia es de quién es cada pantalla.** El
+ * dossier de inquilino lo llena quien se postula; un propietario puede pasar por todo el producto
+ * sin tener uno. Los datos de cuenta —el nombre, el teléfono, dónde vive— los tienen los dos, porque
+ * son lo que la plataforma muestra de una persona a la otra, y por eso se editan aquí.
+ *
+ * Los dos sitios escriben el **mismo** `users/{uid}` a través de `updateProfile`, así que corregir el
+ * teléfono en cualquiera de los dos se ve en el otro. Es una sola verdad con dos puertas, no dos
+ * copias que puedan contradecirse.
+ */
+export const SETTINGS_ROUTE = "/ajustes";
+
 
 
 /**

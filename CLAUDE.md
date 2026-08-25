@@ -1790,13 +1790,122 @@ own domain also exposes **`client.ts`**: the pure half. `@/features/<domain>/cli
 entry, allowed by eslint and dependency-cruiser alongside the index; anything deeper is still a
 violation.
 
+## Ajustes (`/ajustes`)
+
+Three tabs — **Perfil · Notificaciones · Seguridad** — and the interesting part is the two the
+reference design asked for that are **not** here.
+
+**Perfil is not a second `/perfil-inquilino`, and the split is by who has each thing.** The tenant
+dossier — document number, income, the reference — is filled in by somebody applying, and a landlord
+can walk the whole product without ever having one. The account details are what *both* have,
+because they are what the platform shows one party to the other, so that is what lives here. Both
+screens are the same `AccountFields` over the same `updateProfile` against the same `users/{uid}`:
+correcting a phone in either shows up in the other because there are not two copies, there is one
+document with two doors. `updateProfile` revalidates both paths.
+
+**No avatar.** The reference's "haz clic en el avatar para subir una foto" is a capability this
+product does not have — no bucket path, no rules, and nowhere it would be shown — so the card
+renders initials and says nothing about clicking. A circle that invites a click and does nothing is
+the "Continuar" that does not continue.
+
+### The notification preferences, and the one thing they cannot switch off
+
+`users/{uid}/settings/notifications`, four categories × two channels, and **the bell is not one of
+them**. What `notify()` writes to `notifications/{id}` is the record *inside* the product — what the
+process page reads, what wakes the other party's live subscription, what is still there three days
+later. A preference that could skip it would not silence a notification, it would delete a fact, and
+leave the two parties looking at different pages of the same negotiation. So what is switchable is
+what *leaves*: the email and the WhatsApp. The screen says so in a sentence above the table, because
+otherwise somebody hunts for that switch before concluding the screen is unfinished.
+
+The categories are `process` / `lease` / `reminders` / `errands`, and `categoryOf` is a **complete
+`Record<NotificationType, …>` rather than a `switch` with a `default`**: a type added to
+`NOTIFICATION_TYPES` without deciding what it is about now fails `pnpm typecheck`, instead of
+silently answering "process" for ever. `reminders` is its own category because of what it asks —
+somebody who turned off their process emails because they are already on top of it still wants the
+one that arrives ten minutes before a call.
+
+**WhatsApp is only offered where `notify()` actually sends it**, which today is the interview
+reminders alone (passing a phone is what says "this one also goes out over WhatsApp"; the errand
+messages go out through Twilio from their own module, not through here). In the other three rows the
+cell is a `—`, not a switch that is off: a control that does nothing is worse than one that is
+absent — the same rule the signature's WhatsApp channel already follows.
+
+**`allowsChannel` fails towards delivering.** `readNotificationPreferences` answers `null` when it
+could not read, which is *not* the same as an absent document (that one is a known decision: nobody
+has touched the screen, so everything is on). Leaving somebody without the email that says their
+document was rejected because Firestore had a bad second is a worse failure than sending one they
+had switched off — and the bell is written either way, before the preference is even read.
+
+**No client writes that document, and the reason is integrity rather than privacy.** It is what
+`notify()` consults before sending, so a client that could write it would not be silencing their own
+notifications — they would be silencing **their counterparty's**, who would then find out about a
+rejected document only by opening the app. `saveNotificationPreferences` writes under its own
+session's uid and takes no uid in the body; the rules deny every client write and a rules test pins
+it in both directions.
+
+**The whole table is sent on every change**, not the switch that moved: "Desactivar todo" is then one
+write instead of eight, and two tabs open on the same account cannot leave half a decision behind.
+It saves itself with no button — a switch with a "Guardar" beside it is a switch half the people
+leave unsaved — which is why the header carries a `role="status"` saying it was saved.
+
+### Seguridad
+
+What is real: which providers the account has (`providerData`), whether the email is verified, the
+last sign-in, changing the password, and signing out everywhere.
+
+**There is deliberately no list of active sessions.** Firebase exposes none — there is no way to know
+what devices hold a session — so the reference's "Dispositivo actual · Activo" row would be a list of
+one that really only says "you", wearing the appearance of an inventory nobody keeps. What is true
+and useful is the **last sign-in**: one you do not recognise is precisely why somebody opens this
+tab, and the button that cuts everything is right below it. A driver assertion pins the absence.
+
+**"Cerrar sesión en todos los dispositivos" is `signOutUser()`**, unchanged: that path already calls
+`DELETE /api/session`, which revokes the refresh tokens before clearing the cookie, and revoking is
+per account. **It therefore closes this one too, which is honest rather than a side effect** —
+Firebase offers no "revoke the others and keep mine", and somebody pressing this usually believes
+another person got in, where the right outcome is that no session is left standing.
+
+**Changing the password re-signs in; it does not refresh the cookie.** `PATCH /api/session` was the
+obvious reach and it is exactly wrong: it verifies the **old** cookie with `checkRevoked` before
+minting the new one, and that cookie is the one the password change just revoked. Chicken and egg,
+and it surfaced as "no pudimos completar la operación" over a password that had in fact changed. So
+`changePassword` reauthenticates (Firebase requires it, and it is what stops somebody who found an
+open session from taking the account), calls `updatePassword`, and then calls **`signInWithEmail`
+with the new password** — fresh credentials from scratch, the cookie sealed by the same path every
+sign-in uses, and proof that the new password works. Its result has three outcomes, not two:
+`reauth` and `failed` changed nothing, while `resignIn` means **the password did change** and only
+the session could not be rebuilt — reporting that as a failure would send somebody back to try again
+with a current password that no longer exists.
+
+**The wrong-current-password message is not `authErrorMessage`'s.** There, `wrong-password` shares a
+message with `user-not-found` so the login cannot enumerate accounts; here there is no account to
+guess — it is yours, you are already inside — and "correo o contraseña incorrectos" on a form with no
+email field says nothing. It is `"Esa no es tu contraseña actual."`, on the field.
+
+### The two tabs the reference has and this does not
+
+**Apariencia.** `@custom-variant dark` and the dark tokens exist, but **nothing adds `.dark`**, and
+the reason is already written down: the purple logo is illegible reversed and there is no reversed
+asset. A theme picker would switch on a dark mode no screen in the product has ever been reviewed
+in. "Movimiento reducido" and "Modo compacto" are wired to nothing at all. Building it is a feature
+of its own — the cookie read on the server, the class, a reversed mark, and a pass over every screen
+— not a tab.
+
+**Idioma.** There is no i18n: every string is a Spanish literal inside a component. Six languages is
+a multi-week project, and a picker over it would be a control that changes nothing. The product
+speaks es-CO to Colombian tenants and landlords, which is the language policy, not a gap.
+
+**Not built either:** uploading a profile photo, and a per-notification-type preference (four
+categories is what somebody actually decides; forty-six switches is a spreadsheet).
+
 ## Sections not built yet
-The menu shows Facturación and Ajustes **disabled**, with a "Pronto"
-badge, instead of linking to a 404. To activate one: create the route and add its `href` to
-the `NAV` array in `shared/shell/app-nav.tsx` — the one list both surfaces render, so the
-sidebar and the drawer cannot disagree about what the product contains. **Arriendos was the
-last one activated**, and that is exactly what the disabled entry was for: a menu that stopped
-at "Contratos" said the year after a signature did not exist.
+The menu shows **Facturación** disabled, with a "Pronto" badge, instead of linking to a 404. To
+activate it: create the route and add its `href` to the `NAV` array in `shared/shell/app-nav.tsx` —
+the one list both surfaces render, so the sidebar and the drawer cannot disagree about what the
+product contains. **Ajustes was the last one activated** (see below), and Arriendos before it; that
+is exactly what a disabled entry is for — a menu that stopped at "Contratos" said the year after a
+signature did not exist.
 
 **The menu has two shapes and one content.** From `lg` up it is a fixed sidebar, always
 visible: a wide screen has the room, and hiding the sections behind a click there costs one on
@@ -1922,7 +2031,7 @@ After moving or renaming a route: `rm -rf .next && pnpm typegen`, or `tsc` fails
 generated types with an error that has nothing to do with your change.
 
 ## Security Rules tests
-`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (101 cases, every rule
+`pnpm test:rules` boots the Firestore emulator and runs `tests/rules/` (110 cases, every rule
 with a mandatory negative case). It needs **JDK 21+**, and **the script puts it on the PATH
 itself** — `/opt/homebrew/opt/openjdk@21/bin` is prepended in `package.json`, because Homebrew's
 `openjdk@21` is *keg-only*: it is not registered with `/usr/libexec/java_home`, so `java` resolves

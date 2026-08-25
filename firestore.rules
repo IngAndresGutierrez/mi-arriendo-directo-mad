@@ -135,6 +135,24 @@ service cloud.firestore {
         allow get, list: if isOwner(userId) || isAdmin();
         allow create, update, delete: if false;   // Server Actions only
       }
+
+      /*
+       * Qué avisos quiere recibir esta persona, y por dónde: `settings/notifications`.
+       *
+       * **Ningún cliente escribe aquí, y no es celo de más.** Este documento es lo que `notify()`
+       * consulta antes de mandar un correo, así que un cliente que pudiera escribirlo podría apagarle
+       * los avisos a su contraparte — no los suyos: los de la otra persona del proceso, que se
+       * enteraría de que le rechazaron un documento solo si abre la app. La escritura pasa por
+       * `saveNotificationPreferences`, que escribe bajo el uid de su propia sesión y no acepta uno
+       * en el cuerpo.
+       *
+       * El dueño sí lee los suyos. La ruta ya acota la consulta a una persona —`userId` es un
+       * segmento— así que no hay filtro que exigir aquí, igual que en `consents`.
+       */
+      match /settings/{settingId} {
+        allow get, list: if isOwner(userId) || isAdmin();
+        allow create, update, delete: if false;   // Server Actions only
+      }
     }
 
     // ------------------------------ properties ------------------------------

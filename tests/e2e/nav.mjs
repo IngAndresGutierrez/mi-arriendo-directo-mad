@@ -90,7 +90,7 @@ const soon = (await sidebar.locator('[aria-disabled="true"]').allTextContents())
  * arriendo empieza después — y salió el día que `/arriendos` existió, que es exactamente para lo que
  * estaba la entrada deshabilitada.
  */
-if (JSON.stringify(soon) !== JSON.stringify(["Facturación", "Ajustes"])) {
+if (JSON.stringify(soon) !== JSON.stringify(["Facturación"])) {
   throw new Error("las secciones futuras cambiaron: " + JSON.stringify(soon));
 }
 ok("y las futuras se marcan 'Pronto'", JSON.stringify(soon));

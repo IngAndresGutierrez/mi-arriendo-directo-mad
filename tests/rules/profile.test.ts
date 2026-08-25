@@ -275,3 +275,64 @@ describe("consents", () => {
     await assertFails(deleteDoc(doc(db, `users/${UID_TENANT}/consents/terms-1`)));
   });
 });
+
+/**
+ * `users/{uid}/settings/{settingId}` — qué avisos quiere recibir alguien, y por dónde.
+ *
+ * **La propiedad que importa aquí no es la privacidad, es la integridad.** Este documento es lo que
+ * `notify()` consulta antes de mandar un correo, así que un cliente capaz de escribirlo no apagaría
+ * sus propios avisos: apagaría los de su contraparte, que se enteraría de que le rechazaron un
+ * documento solo si abre la app. Por eso la escritura es solo de Server Action, como en `consents`,
+ * aunque el motivo sea el contrario del de allí.
+ */
+describe("notification settings", () => {
+  it("the owner reads their own", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant", "tenant@example.com");
+    await assertSucceeds(getDoc(doc(db, `users/${UID_TENANT}/settings/notifications`)));
+    await assertSucceeds(getDocs(collection(db, `users/${UID_TENANT}/settings`)));
+  });
+
+  it("a third party reads none of them", async () => {
+    const db = actingAs(env, UID_THIRD_PARTY, "tenant", "third@example.com");
+    await assertFails(getDoc(doc(db, `users/${UID_TENANT}/settings/notifications`)));
+    await assertFails(getDocs(collection(db, `users/${UID_TENANT}/settings`)));
+  });
+
+  /*
+   * El caso que da nombre a este bloque: un arrendador con un proceso abierto contra este inquilino
+   * no puede silenciarle el correo en el que le va a decir que rechazó su documento.
+   */
+  it("CANNOT be written by somebody else, which is what would silence them", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord", "landlord@example.com");
+    await assertFails(
+      setDoc(doc(db, `users/${UID_TENANT}/settings/notifications`), {
+        process: { email: false, whatsapp: false },
+        lease: { email: false, whatsapp: false },
+        reminders: { email: false, whatsapp: false },
+        errands: { email: false, whatsapp: false },
+      }),
+    );
+  });
+
+  it("CANNOT be written by the owner either: the Server Action writes it", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant", "tenant@example.com");
+    await assertFails(
+      setDoc(doc(db, `users/${UID_TENANT}/settings/notifications`), {
+        process: { email: false, whatsapp: false },
+        lease: { email: false, whatsapp: false },
+        reminders: { email: false, whatsapp: false },
+        errands: { email: false, whatsapp: false },
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(db, `users/${UID_TENANT}/settings/notifications`), { process: { email: false } }),
+    );
+    await assertFails(deleteDoc(doc(db, `users/${UID_TENANT}/settings/notifications`)));
+  });
+
+  /* Y una ruta hermana que nadie declaró sigue cerrada por la clausura del final. */
+  it("denies an undeclared sibling setting to everybody", async () => {
+    const db = actingAs(env, UID_TENANT, "tenant", "tenant@example.com");
+    await assertFails(setDoc(doc(db, `users/${UID_TENANT}/settings/anything-else`), { a: 1 }));
+  });
+});

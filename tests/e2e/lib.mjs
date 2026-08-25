@@ -134,6 +134,23 @@ export async function createAccount(apiKey, email) {
   return body;
 }
 
+/**
+ * Entrar por la API, sin navegador.
+ *
+ * Es la única forma de afirmar que una contraseña **cambió**: la pantalla puede decir que sí, la
+ * sesión puede seguir viva y la cuenta seguir con la de siempre. Devuelve el cuerpo tal cual, así
+ * que un fallo se reconoce por `body.error`.
+ */
+export async function signInWithPassword(apiKey, email, password) {
+  const response = await fetch(`${identityToolkit()}/accounts:signInWithPassword?key=${apiKey}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, returnSecureToken: true }),
+  });
+
+  return response.json();
+}
+
 export async function launch() {
   const browser = await chromium.launch();
   /** Collected across every page of the run; `assertQuiet` is what turns it into a failure. */

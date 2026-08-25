@@ -3,6 +3,9 @@
 import {
   createUserWithEmailAndPassword,
   onAuthStateChanged,
+  reauthenticateWithCredential,
+  updatePassword,
+  EmailAuthProvider,
   signInWithCustomToken,
   GoogleAuthProvider,
   sendEmailVerification,
@@ -152,6 +155,74 @@ export async function refreshServerSession(): Promise<void> {
 
   if (!response.ok) {
     throw new Error("No pudimos actualizar tu sesión. Vuelve a iniciar sesión.");
+  }
+}
+
+/**
+ * Cambia la contraseña de quien ya está dentro, pidiéndole la que tiene.
+ *
+ * **Pasa entera por el navegador**, como el restablecimiento por enlace y por la misma razón: la
+ * contraseña actual es una credencial, y mandársela a una Server Action la dejaría en el registro de
+ * cada salto del camino. El SDK web habla con Firebase directamente.
+ *
+ * Firebase pide autenticación reciente para `updatePassword`, y eso aquí no es un trámite: es lo que
+ * impide que alguien que se encontró una sesión abierta en un portátil ajeno se apropie de la cuenta
+ * sin saber nada. `reauthenticateWithCredential` es esa prueba.
+ *
+ * **Y después hay que volver a entrar, no refrescar la cookie.** Cambiar la contraseña revoca los
+ * refresh tokens de la cuenta, así que la cookie de sesión deja de valer contra
+ * `verifySessionCookie(cookie, true)` — y `PATCH /api/session`, que es lo primero que uno alcanza
+ * aquí, **verifica esa misma cookie vieja** antes de sellar la nueva: huevo y gallina, y se manifestó
+ * como "no pudimos completar la operación" sobre una contraseña que sí había cambiado. Lo que
+ * funciona es sacar credenciales nuevas de cero, y para eso ya está `signInWithEmail`: entra con la
+ * contraseña recién puesta y sella la cookie por el mismo camino que cualquier inicio de sesión. De
+ * paso, comprobar que la nueva sirve es exactamente lo que había que comprobar.
+ *
+ * Los tres desenlaces son distintos y la pantalla tiene que poder distinguirlos:
+ *
+ * - `reauth` — la contraseña actual no era. **No cambió nada**, y es el único fallo que se puede
+ *   señalar a un campo concreto. `authErrorMessage` no sirve para eso: allí `wrong-password` comparte
+ *   mensaje con `user-not-found` para que el login no sea un enumerador de cuentas, y aquí no hay
+ *   ninguna cuenta que adivinar.
+ * - `failed` — `updatePassword` no pasó. Tampoco cambió nada.
+ * - `resignIn` — **la contraseña sí cambió** y lo que no se pudo fue rehacer la sesión. Devolver
+ *   `ok: false` aquí sería mentir sobre lo que quedó guardado, y quien lo lea volverá a intentarlo
+ *   con una contraseña actual que ya no existe.
+ */
+export type ChangePasswordResult =
+  | { readonly ok: true; readonly resignIn: boolean }
+  | { readonly ok: false; readonly reason: "reauth" | "failed"; readonly error?: unknown };
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<ChangePasswordResult> {
+  // `ensureClientSession`, nunca `auth.currentUser`: puede ser `null` en los primeros instantes de
+  // cualquier carga, y contestar "no hay sesión" a quien acaba de abrir sus ajustes es el bug que
+  // este producto ya pagó una vez.
+  const user = await ensureClientSession();
+  const email = user?.email;
+  if (!user || !email) return { ok: false, reason: "failed" };
+
+  try {
+    await reauthenticateWithCredential(user, EmailAuthProvider.credential(email, currentPassword));
+  } catch (error) {
+    return { ok: false, reason: "reauth", error };
+  }
+
+  try {
+    await updatePassword(user, newPassword);
+  } catch (error) {
+    return { ok: false, reason: "failed", error };
+  }
+
+  try {
+    await signInWithEmail(email, newPassword);
+
+    return { ok: true, resignIn: false };
+  } catch {
+    // La contraseña ya está cambiada: lo único que se perdió es esta sesión.
+    return { ok: true, resignIn: true };
   }
 }
 

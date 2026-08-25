@@ -21,6 +21,7 @@ import {
   MY_PROPERTIES_ROUTE,
   PUBLISH_PROPERTY_ROUTE,
   RENTALS_ROUTE,
+  SETTINGS_ROUTE,
   SUPPORT_ROUTE,
   TENANT_PROFILE_ROUTE,
 } from "@/shared/auth/routes";
@@ -70,7 +71,7 @@ const NAV: readonly NavEntry[] = [
    */
   { label: "Soporte", icon: LifeBuoyIcon, href: SUPPORT_ROUTE },
   { label: "Facturación", icon: CreditCardIcon },
-  { label: "Ajustes", icon: SettingsIcon },
+  { label: "Ajustes", icon: SettingsIcon, href: SETTINGS_ROUTE },
 ];
 
 /**

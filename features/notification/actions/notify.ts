@@ -9,6 +9,8 @@ import { after } from "next/server";
 import { adminDb } from "@/shared/firebase/admin";
 import { resolveSiteUrl } from "@/shared/lib/site-url";
 
+import { allowsChannel } from "../domain/preferences";
+import { readNotificationPreferences } from "../data/preferences";
 import { renderNotificationEmail } from "../domain/email";
 import { interviewReminderMessage } from "../domain/whatsapp";
 import { notificationCopy } from "../domain/notification";
@@ -111,7 +113,28 @@ export async function notify(input: NotifyInput): Promise<void> {
     console.error(`notify failed for application ${input.applicationId}:`, error);
   }
 
-  if (input.recipientPhone) {
+  /*
+   * Sin correo ni teléfono no hay nada que entregar fuera del producto, y por tanto ninguna
+   * preferencia que consultar: la campana ya quedó escrita arriba. Ahorra una lectura de Firestore
+   * en una función que corre en cada movimiento de cada proceso.
+   */
+  if (!input.recipientEmail && !input.recipientPhone) return;
+
+  /*
+   * Qué canales quiere esta persona.
+   *
+   * Se lee **después** de escribir la campana y nunca antes: la campana no es una preferencia. Lo
+   * que queda en `notifications/{id}` es el registro dentro del producto —lo que la pantalla del
+   * proceso lee y lo que despierta la suscripción en vivo de la otra parte—, así que una preferencia
+   * que pudiera saltárselo no silenciaría un aviso, dejaría a las dos partes mirando páginas
+   * distintas de la misma negociación.
+   *
+   * Una lectura más por notificación, en una función que ya escribe un documento y manda un correo.
+   * `null` es "no pudimos leer", y `allowsChannel` lo resuelve entregando: ver su nota.
+   */
+  const preferences = await readNotificationPreferences(input.recipientUid);
+
+  if (input.recipientPhone && allowsChannel(preferences, input.type, "whatsapp")) {
     const { template, locale } = whatsAppTemplate();
     const message = interviewReminderMessage({
       to: input.recipientPhone,
@@ -126,6 +149,8 @@ export async function notify(input: NotifyInput): Promise<void> {
 
   // A profile with no email address sends nothing, and says nothing about it.
   if (!input.recipientEmail) return;
+  // Ni tampoco quien apagó el correo de este asunto. La campana ya quedó escrita más arriba.
+  if (!allowsChannel(preferences, input.type, "email")) return;
 
   // Read here, not inside `after()`: the request's headers belong to the request, and by the
   // time the callback runs there is no longer one to read them from.

@@ -69,7 +69,7 @@ ok("la flecha lo expande", `${narrow}px -> ${wide}px`);
 // número fijo convierte eso en un fallo del driver en vez de en información.
 const soon = (await sidebar.locator('[aria-disabled="true"]').filter({ hasText: "Pronto" }).allTextContents())
   .map((t) => t.replace("Pronto", "").trim());
-if (JSON.stringify(soon) !== JSON.stringify(["Facturación", "Ajustes"])) {
+if (JSON.stringify(soon) !== JSON.stringify(["Facturación"])) {
   throw new Error("las secciones futuras cambiaron: " + JSON.stringify(soon));
 }
 ok("expandido las futuras muestran 'Pronto'", JSON.stringify(soon));
@@ -149,7 +149,7 @@ const drawer = p.getByRole("dialog");
 await drawer.waitFor({ state: "visible" });
 const enDrawer = (await drawer.locator('[aria-disabled="true"]').filter({ hasText: "Pronto" }).allTextContents())
   .map((t) => t.replace("Pronto", "").trim());
-if (JSON.stringify(enDrawer) !== JSON.stringify(["Facturación", "Ajustes"])) {
+if (JSON.stringify(enDrawer) !== JSON.stringify(["Facturación"])) {
   throw new Error("el drawer perdió los distintivos: " + JSON.stringify(enDrawer));
 }
 if (await drawer.getByRole("button", { name: /menú/i }).filter({ hasText: "" }).count() === 0) { /* nada */ }
