@@ -105,7 +105,16 @@ export async function requestCollaboratorCode(input: unknown): Promise<RequestCo
 
     await Promise.all([
       sendSms({ to: e164, body }),
-      sendWhatsAppTwilio({ to: e164, body, variables: [code] }),
+      /*
+       * AUTHENTICATION en Meta, no UTILITY: un código de acceso tiene su propia categoría, sus
+       * propias reglas de aprobación y su propio precio. Por eso es otra plantilla y otra variable.
+       */
+      sendWhatsAppTwilio({
+        to: e164,
+        body,
+        variables: [code],
+        template: process.env.TWILIO_WHATSAPP_OTP_TEMPLATE_SID,
+      }),
     ]);
   } catch (error) {
     // Never the phone and never the code: both are in the failure path of a credential.

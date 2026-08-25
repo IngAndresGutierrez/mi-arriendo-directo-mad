@@ -44,6 +44,22 @@ export type WhatsAppMessage = {
    * Kept as a list rather than an object so the call site cannot silently reorder them.
    */
   readonly variables?: readonly string[];
+  /**
+   * Which approved template this message is.
+   *
+   * **One template cannot serve four messages, and assuming it could was a real bug here.** This
+   * module used to read a single `TWILIO_WHATSAPP_TEMPLATE_SID` for everything, so an errand (three
+   * variables), a sign-in code (one) and a cancellation (none) would all have been sent through
+   * whichever template happened to be configured — three of the four arriving wrong.
+   *
+   * Meta also classifies them differently: a login code is **AUTHENTICATION** and an errand is
+   * **UTILITY**, with different approval rules and different pricing. They are not interchangeable
+   * even in principle.
+   *
+   * The caller names its own; each falls back to its own environment variable. Absent, the message
+   * goes as free text — which WhatsApp only delivers inside an open 24-hour window.
+   */
+  readonly template?: string;
 };
 
 /** `true` when Twilio accepted it. */
@@ -59,7 +75,7 @@ export async function sendWhatsAppTwilio(message: WhatsAppMessage): Promise<bool
     return false;
   }
 
-  const template = process.env.TWILIO_WHATSAPP_TEMPLATE_SID?.trim();
+  const template = message.template?.trim();
 
   const form: Record<string, string> = {
     To: `whatsapp:${message.to}`,
@@ -76,8 +92,8 @@ export async function sendWhatsAppTwilio(message: WhatsAppMessage): Promise<bool
   } else {
     form.Body = message.body;
     console.info(
-      "[whatsapp] no TWILIO_WHATSAPP_TEMPLATE_SID: sending free text, which WhatsApp only delivers " +
-        "inside an open 24-hour window or from the sandbox.",
+      "[whatsapp] no approved template for this message: sending free text, which WhatsApp only " +
+        "delivers inside an open 24-hour window or from the sandbox.",
     );
   }
 

@@ -92,6 +92,10 @@ export async function remindUpcomingErrands(now: Date = new Date()): Promise<Err
         to: errand.collaboratorPhone,
         body,
         variables: [errand.title, errand.propertyArea, formatBogotaWeekdayTime(errand.dueAt)],
+        // La misma plantilla que el anuncio: mismas tres variables, y el texto del SMS ya distingue
+        // "tienes un encargo" de "en una hora tienes". Una segunda plantilla para eso sería una
+        // aprobación más de Meta a cambio de nada.
+        template: process.env.TWILIO_WHATSAPP_ERRAND_TEMPLATE_SID,
       }),
     ]);
 

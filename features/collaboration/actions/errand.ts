@@ -65,6 +65,7 @@ async function announce(errand: Errand): Promise<void> {
       // The order matches the template's {{1}}, {{2}}, {{3}}. A list, so a call site cannot reorder
       // them silently the way an object's keys can be rearranged without anybody noticing.
       variables: [errand.title, errand.propertyArea, formatBogotaWeekdayTime(errand.dueAt)],
+      template: process.env.TWILIO_WHATSAPP_ERRAND_TEMPLATE_SID,
     }),
   ]);
 }
