@@ -1,3 +1,4 @@
+import type { Dictionary } from "@/shared/i18n";
 import type { LeaseTerm } from "@/features/property/client";
 import type { DocumentReviews, TenantDossier } from "@/features/tenant-profile/client";
 
@@ -77,16 +78,20 @@ export function normalizeStage(value: unknown): Stage {
   return LEGACY_STAGES[value] ?? STAGES[0];
 }
 
-export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
-  submitted: "Postulación recibida",
-  visit: "Visita al inmueble",
-  tenant_data: "Datos y documentos del inquilino",
-  background_check: "Validación de expedientes",
-  interview: "Entrevista con el propietario",
-  guarantee: "Póliza de arrendamiento",
-  contract_signature: "Firma del contrato",
-  first_payment: "Primer canon",
-};
+/**
+ * **The words for the eight stages live in `shared/i18n/messages`, under `application`.**
+ *
+ * They used to be `STAGE_LABELS`, `STAGE_DESCRIPTIONS`, `STAGE_DESCRIPTIONS_LANDLORD`,
+ * `APPLICATION_STATUS_LABELS` and the three `COMPLETED_*` constants, right here. The keys have not
+ * changed and are still the stored stage names; a second language is what moved the words out, and
+ * the two `stageDescriptions` lists are still two lists for the reason written below.
+ *
+ * Everything that read them now takes a `copy: ApplicationCopy` argument. That keeps these
+ * functions pure — they still decide *which* sentence, which is what the tests are about — and puts
+ * the language at the call site, where a Server Component knows it and a Client Component is handed
+ * it.
+ */
+export type ApplicationCopy = Dictionary["application"];
 
 /**
  * What is happening, in the second person — and there are two second persons.
@@ -95,38 +100,7 @@ export const STAGE_LABELS: Readonly<Record<Stage, string>> = {
  * contactará" is instructions for the tenant and gibberish for the landlord, who is the one who
  * has to make the call. Each role gets the sentence that tells *them* what to do next.
  */
-export const STAGE_DESCRIPTIONS: Readonly<Record<Stage, string>> = {
-  submitted: "El propietario ya tiene tu postulación y los datos que declaraste.",
-  visit:
-    "Ve a conocer el inmueble. El propietario propone el día y el punto de encuentro, y después nos dices si te interesa.",
-  tenant_data: "Sube tu documento de identidad y el soporte de tus ingresos.",
-  background_check:
-    "Con tu autorización se revisan tus antecedentes judiciales, multas de tránsito y sanciones disciplinarias.",
-  interview:
-    "El propietario propondrá una fecha para hablar 30 minutos contigo. Confírmala aquí y quedan cuadrados.",
-  guarantee:
-    "El propietario toma una póliza de arrendamiento con Sura. No necesitas codeudor.",
-  contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
-  first_payment:
-    "Paga el primer canon y sube el comprobante. En cuanto el propietario confirme que llegó, el proceso termina y empieza el arriendo.",
-};
 
-/** The same eight stages, addressed to the landlord. */
-export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
-  submitted: "Revisa lo que declaró el inquilino y decide si sigues con él.",
-  visit:
-    "Propón un día y un punto de encuentro para que el inquilino conozca el inmueble. Él dirá si le interesa.",
-  tenant_data: "Pídele su documento de identidad y el soporte de sus ingresos.",
-  background_check:
-    "Consulta sus antecedentes judiciales, de tránsito y disciplinarios, y marca el resultado.",
-  interview:
-    "Propón una fecha para hablar 30 minutos con el inquilino y, después, escribe aquí cómo te fue.",
-  guarantee:
-    "Toma la póliza de arrendamiento con Sura — sin codeudor — y registra aquí su número.",
-  contract_signature: "Firmen el contrato de arrendamiento por 6 o 12 meses.",
-  first_payment:
-    "Confirma que recibiste el primer canon: con eso termina el proceso y arranca el arriendo.",
-};
 
 /**
  * What the process reads as once it is over, which is not a stage.
@@ -135,17 +109,10 @@ export const STAGE_DESCRIPTIONS_LANDLORD: Readonly<Record<Stage, string>> = {
  * with its own months. These two sentences are what a card says instead of naming the last stage —
  * "Primer canon" beside a process that finished would read as one still asking for the money.
  */
-export const COMPLETED_LABEL = "Arriendo en curso";
-
-export const COMPLETED_DESCRIPTION =
-  "El proceso terminó y el arriendo está en curso. Tus pagos y tu contrato viven ahora en Arriendos.";
-
-export const COMPLETED_DESCRIPTION_LANDLORD =
-  "El proceso terminó y el arriendo está en curso. Los pagos y el contrato viven ahora en Arriendos.";
 
 /** The description for whoever is reading. */
-export function stageDescription(stage: Stage, isLandlord: boolean): string {
-  return isLandlord ? STAGE_DESCRIPTIONS_LANDLORD[stage] : STAGE_DESCRIPTIONS[stage];
+export function stageDescription(stage: Stage, isLandlord: boolean, copy: ApplicationCopy): string {
+  return isLandlord ? copy.stageDescriptionsLandlord[stage] : copy.stageDescriptions[stage];
 }
 
 /**
@@ -155,20 +122,24 @@ export function stageDescription(stage: Stage, isLandlord: boolean): string {
  * name beside it would read as a step still pending. This is the one place that decides it, so the
  * home card and the list cannot end up saying two different things.
  */
-export function processStageLabel(application: Pick<Application, "stage" | "completedAt">): string {
-  return isCompleted(application) ? COMPLETED_LABEL : STAGE_LABELS[application.stage];
+export function processStageLabel(
+  application: Pick<Application, "stage" | "completedAt">,
+  copy: ApplicationCopy,
+): string {
+  return isCompleted(application) ? copy.completedLabel : copy.stageLabels[application.stage];
 }
 
 /** And the sentence under it, for whoever is reading. */
 export function processDescription(
   application: Pick<Application, "stage" | "completedAt">,
   isLandlord: boolean,
+  copy: ApplicationCopy,
 ): string {
   if (isCompleted(application)) {
-    return isLandlord ? COMPLETED_DESCRIPTION_LANDLORD : COMPLETED_DESCRIPTION;
+    return isLandlord ? copy.completedDescriptionLandlord : copy.completedDescription;
   }
 
-  return stageDescription(application.stage, isLandlord);
+  return stageDescription(application.stage, isLandlord, copy);
 }
 
 /**
@@ -208,11 +179,6 @@ export function isUnbuilt(stage: Stage): boolean {
 export const APPLICATION_STATUSES = ["open", "rejected", "withdrawn"] as const;
 export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number];
 
-export const APPLICATION_STATUS_LABELS: Readonly<Record<ApplicationStatus, string>> = {
-  open: "En proceso",
-  rejected: "Rechazada",
-  withdrawn: "Retirada",
-};
 
 /** One movement, kept so the process can be read backwards. */
 export type StageEvent = {
@@ -358,10 +324,11 @@ export function isCompleted(application: Pick<Application, "completedAt">): bool
  */
 export function stageProgressLabel(
   application: Pick<Application, "stage" | "completedAt">,
+  copy: ApplicationCopy,
 ): string {
-  if (isCompleted(application)) return "Proceso completado";
+  if (isCompleted(application)) return copy.processCompleted;
 
-  return `Paso ${stageIndex(application.stage) + 1} de ${STAGES.length}`;
+  return `${copy.stepOf} ${stageIndex(application.stage) + 1} ${copy.stepOfSeparator} ${STAGES.length}`;
 }
 
 /** How far along, 0 to 1, for the progress bar. */
@@ -416,10 +383,13 @@ export function canClose(
 }
 
 /** The stage a stopped process stopped at, for a sentence like "rechazada en la entrevista". */
-export function closedAtLabel(application: Pick<Application, "status" | "stage">): string | null {
+export function closedAtLabel(
+  application: Pick<Application, "status" | "stage">,
+  copy: ApplicationCopy,
+): string | null {
   if (application.status === "open") return null;
 
-  return `${APPLICATION_STATUS_LABELS[application.status]} en la etapa "${STAGE_LABELS[application.stage]}"`;
+  return `${copy.statusLabels[application.status]} ${copy.closedAtStage} "${copy.stageLabels[application.stage]}"`;
 }
 
 /**

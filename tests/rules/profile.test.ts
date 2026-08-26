@@ -136,6 +136,51 @@ describe("create profile", () => {
     );
   });
 
+  /*
+   * `locale` decides which language an email leaves in, and it is written from a form — so it is a
+   * client-supplied string that ends up inside `renderNotificationEmail`. The rules have to agree
+   * with `accountDetailsSchema` about which values exist.
+   */
+  it("accepts a profile created in either language", async () => {
+    for (const [uid, locale] of [
+      ["uid-locale-es", "es"],
+      ["uid-locale-en", "en"],
+    ] as const) {
+      const db = asNewUser(uid);
+      await assertSucceeds(
+        // `new@example.com` and not one derived from the uid: the create rule requires the document's
+        // email to equal the token's, and `asNewUser` pins the token to that address.
+        setDoc(doc(db, `users/${uid}`), {
+          ...completeProfileDoc(),
+          email: "new@example.com",
+          locale,
+        }),
+      );
+    }
+  });
+
+  /* Absent is the state of every account created before the field existed. It must stay valid. */
+  it("accepts a profile with no language at all", async () => {
+    const db = asNewUser(UID_THIRD_PARTY);
+    const withoutLocale: Record<string, unknown> = {
+      ...completeProfileDoc(),
+      email: "new@example.com",
+    };
+    delete withoutLocale.locale;
+    await assertSucceeds(setDoc(doc(db, `users/${UID_THIRD_PARTY}`), withoutLocale));
+  });
+
+  it("rejects a language the product does not speak", async () => {
+    const db = asNewUser(UID_THIRD_PARTY);
+    await assertFails(
+      setDoc(doc(db, `users/${UID_THIRD_PARTY}`), {
+        ...completeProfileDoc(),
+        email: "new@example.com",
+        locale: "pt",
+      }),
+    );
+  });
+
   it("nobody creates themselves as admin", async () => {
     const db = asNewUser(UID_THIRD_PARTY);
     await assertFails(

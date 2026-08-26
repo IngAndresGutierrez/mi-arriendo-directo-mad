@@ -1,11 +1,13 @@
 "use client";
 
+import type { DossierLabels } from "@/features/tenant-profile/client";
+import type { Dictionary } from "@/shared/i18n";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, FormProvider, useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { LEASE_TERMS, LEASE_TERM_LABELS, type LeaseTerm } from "@/features/property/client";
+import { LEASE_TERMS, type LeaseTerm, type PropertyLabels } from "@/features/property/client";
 import {
   DossierFields,
   emptyDossier,
@@ -44,11 +46,28 @@ export function ApplicationForm({
   slug,
   profile,
   minLeaseMonths,
+  labels,
+  common,
+  dossierLabels,
+  dossierCopy,
 }: {
   readonly slug: string;
   readonly profile: TenantProfile | null;
   /** The listing's own minimum: a tenant cannot ask for less than what was published. */
   readonly minLeaseMonths: LeaseTerm;
+  /**
+   * The listing vocabulary, resolved by the page. A prop because this is a Client Component:
+   * importing the dictionary here would put both languages in the browser bundle.
+   */
+  readonly labels: PropertyLabels;
+  /**
+   * Shared words the fields below need, resolved by the page. A prop because this is a Client
+   * Component: importing the dictionary here would put both languages in the browser bundle.
+   */
+  readonly common: Dictionary["common"];
+  /** The dossier's vocabulary and sentences, resolved by the page. */
+  readonly dossierLabels: DossierLabels;
+  readonly dossierCopy: Dictionary["dossier"];
 }) {
   const router = useRouter();
 
@@ -66,7 +85,7 @@ export function ApplicationForm({
 
   const leaseOptions = LEASE_TERMS.filter((term) => term >= minLeaseMonths).map((term) => ({
     value: String(term),
-    label: LEASE_TERM_LABELS[term],
+    label: labels.lease[term],
   }));
 
   async function onSubmit(values: FormValues) {
@@ -114,7 +133,7 @@ export function ApplicationForm({
       <form method="post" onSubmit={form.handleSubmit(onSubmit)} noValidate className="space-y-8">
         {errors.root?.message ? <FormAlert>{errors.root.message}</FormAlert> : null}
 
-        <DossierFields />
+        <DossierFields common={common} labels={dossierLabels} copy={dossierCopy} />
 
         <section className="space-y-4">
           <h2 className="font-semibold text-primary dark:text-foreground">Sobre este arriendo</h2>

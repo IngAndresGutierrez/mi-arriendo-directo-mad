@@ -14,11 +14,20 @@ import { cn } from "@/shared/lib/utils";
  */
 export function ComingSoonCard({
   children,
-  label = "Próximamente",
+  label,
+  badge,
   className,
 }: {
   children: ReactNode;
-  label?: string;
+  /**
+   * The tooltip's sentence and the badge's word, resolved by the server parent.
+   *
+   * They used to default to "Próximamente" / "Pronto" inside this file. A Client Component cannot
+   * read the dictionary — importing it here would ship both languages — so the default is gone and
+   * the caller says it.
+   */
+  label: string;
+  badge: string;
   className?: string;
 }) {
   return (
@@ -42,7 +51,7 @@ export function ComingSoonCard({
           */}
           <p className="mb-3 flex justify-end">
             <span className="rounded-full bg-muted px-2 py-0.5 text-[0.65rem] font-medium tracking-wide text-muted-foreground uppercase">
-              Pronto
+              {badge}
             </span>
           </p>
           {children}

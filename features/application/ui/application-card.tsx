@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { dictionary } from "@/shared/i18n/server";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import {
   BuildingIcon,
   CheckIcon,
@@ -21,11 +22,9 @@ import {
   processStageLabel,
   stageIndex,
   stageProgressLabel,
-  APPLICATION_STATUS_LABELS,
-  COMPLETED_LABEL,
   STAGES,
-  STAGE_LABELS,
   type Application,
+  type ApplicationCopy,
 } from "../domain/application";
 
 /**
@@ -44,12 +43,12 @@ type Look = {
   readonly badgeTint: string;
 };
 
-function lookOf(application: Application): Look {
+function lookOf(application: Application, copy: ApplicationCopy): Look {
   if (application.status === "rejected") {
     return {
       tint: "bg-destructive/10 text-destructive",
       chip: "bg-destructive/10 text-destructive",
-      label: APPLICATION_STATUS_LABELS.rejected,
+      label: copy.statusLabels.rejected,
       badge: XIcon,
       badgeTint: "bg-destructive text-white",
     };
@@ -58,7 +57,7 @@ function lookOf(application: Application): Look {
     return {
       tint: "bg-muted text-muted-foreground",
       chip: "bg-muted text-muted-foreground",
-      label: APPLICATION_STATUS_LABELS.withdrawn,
+      label: copy.statusLabels.withdrawn,
       badge: MinusIcon,
       badgeTint: "bg-muted-foreground text-background",
     };
@@ -67,7 +66,7 @@ function lookOf(application: Application): Look {
     return {
       tint: "bg-status-approved-bg text-status-approved",
       chip: "bg-status-approved-bg text-status-approved",
-      label: COMPLETED_LABEL,
+      label: copy.completedLabel,
       badge: CheckIcon,
       badgeTint: "bg-status-approved text-white",
     };
@@ -76,7 +75,7 @@ function lookOf(application: Application): Look {
   return {
     tint: "bg-status-current-bg text-status-current",
     chip: "bg-status-current-bg text-status-current",
-    label: APPLICATION_STATUS_LABELS.open,
+    label: copy.statusLabels.open,
     badge: null,
     badgeTint: "",
   };
@@ -94,16 +93,18 @@ function lookOf(application: Application): Look {
  * is. A closed one drops the rail — there is no progress to show — and keeps what happened and
  * why, which is the whole reason it is still on the screen.
  */
-export function ApplicationCard({
+export async function ApplicationCard({
   application,
   viewerUid,
 }: {
   readonly application: Application;
   readonly viewerUid: string;
 }) {
+  /* A Server Component, so it reads the language itself rather than taking it as a prop. */
+  const copy = (await dictionary()).application;
   const isLandlord = application.landlordUid === viewerUid;
   const isOpen = application.status === "open";
-  const look = lookOf(application);
+  const look = lookOf(application, copy);
   const Badge = look.badge;
 
   const meta = [
@@ -164,7 +165,7 @@ export function ApplicationCard({
       </div>
 
       {isOpen ? (
-        <StageRail application={application} />
+        <StageRail application={application} copy={copy} />
       ) : (
         <div className="mt-4 space-y-1">
           <span
@@ -175,7 +176,7 @@ export function ApplicationCard({
           <p className="text-sm text-muted-foreground">
             {application.status === "rejected" ? "Rechazada" : "Retirada"} en la etapa
             {" "}
-            <span className="text-foreground">{STAGE_LABELS[application.stage]}</span>.
+            <span className="text-foreground">{copy.stageLabels[application.stage]}</span>.
           </p>
           {application.closingNote && (
             <p className="text-sm text-muted-foreground">
@@ -209,7 +210,7 @@ export function ApplicationCard({
             <span className="font-medium text-foreground">
               {isCompleted(application) ? "Estado: " : "Siguiente paso: "}
             </span>
-            {processDescription(application, isLandlord)}
+            {processDescription(application, isLandlord, copy)}
           </span>
         </p>
       )}
@@ -224,7 +225,13 @@ export function ApplicationCard({
  * the position and the current stage is the one that gets words. Each dot still says what it is
  * to a screen reader: a row of unlabelled circles is decoration, not information.
  */
-function StageRail({ application }: { readonly application: Application }) {
+function StageRail({
+  application,
+  copy,
+}: {
+  readonly application: Application;
+  readonly copy: ApplicationCopy;
+}) {
   const current = stageIndex(application.stage);
   // Terminado, el último punto se llena: si no, el proceso acabado se lee igual que el que está
   // esperando el dinero, que es la única diferencia que esta fila tiene que contar.
@@ -251,8 +258,8 @@ function StageRail({ application }: { readonly application: Application }) {
                 )}
               >
                 <span className="sr-only">
-                  {`Etapa ${index + 1}, ${STAGE_LABELS[entry]}: ${
-                    done ? "completada" : isCurrent ? "en curso" : "pendiente"
+                  {`${copy.stageWord} ${index + 1}, ${copy.stageLabels[entry]}: ${
+                    done ? copy.stageDone : isCurrent ? copy.stageCurrent : copy.stagePending
                   }`}
                 </span>
               </span>
@@ -267,8 +274,8 @@ function StageRail({ application }: { readonly application: Application }) {
         })}
       </ol>
       <p className="mt-2 text-sm">
-        <span className="font-medium text-foreground">{processStageLabel(application)}</span>
-        <span className="text-muted-foreground"> · {stageProgressLabel(application)}</span>
+        <span className="font-medium text-foreground">{processStageLabel(application, copy)}</span>
+        <span className="text-muted-foreground"> · {stageProgressLabel(application, copy)}</span>
       </p>
     </div>
   );

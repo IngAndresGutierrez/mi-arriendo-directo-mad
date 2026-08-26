@@ -5,6 +5,8 @@
  * No `server-only` here: both server pages and client components consume this module.
  */
 
+import { splitLocale } from "@/shared/i18n/locale";
+
 /**
  * The public front door: what someone typing `miarriendodirecto.com` gets.
  *
@@ -232,7 +234,21 @@ export function safeRedirect(value: string | string[] | undefined): string {
 
   // `?next=/registro?x=1` must not sneak through the querystring
   const pathname = value.split(QUERY_SEPARATOR)[0] ?? "";
-  if (AUTH_ROUTES.has(pathname)) return HOME_ROUTE;
+
+  /*
+   * **Compared without its locale prefix, which is the whole reason this line exists.** The set
+   * above holds canonical Spanish paths, so a literal comparison rejected `/ingresar` and waved
+   * `/en/ingresar` straight through — and every one of these four is rejected for a reason that does
+   * not care what language the screen is in. Three of them loop: the English login sees the live
+   * session and sends you back to the English login. `/` is the worse-destination case, and it is
+   * worse in both languages.
+   *
+   * The value itself is returned unchanged, prefix and all: the guard decides *whether* to honour
+   * the request, not where it points. Somebody signing in on the English side asking for
+   * `/en/inicio` is asking for the English portal, and rewriting that to `/inicio` would answer a
+   * different question than the one that was asked.
+   */
+  if (AUTH_ROUTES.has(splitLocale(pathname).path)) return HOME_ROUTE;
 
   return value;
 }

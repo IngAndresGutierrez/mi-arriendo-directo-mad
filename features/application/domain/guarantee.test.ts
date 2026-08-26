@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 
+import { dictionaryFor } from "@/shared/i18n/dictionary";
+
 import {
   canWaiveGuarantee,
   guaranteeBlocker,
   guaranteeBlockerMessage,
   guaranteeState,
-  GUARANTEE_COVERAGES,
-  GUARANTEE_LIMIT_NOTE,
   GUARANTEE_MAX_MONTHS,
   GUARANTEE_PLAN,
   GUARANTEE_PROVIDER,
@@ -32,6 +32,9 @@ const ACTIVE: Guarantee = {
 
 /** El propietario dijo que este arriendo va sin seguro. */
 const WAIVED: Guarantee = { ...REQUESTED, waivedAt: "2026-09-02T09:00:00.000Z" };
+
+/** Spanish for the assertions that are about wording; English where the rule must hold in both. */
+const ES = dictionaryFor("es").guarantee;
 
 describe("guaranteeState", () => {
   it("is `none` with nothing recorded", () => {
@@ -68,13 +71,13 @@ describe("guaranteeBlocker", () => {
       policyNumber: "AR-99123",
     };
     expect(guaranteeBlocker(active)).toBeNull();
-    expect(guaranteeBlockerMessage(null, true)).toBeNull();
+    expect(guaranteeBlockerMessage(null, true, ES)).toBeNull();
   });
 
   it("says why, differently to each side", () => {
-    expect(guaranteeBlockerMessage("not_requested", true)).toContain("Sura");
-    expect(guaranteeBlockerMessage("not_requested", false)).toContain("todavía no");
-    expect(guaranteeBlockerMessage("not_issued", false)).toContain("en estudio");
+    expect(guaranteeBlockerMessage("not_requested", true, ES)).toContain("Sura");
+    expect(guaranteeBlockerMessage("not_requested", false, ES)).toContain("todavía no");
+    expect(guaranteeBlockerMessage("not_issued", false, ES)).toContain("en estudio");
   });
 });
 
@@ -86,18 +89,32 @@ describe("what the product promises", () => {
   });
 
   it("names the three coverages and never promises a deposit", () => {
-    expect(GUARANTEE_COVERAGES).toHaveLength(3);
-    const todo = GUARANTEE_COVERAGES.join(" ").toLowerCase();
+    const es = Object.values(ES.coverages);
+    expect(es).toHaveLength(3);
+    const todo = es.join(" ").toLowerCase();
     expect(todo).toContain("arriendo");
     expect(todo).toContain("administración");
     expect(todo).toContain("asistencia");
     expect(todo).not.toContain("depósito");
+
+    /*
+     * And the English set, where the word to keep out is "deposit": a coverage list that promised one
+     * would be just as illegal under Ley 820 for being written in English.
+     */
+    const en = Object.values(dictionaryFor("en").guarantee.coverages);
+    expect(en).toHaveLength(3);
+    expect(en.join(" ").toLowerCase()).not.toContain("deposit");
   });
 
   it("keeps the twelve-month ceiling in the sentence, not only in a constant", () => {
     expect(GUARANTEE_MAX_MONTHS).toBe(12);
-    expect(GUARANTEE_LIMIT_NOTE).toContain("12 meses");
-    expect(GUARANTEE_LIMIT_NOTE).toContain("vigente");
+    /*
+     * The ceiling is composed from the two halves and the constant, so the sentence cannot drift
+     * from the number: that is the whole point of not writing "12" into the prose.
+     */
+    const nota = `${ES.limitNoteBefore} ${GUARANTEE_MAX_MONTHS} ${ES.limitNoteAfter}`;
+    expect(nota).toContain("12 meses");
+    expect(nota).toContain("vigente");
   });
 });
 
@@ -211,8 +228,8 @@ describe("waiving the policy", () => {
 
   /** Y la frase que ofrece la salida está en el mensaje del bloqueo, o nadie la encuentra. */
   it("is offered in the message that says why the stage is stuck", () => {
-    expect(guaranteeBlockerMessage("not_requested", true)).toMatch(/sin p[óo]liza/i);
+    expect(guaranteeBlockerMessage("not_requested", true, ES)).toMatch(/sin p[óo]liza/i);
     // Al inquilino no se le ofrece: la decisión no es suya.
-    expect(guaranteeBlockerMessage("not_requested", false)).not.toMatch(/marca/i);
+    expect(guaranteeBlockerMessage("not_requested", false, ES)).not.toMatch(/marca/i);
   });
 });

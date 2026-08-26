@@ -2,6 +2,8 @@ import "server-only";
 
 import { cache } from "react";
 
+import { isLocale, type Locale } from "@/shared/i18n/locale";
+
 import type { UserRole } from "@/shared/auth/session";
 import type { Gender } from "../domain/profile";
 import type { Department } from "@/shared/geo/colombia";
@@ -30,7 +32,20 @@ export type Profile = {
   /** `YYYY-MM-DD`. */
   readonly birthDate: string;
   readonly role: UserRole;
+  /**
+   * Which language this person is written to in, or `null` when they have never said.
+   *
+   * `null` and not `"es"`, because the two mean different things to the screen that edits it: an
+   * account created before this field existed has made no choice, and showing it "Español" selected
+   * would claim a decision nobody made. What resolves it to a language is `allowsLocale`, at the
+   * moment an email is about to leave.
+   */
+  readonly locale: Locale | null;
 };
+
+function asLocale(value: unknown): Locale | null {
+  return isLocale(value) ? value : null;
+}
 
 function asString(value: unknown): string | null {
   return typeof value === "string" && value.length > 0 ? value : null;
@@ -90,9 +105,42 @@ export const getProfile = cache(async (uid: string): Promise<Profile | null> => 
     },
     birthDate,
     role: role as UserRole,
+    /*
+     * Not part of the completeness check above, deliberately: an account created before this field
+     * existed has no `locale`, and treating that as an incomplete profile would send every one of
+     * them back to onboarding. Absent is a language nobody chose, not a hole in the profile.
+     */
+    locale: asLocale(data.locale),
   };
 });
 
 export async function hasProfile(uid: string): Promise<boolean> {
   return (await getProfile(uid)) !== null;
+}
+
+/**
+ * Just the language, for `notify()`.
+ *
+ * Its own function rather than `getProfile`, and **not** because it reads less — `select()` is a
+ * `Query` method and there is no projection of a single document in the Admin SDK, so this fetches
+ * the same bytes. What it avoids is the other thing `getProfile` does: returning `null` for an
+ * incomplete profile. A notification about a process can reach somebody mid-onboarding, and
+ * "profile not finished" is not an answer to "what language do they read in".
+ *
+ * **It never throws.** It is called from `notify()`, which is explicitly allowed to fail without
+ * undoing the work that was already written — so a Firestore hiccup costs the language of one
+ * email, never the email. `null` means "we do not know", and `localeFor` turns that into Spanish,
+ * which is the product's own language and therefore never a wrong answer, only sometimes not the
+ * preferred one.
+ */
+export async function readUserLocale(uid: string): Promise<Locale | null> {
+  try {
+    const snapshot = await adminDb().collection("users").doc(uid).get();
+
+    return asLocale(snapshot.data()?.locale);
+  } catch (error) {
+    console.error(`readUserLocale failed for ${uid}:`, error);
+
+    return null;
+  }
 }

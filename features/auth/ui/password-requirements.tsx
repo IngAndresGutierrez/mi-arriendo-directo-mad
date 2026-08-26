@@ -1,3 +1,4 @@
+import type { Dictionary } from "@/shared/i18n";
 import { CheckIcon } from "lucide-react";
 
 import { PASSWORD_REQUIREMENTS } from "../validations/auth";
@@ -9,7 +10,16 @@ import { cn } from "@/shared/lib/utils";
  * It reads `PASSWORD_REQUIREMENTS`, the same list `signupSchema` is derived from: the UI
  * and the validation cannot drift apart.
  */
-export function PasswordRequirements({ value, id }: { value: string; id: string }) {
+export function PasswordRequirements({
+  value,
+  id,
+  copy,
+}: {
+  value: string;
+  id: string;
+  /** Its two screen-reader words, resolved by the page: this is a Client Component. */
+  copy: Dictionary["auth"];
+}) {
   return (
     <ul id={id} className="space-y-1.5">
       {PASSWORD_REQUIREMENTS.map((requirement) => {
@@ -34,7 +44,7 @@ export function PasswordRequirements({ value, id }: { value: string; id: string 
             </span>
             {requirement.label}
             {/* Color cannot be the only indicator of state. */}
-            <span className="sr-only">{isMet ? "(cumplido)" : "(pendiente)"}</span>
+            <span className="sr-only">{isMet ? copy.requirementMet : copy.requirementPending}</span>
           </li>
         );
       })}

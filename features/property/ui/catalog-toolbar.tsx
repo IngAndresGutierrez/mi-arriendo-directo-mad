@@ -1,5 +1,7 @@
 "use client";
 
+
+import type { PropertyLabels } from "../domain/labels";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowUpDownIcon, MapPinIcon, SlidersHorizontalIcon } from "lucide-react";
@@ -18,7 +20,6 @@ import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/shared/ui/sheet
 
 import {
   CATALOG_SORTS,
-  CATALOG_SORT_LABELS,
   hasActiveFilters,
   type CatalogFacets,
   type CatalogFilters,
@@ -40,10 +41,23 @@ export function CatalogToolbar({
   filters,
   facets,
   total,
+  labels,
+  foundLabel,
 }: {
   readonly filters: CatalogFilters;
   readonly facets: CatalogFacets;
   readonly total: number;
+  /** Resolved on the server — see `CatalogFilters`, which this passes them straight through to. */
+  readonly labels: PropertyLabels;
+  /**
+   * "12 inmuebles encontrados", already built.
+   *
+   * The plural rule is a **function** in the dictionary — the number does not sit in the same place
+   * in every language — and a function cannot cross the RSC boundary into a Client Component. So the
+   * server resolves it against the same `total` this component is handed and passes the finished
+   * sentence. `total` stays a prop because the empty case is a different sentence, not a count.
+   */
+  readonly foundLabel: string;
 }) {
   const router = useRouter();
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -72,7 +86,7 @@ export function CatalogToolbar({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ANY_CITY}>Todas las ciudades</SelectItem>
+              <SelectItem value={ANY_CITY}>{labels.ui.anyCity}</SelectItem>
               {facets.cities.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.value} ({option.count})
@@ -85,7 +99,7 @@ export function CatalogToolbar({
         <div className="min-w-0 flex-1 space-y-1.5 sm:flex-none">
           <Label htmlFor="sort" className="flex items-center gap-1.5 text-muted-foreground">
             <ArrowUpDownIcon className="size-4" aria-hidden="true" />
-            Ordenar
+            {labels.ui.sortBy}
           </Label>
           <Select value={filters.sort} onValueChange={(value) => go({ sort: value as CatalogSort })}>
             <SelectTrigger id="sort" className="w-full sm:w-56">
@@ -94,7 +108,7 @@ export function CatalogToolbar({
             <SelectContent>
               {CATALOG_SORTS.map((sort) => (
                 <SelectItem key={sort} value={sort}>
-                  {CATALOG_SORT_LABELS[sort]}
+                  {labels.sorts[sort]}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -110,10 +124,11 @@ export function CatalogToolbar({
             </Button>
           </SheetTrigger>
           <SheetContent side="left" overlayClassName="bg-foreground/50" className="w-80 gap-0 overflow-y-auto p-5">
-            <SheetTitle className="mb-5 text-lg">Filtros</SheetTitle>
+            <SheetTitle className="mb-5 text-lg">{labels.ui.filtersTitle}</SheetTitle>
             <FilterPanel
               filters={filters}
               facets={facets}
+              labels={labels}
               onNavigate={() => setFiltersOpen(false)}
             />
           </SheetContent>
@@ -122,15 +137,13 @@ export function CatalogToolbar({
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
         <p className="text-sm text-muted-foreground" aria-live="polite">
-          {total === 0
-            ? "Ningún inmueble coincide"
-            : `${total} ${total === 1 ? "inmueble encontrado" : "inmuebles encontrados"}`}
+          {total === 0 ? labels.ui.noMatch : foundLabel}
         </p>
 
         {hasActiveFilters(filters) && (
           <Button asChild variant="ghost" size="sm">
             {/* A plain link, so it also works as "start over" with JavaScript still loading. */}
-            <a href={PROPERTIES_ROUTE}>Quitar filtros</a>
+            <a href={PROPERTIES_ROUTE}>{labels.ui.clearFilters}</a>
           </Button>
         )}
       </div>

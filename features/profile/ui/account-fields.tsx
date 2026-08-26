@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 
 import { BirthDateField } from "@/shared/form/birth-date-field";
@@ -10,6 +11,7 @@ import { DEPARTMENTS, type Department } from "@/shared/geo/colombia";
 import { municipalitiesOf } from "@/shared/geo/municipalities";
 
 import { GENDER_OPTIONS } from "../domain/profile";
+import { LOCALE_OPTIONS } from "@/shared/i18n/options";
 import type { CompleteProfileFormValues } from "../validations/profile";
 
 const DEPARTMENT_OPTIONS = DEPARTMENTS.map((value) => ({ value, label: value }));
@@ -22,7 +24,17 @@ const DEPARTMENT_OPTIONS = DEPARTMENTS.map((value) => ({ value, label: value }))
  * filled these in and then never saw them again. Duplicating the markup would have meant
  * duplicating the ARIA wiring too, which is how a field ends up with an error nobody renders.
  */
-export function AccountFields({ disabled = false }: { readonly disabled?: boolean }) {
+export function AccountFields({
+  disabled = false,
+  common,
+}: {
+  readonly disabled?: boolean;
+  /**
+   * Shared words this block needs (the phone field's two ARIA labels), resolved by the server
+   * parent. A prop because everything here is `"use client"`.
+   */
+  readonly common: Dictionary["common"];
+}) {
   const form = useFormContext<CompleteProfileFormValues>();
   const {
     control,
@@ -58,6 +70,7 @@ export function AccountFields({ disabled = false }: { readonly disabled?: boolea
         name="phone.country"
         render={({ field }) => (
           <PhoneField
+            copy={common}
             label="Teléfono"
             country={field.value}
             onCountryChange={(iso) => {
@@ -99,6 +112,7 @@ export function AccountFields({ disabled = false }: { readonly disabled?: boolea
             />
           )}
         />
+
         <Controller
           control={control}
           name="birthDate"
@@ -114,6 +128,43 @@ export function AccountFields({ disabled = false }: { readonly disabled?: boolea
           )}
         />
       </div>
+
+      {/*
+        **El idioma de los correos, y solo de los correos.** El de la pantalla lo decide la URL
+        (`/inmuebles` o `/en/inmuebles`) y lo cambia el selector del encabezado, que es donde alguien
+        lo busca. Este campo existe porque `notify()` corre dentro de `after()`, sin petición y sin
+        prefijo que leer: el idioma de un correo está en el documento del usuario o no está en ninguna
+        parte. El `hint` lo dice, porque dos controles de idioma sin nada que explique la diferencia es
+        la clase de cosa que se cambia dos veces y sigue sin funcionar.
+
+        **En su propia fila, y no en la rejilla de arriba.** Ahí dentro fue lo primero que se intentó y
+        rompió algo que estaba puesto a propósito: esa rejilla es `sm:grid-cols-2` y empareja género
+        con fecha de nacimiento, así que un tercer hijo empujó la fecha a la fila siguiente y las dos
+        dejaron de estar alineadas. Lo pilló `tests/e2e/birthdate-layout.mjs`, que existe justamente
+        para fijar esa alineación y mide las dos cajas — no lo ve ningún type checker ni ninguna
+        captura que nadie mire. Y de paso es lo correcto: el idioma es una preferencia, no un dato de
+        identidad, y no hace pareja con ninguno de los dos.
+      */}
+      <Controller
+        control={control}
+        name="locale"
+        render={({ field }) => (
+          <div className="sm:max-w-xs">
+            <SelectField
+              id="locale"
+              label="Idioma de los correos"
+              placeholder="Español"
+              options={LOCALE_OPTIONS}
+              value={field.value ?? undefined}
+              onValueChange={field.onChange}
+              error={errors.locale?.message}
+              disabled={disabled}
+              hint="En qué idioma te escribimos. El idioma de esta pantalla se cambia arriba, en el encabezado."
+            />
+          </div>
+        )}
+      />
+
 
       {/*
         No `fieldset`: a group without a `legend` has no accessible name, and adding the legend

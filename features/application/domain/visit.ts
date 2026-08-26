@@ -1,3 +1,4 @@
+import type { Dictionary } from "@/shared/i18n";
 import { formatBogotaTime, formatBogotaWeekdayTime } from "@/shared/format/date";
 
 /**
@@ -22,10 +23,14 @@ import { formatBogotaTime, formatBogotaWeekdayTime } from "@/shared/format/date"
 export const VISIT_OUTCOMES = ["interested", "not_interested"] as const;
 export type VisitOutcome = (typeof VISIT_OUTCOMES)[number];
 
-export const VISIT_OUTCOME_LABELS: Readonly<Record<VisitOutcome, string>> = {
-  interested: "Me interesa el inmueble",
-  not_interested: "No me interesa el inmueble",
-};
+/**
+ * **The words for these two unions live in `shared/i18n/messages`, under `visit`.**
+ *
+ * They were `VISIT_OUTCOME_LABELS` and `VISIT_STATE_LABELS` here. The keys are the stored values and
+ * have not changed; `visitBlockerMessage` now takes the copy instead of holding the sentences, which
+ * keeps it deciding *which* sentence — the thing its test is about — in either language.
+ */
+export type VisitCopy = Dictionary["visit"];
 
 /**
  * What the tenant thought, in their own words.
@@ -120,14 +125,6 @@ export function visitState(visit: Visit | null): VisitState {
  * Third person, because both parties read the same line and the fold is what stands between them
  * and the news: a header that said "Te interesó" would be addressing one of the two readers.
  */
-export const VISIT_STATE_LABELS: Readonly<Record<VisitState, string>> = {
-  none: "Sin agendar",
-  proposed: "Esperando confirmación",
-  declined: "Hay que proponer otro día",
-  confirmed: "Agendada",
-  interested: "Visita hecha · sí le interesa",
-  not_interested: "Visita hecha · no le interesa",
-};
 
 /**
  * Why the process cannot move past the visit.
@@ -160,24 +157,22 @@ export function visitBlocker(visit: Visit | null): VisitBlocker {
   }
 }
 
-export function visitBlockerMessage(blocker: VisitBlocker, isLandlord: boolean): string | null {
+export function visitBlockerMessage(
+  blocker: VisitBlocker,
+  isLandlord: boolean,
+  copy: VisitCopy,
+): string | null {
+  const { blockers } = copy;
+
   switch (blocker) {
     case "not_proposed":
-      return isLandlord
-        ? "Propón un día y un punto de encuentro para la visita antes de continuar."
-        : "El propietario todavía no ha propuesto un día para conocer el inmueble.";
+      return isLandlord ? blockers.notProposedLandlord : blockers.notProposedTenant;
     case "not_confirmed":
-      return isLandlord
-        ? "El inquilino aún no confirma el día de la visita."
-        : "Confirma el día de la visita para que el proceso pueda seguir.";
+      return isLandlord ? blockers.notConfirmedLandlord : blockers.notConfirmedTenant;
     case "no_verdict":
-      return isLandlord
-        ? "Después de la visita, el inquilino tiene que decir si el inmueble le interesa."
-        : "Después de la visita, dinos si el inmueble te interesa para poder continuar.";
+      return isLandlord ? blockers.noVerdictLandlord : blockers.noVerdictTenant;
     case "not_interested":
-      return isLandlord
-        ? "Al inquilino no le interesó el inmueble, así que el proceso no sigue. Puedes rechazar la postulación o proponer otra visita."
-        : "Dijiste que el inmueble no te interesa, así que el proceso no sigue. Si cambiaste de opinión, actualízalo aquí; si no, puedes retirar tu postulación.";
+      return isLandlord ? blockers.notInterestedLandlord : blockers.notInterestedTenant;
     default:
       return null;
   }

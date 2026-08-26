@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 
 /**
  * A link that opens in a new tab, because it leaves what the person is in the middle of.

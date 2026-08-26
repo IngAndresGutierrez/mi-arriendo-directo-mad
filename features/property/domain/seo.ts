@@ -1,8 +1,9 @@
+import { LOCALE_HTML_LANG, type Locale } from "@/shared/i18n/locale";
+import { dictionaryFor } from "@/shared/i18n/dictionary";
 import type { CatalogFilters } from "./catalog";
 import {
   propertyMonthlyCost,
   publicLocationLabel,
-  PROPERTY_TYPE_LABELS,
   type Property,
 } from "./property";
 
@@ -66,8 +67,9 @@ export function clampText(text: string, max: number): string {
  * neither specific nor coherent with the rest of the results. What the page's `<h1>` shows is
  * still theirs; what search engines and link previews get is the fact sheet.
  */
-export function propertyMetaTitle(property: Property): string {
-  const what = PROPERTY_TYPE_LABELS[property.type];
+export function propertyMetaTitle(property: Property, locale: Locale): string {
+  const copy = dictionaryFor(locale).property;
+  const what = copy.types[property.type];
   const where = publicLocationLabel(property.area);
   const price = COP.format(propertyMonthlyCost(property));
 
@@ -78,18 +80,14 @@ export function propertyMetaTitle(property: Property): string {
    * "Apartamento en arriendo en Ciudadela del Norte La Enea…", que es un título que ya no dice en
    * qué ciudad está el inmueble.
    */
-  const withPrice = `${what} en arriendo en ${where} · ${price}`;
+  const withPrice = copy.seoTitle(what, where, price);
   if (withPrice.length <= TITLE_MAX) return withPrice;
 
-  const withoutPrice = `${what} en arriendo en ${where}`;
+  const withoutPrice = copy.seoTitle(what, where, null);
   if (withoutPrice.length <= TITLE_MAX) return withoutPrice;
 
-  return clampText(`${what} en arriendo en ${property.area.city}`, TITLE_MAX);
+  return clampText(copy.seoTitle(what, property.area.city, null), TITLE_MAX);
 }
-
-const BATHROOM_LABEL = (count: number) => (count === 1 ? "1 baño" : `${count} baños`);
-const BEDROOM_LABEL = (count: number) =>
-  count === 0 ? "sin habitación separada" : count === 1 ? "1 habitación" : `${count} habitaciones`;
 
 /**
  * The sentence under the link, everywhere: the search result, the WhatsApp preview, the card in a
@@ -104,21 +102,19 @@ const BEDROOM_LABEL = (count: number) =>
  * results in a WhatsApp group can be compared at a glance. The date is left out for space — it is
  * on the page and in the JSON-LD, where nothing is truncating it.
  */
-export function propertyMetaDescription(property: Property): string {
-  const what = PROPERTY_TYPE_LABELS[property.type];
+export function propertyMetaDescription(property: Property, locale: Locale): string {
+  const copy = dictionaryFor(locale).property;
+  const what = copy.types[property.type];
   const where = publicLocationLabel(property.area);
   const price = COP.format(propertyMonthlyCost(property));
+  /* `m²` is a symbol, not a word: it is the same in both languages and stays out of the dictionary. */
   const facts = [
-    BEDROOM_LABEL(property.bedrooms),
-    BATHROOM_LABEL(property.bathrooms),
+    copy.bedroomsFact(property.bedrooms),
+    copy.bathroomsFact(property.bathrooms),
     `${property.areaM2} m²`,
   ].join(" · ");
 
-  return clampText(
-    `${what} en arriendo en ${where} por ${price} al mes. ${facts}. ` +
-      "Trato directo con el propietario, sin comisión de inmobiliaria.",
-    DESCRIPTION_MAX,
-  );
+  return clampText(copy.seoDescription(what, where, price, facts), DESCRIPTION_MAX);
 }
 
 /**
@@ -127,24 +123,35 @@ export function propertyMetaDescription(property: Property): string {
  * An Open Graph image needs one — it is read out where the image cannot be seen, and it is the
  * only description a screen reader gets of a card that is otherwise pure picture.
  */
-export function propertyImageAlt(property: Property): string {
-  return `${PROPERTY_TYPE_LABELS[property.type]} en arriendo en ${publicLocationLabel(property.area)}`;
+export function propertyImageAlt(property: Property, locale: Locale): string {
+  const copy = dictionaryFor(locale).property;
+
+  return copy.imageAlt(copy.types[property.type], publicLocationLabel(property.area));
 }
 
-/** The catalog's `<title>`, which is the city's name when there is one. */
-export function catalogMetaTitle(filters: Pick<CatalogFilters, "city">): string {
-  return filters.city ? `Arriendos en ${filters.city}` : "Inmuebles en arriendo en Colombia";
+/**
+ * The catalog's `<title>`, which is the city's name when there is one.
+ *
+ * **`locale` is required and has no default.** A default would be the one thing that must not
+ * happen here: a caller that forgot to pass it would render a Spanish `<title>` on an indexed
+ * English page, silently — which is precisely the bug this parameter was added to fix, found by
+ * reading the head of `/en/inmuebles` rather than by any check in the bar.
+ */
+export function catalogMetaTitle(filters: Pick<CatalogFilters, "city">, locale: Locale): string {
+  return dictionaryFor(locale).propertySeo.catalogTitle(filters.city);
 }
 
-/** And its sentence, which says the same thing whether or not a city narrowed it. */
-export function catalogMetaDescription(filters: Pick<CatalogFilters, "city">): string {
-  const where = filters.city ? `en ${filters.city}` : "en toda Colombia";
-
-  return clampText(
-    `Apartamentos, casas y apartaestudios en arriendo ${where}, por 6 o 12 meses y ` +
-      "directamente con el propietario. Sin intermediarios y sin comisión de inmobiliaria.",
-    DESCRIPTION_MAX,
-  );
+/**
+ * And its sentence, which says the same thing whether or not a city narrowed it.
+ *
+ * The clamp stays on this side of the dictionary: `DESCRIPTION_MAX` is a fact about what a search
+ * result shows, not about Spanish, and English prose of the same meaning is a different length.
+ */
+export function catalogMetaDescription(
+  filters: Pick<CatalogFilters, "city">,
+  locale: Locale,
+): string {
+  return clampText(dictionaryFor(locale).propertySeo.catalogDescription(filters.city), DESCRIPTION_MAX);
 }
 
 /**
@@ -175,7 +182,7 @@ export type JsonLd = { readonly [key: string]: JsonValue };
  * - **No `aggregateRating` or `review`.** There are none. Marking up ratings that do not exist is
  *   the one structured-data mistake that gets a site a manual action.
  */
-export function propertyJsonLd(property: Property, url: string): JsonLd {
+export function propertyJsonLd(property: Property, url: string, locale: Locale): JsonLd {
   const monthly = propertyMonthlyCost(property);
 
   return {
@@ -183,10 +190,11 @@ export function propertyJsonLd(property: Property, url: string): JsonLd {
     "@type": "RealEstateListing",
     "@id": url,
     url,
-    name: propertyMetaTitle(property),
-    description: propertyMetaDescription(property),
+    name: propertyMetaTitle(property, locale),
+    description: propertyMetaDescription(property, locale),
     datePosted: property.createdAt,
-    inLanguage: "es-CO",
+    /* Same rule as the catalogue's block: claiming Spanish on an English page is a checkable lie. */
+    inLanguage: LOCALE_HTML_LANG[locale],
     ...(property.photos.length > 0
       ? { image: property.photos.map((photo) => photo.url) as JsonValue }
       : {}),
@@ -284,16 +292,22 @@ export function catalogJsonLd(
   canonicalPath: string,
   detailPath: (slug: string) => string,
   pageSize: number,
+  locale: Locale,
 ): JsonLd {
   const start = (Math.max(1, filters.page) - 1) * pageSize;
 
   return {
     "@context": "https://schema.org",
     "@type": "CollectionPage",
-    name: catalogMetaTitle(filters),
-    description: catalogMetaDescription(filters),
+    name: catalogMetaTitle(filters, locale),
+    description: catalogMetaDescription(filters, locale),
     url: `${origin}${canonicalPath}`,
-    inLanguage: "es-CO",
+    /*
+     * `inLanguage` has to move with the page. Hard-coded to `es-CO` it told a search engine that the
+     * English catalogue was written in Spanish, which is a claim it can check against the text and
+     * is the sort of contradiction that gets the whole block distrusted.
+     */
+    inLanguage: LOCALE_HTML_LANG[locale],
     mainEntity: {
       "@type": "ItemList",
       itemListOrder: "https://schema.org/ItemListOrderAscending",
@@ -302,7 +316,7 @@ export function catalogJsonLd(
         "@type": "ListItem",
         position: start + index + 1,
         url: `${origin}${detailPath(property.slug)}`,
-        name: propertyMetaTitle(property),
+        name: propertyMetaTitle(property, locale),
       })) as JsonValue,
     },
   };

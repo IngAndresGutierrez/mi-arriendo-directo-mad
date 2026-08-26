@@ -64,7 +64,7 @@ service cloud.firestore {
                     && incoming().keys().hasOnly(
                          ['fullName', 'email', 'phone', 'phoneCountry', 'gender',
                           'address', 'birthDate', 'role', 'termsAcceptedAt',
-                          'createdAt', 'updatedAt'])
+                          'createdAt', 'updatedAt', 'locale'])
                     && validProfile()
                     && incoming().email == request.auth.token.email
                     && incoming().role in ['tenant', 'landlord'];
@@ -73,12 +73,17 @@ service cloud.firestore {
       // sets. They cannot rewrite their consent record or their creation date either.
       allow update: if isOwner(userId)
                     && onlyChanged(['fullName', 'phone', 'phoneCountry', 'gender',
-                                    'address', 'updatedAt'])
+                                    'address', 'updatedAt', 'locale'])
                     && validProfile();
       allow delete: if isAdmin();
 
       function validProfile() {
-        return incoming().fullName is string
+        // Which language this person is written to in. Optional like `gender` — an account created
+        // before the field existed simply has none, and `localeFor` reads that as Spanish — but
+        // when it is there it is one of the two the product speaks. Without this a client could
+        // store any string here, and it is read on the way out of `notify()` into an email.
+        return (!incoming().keys().hasAny(['locale']) || incoming().locale in ['es', 'en'])
+            && incoming().fullName is string
             && incoming().fullName.size() >= 5
             && incoming().fullName.size() <= 120
             && incoming().phone is string

@@ -1,8 +1,10 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
+import type { PropertyLabels } from "../domain/labels";
 import { useState, useTransition } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { useRouter } from "next/navigation";
 import { CheckIcon, LinkIcon, PencilIcon, Trash2Icon, UserPlusIcon } from "lucide-react";
 
@@ -16,8 +18,6 @@ import { deleteProperty } from "../actions/manage-property";
 import {
   propertyMonthlyCost,
   publicLocationLabel,
-  PROPERTY_STATUS_LABELS,
-  PROPERTY_TYPE_LABELS,
   type Property,
 } from "../domain/property";
 
@@ -35,7 +35,23 @@ const STATUS_STYLES: Readonly<Record<Property["status"], string>> = {
  * the listing is the whole point of publishing it, and the URL is now short enough to be worth
  * handing over directly.
  */
-export function PropertyManageCard({ property }: { readonly property: Property }) {
+export function PropertyManageCard({
+  property,
+  labels,
+  copy,
+}: {
+  readonly property: Property;
+  /**
+   * The listing vocabulary, resolved by the page. A prop because this is a Client Component:
+   * importing the dictionary here would put both languages in the browser bundle.
+   */
+  readonly labels: PropertyLabels;
+  /**
+   * The form's own words, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing the dictionary here would put both languages in the bundle.
+   */
+  readonly copy: Dictionary["propertyForm"];
+}) {
   const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -51,7 +67,7 @@ export function PropertyManageCard({ property }: { readonly property: Property }
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      setError("Tu navegador no nos dejó copiar el enlace. Ábrelo y cópialo desde la barra.");
+      setError(copy.copyLinkFailed);
     }
   }
 
@@ -59,7 +75,7 @@ export function PropertyManageCard({ property }: { readonly property: Property }
     startDelete(async () => {
       const result = await deleteProperty(property.id);
       if (!result.ok) {
-        setError(result.message ?? "No pudimos eliminar el inmueble.");
+        setError(result.message ?? copy.deleteFailed);
         setConfirming(false);
         return;
       }
@@ -98,10 +114,10 @@ export function PropertyManageCard({ property }: { readonly property: Property }
               STATUS_STYLES[property.status],
             )}
           >
-            {PROPERTY_STATUS_LABELS[property.status]}
+            {labels.statuses[property.status]}
           </span>
           <span className="text-xs text-muted-foreground">
-            {PROPERTY_TYPE_LABELS[property.type]}
+            {labels.types[property.type]}
           </span>
         </div>
 
@@ -130,7 +146,7 @@ export function PropertyManageCard({ property }: { readonly property: Property }
         <div className="flex flex-wrap items-center gap-2 pt-2">
           <Button type="button" variant="secondary" size="lg" onClick={copyLink}>
             {copied ? <CheckIcon aria-hidden="true" /> : <LinkIcon aria-hidden="true" />}
-            {copied ? "Enlace copiado" : "Copiar enlace"}
+            {copied ? copy.linkCopied : copy.copyLink}
           </Button>
           <Button asChild variant="outline" size="lg">
             <Link href={editPropertyRoute(property.id)}>
@@ -183,14 +199,14 @@ export function PropertyManageCard({ property }: { readonly property: Property }
       <ConfirmDialog
         open={confirming}
         onOpenChange={setConfirming}
-        title="¿Eliminar este inmueble?"
+        title={copy.deleteTitle}
         description={
           <>
-            Se elimina <strong className="text-foreground">{property.title}</strong> con sus fotos
-            y su enlace deja de funcionar. No se puede deshacer.
+            {copy.deleteBefore} <strong className="text-foreground">{property.title}</strong>{" "}
+            {copy.deleteAfter}
           </>
         }
-        confirmLabel="Eliminar inmueble"
+        confirmLabel={copy.deleteConfirm}
         onConfirm={remove}
       />
     </li>

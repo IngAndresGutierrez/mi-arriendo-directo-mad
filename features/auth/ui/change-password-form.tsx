@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, type Dictionary } from "@/shared/i18n";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
@@ -44,7 +45,17 @@ type FormValues = z.output<typeof schema>;
  * Solo se ofrece a quien entra con correo y contraseña. Ver el panel: quien entra con Google no
  * tiene ninguna contraseña aquí que cambiar.
  */
-export function ChangePasswordForm() {
+export function ChangePasswordForm({
+  copy,
+}: {
+  /**
+   * The copy this renders, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing `shared/i18n/dictionary` here would put **both** languages into
+   * the browser bundle.
+   */
+  readonly copy: Dictionary["auth"];
+}) {
+  const locale = useLocale();
   const router = useRouter();
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,11 +87,11 @@ export function ChangePasswordForm() {
          * contraseña incorrectos", que es el mensaje compartido que evita que el login enumere
          * cuentas — aquí no hay ninguna cuenta que adivinar y el formulario no tiene correo.
          */
-        setFieldError("currentPassword", { message: "Esa no es tu contraseña actual." });
+        setFieldError("currentPassword", { message: copy.wrongCurrentPassword });
         return;
       }
 
-      setError(authErrorMessage(result.error));
+      setError(authErrorMessage(result.error, locale));
       return;
     }
 
@@ -120,7 +131,7 @@ export function ChangePasswordForm() {
       <TextField
         id="currentPassword"
         type="password"
-        label="Contraseña actual"
+        label={copy.currentPassword}
         autoComplete="current-password"
         error={errors.currentPassword?.message}
         disabled={isSubmitting}
@@ -131,19 +142,19 @@ export function ChangePasswordForm() {
         <TextField
           id="newPassword"
           type="password"
-          label="Contraseña nueva"
+          label={copy.newPassword}
           autoComplete="new-password"
           aria-describedby={REQUIREMENTS_ID}
           error={errors.password?.message}
           disabled={isSubmitting}
           {...register("password")}
         />
-        <PasswordRequirements id={REQUIREMENTS_ID} value={password} />
+        <PasswordRequirements id={REQUIREMENTS_ID} value={password} copy={copy} />
       </div>
 
       <div className="sm:w-64">
-        <SubmitButton loading={isSubmitting} loadingLabel="Cambiando…">
-          Cambiar contraseña
+        <SubmitButton loading={isSubmitting} loadingLabel={copy.changingPassword}>
+          {copy.changePassword}
         </SubmitButton>
       </div>
     </form>

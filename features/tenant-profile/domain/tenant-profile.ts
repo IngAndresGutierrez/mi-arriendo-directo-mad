@@ -11,34 +11,20 @@
  * profile later cannot silently rewrite history.
  */
 
+/**
+ * **The words for these unions live in `shared/i18n/messages`, resolved by `domain/labels.ts`.**
+ *
+ * They used to be `DOCUMENT_TYPE_LABELS`, `OCCUPATION_LABELS` and `EMPLOYER_LABELS` right here. The
+ * keys have not changed and are still the stored values; a second language is what moved the words.
+ */
 export const DOCUMENT_TYPES = ["cc", "ce", "passport"] as const;
 export type DocumentType = (typeof DOCUMENT_TYPES)[number];
 
-export const DOCUMENT_TYPE_LABELS: Readonly<Record<DocumentType, string>> = {
-  cc: "Cédula de ciudadanía",
-  ce: "Cédula de extranjería",
-  passport: "Pasaporte",
-};
 
 export const OCCUPATIONS = ["employee", "self_employed", "business_owner", "student", "retired"] as const;
 export type Occupation = (typeof OCCUPATIONS)[number];
 
-export const OCCUPATION_LABELS: Readonly<Record<Occupation, string>> = {
-  employee: "Empleado",
-  self_employed: "Independiente",
-  business_owner: "Tengo mi propio negocio",
-  student: "Estudiante",
-  retired: "Pensionado",
-};
 
-/** What the employer field is asking for, which depends on how the person earns. */
-export const EMPLOYER_LABELS: Readonly<Record<Occupation, string>> = {
-  employee: "Dónde trabajas",
-  self_employed: "A qué te dedicas",
-  business_owner: "Tu negocio",
-  student: "Dónde estudias",
-  retired: "De dónde recibes tu pensión",
-};
 
 export const INCOME_MIN = 0;
 /** A ceiling that only catches a typo: nobody's monthly income is a hundred billion pesos. */

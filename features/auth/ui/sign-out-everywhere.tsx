@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOutIcon } from "lucide-react";
@@ -22,7 +23,16 @@ import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
  * alguien más entró — y en esa situación lo correcto es que no quede ninguna sesión en pie,
  * incluida la de un portátil que a lo mejor tampoco es suyo. El diálogo lo dice antes.
  */
-export function SignOutEverywhere() {
+export function SignOutEverywhere({
+  copy,
+}: {
+  /**
+   * The copy this renders, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing `shared/i18n/dictionary` here would put **both** languages into
+   * the browser bundle.
+   */
+  readonly copy: Dictionary["auth"];
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
 
@@ -30,16 +40,16 @@ export function SignOutEverywhere() {
     <>
       <Button type="button" variant="outline" size="xl" onClick={() => setOpen(true)}>
         <LogOutIcon aria-hidden="true" />
-        Cerrar sesión en todos los dispositivos
+        {copy.signOutEverywhereButton}
       </Button>
 
       <ConfirmDialog
         open={open}
         onOpenChange={setOpen}
-        title="¿Cerrar sesión en todos los dispositivos?"
-        description="Se cerrará la sesión en cualquier navegador o teléfono donde hayas entrado, incluido este. Tendrás que volver a iniciar sesión."
-        confirmLabel="Cerrar todas"
-        pendingLabel="Cerrando…"
+        title={copy.signOutEverywhereTitle}
+        description={copy.signOutEverywhereBody}
+        confirmLabel={copy.signOutEverywhereConfirm}
+        pendingLabel={copy.signOutEverywherePending}
         onConfirm={async () => {
           await signOutUser();
           router.replace(LOGIN_ROUTE);

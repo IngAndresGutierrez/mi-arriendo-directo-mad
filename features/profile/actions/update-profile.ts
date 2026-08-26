@@ -45,6 +45,7 @@ export async function updateProfile(formData: FormData): Promise<UpdateProfileRe
       department: formData.get("address.department"),
     },
     birthDate: formData.get("birthDate"),
+    locale: formData.get("locale") || null,
   });
 
   if (!parsed.success) {
@@ -83,6 +84,13 @@ export async function updateProfile(formData: FormData): Promise<UpdateProfileRe
         department: parsed.data.address.department,
       },
       birthDate: parsed.data.birthDate,
+      /*
+       * **Cleared the same way `gender` is, and for a plainer reason.** An absent `locale` means
+       * "not decided", which `allowsLocale` answers with Spanish — the product's own language. A
+       * stored `null` would be a third state meaning the same thing as absent, and the day somebody
+       * writes `locale === null ? ... : ...` the two stop agreeing.
+       */
+      locale: parsed.data.locale ?? FieldValue.delete(),
     });
 
   revalidatePath(TENANT_PROFILE_ROUTE);

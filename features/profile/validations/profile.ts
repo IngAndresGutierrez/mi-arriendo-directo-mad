@@ -4,6 +4,7 @@ import { GENDERS, MAX_AGE, MIN_AGE } from "../domain/profile";
 import { currentVersion } from "@/shared/legal/documents";
 import { DEPARTMENTS } from "@/shared/geo/colombia";
 import { isMunicipalityOf } from "@/shared/geo/municipalities";
+import { LOCALES } from "@/shared/i18n/locale";
 import { COUNTRY_ISO_CODES, phoneRuleFor } from "@/shared/phone/countries";
 
 /** Hoisted: building the RegExp on every call is repeated work. */
@@ -119,6 +120,25 @@ export const accountDetailsSchema = z.object({
     .transform((value) => value ?? null),
 
   address: colombianAddress,
+
+  /**
+   * Which language this person is written to in.
+   *
+   * **It is a stored preference and not a guess, because the guess is not available where it is
+   * needed.** `notify()` runs inside `after()`, with no route, no request and therefore no
+   * `Accept-Language` and no locale prefix to read — so the language of an email is either on the
+   * user's document or it is nothing. That is also why the language of the *screen* cannot be it:
+   * somebody reading the catalogue in English on a borrowed laptop has not asked for their rent
+   * reminders in English.
+   *
+   * Optional in the schema, and absent means "not decided" rather than Spanish: onboarding seeds it
+   * from the language the form was filled in, and `allowsLocale`'s fallback is what covers the
+   * accounts created before this field existed. There is no migration to run.
+   */
+  locale: z
+    .enum(LOCALES, { error: "Selecciona un idioma" })
+    .nullish()
+    .transform((value) => value ?? null),
 
   /** `YYYY-MM-DD`, exactly as `<input type="date">` delivers it. */
   birthDate: z

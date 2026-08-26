@@ -43,6 +43,46 @@ const eslintConfig = defineConfig([
       ],
     },
   },
+  /**
+   * **`next/link` is not imported directly anywhere except the one component that wraps it.**
+   *
+   * The routes in this product are Spanish words and Spanish is the unprefixed locale, so a plain
+   * `<Link href={PROPERTIES_ROUTE}>` pressed on `/en/inmuebles` navigates to `/inmuebles` — the
+   * *Spanish* catalogue. Nothing throws and nothing looks broken: the reader simply ends up back in
+   * Spanish having pressed a link that belonged to the page they were reading. No type checker, no
+   * driver and no screenshot can see that, which is why it is a lint rule and not a convention.
+   *
+   * `LocaleLink` is a drop-in — the migration was the import line and nothing else — and it is
+   * idempotent, so wrapping something already localised is safe. The two files allowed to reach for
+   * the real thing are the wrapper itself and `shared/ui/nav-item.tsx`, which needs `useLinkStatus`
+   * (a hook, not the component) for its in-flight spinner.
+   *
+   * **It sits *before* the `data/`/`actions/` block on purpose, and that ordering is load-bearing.**
+   * Flat config does not merge two configs that set the same rule — the last matching one wins
+   * outright — so with this block placed after it, every file under `data/`, `actions/`, `app/api/`
+   * and `shared/auth/` silently lost the cross-feature import guard. `pnpm lint` stayed green, which
+   * is exactly what makes it worth writing down: it was found by planting a violating import and
+   * watching nothing happen. Those files render no JSX, so losing the `next/link` rule there costs
+   * nothing; losing the architectural one costs the boundary the whole project is built on.
+   */
+  {
+    files: ["app/**/*.{ts,tsx}", "features/**/*.{ts,tsx}", "shared/**/*.{ts,tsx}"],
+    ignores: ["shared/i18n/locale-link.tsx", "shared/ui/nav-item.tsx"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "next/link",
+              message:
+                "Import { LocaleLink as Link } from '@/shared/i18n/locale-link' instead: a plain <Link> to a Spanish route drops an English reader back into Spanish.",
+            },
+          ],
+        },
+      ],
+    },
+  },
   {
     // A bare `actions.ts` counts too: it is Next's convention for a route's Server Actions,
     // and that file IS the mutation layer.

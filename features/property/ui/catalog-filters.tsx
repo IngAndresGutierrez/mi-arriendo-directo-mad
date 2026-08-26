@@ -9,14 +9,13 @@ import { Checkbox } from "@/shared/ui/checkbox";
 import { Label } from "@/shared/ui/label";
 
 import {
-  bedroomBucketLabel,
-  CATALOG_FEATURE_LABELS,
   type BedroomBucket,
   type CatalogFacets,
   type CatalogFeature,
   type CatalogFilters,
 } from "../domain/catalog";
-import { LEASE_TERM_LABELS, PROPERTY_TYPE_LABELS, type LeaseTerm, type PropertyType } from "../domain/property";
+import type { LeaseTerm, PropertyType } from "../domain/property";
+import type { PropertyLabels } from "../domain/labels";
 import { catalogQuery } from "../validations/catalog";
 
 /**
@@ -30,10 +29,21 @@ import { catalogQuery } from "../validations/catalog";
 export function CatalogFilters({
   filters,
   facets,
+  labels,
   onNavigate,
 }: {
   readonly filters: CatalogFilters;
   readonly facets: CatalogFacets;
+  /**
+   * The label records, resolved on the server.
+   *
+   * **Props and not a dictionary import, because this is a Client Component.** Importing
+   * `shared/i18n/dictionary` here would pull *both* languages into the browser bundle of the
+   * catalogue — the most-fetched page on the site — for the sake of a dozen words. `PropertyLabels`
+   * is deliberately all plain records: a function cannot cross the RSC boundary, which is the
+   * mistake that once 500'd every page in this product.
+   */
+  readonly labels: PropertyLabels;
   /** Closes the sheet on a phone, where the filters live behind a button. */
   readonly onNavigate?: () => void;
 }) {
@@ -58,12 +68,12 @@ export function CatalogFilters({
 
   return (
     <div className="space-y-6">
-      <Group icon={<BuildingIcon className="size-4" aria-hidden="true" />} title="Tipo de inmueble">
+      <Group icon={<BuildingIcon className="size-4" aria-hidden="true" />} title={labels.ui.filterType}>
         {facets.types.map((option) => (
           <Option
             key={option.value}
             id={`${uid}-type-${option.value}`}
-            label={PROPERTY_TYPE_LABELS[option.value]}
+            label={labels.types[option.value]}
             count={option.count}
             checked={filters.types.includes(option.value)}
             onChange={() => go({ types: toggle<PropertyType>(filters.types, option.value) })}
@@ -71,12 +81,12 @@ export function CatalogFilters({
         ))}
       </Group>
 
-      <Group icon={<BedDoubleIcon className="size-4" aria-hidden="true" />} title="Habitaciones">
+      <Group icon={<BedDoubleIcon className="size-4" aria-hidden="true" />} title={labels.ui.filterBedrooms}>
         {facets.bedrooms.map((option) => (
           <Option
             key={option.value}
             id={`${uid}-bedrooms-${option.value}`}
-            label={bedroomBucketLabel(option.value)}
+            label={labels.bedrooms[option.value]}
             count={option.count}
             checked={filters.bedrooms.includes(option.value)}
             onChange={() => go({ bedrooms: toggle<BedroomBucket>(filters.bedrooms, option.value) })}
@@ -86,13 +96,13 @@ export function CatalogFilters({
 
       <Group
         icon={<CalendarRangeIcon className="size-4" aria-hidden="true" />}
-        title="Duración mínima"
+        title={labels.ui.filterTerm}
       >
         {facets.lease.map((option) => (
           <Option
             key={option.value}
             id={`${uid}-lease-${option.value}`}
-            label={LEASE_TERM_LABELS[option.value]}
+            label={labels.lease[option.value]}
             count={option.count}
             checked={filters.lease.includes(option.value)}
             onChange={() => go({ lease: toggle<LeaseTerm>(filters.lease, option.value) })}
@@ -101,12 +111,12 @@ export function CatalogFilters({
       </Group>
 
       {facets.features.length > 0 && (
-        <Group icon={<SparklesIcon className="size-4" aria-hidden="true" />} title="Características">
+        <Group icon={<SparklesIcon className="size-4" aria-hidden="true" />} title={labels.ui.filterFeatures}>
           {facets.features.map((option) => (
             <Option
               key={option.value}
               id={`${uid}-features-${option.value}`}
-              label={CATALOG_FEATURE_LABELS[option.value]}
+              label={labels.features[option.value]}
               count={option.count}
               checked={filters.features.includes(option.value)}
               onChange={() => go({ features: toggle<CatalogFeature>(filters.features, option.value) })}

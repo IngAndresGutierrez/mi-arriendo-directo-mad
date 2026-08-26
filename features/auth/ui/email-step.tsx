@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -18,6 +19,12 @@ type EmailStepProps = {
   isBusy: boolean;
   onGoogleClick: () => void;
   onSubmitEmail: (email: string) => void;
+  /**
+   * The copy this step renders, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing `shared/i18n/dictionary` here would put **both** languages in
+   * the browser bundle of the signup screen.
+   */
+  readonly copy: Dictionary["auth"];
 };
 
 /** Signup step 1: choose how to create the account. */
@@ -27,6 +34,7 @@ export function EmailStep({
   isBusy,
   onGoogleClick,
   onSubmitEmail,
+  copy,
 }: EmailStepProps) {
   const {
     register,
@@ -41,13 +49,13 @@ export function EmailStep({
   return (
     <>
       <h1 className="text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
-        Crear una cuenta
+        {copy.createAccountTitle}
       </h1>
-      <p className="mt-2 mb-8 text-muted-foreground">Solo te llevará un minuto.</p>
+      <p className="mt-2 mb-8 text-muted-foreground">{copy.quickStep}</p>
 
       <div className="space-y-6">
         <GoogleButton onClick={onGoogleClick} loading={isGoogleLoading} disabled={isBusy}>
-          Continuar con Google
+          {copy.continueWithGoogle}
         </GoogleButton>
 
         <OrDivider />
@@ -63,20 +71,20 @@ export function EmailStep({
 
           <TextField
             id="email"
-            label="Correo electrónico"
+            label={copy.email}
             type="email"
             inputMode="email"
             autoComplete="email"
             autoCapitalize="none"
             spellCheck={false}
-            placeholder="tu@ejemplo.com"
+            placeholder={copy.emailPlaceholderAlt}
             error={errors.email?.message}
             disabled={isBusy}
             {...register("email")}
           />
 
           <SubmitButton loading={false} disabled={isBusy}>
-            Continuar con el correo
+            {copy.continueWithEmail}
           </SubmitButton>
         </form>
 
@@ -89,14 +97,14 @@ export function EmailStep({
           existe y cómo llegar a ella.
         */}
         <p className="text-center text-xs leading-relaxed text-muted-foreground">
-          En el siguiente paso te pediremos aceptar los{" "}
+          {copy.nextStepAsks}{" "}
           <NewTabLink
             href={TERMS_ROUTE}
             className="underline underline-offset-2 hover:text-foreground"
           >
-            Términos y condiciones
+            {copy.termsLink}
           </NewTabLink>{" "}
-          y autorizar el tratamiento de tus datos.
+          {copy.andAuthorize}
         </p>
       </div>
     </>

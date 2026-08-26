@@ -13,14 +13,12 @@ export {
   processDescription,
   processStageLabel,
   stageDescription,
+  type ApplicationCopy,
   stageIndex,
   stageProgress,
   stageProgressLabel,
   stageState,
-  APPLICATION_STATUS_LABELS,
-  COMPLETED_LABEL,
   STAGES,
-  STAGE_LABELS,
   type Application,
   type ApplicationStatus,
   type Stage,
@@ -39,8 +37,6 @@ export {
   visitHostLine,
   visitState,
   visitWhen,
-  VISIT_OUTCOME_LABELS,
-  VISIT_STATE_LABELS,
   type Visit,
   type VisitHost,
   type VisitOutcome,
@@ -50,7 +46,6 @@ export {
   interviewState,
   interviewWhen,
   INTERVIEW_MINUTES,
-  INTERVIEW_STATE_LABELS,
   type Interview,
 } from "./domain/interview";
 export {
@@ -85,7 +80,6 @@ export {
   isProviderLink,
   GUARANTEE_PLAN,
   GUARANTEE_PROVIDER,
-  GUARANTEE_STATE_LABELS,
   type Guarantee,
 } from "./domain/guarantee";
 /*

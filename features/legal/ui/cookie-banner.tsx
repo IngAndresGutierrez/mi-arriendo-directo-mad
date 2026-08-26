@@ -39,7 +39,8 @@ export function CookieBanner({
     >
       <div className="mx-auto flex w-full max-w-4xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-sm leading-relaxed text-muted-foreground">
-          Usamos cookies necesarias para mantener tu sesión y recordar cómo dejaste el menú. Con tu
+          Usamos cookies necesarias para mantener tu sesión, recordar cómo dejaste el menú y en qué
+          idioma estabas leyendo. Con tu
           permiso usamos también cookies de <strong className="font-medium">analítica</strong>, que
           nos dicen qué páginas se usan. Puedes cambiar de opinión cuando quieras en{" "}
           <NewTabLink href={COOKIES_ROUTE} className="underline underline-offset-2 hover:text-foreground">

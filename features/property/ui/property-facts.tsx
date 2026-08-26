@@ -9,7 +9,11 @@ import {
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
-import { PARKING_LABELS, PROPERTY_TYPE_LABELS, type Property } from "../domain/property";
+import { type Property } from "../domain/property";
+import { currentLocale, dictionary } from "@/shared/i18n/server";
+
+import { propertyLabels, type PropertyLabels } from "../domain/labels";
+import type { Dictionary } from "@/shared/i18n";
 
 type Fact = { readonly icon: LucideIcon; readonly label: string };
 
@@ -20,28 +24,34 @@ type Fact = { readonly icon: LucideIcon; readonly label: string };
  * Nothing is hidden when the answer is "no": "Sin mascotas" and "No tiene parqueadero" are
  * information. A missing row reads as an oversight and sends the tenant to ask.
  */
-function factsOf(property: Property): readonly Fact[] {
+function factsOf(
+  property: Property,
+  t: Dictionary["property"],
+  labels: PropertyLabels,
+): readonly Fact[] {
   return [
+    /* `m²` is a symbol and reads the same in both languages. */
     { icon: RulerIcon, label: `${property.areaM2} m²` },
-    {
-      icon: BedDoubleIcon,
-      label: property.bedrooms === 1 ? "1 habitación" : `${property.bedrooms} habitaciones`,
-    },
-    { icon: BathIcon, label: property.bathrooms === 1 ? "1 baño" : `${property.bathrooms} baños` },
-    { icon: CarIcon, label: PARKING_LABELS[property.parking] },
-    { icon: LayersIcon, label: `Estrato ${property.stratum}` },
-    { icon: SofaIcon, label: property.furnished ? "Amoblado" : "Sin amoblar" },
-    { icon: PawPrintIcon, label: property.petsAllowed ? "Acepta mascotas" : "Sin mascotas" },
+    { icon: BedDoubleIcon, label: t.bedroomsFact(property.bedrooms) },
+    { icon: BathIcon, label: t.bathroomsFact(property.bathrooms) },
+    { icon: CarIcon, label: labels.parking[property.parking] },
+    { icon: LayersIcon, label: t.stratum(property.stratum) },
+    { icon: SofaIcon, label: property.furnished ? t.furnished : t.notFurnished },
+    { icon: PawPrintIcon, label: property.petsAllowed ? t.petsAllowed : t.noPets },
   ];
 }
 
-export function PropertyFacts({ property }: { readonly property: Property }) {
+export async function PropertyFacts({ property }: { readonly property: Property }) {
+  const [locale, copy] = await Promise.all([currentLocale(), dictionary()]);
+  const t = copy.property;
+  const labels = propertyLabels(locale);
+
   return (
     <ul className="grid grid-cols-2 gap-x-6 gap-y-3 text-sm sm:grid-cols-3">
       <li className="col-span-2 font-medium text-foreground sm:col-span-3">
-        {PROPERTY_TYPE_LABELS[property.type]}
+        {labels.types[property.type]}
       </li>
-      {factsOf(property).map(({ icon: Icon, label }) => (
+      {factsOf(property, t, labels).map(({ icon: Icon, label }) => (
         <li key={label} className="flex items-center gap-2 text-muted-foreground">
           <Icon className="size-4 shrink-0 text-primary dark:text-accent" aria-hidden="true" />
           {label}

@@ -406,7 +406,16 @@ const abrirPanel = async (pagina) => {
  * servidor y no a la pantalla.
  */
 await campoEnlace.fill("https://sura.co.example.com/phishing");
-await dueño.waitForTimeout(2000);
+/*
+ * **Se espera la consecuencia, no una duración.** Esto era `waitForTimeout(2000)` contra un autosave
+ * que dispara 800 ms después de dejar de escribir: bajo carga la recarga llegaba antes de la
+ * escritura y el panel volvía sin el campo, así que el driver oscilaba entre 20 y 29 aserciones sin
+ * que nada del producto hubiera cambiado. El panel dice cuándo terminó — "Guardado." — y eso es lo
+ * que hay que esperar.
+ */
+await dueño.waitForFunction(() => /Guardado\.|Cópialo a mano/.test(document.body.innerText), null, {
+  timeout: 20000,
+});
 await dueño.reload({ waitUntil: "domcontentloaded" });
 await settled(dueño);
 await abrirPanel(dueño);

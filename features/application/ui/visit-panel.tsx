@@ -24,8 +24,8 @@ import {
   visitState,
   visitTime,
   visitWhen,
-  VISIT_OUTCOME_LABELS,
   type Visit,
+  type VisitCopy,
   type VisitOutcome,
 } from "../domain/visit";
 
@@ -43,6 +43,7 @@ export function VisitPanel({
   isLandlord,
   suggestedMeetingPoint = "",
   readOnly = false,
+  copy,
 }: {
   readonly applicationId: string;
   readonly visit: Visit | null;
@@ -58,6 +59,11 @@ export function VisitPanel({
   readonly suggestedMeetingPoint?: string;
   /** A finished stage keeps its panel, without its controls. */
   readonly readOnly?: boolean;
+  /**
+   * This panel's words, resolved by the page. A prop and not a dictionary import: this is a Client
+   * Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: VisitCopy;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -73,7 +79,7 @@ export function VisitPanel({
     startTransition(async () => {
       const result = await action();
       if (!result.ok) {
-        setError(result.message ?? "No pudimos guardar el cambio.");
+        setError(result.message ?? copy.saveFailed);
         return;
       }
       onDone?.();
@@ -89,18 +95,19 @@ export function VisitPanel({
   return (
     <div className="space-y-4">
       {visit ? (
-        <Appointment visit={visit} isLandlord={isLandlord} />
+        <Appointment visit={visit} isLandlord={isLandlord} copy={copy} />
       ) : (
         <p className="text-sm text-muted-foreground">
           {isLandlord
-            ? "Propón un día y un punto de encuentro para que el inquilino vaya a conocer el inmueble."
-            : "El propietario propondrá un día para que vayas a conocer el inmueble. Te avisaremos aquí y por correo."}
+            ? "{copy.proposeIntroLandlord}"
+            : copy.proposeIntroTenant}
         </p>
       )}
 
       {/* Lo que toca hacer ahora, según quién mira y en qué punto está la visita. */}
       {state === "proposed" && !isLandlord && !readOnly && (
         <TenantAnswer
+          copy={copy}
           pending={pending}
           onConfirm={() => run(() => confirmVisit(applicationId))}
           onDecline={(note) => run(() => declineVisit(applicationId, { note }))}
@@ -109,18 +116,19 @@ export function VisitPanel({
 
       {state === "declined" && !isLandlord && !readOnly && (
         <p className="text-sm text-muted-foreground">
-          Le avisamos al propietario que ese día no te sirve. Te escribirá con otro.
+          {copy.weToldTheLandlord}
         </p>
       )}
 
       {state === "proposed" && isLandlord && !readOnly && !proposing && (
         <p className="text-sm text-muted-foreground">
-          El inquilino todavía no confirma el día. Te avisamos en cuanto responda.
+          {copy.awaitingTenant}
         </p>
       )}
 
       {showVerdictForm ? (
         <VerdictForm
+          copy={copy}
           pending={pending}
           again={decided}
           onCancel={rethinking ? () => setRethinking(false) : undefined}
@@ -133,20 +141,20 @@ export function VisitPanel({
         !readOnly &&
         decided && (
           <Button type="button" variant="outline" size="xl" onClick={() => setRethinking(true)}>
-            Cambiar lo que respondí
+            {copy.changeMyAnswer}
           </Button>
         )
       )}
 
       {state === "confirmed" && isLandlord && !readOnly && !proposing && (
         <p className="text-sm text-muted-foreground">
-          Cuando el inquilino vaya, él dirá aquí si el inmueble le interesa. Sin eso el proceso no
-          puede avanzar.
+          {copy.landlordWaitsVerdict}
         </p>
       )}
 
       {showProposeForm ? (
         <ProposeForm
+          copy={copy}
           pending={pending}
           again={state !== "none"}
           suggested={suggestedMeetingPoint}
@@ -162,7 +170,7 @@ export function VisitPanel({
         state !== "none" && (
           <Button type="button" variant="outline" size="xl" onClick={() => setProposing(true)}>
             <CalendarClockIcon aria-hidden="true" />
-            {decided ? "Proponer otra visita" : "Proponer otro día"}
+            {decided ? "Proponer otra visita" : copy.proposeAnother}
           </Button>
         )
       )}
@@ -180,9 +188,11 @@ export function VisitPanel({
 function Appointment({
   visit,
   isLandlord,
+  copy,
 }: {
   readonly visit: Visit;
   readonly isLandlord: boolean;
+  readonly copy: VisitCopy;
 }) {
   const state = visitState(visit);
   const confirmed = state === "confirmed" || state === "interested" || state === "not_interested";
@@ -208,12 +218,12 @@ function Appointment({
           {state === "not_interested"
             ? "Visitada"
             : state === "interested"
-              ? "Visitada"
+              ? copy.visited
               : confirmed
-                ? "Confirmada"
+                ? copy.confirmedBadge
                 : state === "declined"
-                  ? "Sin día"
-                  : "Sin confirmar"}
+                  ? copy.noDay
+                  : copy.unconfirmed}
         </span>
       </div>
 
@@ -267,7 +277,7 @@ function Appointment({
 
       {state === "declined" && (
         <p className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
-          {isLandlord ? "Al inquilino no le sirve ese día." : "Pediste otro día."}
+          {isLandlord ? "{copy.tenantDeclined}" : "{copy.youAskedAnother}"}
           {visit.declineNote ? ` ${visit.declineNote}` : ""}
         </p>
       )}
@@ -287,9 +297,9 @@ function Appointment({
             )}
             {isLandlord
               ? visit.verdict.result === "interested"
-                ? "Al inquilino le interesa el inmueble"
-                : "Al inquilino no le interesa el inmueble"
-              : VISIT_OUTCOME_LABELS[visit.verdict.result]}
+                ? copy.tenantInterested
+                : copy.tenantNotInterested
+              : copy.outcomes[visit.verdict.result]}
           </p>
           {visit.verdict.note && (
             <p className="text-sm text-muted-foreground">{visit.verdict.note}</p>
@@ -305,10 +315,12 @@ function TenantAnswer({
   pending,
   onConfirm,
   onDecline,
+  copy,
 }: {
   readonly pending: boolean;
   readonly onConfirm: () => void;
   readonly onDecline: (note: string) => void;
+  readonly copy: VisitCopy;
 }) {
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState("");
@@ -316,11 +328,11 @@ function TenantAnswer({
   if (asking) {
     return (
       <div className="space-y-2">
-        <Label htmlFor="visit-decline">¿Qué día te sirve?</Label>
+        <Label htmlFor="visit-decline">{copy.whichDayWorks}</Label>
         <Input
           id="visit-decline"
           className="h-11"
-          placeholder="Los sábados por la mañana."
+          placeholder={copy.whichDayPlaceholder}
           value={note}
           maxLength={300}
           onChange={(event) => setNote(event.target.value)}
@@ -333,7 +345,7 @@ function TenantAnswer({
             disabled={pending}
             onClick={() => onDecline(note)}
           >
-            Enviar y pedir otro día
+            {copy.sendAndAskAnother}
           </Button>
           <Button
             type="button"
@@ -342,7 +354,7 @@ function TenantAnswer({
             disabled={pending}
             onClick={() => setAsking(false)}
           >
-            Cancelar
+            {copy.cancel}
           </Button>
         </div>
       </div>
@@ -353,7 +365,7 @@ function TenantAnswer({
     <div className="flex flex-wrap items-center gap-2">
       <Button type="button" variant="accent" size="xl" disabled={pending} onClick={onConfirm}>
         <CheckIcon aria-hidden="true" />
-        {pending ? "Confirmando…" : "Confirmar la visita"}
+        {pending ? copy.confirming : copy.confirmVisit}
       </Button>
       <Button
         type="button"
@@ -362,7 +374,7 @@ function TenantAnswer({
         disabled={pending}
         onClick={() => setAsking(true)}
       >
-        No puedo ese día
+        {copy.cantThatDay}
       </Button>
     </div>
   );
@@ -376,6 +388,7 @@ function ProposeForm({
   previous,
   onCancel,
   onSubmit,
+  copy,
 }: {
   readonly pending: boolean;
   readonly again: boolean;
@@ -388,6 +401,7 @@ function ProposeForm({
     meetingPoint: string;
     note: string;
   }) => void;
+  readonly copy: VisitCopy;
 }) {
   const [day, setDay] = useState("");
   const [time, setTime] = useState("");
@@ -398,7 +412,7 @@ function ProposeForm({
   return (
     <div className="space-y-3 rounded-xl border border-dashed border-border p-4">
       <p className="text-sm font-medium text-foreground">
-        {again ? "Propón otro día para la visita" : "Propón la visita al inmueble"}
+        {again ? copy.proposeAnotherTitle : copy.proposeTitle}
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -413,7 +427,7 @@ function ProposeForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="visit-time">Hora (Colombia)</Label>
+          <Label htmlFor="visit-time">{copy.time}</Label>
           <Input
             id="visit-time"
             type="time"
@@ -425,17 +439,17 @@ function ProposeForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="visit-point">Punto de encuentro</Label>
+        <Label htmlFor="visit-point">{copy.meetingPoint}</Label>
         <Input
           id="visit-point"
           className="h-11"
-          placeholder="Cra 23 #14-08, portería de la torre 2"
+          placeholder={copy.meetingPointPlaceholder}
           value={meetingPoint}
           maxLength={300}
           onChange={(event) => setMeetingPoint(event.target.value)}
         />
         <p className="text-sm text-muted-foreground">
-          Solo lo ve el inquilino de esta postulación, en esta página: nunca sale en un correo.
+          {copy.meetingPointHint}
         </p>
         {/*
           La dirección que ya dio al publicar. La escribió una vez y pedírsela otra vez es pedirle
@@ -457,11 +471,11 @@ function ProposeForm({
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="visit-note">Mensaje (opcional)</Label>
+        <Label htmlFor="visit-note">{copy.message}</Label>
         <Input
           id="visit-note"
           className="h-11"
-          placeholder="Timbra en el 502. Hay parqueadero de visitantes."
+          placeholder={copy.messagePlaceholder}
           value={note}
           maxLength={300}
           onChange={(event) => setNote(event.target.value)}
@@ -477,11 +491,11 @@ function ProposeForm({
           onClick={() => onSubmit({ day, time, meetingPoint, note })}
         >
           <CalendarClockIcon aria-hidden="true" />
-          {pending ? "Enviando…" : "Proponer y avisar al inquilino"}
+          {pending ? copy.sending : copy.proposeAndNotify}
         </Button>
         {onCancel && (
           <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={onCancel}>
-            Cancelar
+            {copy.cancel}
           </Button>
         )}
       </div>
@@ -502,32 +516,34 @@ function VerdictForm({
   again,
   onCancel,
   onSubmit,
+  copy,
 }: {
   readonly pending: boolean;
   readonly again: boolean;
   readonly onCancel?: () => void;
   readonly onSubmit: (values: { result: VisitOutcome; note: string }) => void;
+  readonly copy: VisitCopy;
 }) {
   const [note, setNote] = useState("");
 
   return (
     <div className="space-y-3 rounded-xl border border-dashed border-border p-4">
       <p className="text-sm font-medium text-foreground">
-        {again ? "Cambia lo que respondiste" : "Después de la visita"}
+        {again ? copy.changeYourAnswer : copy.afterTheVisit}
       </p>
 
       <div className="space-y-2">
-        <Label htmlFor="visit-verdict-note">Qué te pareció (opcional)</Label>
+        <Label htmlFor="visit-verdict-note">{copy.whatYouThought}</Label>
         <Input
           id="visit-verdict-note"
           className="h-11"
-          placeholder="Me gustó la luz, pero la cocina es pequeña."
+          placeholder={copy.whatYouThoughtPlaceholder}
           value={note}
           maxLength={600}
           onChange={(event) => setNote(event.target.value)}
         />
         <p className="text-sm text-muted-foreground">
-          El propietario también lo lee. Sin tu respuesta el proceso no puede avanzar.
+          {copy.whatYouThoughtHint}
         </p>
       </div>
 
@@ -545,7 +561,7 @@ function VerdictForm({
           onClick={() => onSubmit({ result: "interested", note })}
         >
           <ThumbsUpIcon aria-hidden="true" />
-          {pending ? "Guardando…" : "Me interesa"}
+          {pending ? copy.saving : copy.interested}
         </Button>
         <Button
           type="button"
@@ -555,11 +571,11 @@ function VerdictForm({
           onClick={() => onSubmit({ result: "not_interested", note })}
         >
           <ThumbsDownIcon aria-hidden="true" />
-          No me interesa
+          {copy.notInterested}
         </Button>
         {onCancel && (
           <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={onCancel}>
-            Cancelar
+            {copy.cancel}
           </Button>
         )}
       </div>

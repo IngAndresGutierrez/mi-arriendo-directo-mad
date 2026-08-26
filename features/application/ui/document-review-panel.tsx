@@ -5,11 +5,11 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { CheckIcon, ExternalLinkIcon, FileTextIcon, XIcon } from "lucide-react";
 
+import type { DocumentKind, DossierLabels } from "@/features/tenant-profile/client";
 import {
   isPdf,
   statusOf,
   Verdict,
-  DOCUMENT_LABELS,
   REVIEW_STATUS_LABELS,
   type DocumentReviews,
   type ReviewStatus,
@@ -22,7 +22,7 @@ import { reviewTenantDocument } from "../actions/review-document";
 /** A document as this panel needs it: enough to show it and to judge it. */
 export type ReviewableDocument = {
   readonly id: string;
-  readonly kind: keyof typeof DOCUMENT_LABELS;
+  readonly kind: DocumentKind;
   readonly name: string;
   readonly contentType: string;
   readonly url: string;
@@ -48,12 +48,18 @@ export function DocumentReviewPanel({
   documents,
   reviews,
   readOnly = false,
+  labels,
 }: {
   readonly applicationId: string;
   readonly documents: readonly ReviewableDocument[];
   readonly reviews: DocumentReviews;
   /** `true` once the stage is behind us: the files stay, the verdicts stay, the buttons go. */
   readonly readOnly?: boolean;
+  /**
+   * The dossier's vocabulary, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly labels: DossierLabels;
 }) {
   const router = useRouter();
   const [, start] = useTransition();
@@ -140,7 +146,7 @@ export function DocumentReviewPanel({
                   </span>
                   <span className="min-w-0">
                     <span className="flex items-center gap-2 font-medium text-foreground">
-                      {DOCUMENT_LABELS[document.kind]}
+                      {labels.documentLabels[document.kind]}
                       <ExternalLinkIcon className="size-3.5 text-muted-foreground" aria-hidden="true" />
                     </span>
                     <span className="block truncate text-xs text-muted-foreground">
@@ -171,7 +177,7 @@ export function DocumentReviewPanel({
                       size="xl"
                       disabled={saving === document.id}
                       onClick={() => judge(document.id, "approved")}
-                      aria-label={`Aprobar ${DOCUMENT_LABELS[document.kind]}`}
+                      aria-label={`Aprobar ${labels.documentLabels[document.kind]}`}
                     >
                       <CheckIcon aria-hidden="true" />
                       {status === "rejected" ? "Aprobar de todos modos" : "Aprobar"}
@@ -184,7 +190,7 @@ export function DocumentReviewPanel({
                       size="xl"
                       disabled={saving === document.id}
                       onClick={() => setRejecting(rejecting === document.id ? null : document.id)}
-                      aria-label={`Rechazar ${DOCUMENT_LABELS[document.kind]}`}
+                      aria-label={`Rechazar ${labels.documentLabels[document.kind]}`}
                     >
                       <XIcon aria-hidden="true" />
                       {status === "approved" ? "Cambiar de opinión" : "Rechazar"}

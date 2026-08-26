@@ -10,6 +10,7 @@ import {
   SIGNUP_ROUTE,
   TENANT_PROFILE_ROUTE,
 } from "@/shared/auth/routes";
+import { LOCALES, localeHref } from "@/shared/i18n/locale";
 import { metadataOrigin } from "@/shared/lib/site-url";
 
 /**
@@ -38,11 +39,27 @@ import { metadataOrigin } from "@/shared/lib/site-url";
 export default function robots(): MetadataRoute.Robots {
   const origin = metadataOrigin();
 
+  /**
+   * **Every rule twice, once per language.**
+   *
+   * The paths below are canonical Spanish, and the English portal lives at the same paths behind an
+   * `/en` prefix — so a list of literal Spanish paths tells a crawler to stay out of `/contratos`
+   * and says nothing at all about `/en/contratos`. That is not a secrecy hole (every one of those
+   * pages redirects to the login without a session, which is the point the note above makes) but it
+   * is exactly the crawl budget this file exists to protect: a crawler working through the English
+   * spelling of the whole private portal is a crawler that did not fetch this week's listings.
+   *
+   * `localeHref` rather than string concatenation, so the prefix cannot drift from the one
+   * `proxy.ts` and `LocaleLink` use.
+   */
+  const everyLocale = (paths: readonly string[]): string[] =>
+    LOCALES.flatMap((locale) => paths.map((path) => localeHref(locale, path)));
+
   return {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: [
+      disallow: everyLocale([
         `${HOME_ROUTE}/`,
         HOME_ROUTE,
         `${CONTRACTS_ROUTE}/`,
@@ -58,8 +75,13 @@ export default function robots(): MetadataRoute.Robots {
         COMPLETE_PROFILE_ROUTE,
         // "Postularme" es un formulario que exige sesión; el anuncio que lleva a él sí se indexa.
         "/postularme/",
+      ]).concat(
+        /*
+         * `/api/` is outside the loop because it is outside `[lang]`: a Route Handler has no
+         * language, and `/en/api/` is not a URL that exists.
+         */
         "/api/",
-      ],
+      ),
     },
     sitemap: `${origin}/sitemap.xml`,
     host: origin,

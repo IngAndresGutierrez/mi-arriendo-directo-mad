@@ -1,5 +1,8 @@
 "use client";
 
+import type { DossierLabels } from "@/features/tenant-profile/client";
+import type { Dictionary } from "@/shared/i18n";
+import type { Locale } from "@/shared/i18n";
 import { useState } from "react";
 import { z } from "zod";
 
@@ -45,6 +48,9 @@ type FormValues = z.output<typeof schema>;
 export function TenantProfileForm({
   profile,
   account,
+  common,
+  labels,
+  dossierCopy,
 }: {
   readonly profile: TenantProfile | null;
   /**
@@ -58,6 +64,8 @@ export function TenantProfileForm({
     readonly fullName: string;
     readonly phone: { readonly country: string; readonly national: string };
     readonly gender: Gender | undefined;
+    /** Same reason as `gender`: it is a select, and `null` is not a value one accepts. */
+    readonly locale: Locale | undefined;
     readonly birthDate: string;
     readonly address: {
       readonly line: string;
@@ -65,6 +73,14 @@ export function TenantProfileForm({
       readonly department: Department | undefined;
     };
   };
+  /**
+   * Shared words the fields below need, resolved by the page. A prop because this is a Client
+   * Component: importing the dictionary here would put both languages in the browser bundle.
+   */
+  readonly common: Dictionary["common"];
+  /** The dossier's vocabulary and sentences, resolved by the page. */
+  readonly labels: DossierLabels;
+  readonly dossierCopy: Dictionary["dossier"];
 }) {
   const router = useRouter();
   const [saved, setSaved] = useState(false);
@@ -83,6 +99,13 @@ export function TenantProfileForm({
     account.set("phone.national", values.phone.national);
     // Only sent when answered; empty clears the field on the profile.
     if (values.gender) account.set("gender", values.gender);
+    /*
+     * Y el idioma, igual. Este formulario y el de Ajustes son **las dos puertas del mismo
+     * `users/{uid}`** contra la misma `updateProfile`: si una de las dos no mandara el campo,
+     * guardar en esa pantalla lo borraría — que es exactamente lo que `updateProfile` hace con un
+     * valor ausente, y a propósito, porque es lo que revoca el dato.
+     */
+    if (values.locale) account.set("locale", values.locale);
     account.set("birthDate", values.birthDate);
     account.set("address.line", values.address.line);
     account.set("address.city", values.address.city);
@@ -135,23 +158,23 @@ export function TenantProfileForm({
 
         <section className="space-y-4">
           <div>
-            <h2 className="font-semibold text-primary dark:text-foreground">Tus datos</h2>
+            <h2 className="font-semibold text-primary dark:text-foreground">{dossierCopy.yourDetails}</h2>
             <p className="text-sm text-muted-foreground">
-              Los que diste al crear tu cuenta. Corrígelos aquí si algo cambió.
+              {dossierCopy.yourDetailsNote}
             </p>
           </div>
-          <AccountFields disabled={isSubmitting} />
+          <AccountFields disabled={isSubmitting} common={common} />
         </section>
 
-        <DossierFields />
+        <DossierFields common={common} labels={labels} copy={dossierCopy} />
 
         <div className="flex flex-wrap items-center gap-3">
           <SubmitButton loading={isSubmitting} loadingLabel="Guardando…">
-            Guardar mis datos
+            {dossierCopy.saveMyDetails}
           </SubmitButton>
           {saved && !form.formState.isDirty ? (
             <p role="status" className="text-sm text-muted-foreground">
-              Listo, tus datos quedaron guardados.
+              {dossierCopy.savedConfirmation}
             </p>
           ) : null}
         </div>

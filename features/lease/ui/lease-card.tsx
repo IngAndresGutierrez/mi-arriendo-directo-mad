@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { ArrowRightIcon, CalendarClockIcon } from "lucide-react";
 
 import { applicationRoute, rentalRoute } from "@/shared/auth/routes";

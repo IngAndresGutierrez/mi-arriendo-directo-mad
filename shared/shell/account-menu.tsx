@@ -1,7 +1,8 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useState } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { useRouter } from "next/navigation";
 import { ChevronDownIcon, LogOutIcon, UserIcon } from "lucide-react";
 
@@ -29,7 +30,14 @@ import { cn } from "@/shared/lib/utils";
  * session cookie already carries — reading the profile would add a Firestore round trip to the
  * catalog, the one page where the first paint is the product.
  */
-export function AccountMenu({ email }: { readonly email: string }) {
+export function AccountMenu({
+  email,
+  copy,
+}: {
+  readonly email: string;
+  /** Its words, resolved by the server parent. See `AppNav`. */
+  readonly copy: Dictionary["nav"];
+}) {
   const router = useRouter();
   const [isSigningOut, setSigningOut] = useState(false);
 
@@ -67,15 +75,15 @@ export function AccountMenu({ email }: { readonly email: string }) {
           </>
         )}
         <DropdownMenuItem asChild>
-          <Link href={HOME_ROUTE}>Mi portal</Link>
+          <Link href={HOME_ROUTE}>{copy.myPortal}</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link href={TENANT_PROFILE_ROUTE}>Mi perfil</Link>
+          <Link href={TENANT_PROFILE_ROUTE}>{copy.myProfile}</Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onSelect={signOut} disabled={isSigningOut}>
           <LogOutIcon aria-hidden="true" />
-          {isSigningOut ? "Saliendo…" : "Cerrar sesión"}
+          {isSigningOut ? copy.signingOut : copy.signOut}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

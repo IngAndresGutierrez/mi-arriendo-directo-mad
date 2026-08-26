@@ -1,3 +1,5 @@
+import type { Dictionary } from "@/shared/i18n";
+
 /**
  * The guarantee: a **rental insurance policy**, not a co-signer.
  *
@@ -13,19 +15,20 @@
  * over the two pieces of data the form asks for — both of which are already on this screen — and
  * keep the record of what was taken out.
  */
+export type GuaranteeCopy = Dictionary["guarantee"];
+
+/**
+ * The insurer. **Its name stays here and its product name moved to the dictionary**: "Sura" is a
+ * proper noun and identical in every language, while "seguro de arrendamiento digital" is a
+ * description and reads as one.
+ */
 export const GUARANTEE_PROVIDER = {
   name: "Sura",
-  product: "Seguro de arrendamiento digital",
   /** Where it is quoted and bought. Everything happens on their side. */
   quoteUrl: "https://ecomm.sura.co/seguros/hogar/arriendo/cotizador",
 } as const;
 
 /** What the policy answers for, in Sura's own terms. */
-export const GUARANTEE_COVERAGES = [
-  "Pago del arriendo si el inquilino incumple.",
-  "Pago de las cuotas de administración.",
-  "Asistencia domiciliaria: plomería, electricidad, cerrajería, reemplazo de vidrios, gastos de traslado y asistencia jurídica telefónica.",
-] as const;
 
 /*
  * What Sura's form asks for is two things — the tenant's email and the registry number — and both
@@ -59,10 +62,6 @@ export const GUARANTEE_LINK_HOST = "sura.co";
 /** Twelve months, and only while the policy is current and paid. */
 export const GUARANTEE_MAX_MONTHS = 12;
 
-export const GUARANTEE_LIMIT_NOTE =
-  `Si hay reclamación, la cobertura se mantiene hasta que se restituya el inmueble o hasta que el ` +
-  `inquilino pague lo que debe, con un máximo de ${GUARANTEE_MAX_MONTHS} meses. El seguro tiene ` +
-  `que estar vigente y al día.`;
 
 /**
  * Where the policy stands.
@@ -80,30 +79,14 @@ export const GUARANTEE_LIMIT_NOTE =
 export const GUARANTEE_STATES = ["none", "requested", "active", "waived"] as const;
 export type GuaranteeState = (typeof GUARANTEE_STATES)[number];
 
-export const GUARANTEE_STATE_LABELS: Readonly<Record<GuaranteeState, string>> = {
-  none: "Sin solicitar",
-  requested: "En estudio",
-  active: "Póliza activa",
-  waived: "Sin póliza, por decisión del propietario",
-};
-
-/**
- * What waiving it actually means, which is the part a toggle makes easy to skip past.
- *
- * **Ley 820 de 2003 forbids a cash deposit on an urban housing lease**, so the policy is not one
- * guarantee among several — with it declined there is nothing behind the lease at all. That is a
+/*
+ * **What waiving it actually means lives in the dictionary now**, as `guarantee.waivedNote` and
+ * `guarantee.waivedTenantNote`, and the reason it is worth a note here is the reason it is worth
+ * saying at all: **Ley 820 de 2003 forbids a cash deposit on an urban housing lease**, so the policy
+ * is not one guarantee among several — with it declined there is nothing behind the lease. That is a
  * legitimate choice and a common one between people who know each other; it is not a small one, and
- * the landlord reads this sentence before the switch, not after.
+ * the landlord reads that sentence *before* the switch, not after.
  */
-export const GUARANTEE_WAIVED_NOTE =
-  "Sin póliza no hay nada que responda por el arriendo si el inquilino incumple: la ley prohíbe " +
-  "pedir depósito en efectivo, así que el seguro es la única garantía que este proceso ofrece. " +
-  "Puedes volver a activarlo mientras el proceso siga en esta etapa.";
-
-/** What the tenant reads when the landlord has declined it. */
-export const GUARANTEE_WAIVED_TENANT_NOTE =
-  "El propietario decidió no pedir póliza de arrendamiento para este proceso. No tienes que hacer " +
-  "nada: nadie va a estudiar tu perfil para el seguro y Sura no te va a escribir.";
 
 export type Guarantee = {
   /** ISO 8601 when the landlord said they had applied for it, or `null`. */
@@ -211,16 +194,17 @@ export function guaranteeBlocker(guarantee: Guarantee | null): GuaranteeBlocker 
 export function guaranteeBlockerMessage(
   blocker: GuaranteeBlocker,
   isLandlord: boolean,
+  copy: GuaranteeCopy,
 ): string | null {
+  const { blockers } = copy;
+
   switch (blocker) {
     case "not_requested":
       return isLandlord
-        ? `Solicita la póliza de arrendamiento en ${GUARANTEE_PROVIDER.name} para continuar, o marca que este arriendo va sin póliza.`
-        : `El propietario todavía no ha solicitado la póliza de arrendamiento.`;
+        ? `${blockers.notRequestedLandlordBefore} ${GUARANTEE_PROVIDER.name} ${blockers.notRequestedLandlordAfter}`
+        : blockers.notRequestedTenant;
     case "not_issued":
-      return isLandlord
-        ? "Cuando Sura expida la póliza, registra su número aquí para continuar."
-        : "La póliza está en estudio. El propietario la registrará aquí cuando Sura la expida.";
+      return isLandlord ? blockers.notIssuedLandlord : blockers.notIssuedTenant;
     default:
       return null;
   }

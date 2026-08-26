@@ -1,5 +1,7 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
+import { useLocale } from "@/shared/i18n";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, FormProvider, useForm } from "react-hook-form";
@@ -44,7 +46,18 @@ function isFieldName(value: string): value is FieldName {
   return (FIELD_NAMES as readonly string[]).includes(value);
 }
 
-export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
+export function CompleteProfileForm({
+  redirectTo,
+  common,
+}: {
+  readonly redirectTo: string;
+  /**
+   * Shared words the fields below need, resolved by the page. A prop because this is a Client
+   * Component: importing the dictionary here would put both languages in the browser bundle.
+   */
+  readonly common: Dictionary["common"];
+}) {
+  const locale = useLocale();
   const router = useRouter();
   const [formError, setFormError] = useState<string | null>(null);
   const [isNavigating, startNavigation] = useTransition();
@@ -97,6 +110,16 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
     formData.set("authorizesDataTreatment", String(values.authorizesDataTreatment));
     formData.set("termsVersion", String(values.termsVersion));
     formData.set("privacyVersion", String(values.privacyVersion));
+    /*
+     * **El idioma en el que esta persona acaba de rellenar el formulario**, que es la señal más
+     * fuerte que hay y la única gratis: leyó cada etiqueta, cada ayuda y las dos frases de
+     * consentimiento en él. No se le pregunta aquí —el onboarding ya pide once cosas y la respuesta
+     * está en la pantalla— y se cambia después en Ajustes → Perfil.
+     *
+     * Sale de `useLocale()` y no de la URL leída a mano: es el mismo contexto que usa `LocaleLink`,
+     * así que el idioma que se guarda es exactamente el de los enlaces de esta página.
+     */
+    formData.set("locale", locale);
 
     const result = await completeProfile(formData);
 
@@ -134,7 +157,7 @@ export function CompleteProfileForm({ redirectTo }: { redirectTo: string }) {
       <form method="post" onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-3">
       {formError ? <FormAlert>{formError}</FormAlert> : null}
 
-      <AccountFields disabled={isSaving} />
+      <AccountFields disabled={isSaving} common={common} />
 
       {/*
         **Two answers, not one.** This was a single checkbox reading "Autorizo el tratamiento de

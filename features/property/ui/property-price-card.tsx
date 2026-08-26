@@ -1,18 +1,30 @@
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { ArrowRightIcon, CalendarIcon, InfoIcon } from "lucide-react";
 
 import { applicationRoute, applyToPropertyRoute, LOGIN_ROUTE } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 
-import { LEASE_TERM_LABELS, propertyMonthlyCost, type Property } from "../domain/property";
+import { propertyMonthlyCost, type Property } from "../domain/property";
+import { currentLocale, dictionary } from "@/shared/i18n/server";
+import { LOCALE_HTML_LANG } from "@/shared/i18n";
 
-/** `2026-12-07` → `7 de diciembre de 2026`, in Colombian time. */
-function formatDay(day: string): string {
-  return new Date(`${day}T12:00:00`).toLocaleDateString("es-CO", {
+import { propertyLabels } from "../domain/labels";
+
+/**
+ * `2026-12-07` → `7 de diciembre de 2026`, or `December 7, 2026`, in Colombian time.
+ *
+ * The **locale** decides the wording and the order; the **time zone** stays `America/Bogota` either
+ * way, because when a flat becomes available is a fact about Colombia and not about the reader.
+ * Noon rather than midnight for the same reason it always was: a bare `YYYY-MM-DD` parses as UTC
+ * midnight, which in Bogotá is the previous evening.
+ */
+function formatDay(day: string, locale: string): string {
+  return new Date(`${day}T12:00:00`).toLocaleDateString(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
+    timeZone: "America/Bogota",
   });
 }
 
@@ -28,7 +40,7 @@ function formatDay(day: string): string {
  * sign in and comes back here, the owner is told it is theirs, and someone already in a process
  * is sent to the process instead of being offered a second one.
  */
-export function PropertyPriceCard({
+export async function PropertyPriceCard({
   property,
   applyState,
   applicationId,
@@ -43,34 +55,37 @@ export function PropertyPriceCard({
   /** When `applyState` is `open` or `rejected`: the process this reader already has. */
   readonly applicationId?: string;
 }) {
+  const [locale, copy] = await Promise.all([currentLocale(), dictionary()]);
+  const t = copy.property;
+  const labels = propertyLabels(locale);
   const monthly = propertyMonthlyCost(property);
 
   return (
     <aside className="rounded-2xl border border-border bg-card p-5 shadow-xs">
-      <p className="text-sm text-muted-foreground">Canon mensual</p>
+      <p className="text-sm text-muted-foreground">{t.monthlyRent}</p>
       <p className="mt-1 text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
         {formatCOP(monthly)}
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
         {property.adminFee > 0
-          ? `${formatCOP(property.rent)} + ${formatCOP(property.adminFee)} de administración`
-          : "Sin cuota de administración"}
+          ? t.rentPlusAdminShort(formatCOP(property.rent), formatCOP(property.adminFee))
+          : t.noAdminFee}
       </p>
 
       <dl className="mt-5 space-y-2.5 border-t border-border pt-5 text-sm">
         <div className="flex items-start justify-between gap-3">
-          <dt className="text-muted-foreground">Duración mínima</dt>
+          <dt className="text-muted-foreground">{t.minimumTermLabel}</dt>
           <dd className="text-right font-medium text-foreground">
-            {LEASE_TERM_LABELS[property.minLeaseMonths]}
+            {labels.lease[property.minLeaseMonths]}
           </dd>
         </div>
         <div className="flex items-start justify-between gap-3">
           <dt className="flex items-center gap-1.5 text-muted-foreground">
             <CalendarIcon className="size-4" aria-hidden="true" />
-            Disponible desde
+            {t.availableFrom}
           </dt>
           <dd className="text-right font-medium text-foreground">
-            {formatDay(property.availableFrom)}
+            {formatDay(property.availableFrom, LOCALE_HTML_LANG[locale])}
           </dd>
         </div>
       </dl>
@@ -78,12 +93,12 @@ export function PropertyPriceCard({
       <div className="mt-5 space-y-2">
         {applyState === "own" ? (
           <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-            Este inmueble es tuyo. Las postulaciones que reciba las verás en Arriendos.
+            {t.ownListing}
           </p>
         ) : applyState === "open" && applicationId ? (
           <Button asChild variant="accent" size="xl" className="w-full">
             <Link href={applicationRoute(applicationId)}>
-              Ver mi proceso
+              {t.seeMyProcess}
               <ArrowRightIcon aria-hidden="true" />
             </Link>
           </Button>
@@ -95,12 +110,12 @@ export function PropertyPriceCard({
           */
           <>
             <p className="rounded-xl bg-muted px-4 py-3 text-sm text-muted-foreground">
-              El propietario no continuó con tu postulación a este inmueble.
+              {t.applicationRejected}
             </p>
             {applicationId ? (
               <Button asChild variant="outline" size="lg" className="w-full">
                 <Link href={applicationRoute(applicationId)}>
-                  Ver mi postulación
+                  {t.seeMyApplication}
                   <ArrowRightIcon aria-hidden="true" />
                 </Link>
               </Button>
@@ -116,14 +131,14 @@ export function PropertyPriceCard({
                     : applyToPropertyRoute(property.slug)
                 }
               >
-                Postularme
+                {t.apply}
               </Link>
             </Button>
             <p className="flex items-start gap-1.5 text-xs text-muted-foreground">
               <InfoIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden="true" />
               {applyState === "anonymous"
-                ? "Necesitas una cuenta para postularte. Es gratis y toma un minuto."
-                : "Postularte no te compromete a nada: el propietario decide y tú también."}
+                ? t.needAccount
+                : t.applyingCommitsNothing}
             </p>
           </>
         )}

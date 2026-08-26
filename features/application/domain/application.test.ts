@@ -1,3 +1,4 @@
+import { dictionaryFor } from "@/shared/i18n/dictionary";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -15,12 +16,8 @@ import {
   applicationCode,
   stageProgressLabel,
   stageState,
-  COMPLETED_LABEL,
   STAGES,
   stageDescription,
-  STAGE_DESCRIPTIONS,
-  STAGE_DESCRIPTIONS_LANDLORD,
-  STAGE_LABELS,
   type Application,
   type Stage,
   UNBUILT_STAGES,
@@ -34,6 +31,17 @@ const at = (
 
 /** El proceso terminado: la última etapa, y la marca que escribe el canon confirmado. */
 const finished = at("first_payment", "open", "2026-10-01T15:00:00.000Z");
+
+/**
+ * The words are the dictionary's now, so the tests take a copy handle.
+ *
+ * **Spanish for the assertions that are about wording** — "does not tell the landlord to wait for
+ * the landlord" only means anything against real sentences — and English wherever the assertion is
+ * about the *mechanism* rather than the words, which is what makes the two-voice rule provable in
+ * both languages rather than in one.
+ */
+const ES = dictionaryFor("es").application;
+const EN = dictionaryFor("en").application;
 
 describe("the eight stages", () => {
   it("are eight, in the agreed order, and end with the first canon", () => {
@@ -86,15 +94,22 @@ describe("the eight stages", () => {
    */
   it("has no deposit stage, and does have the guarantee that replaces it", () => {
     expect(STAGES).not.toContain("deposit");
-    expect(Object.values(STAGE_LABELS).join(" ").toLowerCase()).not.toContain("depósito");
+    /*
+     * Both languages: the word to keep out is "depósito", and its English counterpart is "deposit" —
+     * a stage called that would be just as illegal under Ley 820 for being in English.
+     */
+    expect(Object.values(ES.stageLabels).join(" ").toLowerCase()).not.toContain("depósito");
+    expect(Object.values(EN.stageLabels).join(" ").toLowerCase()).not.toContain("deposit");
     expect(STAGES).toContain("guarantee");
   });
 
   it("names and explains every one of them, to each side", () => {
     for (const stage of STAGES) {
-      expect(STAGE_LABELS[stage]).toBeTruthy();
-      expect(STAGE_DESCRIPTIONS[stage]).toBeTruthy();
-      expect(STAGE_DESCRIPTIONS_LANDLORD[stage]).toBeTruthy();
+      for (const copy of [ES, EN]) {
+        expect(copy.stageLabels[stage]).toBeTruthy();
+        expect(copy.stageDescriptions[stage]).toBeTruthy();
+        expect(copy.stageDescriptionsLandlord[stage]).toBeTruthy();
+      }
     }
   });
 
@@ -103,10 +118,20 @@ describe("the eight stages", () => {
    * tells the tenant to wait for a call is the sentence that tells the landlord to make it.
    */
   it("does not tell the landlord to wait for the landlord", () => {
-    expect(stageDescription("interview", false)).toMatch(/El propietario propondrá/);
-    expect(stageDescription("interview", true)).toMatch(/Propón una fecha/);
+    expect(stageDescription("interview", false, ES)).toMatch(/El propietario propondrá/);
+    expect(stageDescription("interview", true, ES)).toMatch(/Propón una fecha/);
     for (const stage of STAGES) {
-      expect(stageDescription(stage, true)).not.toMatch(/El propietario te/);
+      expect(stageDescription(stage, true, ES)).not.toMatch(/El propietario te/);
+    }
+
+    /*
+     * And the same rule in English, which is the half a single-language test could not state: the
+     * landlord is never told to wait for the landlord, whichever words are being used.
+     */
+    expect(stageDescription("interview", false, EN)).toMatch(/The landlord will propose/);
+    expect(stageDescription("interview", true, EN)).toMatch(/Propose a time/);
+    for (const stage of STAGES) {
+      expect(stageDescription(stage, true, EN)).not.toMatch(/The landlord will/);
     }
   });
 
@@ -214,14 +239,14 @@ describe("progress", () => {
    * numerando pasos es lo que no distingue un proceso acabado de uno atascado en el último.
    */
   it("terminado no es un paso: es el proceso completado", () => {
-    expect(stageProgressLabel(finished)).toBe("Proceso completado");
-    expect(stageProgressLabel(finished)).not.toMatch(/Paso/);
+    expect(stageProgressLabel(finished, ES)).toBe("Proceso completado");
+    expect(stageProgressLabel(finished, ES)).not.toMatch(/Paso/);
   });
 
   it("counts from one, not from zero", () => {
-    expect(stageProgressLabel(at("submitted"))).toBe("Paso 1 de 8");
-    expect(stageProgressLabel(at("visit"))).toBe("Paso 2 de 8");
-    expect(stageProgressLabel(at("first_payment"))).toBe("Paso 8 de 8");
+    expect(stageProgressLabel(at("submitted"), ES)).toBe("Paso 1 de 8");
+    expect(stageProgressLabel(at("visit"), ES)).toBe("Paso 2 de 8");
+    expect(stageProgressLabel(at("first_payment"), ES)).toBe("Paso 8 de 8");
   });
 
   it("fills the bar only when the process is at the last stage", () => {
@@ -237,16 +262,16 @@ describe("progress", () => {
  */
 describe("processStageLabel / processDescription", () => {
   it("nombra la etapa mientras el proceso corre", () => {
-    expect(processStageLabel(at("interview"))).toBe(STAGE_LABELS.interview);
-    expect(processDescription(at("interview"), false)).toBe(STAGE_DESCRIPTIONS.interview);
-    expect(processDescription(at("interview"), true)).toBe(STAGE_DESCRIPTIONS_LANDLORD.interview);
+    expect(processStageLabel(at("interview"), ES)).toBe(ES.stageLabels.interview);
+    expect(processDescription(at("interview"), false, ES)).toBe(ES.stageDescriptions.interview);
+    expect(processDescription(at("interview"), true, ES)).toBe(ES.stageDescriptionsLandlord.interview);
   });
 
   it("y una vez terminado dice el arriendo, no la etapa", () => {
-    expect(processStageLabel(finished)).toBe(COMPLETED_LABEL);
-    expect(processStageLabel(finished)).not.toBe(STAGE_LABELS.first_payment);
-    expect(processDescription(finished, false)).toMatch(/El proceso terminó/);
-    expect(processDescription(finished, true)).toMatch(/El proceso terminó/);
+    expect(processStageLabel(finished, ES)).toBe(ES.completedLabel);
+    expect(processStageLabel(finished, ES)).not.toBe(ES.stageLabels.first_payment);
+    expect(processDescription(finished, false, ES)).toMatch(/El proceso terminó/);
+    expect(processDescription(finished, true, ES)).toMatch(/El proceso terminó/);
   });
 });
 
@@ -280,15 +305,15 @@ describe("canAdvance / canClose", () => {
 
 describe("closedAtLabel", () => {
   it("says nothing while the process is open", () => {
-    expect(closedAtLabel(at("interview"))).toBeNull();
+    expect(closedAtLabel(at("interview"), ES)).toBeNull();
   });
 
   // "Rejected at the interview" and "rejected on arrival" are different stories.
   it("keeps the stage it stopped at", () => {
-    expect(closedAtLabel(at("interview", "rejected"))).toBe(
+    expect(closedAtLabel(at("interview", "rejected"), ES)).toBe(
       'Rechazada en la etapa "Entrevista con el propietario"',
     );
-    expect(closedAtLabel(at("submitted", "withdrawn"))).toBe(
+    expect(closedAtLabel(at("submitted", "withdrawn"), ES)).toBe(
       'Retirada en la etapa "Postulación recibida"',
     );
   });

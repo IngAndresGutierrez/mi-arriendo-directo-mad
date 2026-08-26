@@ -4,12 +4,20 @@
  * A pure function: it receives the hour already resolved, it never reads the clock. That
  * way the test can pin it and the greeting does not depend on where the server runs.
  */
-export type Greeting = "Buenos días" | "Buenas tardes" | "Buenas noches";
+/**
+ * **Which greeting, not the greeting itself.**
+ *
+ * It used to return the Spanish sentence. What this function decides is the *time of day* — a fact
+ * about the clock, identical in every language — so it returns the key and `/inicio` looks the
+ * words up. That keeps the function pure and its test about the boundaries (05:00, 12:00, 19:00)
+ * rather than about wording.
+ */
+export type Greeting = "greetingMorning" | "greetingAfternoon" | "greetingEvening";
 
 export function greetingForHour(hour: number): Greeting {
-  if (hour >= 5 && hour < 12) return "Buenos días";
-  if (hour >= 12 && hour < 19) return "Buenas tardes";
-  return "Buenas noches";
+  if (hour >= 5 && hour < 12) return "greetingMorning";
+  if (hour >= 12 && hour < 19) return "greetingAfternoon";
+  return "greetingEvening";
 }
 
 /** The product's time zone. The greeting is computed in Colombian time, not the server's. */

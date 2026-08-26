@@ -1,4 +1,5 @@
-import Link from "next/link";
+import { dictionary } from "@/shared/i18n/server";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { ArrowRightIcon, FileTextIcon } from "lucide-react";
 
 import { applicationRoute, PROPERTIES_ROUTE, CONTRACTS_ROUTE } from "@/shared/auth/routes";
@@ -23,7 +24,7 @@ const SHOWN = 3;
  * a product that lost their work. What a person has on this platform today *is* the process: the
  * stage it is on and whose turn it is. That is what this shows now.
  */
-export function RentalsCard({
+export async function RentalsCard({
   applications,
   viewerUid,
 }: {
@@ -31,6 +32,9 @@ export function RentalsCard({
   readonly applications: readonly Application[];
   readonly viewerUid: string;
 }) {
+  /* A Server Component, so it reads the language itself. */
+  const copy = (await dictionary()).application;
+
   if (applications.length === 0) {
     return (
       <section className="rounded-2xl border border-border bg-card p-5">
@@ -90,7 +94,7 @@ export function RentalsCard({
                   </p>
                   {/* La etapa, no solo el estado: es la única cosa que cambia de un día a otro. */}
                   <p className="mt-0.5 text-sm text-muted-foreground">
-                    {processStageLabel(application)} · {stageProgressLabel(application)}
+                    {processStageLabel(application, copy)} · {stageProgressLabel(application, copy)}
                   </p>
                   <p className="mt-0.5 text-sm text-muted-foreground">
                     {formatCOP(application.monthlyCost)} al mes ·{" "}

@@ -95,8 +95,18 @@ export const LEGAL_DOCUMENTS: Readonly<Record<ConsentKind, LegalDocument>> = {
  * cookie, not on a person's record. It carries a version so the page can say when it last
  * changed, which is the only thing a reader needs from it.
  */
-export const COOKIE_POLICY_VERSION = 1;
-export const COOKIE_POLICY_EFFECTIVE_DATE = FIRST_EFFECTIVE_DATE;
+/*
+ * **Version 2 (2026-08-25): the `locale` cookie was added to the list.**
+ *
+ * The list on `/cookies` names every cookie this product sets, by name — that enumeration *is* the
+ * document — so shipping a fifth cookie while the page still declared version 1 would have made the
+ * page's own "última actualización" a false statement about itself. There is no re-consent to ask
+ * for: `locale` is a necessary cookie (two characters of UI preference, no personal data, the same
+ * category as `sidebar`), and nobody consents to those. That is exactly why this constant has no
+ * `ConsentKind` — the version is an information duty, not an authorisation.
+ */
+export const COOKIE_POLICY_VERSION = 2;
+export const COOKIE_POLICY_EFFECTIVE_DATE = "2026-08-25";
 
 /** The version in force for one document. */
 export function currentVersion(kind: ConsentKind): number {

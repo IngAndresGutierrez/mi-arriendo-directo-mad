@@ -1,7 +1,8 @@
 "use client";
 
+import { useLocale, type Dictionary } from "@/shared/i18n";
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { useRouter } from "next/navigation";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -57,7 +58,19 @@ type State =
  * **`signupSchema` rather than a new schema**, so the rules a password must meet are defined once.
  * A reset screen that quietly accepted a weaker password than signup would be a way around them.
  */
-export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
+export function NewPasswordForm({
+  oobCode,
+  copy,
+}: {
+  readonly oobCode: string;
+  /**
+   * The copy this renders, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing `shared/i18n/dictionary` here would put **both** languages into
+   * the browser bundle.
+   */
+  readonly copy: Dictionary["auth"];
+}) {
+  const locale = useLocale();
   const router = useRouter();
   /*
    * The "no code at all" case is **initial state, not an effect**. Setting it synchronously inside
@@ -108,7 +121,7 @@ export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
   if (state.step === "checking") {
     return (
       <p role="status" className="text-muted-foreground">
-        Comprobando el enlace…
+        {copy.checkingLink}
       </p>
     );
   }
@@ -119,12 +132,12 @@ export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
     return (
       <div>
         <h1 className="text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
-          {missing ? "Aquí no hay nada que cambiar" : "El enlace no sirve"}
+          {missing ? copy.nothingToChange : copy.linkDead}
         </h1>
         <p className="mt-2 text-muted-foreground">
           {missing
-            ? "Esta pantalla necesita el código que viene en el correo de recuperación. Si acabas de elegir tu contraseña nueva, ya está guardada: entra con ella."
-            : "Este enlace ya no sirve: pudo vencerse o haberse usado. Pide uno nuevo."}
+            ? copy.missingCode
+            : copy.linkDeadNote}
         </p>
 
         {/*
@@ -135,12 +148,12 @@ export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
           <Button asChild variant={missing ? "accent" : "brand"} size="xl">
             <Link href={missing ? LOGIN_ROUTE : PASSWORD_RESET_ROUTE}>
-              {missing ? "Iniciar sesión" : "Pedir un enlace nuevo"}
+              {missing ? copy.signIn : copy.askNewLink}
             </Link>
           </Button>
           <Button asChild variant={missing ? "brand" : "accent"} size="xl">
             <Link href={missing ? PASSWORD_RESET_ROUTE : LOGIN_ROUTE}>
-              {missing ? "Pedir un enlace nuevo" : "Iniciar sesión"}
+              {missing ? copy.askNewLink : copy.signIn}
             </Link>
           </Button>
         </div>
@@ -159,15 +172,14 @@ export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
         </span>
 
         <h1 className="mt-4 text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
-          Contraseña actualizada
+          {copy.passwordChanged}
         </h1>
         <p role="status" className="mt-2 text-muted-foreground">
-          Ya puedes entrar con tu contraseña nueva. Si habías iniciado sesión en otro dispositivo,
-          tendrás que volver a entrar allí.
+          {copy.passwordChangedNote}
         </p>
 
         <Button asChild variant="accent" size="xl" className="mt-8">
-          <Link href={LOGIN_ROUTE}>Iniciar sesión</Link>
+          <Link href={LOGIN_ROUTE}>{copy.signIn}</Link>
         </Button>
       </div>
     );
@@ -198,7 +210,7 @@ export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
              */
             router.refresh();
           } catch (cause) {
-            setError(authErrorMessage(cause));
+            setError(authErrorMessage(cause, locale));
           }
         })}
         noValidate
@@ -208,21 +220,21 @@ export function NewPasswordForm({ oobCode }: { readonly oobCode: string }) {
 
         <TextField
           id="password"
-          label="Contraseña nueva"
+          label={copy.newPassword}
           type="password"
           autoComplete="new-password"
           placeholder="••••••••"
           // The checklist describes the field, so it goes through `hint` and lands in
           // `aria-describedby`. Rendered as a sibling it would be a list nothing points at.
-          hint={<PasswordRequirements id={REQUIREMENTS_ID} value={password} />}
+          hint={<PasswordRequirements id={REQUIREMENTS_ID} value={password} copy={copy} />}
           error={errors.password?.message}
           disabled={isSubmitting}
           autoFocus
           {...register("password")}
         />
 
-        <SubmitButton loading={isSubmitting} disabled={isSubmitting} loadingLabel="Guardando…">
-          Guardar la contraseña
+        <SubmitButton loading={isSubmitting} disabled={isSubmitting} loadingLabel={copy.savingPassword}>
+          {copy.savePassword}
         </SubmitButton>
       </form>
     </>

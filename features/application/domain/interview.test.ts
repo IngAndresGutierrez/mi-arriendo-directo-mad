@@ -1,3 +1,4 @@
+import { dictionaryFor } from "@/shared/i18n/dictionary";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -26,6 +27,8 @@ const PROPOSED: Interview = {
   declineNote: "",
   feedback: null,
 };
+
+const ES = dictionaryFor("es").interview;
 
 describe("interviewState", () => {
   it("is `none` while nothing has been proposed", () => {
@@ -87,10 +90,10 @@ describe("interviewBlocker", () => {
   });
 
   it("says why, differently to each side", () => {
-    expect(interviewBlockerMessage("not_proposed", true)).toContain("Propón");
-    expect(interviewBlockerMessage("not_proposed", false)).toContain("todavía no");
-    expect(interviewBlockerMessage("not_confirmed", false)).toContain("Confirma");
-    expect(interviewBlockerMessage(null, true)).toBeNull();
+    expect(interviewBlockerMessage("not_proposed", true, ES)).toContain("Propón");
+    expect(interviewBlockerMessage("not_proposed", false, ES)).toContain("todavía no");
+    expect(interviewBlockerMessage("not_confirmed", false, ES)).toContain("Confirma");
+    expect(interviewBlockerMessage(null, true, ES)).toBeNull();
   });
 });
 

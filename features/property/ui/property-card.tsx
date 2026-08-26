@@ -1,5 +1,9 @@
+import { LOCALE_HTML_LANG } from "@/shared/i18n";
+import { currentLocale, dictionary } from "@/shared/i18n/server";
+
+import { propertyLabels } from "../domain/labels";
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import {
   BathIcon,
   BedDoubleIcon,
@@ -14,20 +18,24 @@ import { formatCOP } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 
 import {
-  LEASE_TERM_LABELS,
-  PARKING_LABELS,
+
   propertyMonthlyCost,
   publicLocationLabel,
-  PROPERTY_TYPE_LABELS,
   type Property,
 } from "../domain/property";
 
 /** `2026-09-01` as `1 de septiembre de 2026`, in Bogotá time so the day cannot slide. */
-function availableFromLabel(day: string): string {
+function availableFromLabel(day: string, locale: string): string {
   const [year, month, date] = day.split("-").map(Number);
   if (!year || !month || !date) return day;
 
-  return new Intl.DateTimeFormat("es-CO", {
+  /*
+   * **The locale picks the wording and the order; the time zone stays Bogotá.** When a flat becomes
+   * available is a fact about Colombia, not about where the reader is sitting — so `America/Bogota`
+   * is not a default to be localised away. This was `es-CO` hard-coded, which left "24 de agosto de
+   * 2026" sitting inside an otherwise English card.
+   */
+  return new Intl.DateTimeFormat(locale, {
     day: "numeric",
     month: "long",
     year: "numeric",
@@ -45,7 +53,7 @@ function availableFromLabel(day: string): string {
  * The street address is deliberately absent: the card carries neighbourhood and city, and the
  * exact address is only revealed to an approved tenant.
  */
-export function PropertyCard({
+export async function PropertyCard({
   property,
   eager = false,
 }: {
@@ -59,6 +67,14 @@ export function PropertyCard({
    */
   readonly eager?: boolean;
 }) {
+  /*
+   * A Server Component, so it reads the language itself rather than taking it as a prop: the card is
+   * rendered from three different places (the catalogue, the landing's showcase, a search) and
+   * threading a `labels` prop through each of them is three chances to forget one.
+   */
+  const [locale, copy] = await Promise.all([currentLocale(), dictionary()]);
+  const t = copy.property;
+  const labels = propertyLabels(locale);
   const cover = property.photos[0];
   const href = propertyDetailRoute(property.slug);
   const total = propertyMonthlyCost(property);
@@ -89,14 +105,14 @@ export function PropertyCard({
             />
           ) : (
             <span className="flex aspect-4/3 w-full items-center justify-center bg-muted text-xs text-muted-foreground sm:aspect-auto sm:h-full">
-              Sin fotos
+              {t.noPhotos}
             </span>
           )}
 
           <span className="absolute top-3 left-3 flex flex-wrap gap-1.5">
-            <Badge>{PROPERTY_TYPE_LABELS[property.type]}</Badge>
-            {property.furnished && <Badge tone="accent">Amoblado</Badge>}
-            {property.petsAllowed && <Badge>Acepta mascotas</Badge>}
+            <Badge>{labels.types[property.type]}</Badge>
+            {property.furnished && <Badge tone="accent">{t.furnished}</Badge>}
+            {property.petsAllowed && <Badge>{t.petsAllowed}</Badge>}
           </span>
         </Link>
 
@@ -115,22 +131,22 @@ export function PropertyCard({
 
           <ul className="grid gap-x-6 gap-y-2 text-sm text-foreground sm:grid-cols-2">
             <Fact icon={<BedDoubleIcon className="size-4" aria-hidden="true" />}>
-              {property.bedrooms === 1 ? "1 habitación" : `${property.bedrooms} habitaciones`}
+              {t.bedroomsFact(property.bedrooms)}
             </Fact>
             <Fact icon={<RulerIcon className="size-4" aria-hidden="true" />}>
               {property.areaM2} m²
             </Fact>
             <Fact icon={<BathIcon className="size-4" aria-hidden="true" />}>
-              {property.bathrooms === 1 ? "1 baño" : `${property.bathrooms} baños`}
+              {t.bathroomsFact(property.bathrooms)}
             </Fact>
             <Fact icon={<LayersIcon className="size-4" aria-hidden="true" />}>
-              Estrato {property.stratum}
+              {t.stratum(property.stratum)}
             </Fact>
             <Fact icon={<CarIcon className="size-4" aria-hidden="true" />}>
-              {PARKING_LABELS[property.parking]}
+              {labels.parking[property.parking]}
             </Fact>
             <Fact icon={<CalendarRangeIcon className="size-4" aria-hidden="true" />}>
-              Mínimo {LEASE_TERM_LABELS[property.minLeaseMonths]}
+              {t.minimumTerm(labels.lease[property.minLeaseMonths])}
             </Fact>
           </ul>
 
@@ -138,17 +154,17 @@ export function PropertyCard({
             <div>
               <p className="text-2xl font-semibold text-primary dark:text-foreground">
                 {formatCOP(total)}
-                <span className="text-sm font-normal text-muted-foreground"> al mes</span>
+                <span className="text-sm font-normal text-muted-foreground"> {copy.common.perMonth}</span>
               </p>
               <p className="text-xs text-muted-foreground">
                 {property.adminFee > 0
-                  ? `Canon ${formatCOP(property.rent)} + administración ${formatCOP(property.adminFee)}`
-                  : "Administración incluida"}
+                  ? t.rentPlusAdmin(formatCOP(property.rent), formatCOP(property.adminFee))
+                  : t.adminIncluded}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Disponible desde{" "}
+                {t.availableFrom}{" "}
                 <strong className="font-medium text-foreground">
-                  {availableFromLabel(property.availableFrom)}
+                  {availableFromLabel(property.availableFrom, LOCALE_HTML_LANG[locale])}
                 </strong>
               </p>
             </div>
@@ -161,7 +177,7 @@ export function PropertyCard({
               lleva a la misma página desde el título.
             */}
             <Button asChild variant="outline" size="lg">
-              <Link href={href}>Ver inmueble</Link>
+              <Link href={href}>{t.seeProperty}</Link>
             </Button>
           </div>
         </div>

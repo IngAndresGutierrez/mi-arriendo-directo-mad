@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useCallback, useState, useTransition } from "react";
 import dynamic from "next/dynamic";
 import { MapPinIcon, SearchIcon, XIcon } from "lucide-react";
@@ -42,6 +43,7 @@ export function LocationPicker({
   value,
   onChange,
   area,
+  copy,
 }: {
   readonly value: GeoPoint | null;
   readonly onChange: (point: GeoPoint | null) => void;
@@ -51,6 +53,11 @@ export function LocationPicker({
     readonly city: string;
     readonly department: string;
   };
+  /**
+   * Its words, resolved by the page that mounts the form. A prop and not a dictionary import: this
+   * is a Client Component, and importing the dictionary would put both languages in the bundle.
+   */
+  readonly copy: Dictionary["propertyForm"];
 }) {
   const [focus, setFocus] = useState<{ point: GeoPoint; nonce: number } | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -79,27 +86,30 @@ export function LocationPicker({
     [onChange],
   );
 
+  /*
+   * `copy.zoomIn` is in the deps now that the sentence comes from a prop: the callback is handed to
+   * the map and held across renders, so an empty array would freeze the message in whichever
+   * language was loaded when the picker first mounted.
+   */
   const tooFar = useCallback(() => {
-    setNotice("Acerca más el mapa para marcar el inmueble.");
-  }, []);
+    setNotice(copy.zoomIn);
+  }, [copy.zoomIn]);
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <Label htmlFor="address-map" className="block">
-          Ubicación en el mapa
+          {copy.mapLabel}
         </Label>
-        <FieldHint id="address-map-hint" label="la ubicación en el mapa">
-          En el anuncio se publica una zona de unos {APPROX_RADIUS_M} metros a la redonda, nunca
-          este punto: la ubicación exacta solo la ves tú, igual que la dirección.
+        <FieldHint id="address-map-hint" label={copy.mapHintField}>
+          {copy.mapHintBefore} {APPROX_RADIUS_M} {copy.mapHintAfter}
         </FieldHint>
-        <span className="text-sm text-muted-foreground">(opcional)</span>
+        <span className="text-sm text-muted-foreground">{copy.optional}</span>
       </div>
 
       <p className="text-sm text-muted-foreground">
-        Mueve el mapa hasta que la cruz quede sobre el inmueble. Con el teclado: flechas para
-        mover, <kbd className="rounded border border-border px-1 text-xs">+</kbd> y{" "}
-        <kbd className="rounded border border-border px-1 text-xs">−</kbd> para acercar.
+        {copy.mapInstructions}{" "}<kbd className="rounded border border-border px-1 text-xs">+</kbd> y{" "}
+        <kbd className="rounded border border-border px-1 text-xs">−</kbd> {copy.mapInstructionsZoom}
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -111,7 +121,7 @@ export function LocationPicker({
           disabled={!canSearch || searching}
         >
           <SearchIcon className="size-4" aria-hidden="true" />
-          {searching ? "Buscando el barrio…" : "Centrar en el barrio"}
+          {searching ? copy.searchingNeighborhood : copy.centerOnNeighborhood}
         </Button>
         {value && (
           <Button
@@ -148,10 +158,10 @@ export function LocationPicker({
         <span className={value ? "text-foreground" : "text-muted-foreground"}>
           {value ? (
             <>
-              Punto marcado: <strong className="font-medium">{formatPoint(value)}</strong>
+              {copy.pointMarked} <strong className="font-medium">{formatPoint(value)}</strong>
             </>
           ) : (
-            "Sin punto en el mapa. Puedes publicar sin marcarlo."
+            copy.noPoint
           )}
         </span>
       </p>

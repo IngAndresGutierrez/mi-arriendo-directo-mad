@@ -1,3 +1,4 @@
+import { dictionaryFor } from "@/shared/i18n/dictionary";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -9,7 +10,6 @@ import {
   visitTime,
   visitWhen,
   VISIT_OUTCOMES,
-  VISIT_STATE_LABELS,
   type Visit,
   type VisitOutcome,
 } from "./visit";
@@ -31,6 +31,8 @@ const visit = (over: Partial<Visit> = {}): Visit => ({
 
 const withVerdict = (result: VisitOutcome, note = "Me gustó mucho la luz."): Visit =>
   visit({ confirmedAt: "2026-09-02T15:00:00.000Z", verdict: { result, note, at: AT } });
+
+const ES = dictionaryFor("es").visit;
 
 describe("visitState", () => {
   it("va de sin agendar a confirmada según lo que haya pasado", () => {
@@ -61,7 +63,7 @@ describe("visitState", () => {
   });
 
   it("nombra todos los estados", () => {
-    for (const state of Object.values(VISIT_STATE_LABELS)) {
+    for (const state of Object.values(ES.states)) {
       expect(state).toBeTruthy();
     }
   });
@@ -87,14 +89,14 @@ describe("visitBlocker", () => {
   it("le dice a cada parte algo distinto, y nunca le habla al propietario de sí mismo", () => {
     const blockers = ["not_proposed", "not_confirmed", "no_verdict", "not_interested"] as const;
     for (const blocker of blockers) {
-      const landlord = visitBlockerMessage(blocker, true);
-      const tenant = visitBlockerMessage(blocker, false);
+      const landlord = visitBlockerMessage(blocker, true, ES);
+      const tenant = visitBlockerMessage(blocker, false, ES);
       expect(landlord).toBeTruthy();
       expect(tenant).toBeTruthy();
       expect(landlord).not.toBe(tenant);
       expect(landlord).not.toMatch(/El propietario te/);
     }
-    expect(visitBlockerMessage(null, true)).toBeNull();
+    expect(visitBlockerMessage(null, true, ES)).toBeNull();
   });
 
   /*
@@ -103,8 +105,8 @@ describe("visitBlocker", () => {
    * el proceso quedaría clavado sin decir cómo salir.
    */
   it("cuando no le interesó, dice cómo se sale de ahí", () => {
-    expect(visitBlockerMessage("not_interested", true)).toMatch(/rechazar|proponer otra/i);
-    expect(visitBlockerMessage("not_interested", false)).toMatch(/retirar|cambiaste de opinión/i);
+    expect(visitBlockerMessage("not_interested", true, ES)).toMatch(/rechazar|proponer otra/i);
+    expect(visitBlockerMessage("not_interested", false, ES)).toMatch(/retirar|cambiaste de opinión/i);
   });
 });
 

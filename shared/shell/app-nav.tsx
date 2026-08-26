@@ -2,6 +2,7 @@
 
 // Client, not server: it passes lucide icons to `NavItem` as *components*, and a function
 // cannot cross the Server → Client boundary.
+import type { Dictionary } from "@/shared/i18n";
 import {
   BuildingIcon,
   CalendarClockIcon,
@@ -48,24 +49,24 @@ import { SignOutButton } from "./sign-out-button";
  * adds to, so there is one answer to "where are my properties?" instead of two.
  */
 const NAV: readonly NavEntry[] = [
-  { label: "Inicio", icon: HouseIcon, href: HOME_ROUTE },
+  { label: "home", icon: HouseIcon, href: HOME_ROUTE },
   {
-    label: "Mis inmuebles",
+    label: "myProperties",
     icon: BuildingIcon,
     href: MY_PROPERTIES_ROUTE,
     activeOn: [PUBLISH_PROPERTY_ROUTE],
   },
-  { label: "Contratos", icon: FileTextIcon, href: CONTRACTS_ROUTE },
+  { label: "contracts", icon: FileTextIcon, href: CONTRACTS_ROUTE },
   /*
    * The other half of the product: the tenancy that runs after the contract is signed. It was
    * disabled here rather than absent for exactly this reason — a menu that stopped at "Contratos"
    * said the year that follows a signature did not exist.
    */
-  { label: "Arriendos", icon: CalendarClockIcon, href: RENTALS_ROUTE },
+  { label: "rentals", icon: CalendarClockIcon, href: RENTALS_ROUTE },
   {
-    label: "Perfil de inquilino",
+    label: "tenantProfile",
     // Two words fit under an icon in the narrow rail; three do not.
-    shortLabel: "Mi perfil",
+    shortLabel: "tenantProfileShort",
     icon: IdCardIcon,
     href: TENANT_PROFILE_ROUTE,
   },
@@ -78,8 +79,8 @@ const NAV: readonly NavEntry[] = [
    * para quien tiene inmuebles publicados. Ver los encargos que repartes cuando no tienes nada que
    * delegar es una puerta a un cuarto vacío, y a un inquilino le sobra del todo.
    */
-  { label: "Soporte", icon: LifeBuoyIcon, href: SUPPORT_ROUTE },
-  { label: "Ajustes", icon: SettingsIcon, href: SETTINGS_ROUTE },
+  { label: "support", icon: LifeBuoyIcon, href: SUPPORT_ROUTE },
+  { label: "settings", icon: SettingsIcon, href: SETTINGS_ROUTE },
 ];
 
 /**
@@ -91,6 +92,7 @@ export function AppNav({
   collapsed = false,
   onNavigate,
   showErrands = false,
+  copy,
 }: {
   readonly collapsed?: boolean;
   readonly onNavigate?: () => void;
@@ -101,34 +103,40 @@ export function AppNav({
    * first paint is already right instead of the menu growing an item after hydration.
    */
   readonly showErrands?: boolean;
+  /**
+   * The menu's words, resolved by `AppShell` on the server.
+   *
+   * A prop and not a dictionary import: everything from here down is `"use client"`, and importing
+   * `shared/i18n/dictionary` in the shell would put **both** languages into the browser bundle of
+   * every screen in the product.
+   */
+  readonly copy: Dictionary["nav"];
 }) {
   /*
    * Detrás de "Mis inmuebles", que es de donde se encarga algo: el orden mental es publicar,
    * mirar lo publicado, y después lo que delegaste sobre ello.
    */
+  /* Annotated, or the object literal widens `label` to `string` and stops being a dictionary key. */
+  const errands: NavEntry = { label: "errands", icon: ClipboardListIcon, href: ERRANDS_ROUTE };
   const entries = showErrands
-    ? [
-        ...NAV.slice(0, 2),
-        { label: "Encargos", icon: ClipboardListIcon, href: ERRANDS_ROUTE },
-        ...NAV.slice(2),
-      ]
+    ? [...NAV.slice(0, 2), errands, ...NAV.slice(2)]
     : NAV;
 
   return (
     <nav
-      aria-label="Navegación principal"
+      aria-label={copy.mainNav}
       className={cn("flex min-h-0 flex-1 flex-col py-2", collapsed ? "px-2" : "px-3")}
     >
       <ul className={cn("flex flex-col", collapsed ? "gap-2" : "gap-1")}>
         {entries.map((entry) => (
           <li key={entry.label}>
-            <NavItem {...entry} collapsed={collapsed} onNavigate={onNavigate} />
+            <NavItem {...entry} copy={copy} collapsed={collapsed} onNavigate={onNavigate} />
           </li>
         ))}
       </ul>
 
       <div className="mt-auto pt-4 pb-2">
-        <SignOutButton variant="drawer" collapsed={collapsed} />
+        <SignOutButton variant="drawer" collapsed={collapsed} copy={copy} />
       </div>
     </nav>
   );

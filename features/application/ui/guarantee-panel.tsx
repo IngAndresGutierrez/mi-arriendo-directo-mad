@@ -34,12 +34,10 @@ import {
   canWaiveGuarantee,
   guaranteeState,
   isProviderLink,
-  GUARANTEE_COVERAGES,
   GUARANTEE_PLAN,
-  GUARANTEE_LIMIT_NOTE,
+  GUARANTEE_MAX_MONTHS,
+  type GuaranteeCopy,
   GUARANTEE_PROVIDER,
-  GUARANTEE_WAIVED_NOTE,
-  GUARANTEE_WAIVED_TENANT_NOTE,
   type Guarantee,
 } from "../domain/guarantee";
 
@@ -63,6 +61,7 @@ export function GuaranteePanel({
   registryNumber,
   quote,
   readOnly = false,
+  copy,
 }: {
   readonly applicationId: string;
   readonly guarantee: Guarantee | null;
@@ -90,6 +89,11 @@ export function GuaranteePanel({
     readonly tenantDocumentNumber: string;
   };
   readonly readOnly?: boolean;
+  /**
+   * This panel's words, resolved by the page. A prop and not a dictionary import: this is a Client
+   * Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: GuaranteeCopy;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -145,7 +149,7 @@ export function GuaranteePanel({
         });
         if (!result.ok) {
           setSaveState("idle");
-          setError(result.message ?? "No pudimos guardar el cambio.");
+          setError(result.message ?? copy.saveFailed);
           return;
         }
         saved.current = { tenantLink: tenantLink.trim(), note: note.trim() };
@@ -155,14 +159,19 @@ export function GuaranteePanel({
     }, 800);
 
     return () => clearTimeout(timer);
-  }, [applicationId, isLandlord, note, readOnly, router, tenantLink]);
+    /*
+     * `copy.saveFailed` is in the deps now that the sentence comes from a prop: this autosave runs
+     * 800 ms after typing stops and would otherwise close over whichever language was mounted when
+     * the panel first rendered.
+     */
+  }, [applicationId, copy.saveFailed, isLandlord, note, readOnly, router, tenantLink]);
 
   function run(action: () => Promise<{ ok: boolean; message?: string }>) {
     setError(null);
     startTransition(async () => {
       const result = await action();
       if (!result.ok) {
-        setError(result.message ?? "No pudimos guardar el cambio.");
+        setError(result.message ?? copy.saveFailed);
         return;
       }
       router.refresh();
@@ -190,12 +199,9 @@ export function GuaranteePanel({
                 id="guarantee-required-label"
                 htmlFor="guarantee-required"
                 className="block text-sm font-medium"
-              >
-                Este arriendo lleva póliza de arrendamiento
-              </Label>
+              >{copy.goesWithPolicy}</Label>
               <p className="mt-1 text-sm text-muted-foreground">
-                La ley no exige seguro. Si vas a arrendar sin él, apágalo y el proceso sigue sin
-                pedirte póliza.
+                {copy.lawDoesNotRequire}
               </p>
             </div>
             <Switch
@@ -221,7 +227,7 @@ export function GuaranteePanel({
               id="guarantee-waived-note"
               className="mt-3 rounded-lg border border-brand-panel/25 bg-brand-panel/[0.04] px-3 py-2 text-sm text-brand-panel dark:border-brand-panel-muted/30 dark:bg-brand-panel-muted/10 dark:text-brand-panel-muted"
             >
-              {GUARANTEE_WAIVED_NOTE}
+              {copy.waivedNote}
             </p>
           ) : null}
         </div>
@@ -241,11 +247,11 @@ export function GuaranteePanel({
         */
         showsSwitch ? null : (
           <div className="rounded-xl border border-border bg-background p-4">
-            <p className="text-sm font-medium text-foreground">Sin póliza de arrendamiento</p>
+            <p className="text-sm font-medium text-foreground">{copy.withoutPolicy}</p>
             <p className="mt-1 text-sm text-muted-foreground">
               {isLandlord
-                ? "Este arriendo va sin póliza de arrendamiento, por tu decisión en esta etapa."
-                : GUARANTEE_WAIVED_TENANT_NOTE}
+                ? copy.withoutPolicyByYou
+                : copy.waivedTenantNote}
             </p>
             {guarantee?.note ? (
               <p className="mt-2 text-sm text-muted-foreground">{guarantee.note}</p>
@@ -267,13 +273,13 @@ export function GuaranteePanel({
             )}
           >
             {state === "active" && <CheckIcon className="size-3" aria-hidden="true" />}
-            {GUARANTEE_PROVIDER.product} · {GUARANTEE_PROVIDER.name}
+            {copy.product} · {GUARANTEE_PROVIDER.name}
           </span>
-          <span className="text-xs font-medium text-foreground">Sin codeudor</span>
+          <span className="text-xs font-medium text-foreground">{copy.noCosigner}</span>
         </div>
 
         <ul className="mt-3 space-y-1.5">
-          {GUARANTEE_COVERAGES.map((coverage) => (
+          {Object.values(copy.coverages).map((coverage) => (
             <li key={coverage} className="flex items-start gap-2 text-sm text-muted-foreground">
               <ShieldCheckIcon className="mt-0.5 size-4 shrink-0 text-status-approved" aria-hidden="true" />
               <span>{coverage}</span>
@@ -282,12 +288,12 @@ export function GuaranteePanel({
         </ul>
 
         <p className="mt-3 border-t border-border pt-3 text-sm text-muted-foreground">
-          {GUARANTEE_LIMIT_NOTE}
+          {`${copy.limitNoteBefore} ${GUARANTEE_MAX_MONTHS} ${copy.limitNoteAfter}`}
         </p>
 
         {guarantee?.policyNumber && (
           <p className="mt-3 text-sm">
-            <span className="text-muted-foreground">Póliza </span>
+            <span className="text-muted-foreground">{copy.policy}</span>
             <span className="font-medium text-foreground">{guarantee.policyNumber}</span>
           </p>
         )}
@@ -323,17 +329,17 @@ export function GuaranteePanel({
               prestado el color de "en curso" también decía algo falso.
             */}
             <p className="rounded-lg border border-brand-panel/25 bg-brand-panel/[0.04] px-3 py-2 text-sm text-brand-panel dark:border-brand-panel-muted/30 dark:bg-brand-panel-muted/10 dark:text-brand-panel-muted">
-              <span className="font-semibold">Elige siempre el plan {GUARANTEE_PLAN}.</span> Es el
-              que cubre la administración y la asistencia domiciliaria.
+              <span className="font-semibold">
+                {copy.alwaysChoosePlanBefore} {GUARANTEE_PLAN}.
+              </span>{" "}
+              {copy.planNote}
             </p>
 
             <div className="flex flex-wrap gap-2">
               <Dialog>
                 <DialogTrigger asChild>
                   <Button type="button" variant="brand" size="xl">
-                    <ClipboardListIcon aria-hidden="true" />
-                    Ver los datos del cotizador
-                  </Button>
+                    <ClipboardListIcon aria-hidden="true" />{copy.seeQuoterData}</Button>
                 </DialogTrigger>
                 {/*
                   `sm:max-w-lg` porque el ancho por defecto del diálogo es `sm:max-w-sm` y una
@@ -342,48 +348,46 @@ export function GuaranteePanel({
                 */}
                 <DialogContent className="sm:max-w-lg max-h-[85svh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Lo que te va a pedir el cotizador</DialogTitle>
+                    <DialogTitle>{copy.whatTheQuoterAsks}</DialogTitle>
                     <DialogDescription>
-                      Cópialo de aquí. Los montos se copian sin puntos ni signo, como los pide el
-                      formulario.
+                      {copy.quoterHint}
                     </DialogDescription>
                   </DialogHeader>
 
                   <div className="space-y-2">
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Del inmueble
-              </p>
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{copy.ofTheProperty}</p>
               <CopyRow
-                label="Valor mensual del arrendamiento"
+          copy={copy}
+                label={copy.monthlyRentValue}
                 value={quote ? formatCOP(quote.rent) : ""}
                 copyValue={quote ? String(quote.rent) : ""}
               />
               <CopyRow
-                label="Valor de la administración"
+          copy={copy}
+                label={copy.adminFeeValue}
                 value={quote ? formatCOP(quote.adminFee) : ""}
                 copyValue={quote ? String(quote.adminFee) : ""}
               />
               <CopyRow
-                label="Duración del contrato"
+          copy={copy}
+                label={copy.contractLength}
                 value={quote ? `${quote.leaseMonths} meses` : ""}
                 copyValue={quote ? String(quote.leaseMonths) : ""}
               />
               {/* Departamento y ciudad van por separado: son dos campos, y pegar "Caldas
                   Manizales" en el de ciudad no es lo que el formulario espera. */}
-              <CopyRow label="Departamento" value={quote?.department ?? ""} />
-              <CopyRow label="Ciudad" value={quote?.city ?? ""} />
-              <CopyRow label="Dirección" value={quote?.address ?? ""} />
-              <CopyRow label="Matrícula inmobiliaria" value={registryNumber ?? ""} />
+              <CopyRow label="Departamento" value={quote?.department ?? ""} copy={copy} />
+              <CopyRow label="Ciudad" value={quote?.city ?? ""} copy={copy} />
+              <CopyRow label={copy.address} value={quote?.address ?? ""} copy={copy} />
+              <CopyRow label={copy.registryNumber} value={registryNumber ?? ""} copy={copy} />
             </div>
 
             <div className="space-y-2">
-              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-                Del inquilino
-              </p>
-              <CopyRow label="Nombre completo" value={quote?.tenantName ?? ""} />
-              <CopyRow label="Tipo de documento" value={quote?.tenantDocumentType ?? ""} />
-              <CopyRow label="Número de documento" value={quote?.tenantDocumentNumber ?? ""} />
-                    <CopyRow label="Correo electrónico" value={tenantEmail ?? ""} />
+              <p className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{copy.ofTheTenant}</p>
+              <CopyRow label="Nombre completo" value={quote?.tenantName ?? ""} copy={copy} />
+              <CopyRow label={copy.documentType} value={quote?.tenantDocumentType ?? ""} copy={copy} />
+              <CopyRow label={copy.documentNumber} value={quote?.tenantDocumentNumber ?? ""} copy={copy} />
+                    <CopyRow label={copy.email} value={tenantEmail ?? ""} copy={copy} />
                   </div>
                 </DialogContent>
               </Dialog>
@@ -408,7 +412,7 @@ export function GuaranteePanel({
             la página del arriendo, donde el inquilino lo va a buscar.
           */}
           <div className="space-y-2">
-            <Label htmlFor="guarantee-tenant-link">Enlace de Sura para el inquilino</Label>
+            <Label htmlFor="guarantee-tenant-link">{copy.suraLinkForTenant}</Label>
             <Input
               id="guarantee-tenant-link"
               type="url"
@@ -420,13 +424,11 @@ export function GuaranteePanel({
               onChange={(event) => setTenantLink(event.target.value)}
             />
 
-            <Label htmlFor="guarantee-request-note" className="block pt-2">
-              Nota para el inquilino (opcional)
-            </Label>
+            <Label htmlFor="guarantee-request-note" className="block pt-2">{copy.noteForTenant}</Label>
             <Input
               id="guarantee-request-note"
               className="h-11"
-              placeholder="Ya la solicité, están estudiando el caso."
+              placeholder={copy.alreadyRequested}
               value={note}
               maxLength={300}
               onChange={(event) => setNote(event.target.value)}
@@ -441,16 +443,16 @@ export function GuaranteePanel({
             */}
             <p aria-live="polite" className="text-sm text-muted-foreground">
               {saveState === "saving"
-                ? "Guardando…"
+                ? copy.saving
                 : saveState === "saved"
-                  ? "Guardado. El inquilino ya lo ve."
-                  : `Al terminar la cotización, ${GUARANTEE_PROVIDER.name} te da un enlace para el inquilino. Pégalo aquí: se guarda solo y le avisamos.`}
+                  ? copy.savedTenantSees
+                  : `${copy.linkPromptBefore} ${GUARANTEE_PROVIDER.name} ${copy.linkPromptAfter}`}
             </p>
           </div>
 
           {state !== "active" && (
             <div className="space-y-2">
-              <Label htmlFor="guarantee-policy">Número de la póliza</Label>
+              <Label htmlFor="guarantee-policy">{copy.policyNumber}</Label>
               <Input
                 id="guarantee-policy"
                 className="h-11"
@@ -470,7 +472,7 @@ export function GuaranteePanel({
                 disabled={pending || policyNumber.trim().length < 4}
                 onClick={() => run(() => recordGuaranteePolicy(applicationId, { policyNumber, note }))}
               >
-                {pending ? "Guardando…" : "Registrar la póliza"}
+                {pending ? "Guardando…" : copy.registerPolicy}
               </Button>
             </div>
           )}
@@ -500,7 +502,7 @@ export function GuaranteePanel({
                 ? `El propietario tomará una póliza de arrendamiento con ${GUARANTEE_PROVIDER.name}. No necesitas codeudor.`
                 : state === "requested"
                   ? `La póliza está en estudio. Puede que ${GUARANTEE_PROVIDER.name} te escriba a tu correo para completarlo.`
-                  : "La póliza quedó activa. El siguiente paso es la firma del contrato."}
+                  : copy.policyActiveNext}
             </p>
 
             {/*
@@ -510,7 +512,7 @@ export function GuaranteePanel({
             */}
             {guarantee?.tenantLink && (
               <div className="space-y-2 rounded-xl border border-dashed border-border p-4">
-                <p className="text-sm font-medium text-foreground">Tu parte del seguro</p>
+                <p className="text-sm font-medium text-foreground">{copy.yourPart}</p>
                 <p className="text-sm text-muted-foreground">
                   {GUARANTEE_PROVIDER.name} también te mandó este enlace por correo. Desde aquí
                   entras directo, sin buscarlo.
@@ -561,15 +563,22 @@ function CopyRow({
   label,
   value,
   copyValue,
+  copy,
 }: {
   readonly label: string;
   readonly value: string;
   readonly copyValue?: string;
+  /**
+   * This panel's words, resolved by the page. A prop and not a dictionary import: this is a Client
+   * Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: GuaranteeCopy;
 }) {
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
 
-  async function copy() {
+  /* `copyToClipboard`, not `copy`: the prop of that name is this row's words. */
+  async function copyToClipboard() {
     try {
       await navigator.clipboard.writeText(copyValue ?? value);
       setCopied(true);
@@ -593,9 +602,9 @@ function CopyRow({
         <p className="truncate text-sm font-medium text-foreground">{value || "—"}</p>
       </div>
       {value && (
-        <Button type="button" variant="ghost" size="sm" onClick={copy}>
+        <Button type="button" variant="ghost" size="sm" onClick={copyToClipboard}>
           {copied ? <CheckIcon aria-hidden="true" /> : <CopyIcon aria-hidden="true" />}
-          {copied ? "Copiado" : failed ? "Cópialo a mano" : "Copiar"}
+          {copied ? copy.copied : failed ? copy.copyByHand : copy.copyAction}
         </Button>
       )}
     </div>

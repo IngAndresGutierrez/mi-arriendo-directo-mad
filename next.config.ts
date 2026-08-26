@@ -35,6 +35,17 @@ const nextConfig: NextConfig = {
     return [
       { source: "/contrato", destination: "/contratos", permanent: true },
       { source: "/contrato/:id", destination: "/contratos/:id", permanent: true },
+      /*
+       * The English spelling of the same two.
+       *
+       * **A `next.config.ts` redirect resolves before `proxy.ts` runs and before routing**, so
+       * `/en/contrato/<id>` would not have reached either — it would simply 404, because the rule
+       * above matches the literal path `/contrato/:id` and nothing rewrites the prefix away first.
+       * The path stays Spanish inside the prefix, which is the whole scheme: what English costs is
+       * the prefix, not a second set of route names.
+       */
+      { source: "/en/contrato", destination: "/en/contratos", permanent: true },
+      { source: "/en/contrato/:id", destination: "/en/contratos/:id", permanent: true },
     ];
   },
 

@@ -1,8 +1,9 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { MenuIcon, XIcon } from "lucide-react";
 
 import { HOME_ROUTE } from "@/shared/auth/routes";
@@ -22,10 +23,13 @@ import { AppNav } from "./app-nav";
 export function AppDrawer({
   bell,
   showErrands = false,
+  copy,
 }: {
   readonly bell?: React.ReactNode;
   /** Whether this person has properties: it decides the one conditional menu entry. */
   readonly showErrands?: boolean;
+  /** The menu's words, resolved by `AppShell` on the server. See `AppNav`. */
+  readonly copy: Dictionary["nav"];
 }) {
   const [open, setOpen] = useState(false);
 
@@ -38,7 +42,7 @@ export function AppDrawer({
       */}
       <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center gap-3 border-b border-border bg-background/95 px-4 backdrop-blur supports-backdrop-filter:bg-background/80 sm:px-6">
         <SheetTrigger asChild>
-          <Button type="button" variant="ghost" size="icon" aria-label="Abrir menú" className="lg:hidden">
+          <Button type="button" variant="ghost" size="icon" aria-label={copy.openMenu} className="lg:hidden">
             <MenuIcon className="size-5" aria-hidden="true" />
           </Button>
         </SheetTrigger>
@@ -87,7 +91,7 @@ export function AppDrawer({
           <SheetClose asChild>
             <button
               type="button"
-              aria-label="Cerrar menú"
+              aria-label={copy.closeMenu}
               className="rounded-lg p-2 text-brand-panel-muted transition-colors hover:bg-white/5 hover:text-brand-panel-foreground focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none"
             >
               <XIcon className="size-5" aria-hidden="true" />
@@ -95,7 +99,7 @@ export function AppDrawer({
           </SheetClose>
         </div>
 
-        <AppNav showErrands={showErrands} onNavigate={() => setOpen(false)} />
+        <AppNav showErrands={showErrands} onNavigate={() => setOpen(false)} copy={copy} />
       </SheetContent>
     </Sheet>
   );

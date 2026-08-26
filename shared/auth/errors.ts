@@ -1,32 +1,39 @@
+import { dictionaryFor, type Dictionary } from "@/shared/i18n/dictionary";
+import type { Locale } from "@/shared/i18n/locale";
+
 /**
- * Maps Firebase Auth error codes to user-facing messages (in es-CO, like all copy).
+ * Maps Firebase Auth error codes to user-facing messages.
  *
  * Security rule: never reveal whether an email exists. Invalid credentials, unknown user
  * and wrong password share one message, so the form cannot be used to enumerate accounts.
  */
-const MESSAGES: Readonly<Record<string, string>> = {
-  "auth/invalid-credential": "Correo o contraseña incorrectos",
-  "auth/invalid-email": "Correo o contraseña incorrectos",
-  "auth/user-not-found": "Correo o contraseña incorrectos",
-  "auth/wrong-password": "Correo o contraseña incorrectos",
-  "auth/user-disabled": "Esta cuenta está deshabilitada. Escríbenos para reactivarla.",
-  "auth/email-already-in-use": "Ya existe una cuenta con este correo. Inicia sesión.",
-  "auth/weak-password": "Esa contraseña es demasiado débil. Usa al menos 8 caracteres.",
-  "auth/too-many-requests":
-    "Demasiados intentos fallidos. Espera unos minutos e inténtalo de nuevo.",
-  "auth/network-request-failed": "Sin conexión. Revisa tu internet e inténtalo de nuevo.",
-  "auth/popup-closed-by-user": "Cerraste la ventana de Google antes de terminar.",
-  "auth/cancelled-popup-request": "Cerraste la ventana de Google antes de terminar.",
-  "auth/popup-blocked":
-    "Tu navegador bloqueó la ventana de Google. Habilita las ventanas emergentes.",
-  "auth/account-exists-with-different-credential":
-    "Ya existe una cuenta con este correo. Inicia sesión con correo y contraseña.",
-  "auth/operation-not-allowed":
-    "Este método de acceso no está habilitado. Escríbenos para ayudarte.",
-  "auth/unauthorized-domain": "Este dominio no está autorizado para iniciar sesión.",
+/**
+ * Which message a Firebase code maps to.
+ *
+ * The **key** of the dictionary entry, not the sentence: the words live in
+ * `shared/i18n/messages` like the rest of the copy, and this table stays what it always was — the
+ * decision about which failures a person should be told apart.
+ *
+ * The four credential codes still share one entry, which is the security rule this file exists for:
+ * telling "no such account" from "wrong password" turns the login into an account enumerator.
+ */
+const MESSAGES: Readonly<Record<string, keyof Dictionary["authErrors"]>> = {
+  "auth/invalid-credential": "invalidCredential",
+  "auth/invalid-email": "invalidCredential",
+  "auth/user-not-found": "invalidCredential",
+  "auth/wrong-password": "invalidCredential",
+  "auth/user-disabled": "userDisabled",
+  "auth/email-already-in-use": "emailInUse",
+  "auth/weak-password": "weakPassword",
+  "auth/too-many-requests": "tooManyRequests",
+  "auth/network-request-failed": "networkFailed",
+  "auth/popup-closed-by-user": "popupClosed",
+  "auth/cancelled-popup-request": "popupClosed",
+  "auth/popup-blocked": "popupBlocked",
+  "auth/account-exists-with-different-credential": "accountExistsOtherCredential",
+  "auth/operation-not-allowed": "operationNotAllowed",
+  "auth/unauthorized-domain": "unauthorizedDomain",
 };
-
-const FALLBACK = "No pudimos completar la operación. Inténtalo de nuevo en un momento.";
 
 const CANCELLATION_CODES = new Set([
   "auth/popup-closed-by-user",
@@ -39,11 +46,19 @@ function errorCode(error: unknown): string | null {
   return typeof code === "string" ? code : null;
 }
 
-/** Message safe to show the user. Never exposes the raw Firebase error. */
-export function authErrorMessage(error: unknown): string {
+/**
+ * Message safe to show the user. Never exposes the raw Firebase error.
+ *
+ * **The locale is a parameter with no default**, like `catalogMetaTitle`'s: this runs in Client
+ * Components (the login form, the Google button) and in Server Actions, and a default is exactly how
+ * one of those quietly renders Spanish to somebody reading English. Client callers get the locale
+ * from `useLocale()`, which is the one thing the context carries.
+ */
+export function authErrorMessage(error: unknown, locale: Locale): string {
+  const copy = dictionaryFor(locale).authErrors;
   const code = errorCode(error);
-  if (!code) return FALLBACK;
-  return MESSAGES[code] ?? FALLBACK;
+
+  return (code && copy[MESSAGES[code] ?? "fallback"]) || copy.fallback;
 }
 
 /** The user closed the popup: not a failure worth surfacing as an error. */

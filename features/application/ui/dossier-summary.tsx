@@ -1,8 +1,8 @@
+import { dossierLabels } from "@/features/tenant-profile";
+import { currentLocale } from "@/shared/i18n/server";
 import { formatCOP } from "@/shared/format/money";
 import {
   incomeRatioLabel,
-  DOCUMENT_TYPE_LABELS,
-  OCCUPATION_LABELS,
   type TenantDossier,
 } from "@/features/tenant-profile";
 
@@ -16,7 +16,7 @@ import {
  * doing the arithmetic for them beats them doing it wrong. It is a fact, not a verdict: nothing
  * in the product refuses anyone for it.
  */
-export function DossierSummary({
+export async function DossierSummary({
   dossier,
   monthlyCost,
   showSensitive,
@@ -26,17 +26,18 @@ export function DossierSummary({
   /** The identity document is only for the landlord, never for a third party. */
   readonly showSensitive: boolean;
 }) {
+  const labels = dossierLabels(await currentLocale());
   const ratio = incomeRatioLabel(dossier.monthlyIncome, monthlyCost);
 
   return (
     <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
       {showSensitive ? (
         <Row label="Documento">
-          {DOCUMENT_TYPE_LABELS[dossier.documentType]} {dossier.documentNumber}
+          {labels.documentTypes[dossier.documentType]} {dossier.documentNumber}
         </Row>
       ) : null}
       <Row label="Ocupación">
-        {OCCUPATION_LABELS[dossier.occupation]} · {dossier.employer}
+        {labels.occupations[dossier.occupation]} · {dossier.employer}
       </Row>
       <Row label="Ingresos declarados">
         {formatCOP(dossier.monthlyIncome)}

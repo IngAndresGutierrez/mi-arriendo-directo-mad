@@ -26,8 +26,13 @@ framework code.
 Everything is in **English** — identifiers, comments, JSDoc, test names, commit messages,
 documentation, Firestore collection and field names, custom claims and their values.
 
+**Copy that a user reads now lives in `shared/i18n/messages/`, not in the component** — see "Two
+languages" below for which surfaces have been moved and which are still Spanish literals. The rule
+underneath has not changed: keys are English, values are the language's.
+
 Three exceptions, and only these:
-1. **URLs** (`/registro`, `/inicio`, `/registro/completar-perfil`): users see them.
+1. **URLs** (`/registro`, `/inicio`, `/registro/completar-perfil`): users see them. They stay Spanish
+   in **both** languages; what English adds is the `/en` prefix in front of them.
 2. **Copy visible to the user**: labels, error messages, titles, page metadata. The product
    is Colombian PropTech and speaks **es-CO** to tenants and landlords.
 3. **Proper nouns and user content**: department names (`Bogotá D.C.`), addresses, and the
@@ -46,6 +51,13 @@ names this project started with.
   `shared/firebase/auth.ts`, `shared/firebase/db.ts`, `shared/firebase/storage.ts`. **Never write
   a barrel re-exporting the three**: it cost 630 KB of SDK on the login screen.
 - `shared/analytics.tsx` — loads Analytics through a dynamic `import()` after hydration.
+- `shared/i18n/` — the two languages. `locale.ts` is pure and imported by `proxy.ts`, so nothing
+  React-shaped may enter it; `messages/es.ts` **is** the `Dictionary` type and `en.ts` is annotated
+  with it; `server.ts` reads the locale from `next/root-params`; `locale-link.tsx` is the `<Link>`
+  every call site uses. **Never re-export `server.ts` from `index.ts`**: it imports
+  `next/root-params`, which fails at build time inside a Client Component, and a barrel dragging it
+  in would make the module unimportable from the client half of the product — the same split, for the
+  same reason, as `shared/firebase/admin.ts` never appearing in a barrel.
 - `shared/brand/logo.tsx` — `<Logo width={200} priority />`; the only place with the PNG's
   dimensions.
 - `shared/firebase/admin.ts` — Admin SDK (`server-only`): `adminAuth()`, `adminDb()`,
@@ -84,7 +96,8 @@ names this project started with.
 The split is **vertical, by domain**. `mad-architecture` is the source of truth; in short:
 
 ```
-app/                  routing only. (auth)/ and (app)/ are route groups: they do not change the URL
+app/[lang]/           routing only. (auth)/ and (app)/ are route groups: they do not change the URL
+app/                  what has no language: robots.ts, sitemap.ts, api/**, the icons, globals.css
 features/<domain>/    domain/ validations/ data/ actions/ ui/ + index.ts (public API)
 shared/               ui/ form/ shell/ brand/ auth/ firebase/ format/ phone/ lib/
 tests/rules/          security rules (unit tests are colocated with the code)
@@ -121,7 +134,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/perfil-inquilino` | `TENANT_PROFILE_ROUTE` | "Mi perfil": the account details given at signup **and** the reusable tenant dossier, on one page with one save. |
 | `/terminos` | `TERMS_ROUTE` | Conditions of use. Mostly about what this product **is not**: not an agency, not a broker, does not sell insurance, does not move the money. |
 | `/privacidad` | `PRIVACY_ROUTE` | The política de tratamiento. `#derechos` is the anchor the aviso de privacidad and the profile screen both link to. |
-| `/cookies` | `COOKIES_ROUTE` | The four things this product stores in a browser, by name, and the switch that makes the analytics authorisation revocable. |
+| `/cookies` | `COOKIES_ROUTE` | The **five** things this product stores in a browser, by name, and the switch that makes the analytics authorisation revocable. `locale` is the fifth — a cookie this product sets and did not declare is exactly what that page exists to prevent. |
 | `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. **The map lives here**: a circle over the zone, never a pin — see "The map" below. |
@@ -1892,12 +1905,203 @@ in. "Movimiento reducido" and "Modo compacto" are wired to nothing at all. Build
 of its own — the cookie read on the server, the class, a reversed mark, and a pass over every screen
 — not a tab.
 
-**Idioma.** There is no i18n: every string is a Spanish literal inside a component. Six languages is
-a multi-week project, and a picker over it would be a control that changes nothing. The product
-speaks es-CO to Colombian tenants and landlords, which is the language policy, not a gap.
+**Idioma is built now, and it is two settings rather than one.** See "Two languages" below. What
+lives in Ajustes → Perfil is **"Idioma de los correos"**, and only that: the language of the *screen*
+is decided by the URL and switched from the header, where somebody actually looks for it. They are
+separate because they answer different questions — reading the catalogue in English on a borrowed
+laptop is not asking for your rent reminders in English — and the field's `hint` says so, because two
+language controls with nothing explaining the difference is the kind of thing somebody sets twice and
+still finds broken.
 
 **Not built either:** uploading a profile photo, and a per-notification-type preference (four
 categories is what somebody actually decides; forty-six switches is a spreadsheet).
+
+## Two languages, and the prefix only English pays for
+
+The product speaks **es-CO and en**. Spanish is the language it was written in and English is the
+addition, and that asymmetry is the whole design: `/inmuebles` is the Spanish catalogue and
+`/en/inmuebles` is the English one. Everything below follows from it.
+
+**Spanish keeps the URLs it already published.** Every link this product has ever sent is an
+unprefixed Spanish path — a notification email pointing at `/contratos/<id>#etapa-guarantee`, a
+listing pasted into a WhatsApp group, the two permanent redirects in `next.config.ts` — so a scheme
+where the default locale carries a prefix invalidates all of them at once. The prefix is what English
+costs. The route *words* stay Spanish inside it (`/en/inmuebles`, not `/en/properties`): translating
+segments would mean a second `propertySlugs` reservation and two URLs per listing that can drift.
+
+**`app/[lang]/` is the root, and `app/layout.tsx` had to go.** `next/root-params` only exposes a
+getter for a dynamic segment sitting *above* the root layout, so with the old file in place `lang`
+would have been an ordinary route param — readable through `params` in the page that declares it and
+nowhere else — and all ~200 components needing the language would have taken it as a prop. Moving the
+root layout under `[lang]` is the single structural decision the rest rests on. What did **not** move:
+`app/robots.ts`, `app/sitemap.ts`, `app/api/**`, the icons and `globals.css`. None of them has a
+language, a crawler fetches the first two by fixed name, and a Route Handler cannot read a root param
+anyway (Next says a future release).
+
+**`proxy.ts` decides what a URL means before anything renders**, and its three branches are the logic:
+
+| Request | Answer | Why |
+| --- | --- | --- |
+| `/es/...` | **301** to the unprefixed path | `[lang]` matches the literal string `es`, so without this two URLs render one page and each accumulates links |
+| `/en/...` | pass through | already explicit |
+| anything else | **rewrite** to `/es/...` | the URL the visitor sees stays `/inmuebles` while the route that renders is `/es/inmuebles` |
+
+**An unprefixed path is Spanish, always, with no `Accept-Language` sniffing** — and that is the
+decision worth defending, because Next's own guide shows the opposite. These URLs exist to be pasted
+into group chats; if the server redirected by browser language, one shared link would open in
+different languages for each person, and the Spanish page would never be served to an
+English-configured browser, Googlebot included. The path is authoritative and the only thing that
+changes language is asking for it. **The one exception is the bare root**, the only URL with no
+shared-link expectation: there a remembered choice wins, and failing that `Accept-Language` gets one
+**307** — temporary, because the answer depends on who is asking.
+
+**The dictionary is two TypeScript files, and `es.ts` is the type.** `Dictionary = typeof es`, and
+`en.ts` is annotated with it, so a key added and not translated fails `pnpm typecheck` rather than
+rendering Spanish to an English reader or `undefined` to anybody. Same device as `categoryOf`'s
+complete `Record`. **No `as const`** — with it the type would carry the literal Spanish strings and
+`en` could only satisfy it by repeating them. Parameterised copy is a **function**, never a template
+with placeholders: `${count} inmuebles` needs a plural rule and the number does not sit in the same
+place in both languages.
+
+**And that has one hard consequence: a dictionary slice crossing to a Client Component must be plain
+data.** A function cannot be handed from a Server Component to a Client Component — React answers
+*"Functions cannot be passed directly to Client Components"*, the same boundary a lucide icon hits.
+**This has now 500'd the product four separate times**: the language switcher was given `language`
+(which held `switchTo`), the catalogue's facets were given `property` (which holds `found`,
+`seoTitle` and more), the login form was given `auth` (which held `resetSentTo`), and the dossier
+fields were given `dossier` (which held `previewOf`). Every one of them compiled — `pnpm build` cannot see it, and neither can a type: passing a *variable* with extra
+function-valued properties satisfies a narrowed type, and the functions still travel at runtime.
+
+So the guard is a test, and it is the only form of this rule that can fail. **It is an opt-out list,
+and it started as an opt-in one — the inversion is itself a lesson.** `dictionary.test.ts` walks
+*every* namespace asserting each leaf is a string, except the ones named in
+`SERVER_ONLY_NAMESPACES`. With an allowlist the default was *unchecked*, so a namespace only had a
+guard if somebody remembered to register it — and the **fourth** outage was exactly that: `dossier`
+was added, handed to `DossierFields`, and never listed. Forgetting now produces a red test instead
+of a broken page, and adding a name to that list is a deliberate claim that nothing client-side ever
+receives it whole.
+
+Two ways to keep a namespace client-safe when a value has to be substituted:
+
+- **Resolve it on the server and pass the finished string.** `CatalogToolbar` takes
+  `foundLabel: string`, not `total` plus a formatter.
+- **Split it into the plain pieces around the value**, when the value is client state and the server
+  cannot know it: `auth.resetSentToBefore` / `resetSentToAfter` wrap an email the browser holds.
+
+A namespace not in that list may hold functions freely; it simply may not cross in one piece.
+
+**`LocaleLink` sits in front of every `<Link>`**, because the routes are Spanish words and Spanish is
+unprefixed — so a plain `<Link href={PROPERTIES_ROUTE}>` pressed on `/en/inmuebles` navigates to the
+*Spanish* catalogue. Nothing errors and nothing looks broken; the reader just finds themselves back in
+Spanish having pressed a link belonging to the page they were reading. No type checker can see it. The
+42 files that imported `next/link` now import `{ LocaleLink as Link }`, so all 84 call sites are
+unchanged and the Spanish behaviour is byte-identical. It is idempotent and leaves alone anything that
+is not an internal absolute path (`mailto:`, `tel:`, a bare `#etapa-…`).
+
+**`safeRedirect` compares without the prefix.** The four rejected paths existed only as Spanish
+literals, so `?next=/en/ingresar` walked straight through the loop guard. Every reason those four are
+rejected is language-independent.
+
+**SEO: the canonical is self-referencing per language, with both versions in `hreflang`.** Pointing the
+English canonical at the Spanish URL would ask for the English page to be dropped from the index — the
+opposite of publishing it. A cluster is only believed when **every** version names every version,
+itself included; one that names only the other is discarded whole, which is the most silent failure in
+this change. `x-default` is Spanish. `app/sitemap.ts` submits **one row per language** with the
+cluster on each, and `app/robots.ts` repeats its `Disallow` list through `localeHref` for both — a
+list of Spanish literals said nothing at all about `/en/contratos`.
+
+Two things that had to be restated per page because **metadata merges per field**: `og:locale`, and
+the catalogue's `<title>`. `catalogMetaTitle` took no locale, so `/en/inmuebles` shipped
+`<title>Inmuebles en arriendo en Colombia</title>` — a Spanish title on the one English page that
+exists to be found, invisible to `typecheck`, `lint`, `build` and every driver. It was caught reading
+the `<head>` the server actually sends, and `inLanguage` in the catalogue's JSON-LD had the same bug.
+Both take a required `locale` with **no default**, because a default is precisely how a caller
+silently renders the wrong language.
+
+**`users/{uid}.locale` is what an email is written in**, and it is a stored field because there is
+nowhere else to read it from: `notify()` runs inside `after()` with no request, no `Accept-Language`
+and no prefix, and it also runs from the cron sweeps. It is **the recipient's** language, never the
+request's — whoever moved the process is the *other* party. Onboarding seeds it from the language the
+form was filled in (the strongest free signal: they just read every label and both consent sentences
+in it), Ajustes → Perfil changes it, and `localeFor` turns every absence — an account older than the
+field, an untouched setting, a failed read — into Spanish. That is `allowsChannel`'s "fail towards
+delivering", one field over.
+
+**What is translated and what is deliberately not:**
+
+| | |
+| --- | --- |
+| Done | **the whole public half**; **auth and the product shell** (sign-in, sign-up, password recovery, the account-security panel, the sidebar, the drawer, the account menu, the support card); **the publish/edit form** with its photo uploader and map picker, and the landlord's listing card; **every portal page's headings and empty states** (`/inicio`, `/mis-inmuebles`, `/contratos`, `/arriendos`, `/ajustes`, `/encargos`, `/perfil-inquilino`); and **the tenant dossier** — its fields, the document checklist, and the document/occupation vocabulary.<br>And: the landing, the catalogue (heading, facets, sort, toolbar, cards, pager), a listing's detail page and its price card, the public header and footer, the cookie banner's sentence. Plus the SEO of both indexed pages — `<title>`, description, `hreflang`, `og:locale`, JSON-LD `inLanguage`, the alt text of the generated Open Graph card — the notification email's chrome (button, fallback link, footer, `<html lang>`), and the language selector |
+| **Spanish only, on purpose** | the **three legal documents**. `/terminos`, `/privacidad` and `/cookies` are operative under Ley 1581 and Ley 1480 — the text is what the company is bound by, not a description of it — so a translation is a *second document* making the same promises in words no lawyer has read. `/en/terminos` exists, is in the sitemap and names its Spanish twin, and `LegalChrome` renders a `role="note"` saying the document is the Spanish original, with `lang="es"` on the wrapper so a screen reader does not read Colombian legal prose in an English voice |
+| **Spanish still, not by design** | the **eight stage panels** (`features/application`, by far the largest), `/arriendos` and the incidents (`features/lease`), the errands (`features/collaboration`), **the forty-six per-type notification sentences** in `features/notification/domain/notification.ts`, and `GENDER_LABELS`. Plus **206 Zod validation messages** across sixteen `validations/` modules — a coherent sub-project of its own: a schema is a module constant, so making one locale-aware means turning it into a factory that takes the copy, and the call sites are the forms (client) and the actions (server). All of it is `noindex` and behind a session |
+
+**The `locale` cookie is necessary, not optional**, in the sense `/cookies` uses: two characters of UI
+preference, no personal data, and the product does not work as intended without it — the same category
+as `sidebar`. It is written by `proxy.ts` from the path being served and **only when it changed**, because a
+`Set-Cookie` on every response costs the CDN's ability to cache the landing and the catalogue. The
+switcher cannot write it: it is a plain `<a>`.
+
+**And the switcher is a plain `<a>` on purpose — the one hard navigation in the product.** Three things
+have to change that a soft navigation would not reliably do: `<html lang>`, which is on the document;
+the cookie, which only a real request reaches; and every string rendered by a Server Component above
+it. It carries the **query**, because on the catalogue the query *is* the page. Its label is the
+language being offered written **in itself** — "English" on a Spanish page — since naming it in the
+current language is unreadable to exactly the person reaching for it, and a flag names a country.
+
+**The `X_LABELS` constants are gone**, replaced by `propertyLabels(locale)` in
+`features/property/domain/labels.ts` and `dossierLabels(locale)` in
+`features/tenant-profile/domain/labels.ts` — six and five of them respectively, and the same shape
+both times, each with a `labels.test.ts` asserting the result is function-free. The keys have not moved — they are still the stored English
+values — and the records it returns are the same shape `PROPERTY_TYPE_LABELS` and friends were; only
+the words went into `shared/i18n/messages`. Built from the unions, so a value added to
+`PROPERTY_TYPES` with no word for it still fails `pnpm typecheck`.
+
+**Everything that object returns is a plain string, and `labels.test.ts` asserts exactly that.**
+`CatalogFilters` and `CatalogToolbar` are Client Components, so the whole thing crosses the RSC
+boundary — and a function does not cross it. That mistake has now been made **twice**: first with
+the language switcher, which was handed the `language` slice holding `switchTo(name)`, and again one
+commit after the rule was written down, when these two were handed `Dictionary["property"]` — which
+carries `found`, `bedroomsFact`, `seoTitle` and more. `pnpm build` compiled both; both 500'd every
+page that rendered them. Anything parameterised is resolved on the server and passed finished, which
+is why `CatalogToolbar` takes `foundLabel: string` and not `total` plus a formatter.
+
+**And the client components take props rather than importing the dictionary**, which is the same
+call as Leaflet in its own chunk: importing `shared/i18n/dictionary` from a `"use client"` file pulls
+**both** languages into the browser bundle of the catalogue, the most-fetched page on the site.
+
+**`no-restricted-imports` now forbids `next/link`** outside `shared/i18n/locale-link.tsx` and
+`shared/ui/nav-item.tsx` (which needs `useLinkStatus`, the hook). Without it nothing stopped a new
+file reintroducing the silent language-loss. **Its position in `eslint.config.mjs` is load-bearing**:
+flat config does not merge two configs setting the same rule, the last match wins outright, so
+placing it *after* the `data/`/`actions/` block silently disabled the cross-feature import guard for
+every file under `data/`, `actions/`, `app/api/` and `shared/auth/`. `pnpm lint` stayed green. It was
+found by planting a violating import and watching nothing happen, and it sits before that block now.
+
+**Dates take the locale and keep Bogotá.** `Intl.DateTimeFormat(locale, { timeZone: "America/Bogota" })`
+— when a flat is available is a fact about Colombia, not about where the reader is sitting. The
+`es-CO` that was hard-coded in the property card left "24 de agosto de 2026" inside an English card.
+
+**Translating must not reword the Spanish.** Moving a string into the dictionary is a *move*: the
+Spanish value has to be the byte-for-byte original. Four drivers went red at once because the
+migration quietly improved "Expandir menú" into "Ampliar el menú", "Enviarme el enlace" into "Enviar
+el enlace" and "Saliendo…" into "Cerrando sesión…" — none of which was an improvement anybody asked
+for, and each of which is an assertion somewhere. The check is one command: extract the Spanish
+values from `messages/es.ts` and confirm each appears verbatim in `git show HEAD:<file>`; what is
+left over is either genuinely new copy or a reword to undo.
+
+**The switcher is a menu, and the root used to trap you in English.** `/` is the only path the proxy
+redirects, and while a remembered cookie could win there, the switcher's Spanish target — which *is*
+`/` — bounced straight back to `/en`. From the screen the control did nothing. The cookie now only
+records that we have negotiated once; see `proxy.ts`. `tests/e2e/i18n.mjs` drives the round trip on
+the root specifically, which is what the earlier round of drivers missed by exercising it on
+`/inmuebles`.
+
+**`shared/i18n/` and `proxy.ts` are in `SELECTS_EVERY_DRIVER`**, so any i18n change runs all 46
+drivers. That is correct rather than excessive: every user-visible string, every URL prefix and every
+page's `<html lang>` comes out of that module. `tests/e2e/i18n.mjs` is the driver.
+
+**Not built:** a third language (`LOCALES` is the list; the switcher becomes a menu at three), the
+legal documents in English, and translating the per-type notification copy.
 
 ## Sections not built yet
 The menu shows **Facturación** disabled, with a "Pronto" badge, instead of linking to a 404. To
@@ -1997,7 +2201,10 @@ pnpm test:rules    # 9s — firestore.rules, storage.rules, firestore.indexes.js
                    #      `firebase deploy --only firestore:indexes` in the same change.
 pnpm e2e --since   # ~15s per driver — the browser level. Reads `git diff --name-only` and runs
                    #      only the drivers whose paths it touches (tests/e2e/manifest.mjs).
-pnpm typegen       # 3s — only when a route moved or was renamed (see below).
+pnpm typegen       # 3s — only when a route moved or was renamed (see below). Everything under
+                   #      app/[lang]/ counts: PageProps<"/inmuebles"> is now
+                   #      PageProps<"/[lang]/inmuebles">, and tsc fails on the generated types
+                   #      with an error that looks unrelated to your change.
 ```
 
 **The e2e dev server has its own output directory**, `.next-e2e`, from `NEXT_DIST_DIR` in

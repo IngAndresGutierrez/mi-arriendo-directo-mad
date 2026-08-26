@@ -1,5 +1,7 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
+import type { DossierLabels } from "../domain/labels";
 import { useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -20,8 +22,6 @@ import {
   requiredDocuments,
   statusOf,
   DOCUMENT_CONTENT_TYPES,
-  DOCUMENT_HINTS,
-  DOCUMENT_LABELS,
   DOCUMENT_MAX_BYTES,
   REVIEW_STATUS_LABELS,
   type DocumentKind,
@@ -58,6 +58,8 @@ export function DocumentChecklist({
   reviews = {},
   onChanged,
   readOnly = false,
+  labels,
+  copy,
 }: {
   readonly occupation: Occupation;
   readonly documents: readonly ChecklistDocument[];
@@ -78,6 +80,13 @@ export function DocumentChecklist({
    * something nobody asked for.
    */
   readonly readOnly?: boolean;
+  /**
+   * The dossier's vocabulary, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly labels: DossierLabels;
+  /** Its own sentences, resolved by the page. */
+  readonly copy: Dictionary["dossier"];
 }) {
   const router = useRouter();
   const [busy, startUpload] = useTransition();
@@ -134,7 +143,7 @@ export function DocumentChecklist({
         // `ensureClientSession`.
         const user = await ensureClientSession();
         if (!user) {
-          setError("Tu sesión expiró. Vuelve a iniciar sesión para subir tus documentos.");
+          setError(copy.uploadSessionExpired);
           return;
         }
 
@@ -162,7 +171,7 @@ export function DocumentChecklist({
         await onChanged?.().catch(() => undefined);
         router.refresh();
       } catch {
-        setError("No pudimos subir el archivo. Revisa tu conexión e inténtalo de nuevo.");
+        setError(copy.uploadFailed);
       } finally {
         setUploading(null);
         const input = inputs.current[kind];
@@ -186,7 +195,7 @@ export function DocumentChecklist({
             className="mt-0.5"
           />
           <Label htmlFor="single-file-id" className="block text-sm leading-relaxed font-normal">
-            Tengo mi cédula en un solo archivo, con las dos caras
+            {copy.idInOneFile}
             <span className="mt-0.5 block text-muted-foreground">
               Marca esto si la escaneaste completa. Si le tomaste dos fotos, déjalo sin marcar y
               súbelas por separado.
@@ -223,7 +232,7 @@ export function DocumentChecklist({
                     ) : done ? (
                       <CheckIcon className="size-4 shrink-0 text-accent" aria-hidden="true" />
                     ) : null}
-                    {DOCUMENT_LABELS[requirement.kind]}
+                    {labels.documentLabels[requirement.kind]}
                     {requirement.count > 1 ? (
                       <span className="text-sm font-normal text-muted-foreground">
                         ({valid.length} de {requirement.count})
@@ -231,12 +240,12 @@ export function DocumentChecklist({
                     ) : null}
                     {requirement.optional ? (
                       <span className="rounded-full bg-muted px-2 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase">
-                        Si aplica
+                        {copy.ifApplicable}
                       </span>
                     ) : null}
                   </p>
                   <p className="mt-0.5 text-sm text-muted-foreground">
-                    {DOCUMENT_HINTS[requirement.kind]}
+                    {labels.documentHints[requirement.kind]}
                   </p>
 
                   {/*
@@ -251,11 +260,11 @@ export function DocumentChecklist({
                     >
                       <AlertTriangleIcon className="mt-0.5 size-4 shrink-0" aria-hidden="true" />
                       <span>
-                        <strong className="font-semibold">Rechazado.</strong>{" "}
+                        <strong className="font-semibold">{copy.rejected}</strong>{" "}
                         {reviews[document.id]?.note
                           ? reviews[document.id]!.note
-                          : "El propietario no lo aceptó."}
-                        {readOnly ? "" : " Súbelo otra vez."}
+                          : copy.landlordRejected}
+                        {readOnly ? "" : copy.uploadAgain}
                       </span>
                     </p>
                   ))}
@@ -321,7 +330,7 @@ export function DocumentChecklist({
                         ) : (
                           <Image
                             src={document.url}
-                            alt={`Previsualización de ${DOCUMENT_LABELS[document.kind]}`}
+                            alt={`${copy.previewOf} ${labels.documentLabels[document.kind]}`}
                             width={200}
                             height={150}
                             unoptimized
@@ -360,7 +369,7 @@ export function DocumentChecklist({
                           onClick={() => setRemoving(document)}
                           className="text-xs text-destructive underline-offset-2 hover:underline focus-visible:ring-3 focus-visible:ring-destructive/40 focus-visible:outline-none"
                         >
-                          Quitar
+                          {copy.remove}
                         </button>
                       )}
                     </li>
@@ -378,7 +387,11 @@ export function DocumentChecklist({
       */}
       <p className="sr-only" aria-live="polite">
         {uploading
-          ? `Subiendo ${DOCUMENT_LABELS[uploading.kind]}${uploading.total > 1 ? `, archivo ${uploading.done + 1} de ${uploading.total}` : ""}.`
+          ? `${copy.uploading} ${labels.documentLabels[uploading.kind]}${
+                uploading.total > 1
+                  ? `, ${copy.file} ${uploading.done + 1} ${copy.of} ${uploading.total}`
+                  : ""
+              }.`
           : ""}
       </p>
 
@@ -391,15 +404,15 @@ export function DocumentChecklist({
       <ConfirmDialog
         open={removing !== null}
         onOpenChange={(open) => (open ? undefined : setRemoving(null))}
-        title="¿Quitar este documento?"
+        title={copy.removeDocumentTitle}
         description={
           <>
-            Se elimina <strong className="text-foreground">{removing?.name}</strong> y tendrás que
-            subirlo otra vez. No se puede deshacer.
+            {copy.removeDocumentBefore} <strong className="text-foreground">{removing?.name}</strong>{" "}
+            {copy.removeDocumentAfter}
           </>
         }
-        confirmLabel="Quitar documento"
-        pendingLabel="Quitando…"
+        confirmLabel={copy.removeDocumentConfirm}
+        pendingLabel={copy.removeDocumentPending}
         onConfirm={async () => {
           if (!removing) return;
           const result = await deleteTenantDocument(removing.id);

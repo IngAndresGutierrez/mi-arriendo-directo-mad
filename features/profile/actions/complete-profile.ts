@@ -73,6 +73,7 @@ export async function completeProfile(formData: FormData): Promise<CompleteProfi
       department: formData.get("address.department"),
     },
     birthDate: formData.get("birthDate"),
+    locale: formData.get("locale") || null,
     acceptsTerms: formData.get("acceptsTerms") === "true",
     authorizesDataTreatment: formData.get("authorizesDataTreatment") === "true",
     termsVersion: formData.get("termsVersion"),
@@ -126,6 +127,16 @@ export async function completeProfile(formData: FormData): Promise<CompleteProfi
       department: parsed.data.address.department,
     },
     birthDate: parsed.data.birthDate,
+    /*
+     * **Seeded from the language this form was filled in, which is the strongest signal available
+     * and the only free one.** The person just read every label, every hint and two consent
+     * sentences in it. `notify()` has no request to read a language from — it runs inside `after()`
+     * — so without this the first emails an account ever receives would default to Spanish for
+     * somebody who onboarded entirely in English. It is a hidden field rather than a select here on
+     * purpose: onboarding already asks for eleven things and the answer is on screen already.
+     * Changing it later is Ajustes → Perfil.
+     */
+    ...(parsed.data.locale ? { locale: parsed.data.locale } : {}),
     // Onboarding no longer asks for the role: every account starts with the least privileged one.
     role: DEFAULT_USER_ROLE,
     /*

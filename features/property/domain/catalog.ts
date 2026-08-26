@@ -11,11 +11,6 @@ import {
 export const CATALOG_FEATURES = ["furnished", "pets", "parking"] as const;
 export type CatalogFeature = (typeof CATALOG_FEATURES)[number];
 
-export const CATALOG_FEATURE_LABELS: Readonly<Record<CatalogFeature, string>> = {
-  furnished: "Amoblado",
-  pets: "Acepta mascotas",
-  parking: "Con parqueadero",
-};
 
 /**
  * Bedroom buckets. The last one is open-ended: past three, "four or more" is what a tenant
@@ -25,20 +20,10 @@ export const BEDROOM_BUCKETS = [1, 2, 3, 4] as const;
 export type BedroomBucket = (typeof BEDROOM_BUCKETS)[number];
 export const MAX_BEDROOM_BUCKET = 4;
 
-export function bedroomBucketLabel(bucket: BedroomBucket): string {
-  if (bucket === MAX_BEDROOM_BUCKET) return "4 o más";
-
-  return bucket === 1 ? "1 habitación" : `${bucket} habitaciones`;
-}
 
 export const CATALOG_SORTS = ["recent", "price-asc", "price-desc"] as const;
 export type CatalogSort = (typeof CATALOG_SORTS)[number];
 
-export const CATALOG_SORT_LABELS: Readonly<Record<CatalogSort, string>> = {
-  recent: "Más recientes",
-  "price-asc": "Precio (menor a mayor)",
-  "price-desc": "Precio (mayor a menor)",
-};
 
 /** How many listings one page shows. */
 export const CATALOG_PAGE_SIZE = 6;

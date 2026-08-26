@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale, type Dictionary } from "@/shared/i18n";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
@@ -15,8 +16,21 @@ import { PasswordStep } from "./password-step";
  * The email lives in component state, **never in the URL**: an `?email=` would end up in
  * the browser history and in the server logs.
  */
-export function SignupForm({ redirectTo }: { redirectTo: string }) {
+export function SignupForm({
+  redirectTo,
+  copy,
+}: {
+  readonly redirectTo: string;
+  /**
+   * The copy this renders, resolved by the page that mounts it.
+   *
+   * A prop and not a dictionary import: this is a Client Component, and importing
+   * `shared/i18n/dictionary` here would put **both** languages in the browser bundle.
+   */
+  readonly copy: Dictionary["auth"];
+}) {
   const router = useRouter();
+  const locale = useLocale();
   const [email, setEmail] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [isGoogleLoading, setGoogleLoading] = useState(false);
@@ -38,7 +52,7 @@ export function SignupForm({ redirectTo }: { redirectTo: string }) {
       await signInWithGoogle();
       goToDestination();
     } catch (error) {
-      if (!isUserCancellation(error)) setFormError(authErrorMessage(error));
+      if (!isUserCancellation(error)) setFormError(authErrorMessage(error, locale));
     } finally {
       setGoogleLoading(false);
     }
@@ -62,13 +76,14 @@ export function SignupForm({ redirectTo }: { redirectTo: string }) {
       await signUpWithEmail(email, password);
       goToDestination();
     } catch (error) {
-      setFormError(authErrorMessage(error));
+      setFormError(authErrorMessage(error, locale));
     }
   }
 
   if (email === null) {
     return (
       <EmailStep
+        copy={copy}
         error={formError}
         isGoogleLoading={isGoogleLoading}
         isBusy={isBusy}
@@ -80,6 +95,7 @@ export function SignupForm({ redirectTo }: { redirectTo: string }) {
 
   return (
     <PasswordStep
+      copy={copy}
       email={email}
       error={formError}
       isBusy={isBusy}

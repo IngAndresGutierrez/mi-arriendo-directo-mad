@@ -1,8 +1,9 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { PanelLeftCloseIcon, PanelLeftOpenIcon } from "lucide-react";
 
 import { HOME_ROUTE } from "@/shared/auth/routes";
@@ -30,10 +31,13 @@ import {
 export function AppSidebar({
   defaultCollapsed,
   showErrands = false,
+  copy,
 }: {
   readonly defaultCollapsed: boolean;
   /** Whether this person has properties: it decides the one conditional menu entry. */
   readonly showErrands?: boolean;
+  /** The menu's words, resolved by `AppShell` on the server. See `AppNav`. */
+  readonly copy: Dictionary["nav"];
 }) {
   const [collapsed, setCollapsed] = useState(defaultCollapsed);
 
@@ -44,7 +48,7 @@ export function AppSidebar({
   }
 
   const Icon = collapsed ? PanelLeftOpenIcon : PanelLeftCloseIcon;
-  const label = collapsed ? "Expandir menú" : "Contraer menú";
+  const label = collapsed ? copy.expand : copy.collapse;
 
   return (
     <div
@@ -113,7 +117,7 @@ export function AppSidebar({
         </Tooltip>
       </div>
 
-      <AppNav showErrands={showErrands} collapsed={collapsed} />
+      <AppNav showErrands={showErrands} collapsed={collapsed} copy={copy} />
     </div>
   );
 }

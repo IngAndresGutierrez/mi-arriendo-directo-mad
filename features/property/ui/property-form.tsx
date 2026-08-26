@@ -1,5 +1,7 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
+import type { PropertyLabels } from "../domain/labels";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
@@ -22,11 +24,8 @@ import { updateProperty } from "../actions/manage-property";
 import { publishProperty } from "../actions/publish-property";
 import {
   LEASE_TERMS,
-  LEASE_TERM_LABELS,
   PARKING_KINDS,
-  PARKING_LABELS,
   PROPERTY_TYPES,
-  PROPERTY_TYPE_LABELS,
   STRATA,
   type Property,
   type PropertyPhoto,
@@ -40,14 +39,25 @@ import {
 import { LocationPicker } from "./location-picker";
 import { PhotoUploader } from "./photo-uploader";
 
-const TYPE_OPTIONS = PROPERTY_TYPES.map((value) => ({ value, label: PROPERTY_TYPE_LABELS[value] }));
+/** Departments are proper nouns out of DANE: they are their own label in every language. */
 const DEPARTMENT_OPTIONS = DEPARTMENTS.map((value) => ({ value, label: value }));
-const PARKING_OPTIONS = PARKING_KINDS.map((value) => ({ value, label: PARKING_LABELS[value] }));
+
+/*
+ * The three option lists that carry words are built **per render** from the `labels` prop rather
+ * than hoisted to module scope as they were. That is the cost of a second language and it is small:
+ * three `map`s over five, three and two values. Hoisting them again would freeze them in whichever
+ * language happened to be loaded first.
+ */
+function typeOptions(labels: PropertyLabels) {
+  return PROPERTY_TYPES.map((value) => ({ value, label: labels.types[value] }));
+}
+function parkingOptions(labels: PropertyLabels) {
+  return PARKING_KINDS.map((value) => ({ value, label: labels.parking[value] }));
+}
+function leaseOptions(labels: PropertyLabels) {
+  return LEASE_TERMS.map((value) => ({ value: String(value), label: labels.lease[value] }));
+}
 const STRATUM_OPTIONS = STRATA.map((value) => ({ value: String(value), label: `Estrato ${value}` }));
-const LEASE_OPTIONS = LEASE_TERMS.map((value) => ({
-  value: String(value),
-  label: LEASE_TERM_LABELS[value],
-}));
 
 /** The field names the Server Action can return errors for. */
 const FIELD_NAMES = [
@@ -96,6 +106,21 @@ type PropertyFormProps = {
    * latitude is the address in another alphabet. Only for editing, and only for the owner.
    */
   readonly mapPoint?: GeoPoint | null;
+  /**
+   * The listing vocabulary, resolved by the page.
+   *
+   * A prop because this is a Client Component: importing the dictionary here would put both
+   * languages in the browser bundle. The rest of this form is still Spanish — the portal has not
+   * been translated yet — so these words follow the URL while the labels around them do not. That
+   * is the transitional state, and it resolves itself when the form is translated rather than
+   * needing somebody to come back and remove a hard-coded locale.
+   */
+  readonly labels: PropertyLabels;
+  /**
+   * The form's own words, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing the dictionary here would put both languages in the bundle.
+   */
+  readonly copy: Dictionary["propertyForm"];
 };
 
 /**
@@ -114,7 +139,13 @@ export function PropertyForm({
   addressLine,
   registryNumber,
   mapPoint,
+  labels,
+  copy,
 }: PropertyFormProps) {
+  const t = copy;
+  const TYPE_OPTIONS = typeOptions(labels);
+  const PARKING_OPTIONS = parkingOptions(labels);
+  const LEASE_OPTIONS = leaseOptions(labels);
   const router = useRouter();
   const isEditing = property !== undefined;
   const [photos, setPhotos] = useState<readonly PropertyPhoto[]>(property?.photos ?? []);
@@ -253,20 +284,20 @@ export function PropertyForm({
       {errors.root?.message ? <FormAlert>{errors.root.message}</FormAlert> : null}
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-primary">El inmueble</h2>
+        <h2 className="text-lg font-semibold text-primary">{t.sectionProperty}</h2>
         <TextField
           id="title"
-          label="Título del anuncio"
-          placeholder="Apartamento luminoso en Palermo"
+          label={t.title}
+          placeholder={t.titlePlaceholder}
           error={errors.title?.message}
           {...form.register("title")}
         />
         <div className="space-y-1.5">
-          <Label htmlFor="description">Descripción</Label>
+          <Label htmlFor="description">{t.description}</Label>
           <textarea
             id="description"
             rows={5}
-            placeholder="Cuéntale al inquilino cómo es el inmueble, qué incluye y qué hay cerca."
+            placeholder={t.descriptionPlaceholder}
             aria-invalid={Boolean(errors.description)}
             aria-describedby={errors.description ? "description-error" : undefined}
             className="w-full rounded-lg border border-input bg-background px-3 py-2 text-sm shadow-xs transition-colors focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none aria-invalid:border-destructive aria-invalid:ring-destructive/20"
@@ -284,8 +315,8 @@ export function PropertyForm({
           render={({ field }) => (
             <SelectField
               id="type"
-              label="Tipo de inmueble"
-              placeholder="Selecciona el tipo"
+              label={t.type}
+              placeholder={t.typePlaceholder}
               options={TYPE_OPTIONS}
               value={field.value as string}
               onValueChange={field.onChange}
@@ -296,11 +327,11 @@ export function PropertyForm({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-primary">Características</h2>
+        <h2 className="text-lg font-semibold text-primary">{t.sectionFeatures}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField
             id="areaM2"
-            label="Área (m²)"
+            label={t.area}
             inputMode="numeric"
             error={errors.areaM2?.message}
             {...form.register("areaM2")}
@@ -311,8 +342,8 @@ export function PropertyForm({
             render={({ field }) => (
               <SelectField
                 id="stratum"
-                label="Estrato"
-                placeholder="Selecciona"
+                label={t.stratum}
+                placeholder={t.select}
                 options={STRATUM_OPTIONS}
                 value={field.value === undefined || field.value === "" ? undefined : String(field.value)}
                 onValueChange={field.onChange}
@@ -322,14 +353,14 @@ export function PropertyForm({
           />
           <TextField
             id="bedrooms"
-            label="Habitaciones"
+            label={t.bedrooms}
             inputMode="numeric"
             error={errors.bedrooms?.message}
             {...form.register("bedrooms")}
           />
           <TextField
             id="bathrooms"
-            label="Baños"
+            label={t.bathrooms}
             inputMode="numeric"
             error={errors.bathrooms?.message}
             {...form.register("bathrooms")}
@@ -340,7 +371,7 @@ export function PropertyForm({
             render={({ field }) => (
               <SelectField
                 id="parking"
-                label="Parqueadero"
+                label={t.parking}
                 placeholder="Selecciona"
                 options={PARKING_OPTIONS}
                 value={field.value as string}
@@ -362,7 +393,7 @@ export function PropertyForm({
                     onCheckedChange={(checked) => field.onChange(checked === true)}
                   />
                   <Label htmlFor="furnished" className="block font-normal">
-                    Amoblado
+                    {t.furnished}
                   </Label>
                 </div>
               )}
@@ -378,7 +409,7 @@ export function PropertyForm({
                     onCheckedChange={(checked) => field.onChange(checked === true)}
                   />
                   <Label htmlFor="petsAllowed" className="block font-normal">
-                    Acepta mascotas
+                    {t.petsAllowed}
                   </Label>
                 </div>
               )}
@@ -388,7 +419,7 @@ export function PropertyForm({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-primary">Ubicación</h2>
+        <h2 className="text-lg font-semibold text-primary">{t.sectionLocation}</h2>
         {/* Broad to specific: the city list depends on the department, so it is asked first. */}
         <div className="grid gap-4 sm:grid-cols-2">
           <Controller
@@ -397,8 +428,8 @@ export function PropertyForm({
             render={({ field }) => (
               <SelectField
                 id="address.department"
-                label="Departamento"
-                placeholder="Selecciona el departamento"
+                label={t.department}
+                placeholder={t.departmentPlaceholder}
                 options={DEPARTMENT_OPTIONS}
                 value={field.value as string}
                 onValueChange={(value) => {
@@ -423,7 +454,7 @@ export function PropertyForm({
                 // showing the placeholder again.
                 key={typeof department === "string" ? department : "sin-departamento"}
                 id="address.city"
-                label="Ciudad"
+                label={t.city}
                 placeholder={
                   cityOptions.length > 0 ? "Selecciona la ciudad" : "Elige primero el departamento"
                 }
@@ -437,25 +468,25 @@ export function PropertyForm({
           />
           <TextField
             id="address.neighborhood"
-            label="Barrio"
+            label={t.neighborhood}
             error={errors.address?.neighborhood?.message}
             {...form.register("address.neighborhood")}
           />
           <TextField
             id="address.line"
-            label="Dirección"
-            placeholder="Calle 60 #10-20 apto 301"
-            hintTooltip="Solo la ve el inquilino cuya postulación apruebes. En el anuncio se muestran el barrio y la ciudad."
+            label={t.address}
+            placeholder={t.addressPlaceholder}
+            hintTooltip={t.addressTooltip}
             error={errors.address?.line?.message}
             {...form.register("address.line")}
           />
           <TextField
             id="address.registryNumber"
-            label="Número de matrícula inmobiliaria"
-            placeholder="050-123456"
+            label={t.registryNumber}
+            placeholder={t.registryPlaceholder}
             inputMode="numeric"
             autoComplete="off"
-            hintTooltip="El número del certificado de tradición, que expide la Oficina de Registro de Instrumentos Públicos. No se publica: identifica el inmueble ante el registro."
+            hintTooltip={t.registryTooltip}
             error={errors.address?.registryNumber?.message}
             {...form.register("address.registryNumber")}
           />
@@ -466,6 +497,7 @@ export function PropertyForm({
           asking for the point first would be asking for it with nothing to aim the map with.
         */}
         <LocationPicker
+          copy={t}
           value={(point as GeoPoint | undefined) ?? null}
           onChange={(next) =>
             form.setValue("address.point", next ?? undefined, {
@@ -495,7 +527,7 @@ export function PropertyForm({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-primary">Condiciones</h2>
+        <h2 className="text-lg font-semibold text-primary">{t.sectionTerms}</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           <Controller
             control={form.control}
@@ -503,8 +535,8 @@ export function PropertyForm({
             render={({ field }) => (
               <AmountField
                 id="rent"
-                label="Canon mensual (COP)"
-                placeholder="1.800.000"
+                label={t.rent}
+                placeholder={t.rentPlaceholder}
                 value={field.value === undefined || field.value === null ? "" : String(field.value)}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -518,8 +550,8 @@ export function PropertyForm({
             render={({ field }) => (
               <AmountField
                 id="adminFee"
-                label="Administración (COP)"
-                hint="Escribe 0 si el inmueble no paga administración."
+                label={t.adminFee}
+                hint={t.adminFeeHint}
                 value={field.value === undefined || field.value === null ? "" : String(field.value)}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -529,7 +561,7 @@ export function PropertyForm({
           />
           <TextField
             id="availableFrom"
-            label="Disponible desde"
+            label={t.availableFrom}
             type="date"
             min={todayISO()}
             error={errors.availableFrom?.message}
@@ -541,8 +573,8 @@ export function PropertyForm({
             render={({ field }) => (
               <SelectField
                 id="minLeaseMonths"
-                label="Duración mínima"
-                placeholder="Selecciona la duración"
+                label={t.minLease}
+                placeholder={t.minLeasePlaceholder}
                 options={LEASE_OPTIONS}
                 value={String(field.value)}
                 onValueChange={field.onChange}
@@ -554,8 +586,9 @@ export function PropertyForm({
       </section>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-primary">Fotos</h2>
+        <h2 className="text-lg font-semibold text-primary">{t.sectionPhotos}</h2>
         <PhotoUploader
+          copy={t}
           photos={photos}
           // Editing removes a photo that already exists: that is a delete, and every delete in
           // the product asks first. While publishing there is nothing to lose yet.
@@ -568,8 +601,8 @@ export function PropertyForm({
         />
       </section>
 
-      <SubmitButton loading={isSubmitting} loadingLabel={isEditing ? "Guardando…" : "Publicando…"}>
-        {isEditing ? "Guardar cambios" : "Publicar inmueble"}
+      <SubmitButton loading={isSubmitting} loadingLabel={isEditing ? t.saving : t.publishing}>
+        {isEditing ? t.saveChanges : t.publish}
       </SubmitButton>
     </form>
   );

@@ -1,3 +1,5 @@
+import { readUserLocale } from "@/features/profile";
+import { localeFor } from "@/shared/i18n/locale";
 import "server-only";
 
 // Not `"use server"`: this is called *by* Server Actions, not from a form. Making it one would
@@ -133,16 +135,27 @@ export async function notify(input: NotifyInput): Promise<void> {
    * `null` es "no pudimos leer", y `allowsChannel` lo resuelve entregando: ver su nota.
    */
   const preferences = await readNotificationPreferences(input.recipientUid);
+  /*
+   * **The recipient's language, not the request's.** Hoisted above the WhatsApp branch because that
+   * one also renders words — the reminder's body is `notificationCopy`'s — and it was being built in
+   * whatever language the *actor* happened to be browsing in.
+   */
+  const locale = localeFor(await readUserLocale(input.recipientUid));
 
   if (input.recipientPhone && allowsChannel(preferences, input.type, "whatsapp")) {
-    const { template, locale } = whatsAppTemplate();
+    /*
+     * `templateLocale`, not `locale`: this one is **WhatsApp's** — the language code of the template
+     * approved in the Meta account — and it shadowed the recipient's locale when both were called
+     * `locale`, which silently sent the body in the template's language instead of the reader's.
+     */
+    const { template, locale: templateLocale } = whatsAppTemplate();
     const message = interviewReminderMessage({
       to: input.recipientPhone,
       propertyTitle: input.propertyTitle,
       // The bell's own words for this notification, so the three channels say one thing.
-      when: input.detail || notificationCopy(input).body,
+      when: input.detail || notificationCopy(input, locale).body,
       template,
-      locale,
+      locale: templateLocale,
     });
     after(() => sendWhatsApp(message));
   }
@@ -154,6 +167,16 @@ export async function notify(input: NotifyInput): Promise<void> {
 
   // Read here, not inside `after()`: the request's headers belong to the request, and by the
   // time the callback runs there is no longer one to read them from.
-  const email = renderNotificationEmail(input, input.recipientEmail, await baseUrl());
+  /*
+   * **The recipient's language, not the sender's and not the request's.** `notify()` is called from
+   * whatever action moved the process, so the request being served belongs to the *other* party —
+   * a landlord approving a document on the Spanish side would otherwise send the tenant a Spanish
+   * email regardless of what the tenant reads in. And it cannot come from the route either: this
+   * also runs from the cron sweeps, which have no locale at all.
+   *
+   * Read alongside the preferences rather than after them: two independent reads about the same
+   * person, and awaiting them in sequence would add a round trip to every notification.
+   */
+  const email = renderNotificationEmail(input, input.recipientEmail, await baseUrl(), locale);
   after(() => sendEmail(email));
 }

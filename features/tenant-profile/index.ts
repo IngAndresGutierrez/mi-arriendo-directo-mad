@@ -5,10 +5,7 @@ export {
   incomeRatioLabel,
   INCOME_RATIO_GUIDE,
   DOCUMENT_TYPES,
-  DOCUMENT_TYPE_LABELS,
-  EMPLOYER_LABELS,
   OCCUPATIONS,
-  OCCUPATION_LABELS,
   type DocumentType,
   type Occupation,
   type TenantDossier,
@@ -29,8 +26,6 @@ export {
   isPdf,
   missingDocuments,
   requiredDocuments,
-  DOCUMENT_HINTS,
-  DOCUMENT_LABELS,
   type DocumentKind,
   type DocumentRequirement,
   type TenantDocument,
@@ -48,3 +43,6 @@ export {
 export { listTenantDocuments, withSignedUrls, type ViewableDocument } from "./data/documents";
 export { deleteTenantDocument, recordTenantDocument } from "./actions/documents";
 export { DocumentChecklist, type ChecklistDocument } from "./ui/document-checklist";
+
+/** The label records, resolved for one language. Replaces the five `X_LABELS` constants. */
+export { dossierLabels, type DossierLabels } from "./domain/labels";

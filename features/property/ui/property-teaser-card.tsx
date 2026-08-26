@@ -1,5 +1,8 @@
+import { currentLocale } from "@/shared/i18n/server";
+
+import { propertyLabels } from "../domain/labels";
 import Image from "next/image";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { BedDoubleIcon, RulerIcon } from "lucide-react";
 
 import { propertyDetailRoute } from "@/shared/auth/routes";
@@ -8,7 +11,6 @@ import { formatCOP } from "@/shared/format/money";
 import {
   propertyMonthlyCost,
   publicLocationLabel,
-  PROPERTY_TYPE_LABELS,
   type Property,
 } from "../domain/property";
 
@@ -29,7 +31,7 @@ import {
  * There is no "no photo" branch here: `showcaseListings()` has already dropped those, because this
  * is the one surface where leading with an empty frame does the landlord no favours.
  */
-export function PropertyTeaserCard({
+export async function PropertyTeaserCard({
   property,
   eager = false,
 }: {
@@ -37,6 +39,7 @@ export function PropertyTeaserCard({
   /** `true` for the cards a wide screen shows without scrolling; the rest stay lazy. */
   readonly eager?: boolean;
 }) {
+  const labels = propertyLabels(await currentLocale());
   const cover = property.photos[0];
   const href = propertyDetailRoute(property.slug);
 
@@ -56,7 +59,7 @@ export function PropertyTeaserCard({
 
       <div className="p-4">
         <p className="text-xs font-medium text-muted-foreground">
-          {PROPERTY_TYPE_LABELS[property.type]}
+          {labels.types[property.type]}
         </p>
 
         <h3 className="mt-1 text-base font-semibold text-balance text-primary dark:text-foreground">

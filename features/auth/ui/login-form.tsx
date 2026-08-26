@@ -1,8 +1,9 @@
 "use client";
 
+import { useLocale, type Dictionary } from "@/shared/i18n";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -16,8 +17,26 @@ import { authErrorMessage, isUserCancellation } from "@/shared/auth/errors";
 import { PASSWORD_RESET_ROUTE, SIGNUP_ROUTE } from "@/shared/auth/routes";
 import { loginSchema, type LoginInput } from "../validations/auth";
 
-export function LoginForm({ redirectTo }: { redirectTo: string }) {
+export function LoginForm({
+  redirectTo,
+  copy,
+}: {
+  readonly redirectTo: string;
+  /**
+   * The copy this form renders, resolved by the page that mounts it.
+   *
+   * A prop and not a dictionary import: this is a Client Component, and importing
+   * `shared/i18n/dictionary` here would put **both** languages into the browser bundle of the login
+   * screen — the page this project already refuses to spend 630 KB of SDK on.
+   */
+  readonly copy: Dictionary["auth"];
+}) {
   const router = useRouter();
+  /*
+   * `useLocale()` and not a prop: `authErrorMessage` needs the language, and the context carries
+   * exactly one two-character string for cases like this.
+   */
+  const locale = useLocale();
   const [formError, setFormError] = useState<string | null>(null);
   const [isGoogleLoading, setGoogleLoading] = useState(false);
   const [isNavigating, startNavigation] = useTransition();
@@ -49,7 +68,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       await signInWithEmail(values.email, values.password);
       goToDestination();
     } catch (error) {
-      setFormError(authErrorMessage(error));
+      setFormError(authErrorMessage(error, locale));
     }
   }
 
@@ -60,7 +79,7 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
       await signInWithGoogle();
       goToDestination();
     } catch (error) {
-      if (!isUserCancellation(error)) setFormError(authErrorMessage(error));
+      if (!isUserCancellation(error)) setFormError(authErrorMessage(error, locale));
     } finally {
       setGoogleLoading(false);
     }
@@ -90,13 +109,13 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
         <TextField
           id="email"
-          label="Correo electrónico"
+          label={copy.email}
           type="email"
           inputMode="email"
           autoComplete="email"
           autoCapitalize="none"
           spellCheck={false}
-          placeholder="tu@correo.com"
+          placeholder={copy.emailPlaceholder}
           error={errors.email?.message}
           disabled={isBusy}
           {...register("email")}
@@ -104,10 +123,10 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
 
         <TextField
           id="password"
-          label="Contraseña"
+          label={copy.password}
           type="password"
           autoComplete="current-password"
-          placeholder="••••••••"
+          placeholder={copy.passwordPlaceholder}
           error={errors.password?.message}
           disabled={isBusy}
           labelAction={
@@ -115,24 +134,24 @@ export function LoginForm({ redirectTo }: { redirectTo: string }) {
               href={PASSWORD_RESET_ROUTE}
               className="text-sm font-medium text-primary underline-offset-4 hover:underline dark:text-foreground"
             >
-              ¿Olvidaste tu contraseña?
+              {copy.forgotPassword}
             </Link>
           }
           {...register("password")}
         />
 
-        <SubmitButton loading={isSigningIn} disabled={isBusy} loadingLabel="Iniciando sesión…">
-          Iniciar sesión
+        <SubmitButton loading={isSigningIn} disabled={isBusy} loadingLabel={copy.signingIn}>
+          {copy.signIn}
         </SubmitButton>
       </form>
 
       <p className="text-center text-sm text-muted-foreground">
-        ¿No tienes cuenta?{" "}
+        {copy.noAccount}{" "}
         <Link
           href={SIGNUP_ROUTE}
           className="font-semibold text-primary underline-offset-4 hover:underline dark:text-foreground"
         >
-          Créala gratis
+          {copy.createFree}
         </Link>
       </p>
     </div>

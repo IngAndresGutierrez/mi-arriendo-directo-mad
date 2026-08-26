@@ -1,3 +1,5 @@
+import { LOCALE_HTML_LANG, type Locale } from "@/shared/i18n/locale";
+import { dictionaryFor } from "@/shared/i18n/dictionary";
 import {
   isLeaseNotification,
   notificationCopy,
@@ -46,15 +48,26 @@ export function renderNotificationEmail(
   > & { readonly detail?: string; readonly period?: string; readonly incident?: string },
   to: string,
   baseUrl: string,
+  /**
+   * The recipient's language, resolved by the caller.
+   *
+   * **Required, with no default.** A default would silently send Spanish to somebody who chose
+   * English, which is the failure this parameter exists to make impossible to reach by accident —
+   * the same reasoning as `catalogMetaTitle`. `notify()` resolves it from `users/{uid}.locale`,
+   * falling back to Spanish there, where the fallback is a documented decision rather than an
+   * omission.
+   */
+  locale: Locale,
 ): Email {
-  const { title, body } = notificationCopy(notification);
+  const { title, body } = notificationCopy(notification, locale);
+  const copy = dictionaryFor(locale).email;
   const link = `${baseUrl.replace(/\/$/, "")}${notificationPath(notification)}`;
   /*
    * "Ver el proceso" y "Ver el arriendo" son dos pantallas distintas, y el botón tiene que decir a
    * cuál va: quien recibe un correo sobre el canon de octubre no está en un proceso de nueve
    * etapas, está en una tenencia que lleva meses andando.
    */
-  const cta = isLeaseNotification(notification.type) ? "Ver el arriendo" : "Ver el proceso";
+  const cta = isLeaseNotification(notification.type) ? copy.viewLease : copy.viewProcess;
 
   const text = `${title}
 
@@ -64,10 +77,10 @@ ${cta}: ${link}
 
 —
 ${BRAND}
-Recibes este correo porque haces parte de un proceso de arriendo en ${BRAND}.`;
+${copy.why(BRAND)}`;
 
   const html = `<!doctype html>
-<html lang="es-CO">
+<html lang="${LOCALE_HTML_LANG[locale]}">
   <body style="margin:0;padding:24px;background:#F8F9FA;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;color:#1f2430">
     <table role="presentation" style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:16px;border:1px solid #e6e8eb">
       <tr>
@@ -85,14 +98,14 @@ Recibes este correo porque haces parte de un proceso de arriendo en ${BRAND}.`;
         <td style="padding:24px 28px 28px">
           <a href="${escapeHtml(link)}" style="display:inline-block;background:#00E5FF;color:#08202b;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:10px">${cta}</a>
           <p style="margin:16px 0 0;font-size:12px;line-height:1.5;color:#6b7280">
-            Si el botón no funciona, copia este enlace:<br />
+            ${escapeHtml(copy.linkFallback)}<br />
             <span style="color:#374151">${escapeHtml(link)}</span>
           </p>
         </td>
       </tr>
     </table>
     <p style="max-width:520px;margin:16px auto 0;font-size:12px;line-height:1.5;color:#6b7280;text-align:center">
-      Recibes este correo porque haces parte de un proceso de arriendo en ${escapeHtml(BRAND)}.
+      ${escapeHtml(copy.why(BRAND))}
     </p>
   </body>
 </html>`;

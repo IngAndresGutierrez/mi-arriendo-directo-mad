@@ -1,7 +1,14 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
+
+/** The keys of `nav` whose value is a plain string — every one of them, but stated so it stays so. */
+type NavTextKey = {
+  [K in keyof Dictionary["nav"]]: Dictionary["nav"][K] extends string ? K : never;
+}[keyof Dictionary["nav"]];
 import type { ComponentType, SVGProps } from "react";
-import Link, { useLinkStatus } from "next/link";
+import { useLinkStatus } from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { usePathname } from "next/navigation";
 import { Loader2Icon } from "lucide-react";
 
@@ -9,7 +16,14 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
 
 export type NavEntry = {
-  readonly label: string;
+  /**
+   * **A key into the `nav` dictionary, not a word.**
+   *
+   * This used to be the Spanish label. The entry is data that lives in a module-scope constant, and
+   * a constant cannot be re-evaluated per language — so what the list holds is which sentence to
+   * show, and `AppNav` resolves it against the copy its server parent passed down.
+   */
+  readonly label: NavTextKey;
   readonly icon: ComponentType<SVGProps<SVGSVGElement>>;
   /** Absent while the section does not exist yet. */
   readonly href?: string;
@@ -19,7 +33,7 @@ export type NavEntry = {
    * There the label sits under the icon in a 96px column: two words wrap to two lines and read
    * fine, three turn the entry into a paragraph and push the menu out of shape.
    */
-  readonly shortLabel?: string;
+  readonly shortLabel?: NavTextKey;
   /**
    * Extra routes that belong to this section but do not hang off its path. Publishing lives
    * at `/inmuebles/publicar`, yet it is something you do inside "Mis inmuebles": without this
@@ -33,6 +47,8 @@ type NavItemProps = NavEntry & {
   readonly collapsed?: boolean;
   /** Closes the drawer once the user has chosen where to go. */
   readonly onNavigate?: () => void;
+  /** The menu's words, resolved by `AppShell`. See `AppNav`. */
+  readonly copy: Dictionary["nav"];
 };
 
 const ROW = "flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium";
@@ -56,10 +72,11 @@ export function NavItem({
   activeOn,
   collapsed,
   onNavigate,
+  copy,
 }: NavItemProps) {
   const pathname = usePathname();
   const base = collapsed ? STACK : ROW;
-  const shown = collapsed && shortLabel ? shortLabel : label;
+  const shown = copy[collapsed && shortLabel ? shortLabel : label];
   const focus = "focus-visible:ring-3 focus-visible:ring-accent/50 focus-visible:outline-none";
 
   if (!href) {
@@ -77,7 +94,7 @@ export function NavItem({
         <span className={collapsed ? undefined : "flex-1 text-left"}>{shown}</span>
         {!collapsed && (
           <span className="rounded-full bg-white/10 px-2 py-0.5 text-[0.65rem] font-medium tracking-wide uppercase">
-            Pronto
+            {copy.soon}
           </span>
         )}
       </span>
@@ -88,7 +105,7 @@ export function NavItem({
     return (
       <Tooltip>
         <TooltipTrigger asChild>{disabled}</TooltipTrigger>
-        <TooltipContent side="right">Próximamente</TooltipContent>
+        <TooltipContent side="right">{copy.comingSoon}</TooltipContent>
       </Tooltip>
     );
   }

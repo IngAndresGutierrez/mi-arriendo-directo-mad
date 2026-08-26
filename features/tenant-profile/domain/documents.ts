@@ -28,36 +28,6 @@ export const DOCUMENT_KINDS = [
 
 export type DocumentKind = (typeof DOCUMENT_KINDS)[number];
 
-export const DOCUMENT_LABELS: Readonly<Record<DocumentKind, string>> = {
-  id_front: "Cédula por el frente",
-  id_back: "Cédula por detrás",
-  id_both: "Cédula (ambos lados)",
-  employment_letter: "Certificado laboral",
-  payslip: "Desprendibles de nómina",
-  rut: "RUT",
-  tax_return: "Declaración de renta",
-  bank_statement: "Extractos bancarios",
-  chamber_of_commerce: "Cámara de Comercio",
-  pension_certificate: "Certificado de pensión",
-  pension_payslip: "Desprendibles de la mesada",
-  study_certificate: "Certificado de estudios",
-};
-
-export const DOCUMENT_HINTS: Readonly<Record<DocumentKind, string>> = {
-  id_front: "La foto o el escaneo del frente, legible y completo.",
-  id_back: "El reverso del mismo documento.",
-  id_both: "Un solo archivo con las dos caras, como lo entrega un escáner.",
-  employment_letter: "Con tu cargo, tu salario, tu antigüedad y el tipo de contrato.",
-  payslip: "Los tres últimos, uno por archivo.",
-  rut: "El que expide la DIAN, actualizado.",
-  tax_return: "Solo si declaras renta. Si no, déjalo vacío.",
-  bank_statement: "Los tres últimos meses, uno por archivo.",
-  chamber_of_commerce: "El certificado de existencia, renovado este año.",
-  pension_certificate: "La resolución o el certificado de tu pensión.",
-  pension_payslip: "Los tres últimos, uno por archivo.",
-  study_certificate: "El que expide tu universidad o instituto, del semestre en curso.",
-};
-
 /** One line of the checklist: what to upload, and how many. */
 export type DocumentRequirement = {
   readonly kind: DocumentKind;

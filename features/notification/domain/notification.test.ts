@@ -26,13 +26,13 @@ describe("guarantee copy", () => {
       ...base,
       type: "guarantee_requested",
       detail: "Es con Sura, sin codeudor. Puede que te escriban para completar el estudio.",
-    });
+    }, "es");
     expect(copy.body).toContain("Sura");
     expect(copy.body).toContain("sin codeudor");
   });
 
   it("says what comes next once it is active", () => {
-    const copy = notificationCopy({ ...base, type: "guarantee_active", detail: "Póliza AR-99123 de Sura." });
+    const copy = notificationCopy({ ...base, type: "guarantee_active", detail: "Póliza AR-99123 de Sura." }, "es");
     expect(copy.title).toContain("activa");
     expect(copy.body).toContain("AR-99123");
     expect(copy.body).toContain("firma del contrato");
@@ -48,21 +48,21 @@ describe("interview copy", () => {
       ...base,
       type: "interview_proposed",
       detail: "el jueves 10 de septiembre a las 3:00 p. m.",
-    });
+    }, "es");
     expect(copy.title).toContain("entrevista");
     expect(copy.body).toContain("jueves 10 de septiembre");
     expect(copy.body).toContain("Confírmala");
   });
 
   it("still says something useful with no detail stored", () => {
-    const copy = notificationCopy({ ...base, type: "interview_confirmed" });
+    const copy = notificationCopy({ ...base, type: "interview_confirmed" }, "es");
     expect(copy.body).toContain("Apartaestudio en los Alcazares");
   });
 
   it("reminds the day before and minutes before, and they read differently", () => {
     const cuando = "jueves 10 de septiembre, 3:00 p. m.";
-    const mañana = notificationCopy({ ...base, type: "interview_reminder_day", detail: cuando });
-    const yaCasi = notificationCopy({ ...base, type: "interview_reminder_soon", detail: cuando });
+    const mañana = notificationCopy({ ...base, type: "interview_reminder_day", detail: cuando }, "es");
+    const yaCasi = notificationCopy({ ...base, type: "interview_reminder_soon", detail: cuando }, "es");
     expect(mañana.title).toContain("Mañana");
     expect(yaCasi.title).toContain("10 minutos");
     expect(yaCasi.body).toContain("el enlace a mano");
@@ -73,7 +73,7 @@ describe("interview copy", () => {
   });
 
   it("asks the landlord for another time when the tenant cannot", () => {
-    expect(notificationCopy({ ...base, type: "interview_declined" }).body).toContain("Propón otra");
+    expect(notificationCopy({ ...base, type: "interview_declined" }, "es").body).toContain("Propón otra");
   });
 });
 
@@ -89,7 +89,7 @@ describe("la visita al inmueble", () => {
       ...base,
       type: "visit_proposed",
       detail: "jueves 10 de septiembre, 3:00 p. m.",
-    });
+    }, "es");
     expect(copy.body).toContain("jueves 10 de septiembre");
     expect(copy.body).toMatch(/punto de encuentro está en la etapa/i);
   });
@@ -99,8 +99,8 @@ describe("la visita al inmueble", () => {
    * seguir— y "no le interesó" es el final. Un aviso que no distingue las dos se ignora.
    */
   it("distingue las dos conclusiones, porque piden cosas distintas", () => {
-    const sí = notificationCopy({ ...base, type: "visit_interested" });
-    const no = notificationCopy({ ...base, type: "visit_not_interested" });
+    const sí = notificationCopy({ ...base, type: "visit_interested" }, "es");
+    const no = notificationCopy({ ...base, type: "visit_not_interested" }, "es");
 
     expect(sí.title).not.toBe(no.title);
     expect(sí.body).toMatch(/continuar/i);
@@ -112,21 +112,21 @@ describe("la visita al inmueble", () => {
 describe("notificationCopy", () => {
   it("writes a title and a body for every type", () => {
     for (const type of NOTIFICATION_TYPES) {
-      const copy = notificationCopy({ ...base, type });
+      const copy = notificationCopy({ ...base, type }, "es");
       expect(copy.title).toBeTruthy();
       expect(copy.body).toBeTruthy();
     }
   });
 
   it("names who did it and what it was about", () => {
-    const copy = notificationCopy(base);
+    const copy = notificationCopy(base, "es");
     expect(copy.body).toContain("Ana Pérez");
     expect(copy.body).toContain("Apartamento en Palermo");
   });
 
   // Someone with no name on their profile should still get a sentence, not "undefined se postuló".
   it("falls back when the actor has no name", () => {
-    expect(notificationCopy({ ...base, actorName: "" }).body).toMatch(/^Alguien se postuló/);
+    expect(notificationCopy({ ...base, actorName: "" }, "es").body).toMatch(/^Alguien se postuló/);
   });
 
   /*
@@ -134,7 +134,7 @@ describe("notificationCopy", () => {
    * They are separate types precisely so the reader can tell which one they got.
    */
   it("asks for documents instead of announcing a stage", () => {
-    const copy = notificationCopy({ ...base, type: "documents_requested", stage: "tenant_data" });
+    const copy = notificationCopy({ ...base, type: "documents_requested", stage: "tenant_data" }, "es");
     expect(copy.title).toMatch(/documentos/i);
     expect(copy.body).toMatch(/subir/i);
   });
@@ -149,7 +149,7 @@ describe("notificationCopy", () => {
       type: "document_rejected",
       stage: "tenant_data",
       detail: "Cédula por el frente: la foto está borrosa",
-    });
+    }, "es");
 
     expect(copy.title).toMatch(/corregir un documento/i);
     expect(copy.body).toContain("Cédula por el frente");
@@ -157,15 +157,15 @@ describe("notificationCopy", () => {
   });
 
   it("still says something useful when the landlord left no reason", () => {
-    const copy = notificationCopy({ ...base, type: "document_rejected", stage: "tenant_data" });
+    const copy = notificationCopy({ ...base, type: "document_rejected", stage: "tenant_data" }, "es");
     expect(copy.body).toMatch(/Súbelo otra vez/);
   });
 
   it("says at which stage a closed process stopped", () => {
-    expect(notificationCopy({ ...base, type: "application_rejected", stage: "interview" }).body).toContain(
+    expect(notificationCopy({ ...base, type: "application_rejected", stage: "interview" }, "es").body).toContain(
       "Entrevista con el propietario",
     );
-    expect(notificationCopy({ ...base, type: "application_withdrawn", stage: "guarantee" }).body).toContain(
+    expect(notificationCopy({ ...base, type: "application_withdrawn", stage: "guarantee" }, "es").body).toContain(
       "Póliza de arrendamiento",
     );
   });
@@ -240,7 +240,7 @@ describe("the incident notification", () => {
       ...base,
       type: "incident_reported",
       detail: "Se rompió el sifón del lavaplatos",
-    });
+    }, "es");
 
     expect(copy.title).toMatch(/incidente/i);
     expect(copy.body).toContain("Carlos Ramírez");
@@ -249,7 +249,7 @@ describe("the incident notification", () => {
   });
 
   it("still says something when the title is missing", () => {
-    const copy = notificationCopy({ ...base, type: "incident_reported" });
+    const copy = notificationCopy({ ...base, type: "incident_reported" }, "es");
 
     expect(copy.body).toContain("Apartamento en Chapinero");
   });
@@ -269,6 +269,7 @@ describe("the incident notification", () => {
       },
       "dueno@example.com",
       "https://miarriendodirecto.com",
+      "es",
     );
 
     expect(email.text).toContain("https://miarriendodirecto.com/arriendos/abc#incidente-inc-7");
@@ -276,6 +277,30 @@ describe("the incident notification", () => {
     expect(email.text).toMatch(/Ver el arriendo/);
     // La descripción nunca se le pasa a `notify`, así que no hay forma de que aparezca aquí.
     expect(email.text).not.toMatch(/goteando|debajo del mueble/i);
+  });
+
+  /*
+   * El armazón del correo —el botón, el enlace de respaldo, el pie y el `lang` del documento— sigue
+   * el idioma de **quien lo recibe**, que `notify()` lee de `users/{uid}.locale`. No lo decide la
+   * petición: quien mueve el proceso es la otra parte, así que un propietario aprobando un documento
+   * en español mandaría el correo del inquilino en español sin esto.
+   *
+   * Las cuarenta y seis frases por tipo siguen en español y están fuera de este cambio: van en
+   * `notificationCopy`, no aquí. Lo que esta prueba fija es que el armazón sí cambia, y que el
+   * `<html lang>` deja de mentir sobre el idioma del documento.
+   */
+  it("dresses the email in the recipient's language", () => {
+    const notification = { ...base, type: "incident_reported" as const };
+    const es = renderNotificationEmail(notification, "a@b.com", "https://example.test", "es");
+    const en = renderNotificationEmail(notification, "a@b.com", "https://example.test", "en");
+
+    expect(es.html).toContain('lang="es-CO"');
+    expect(es.text).toContain("Ver el arriendo");
+
+    expect(en.html).toContain('lang="en"');
+    expect(en.text).toContain("View the tenancy");
+    expect(en.html).toContain("If the button does not work");
+    expect(en.text).not.toContain("Ver el arriendo");
   });
 });
 
@@ -288,15 +313,15 @@ describe("the tenancy's notifications", () => {
 
   it("names the month it is about", () => {
     expect(
-      notificationCopy({ ...base, type: "canon_receipt_uploaded", period: "2026-09" }).body,
+      notificationCopy({ ...base, type: "canon_receipt_uploaded", period: "2026-09" }, "es").body,
     ).toContain("septiembre de 2026");
-    expect(notificationCopy({ ...base, type: "canon_paid", period: "2026-10" }).body).toContain(
+    expect(notificationCopy({ ...base, type: "canon_paid", period: "2026-10" }, "es").body).toContain(
       "octubre de 2026",
     );
   });
 
   it("still reads as a sentence with no month", () => {
-    const body = notificationCopy({ ...base, type: "canon_receipt_uploaded" }).body;
+    const body = notificationCopy({ ...base, type: "canon_receipt_uploaded" }, "es").body;
     expect(body).toContain("Apartamento en Chapinero");
     expect(body).not.toContain("undefined");
   });
@@ -306,7 +331,7 @@ describe("the tenancy's notifications", () => {
    * correo con el número de cuenta de alguien es la forma de toda estafa de pagos que existe.
    */
   it("says the payout changed without carrying the payout", () => {
-    const body = notificationCopy({ ...base, type: "canon_payout_changed" }).body;
+    const body = notificationCopy({ ...base, type: "canon_payout_changed" }, "es").body;
     expect(body).toContain("cambió por dónde recibe");
     expect(body).toMatch(/en el arriendo/);
   });
@@ -317,14 +342,14 @@ describe("the tenancy's notifications", () => {
       type: "canon_receipt_rejected",
       period: "2026-09",
       detail: "Llegaron $200.000 de menos.",
-    }).body;
+    }, "es").body;
     expect(body).toContain("Llegaron $200.000 de menos.");
     expect(body).not.toContain("..");
   });
 });
 
 describe("renderNotificationEmail", () => {
-  const email = renderNotificationEmail(base, "duena@example.com", "https://www.miarriendodirecto.com");
+  const email = renderNotificationEmail(base, "duena@example.com", "https://www.miarriendodirecto.com", "es");
 
   it("carries an absolute link straight to the stage", () => {
     const link = "https://www.miarriendodirecto.com/contratos/app-1#etapa-submitted";
@@ -336,11 +361,11 @@ describe("renderNotificationEmail", () => {
   it("always has both a text and an HTML body", () => {
     expect(email.text.length).toBeGreaterThan(40);
     expect(email.html).toContain("<!doctype html>");
-    expect(email.subject).toBe(notificationCopy(base).title);
+    expect(email.subject).toBe(notificationCopy(base, "es").title);
   });
 
   it("does not double the slash when the base URL has one", () => {
-    const withSlash = renderNotificationEmail(base, "a@b.com", "https://www.miarriendodirecto.com/");
+    const withSlash = renderNotificationEmail(base, "a@b.com", "https://www.miarriendodirecto.com/", "es");
     expect(withSlash.html).not.toContain(".com//contrato");
   });
 
@@ -350,6 +375,7 @@ describe("renderNotificationEmail", () => {
       { ...base, propertyTitle: '<script>alert("x")</script>' },
       "a@b.com",
       "https://example.test",
+      "es",
     );
     expect(nasty.html).not.toContain("<script>");
     expect(nasty.html).toContain("&lt;script&gt;");
@@ -384,7 +410,7 @@ describe("the waived guarantee", () => {
    * notificación de esta etapa le había dicho que esperara ("puede que Sura te escriba").
    */
   it("tells the tenant there is nothing for them to do", () => {
-    const copy = notificationCopy({ ...base, type: "guarantee_waived" });
+    const copy = notificationCopy({ ...base, type: "guarantee_waived" }, "es");
 
     expect(copy.title).toMatch(/sin p[óo]liza/i);
     expect(copy.body).toContain("Ana Pérez");

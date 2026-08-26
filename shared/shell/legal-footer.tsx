@@ -1,8 +1,9 @@
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 
 import { COOKIES_ROUTE, PRIVACY_ROUTE, SUPPORT_ROUTE, TERMS_ROUTE } from "@/shared/auth/routes";
 import { NewTabLink } from "@/shared/ui/new-tab-link";
 import { controllerIdentityLines } from "@/shared/legal/controller";
+import { dictionary } from "@/shared/i18n/server";
 
 /**
  * Who runs this and where its policies are.
@@ -21,7 +22,9 @@ import { controllerIdentityLines } from "@/shared/legal/controller";
  * public chrome that is `main`, not the viewport, because from `lg` up that chrome is
  * `fixed inset-0` and a footer outside the scroller would be pinned over the content.
  */
-export function LegalFooter() {
+export async function LegalFooter() {
+  const t = (await dictionary()).footer;
+
   return (
     <footer className="mt-12 shrink-0 border-t border-border pt-6 pb-2 lg:mt-6 lg:pt-4">
       <div className="flex flex-col gap-4 text-xs text-muted-foreground sm:flex-row sm:items-start sm:justify-between">
@@ -31,11 +34,11 @@ export function LegalFooter() {
           ))}
         </div>
 
-        <nav aria-label="Información legal">
+        <nav aria-label={t.legalAriaLabel}>
           <ul className="flex flex-wrap gap-x-4 gap-y-1.5">
             <li>
               <NewTabLink href={TERMS_ROUTE} className="underline underline-offset-2 hover:text-foreground">
-                Términos y condiciones
+                {t.terms}
               </NewTabLink>
             </li>
             <li>
@@ -43,7 +46,7 @@ export function LegalFooter() {
                 href={PRIVACY_ROUTE}
                 className="underline underline-offset-2 hover:text-foreground"
               >
-                Tratamiento de datos
+                {t.privacy}
               </NewTabLink>
             </li>
             <li>
@@ -51,7 +54,7 @@ export function LegalFooter() {
                 href={COOKIES_ROUTE}
                 className="underline underline-offset-2 hover:text-foreground"
               >
-                Cookies
+                {t.cookies}
               </NewTabLink>
             </li>
             <li>
@@ -59,7 +62,7 @@ export function LegalFooter() {
                 href={SUPPORT_ROUTE}
                 className="underline underline-offset-2 hover:text-foreground"
               >
-                Contacto
+                {t.contact}
               </Link>
             </li>
           </ul>

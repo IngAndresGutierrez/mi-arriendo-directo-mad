@@ -10,6 +10,7 @@ import {
   SUPPORT_ROUTE,
   TERMS_ROUTE,
 } from "@/shared/auth/routes";
+import { localeSitemapRows } from "@/shared/i18n/seo";
 import { metadataOrigin } from "@/shared/lib/site-url";
 
 /**
@@ -48,8 +49,31 @@ import { metadataOrigin } from "@/shared/lib/site-url";
  */
 export const dynamic = "force-dynamic";
 
+/**
+ * A relative row made absolute, alternates included.
+ *
+ * The `hreflang` values have to be absolute too. A relative `href` inside `<xhtml:link>` is not
+ * resolved by the crawler against anything — it is simply ignored, which silently turns a
+ * two-language cluster back into two unrelated pages, exactly the failure the alternates were added
+ * to prevent. `metadataBase` does this for a page's own metadata; a sitemap has no such base.
+ */
+function withOrigin(origin: string) {
+  return <T extends { url: string; alternates: { languages: Record<string, string> } }>(
+    row: T,
+  ): T => ({
+    ...row,
+    url: `${origin}${row.url}`,
+    alternates: {
+      languages: Object.fromEntries(
+        Object.entries(row.alternates.languages).map(([tag, href]) => [tag, `${origin}${href}`]),
+      ),
+    },
+  });
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = metadataOrigin();
+  const absolute = withOrigin(origin);
 
   /*
    * `/` is the landing: what this product is, for somebody who has never heard of it. It carries
@@ -62,14 +86,21 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
    * index a page that asks not to be indexed is the contradiction the catalogue's canonical note
    * already warns about.
    */
-  const entries: MetadataRoute.Sitemap = [
-    {
-      url: `${origin}${PROPERTIES_ROUTE}`,
-      changeFrequency: "daily",
-      priority: 1,
-    },
-    { url: `${origin}${LANDING_ROUTE}`, changeFrequency: "weekly", priority: 1 },
-    { url: `${origin}${SUPPORT_ROUTE}`, changeFrequency: "yearly", priority: 0.3 },
+  /**
+   * **Every URL is submitted in both languages, and each row carries the whole cluster.**
+   *
+   * `localeSitemapRows` turns one canonical path into one row per locale with the same
+   * `alternates.languages` on both. The English URL has to be *in* the list to be crawled at all —
+   * an `hreflang` tag on a page nobody fetched is a tag nobody reads — and the alternates are what
+   * stop the pair from competing with each other for the same query.
+   *
+   * `absolute()` is applied at the end rather than here: the helper deals in canonical relative
+   * paths, which is what keeps it testable without an origin, and a sitemap needs absolute URLs.
+   */
+  const paths: readonly { path: string; row: Omit<MetadataRoute.Sitemap[number], "url"> }[] = [
+    { path: PROPERTIES_ROUTE, row: { changeFrequency: "daily", priority: 1 } },
+    { path: LANDING_ROUTE, row: { changeFrequency: "weekly", priority: 1 } },
+    { path: SUPPORT_ROUTE, row: { changeFrequency: "yearly", priority: 0.3 } },
     /*
      * The three legal documents, and they belong here rather than being merely reachable.
      *
@@ -78,11 +109,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
      * also what somebody checking whether this product is real goes looking for, and a search
      * result is where they look first. Low priority and `yearly`, which is the truth about a
      * document whose version only moves when the policy does.
+     *
+     * **They are submitted in both languages even though the documents themselves are Spanish
+     * only.** The URL exists in both — `/en/terminos` renders the Spanish text inside the English
+     * chrome and says so on the page — and declaring the pair is what stops a search engine
+     * treating the two as duplicates of unknown relation. Translating the documents is a lawyer's
+     * job, not a build step; see the note on the page.
      */
-    { url: `${origin}${TERMS_ROUTE}`, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${origin}${PRIVACY_ROUTE}`, changeFrequency: "yearly", priority: 0.3 },
-    { url: `${origin}${COOKIES_ROUTE}`, changeFrequency: "yearly", priority: 0.3 },
+    { path: TERMS_ROUTE, row: { changeFrequency: "yearly", priority: 0.3 } },
+    { path: PRIVACY_ROUTE, row: { changeFrequency: "yearly", priority: 0.3 } },
+    { path: COOKIES_ROUTE, row: { changeFrequency: "yearly", priority: 0.3 } },
   ];
+
+  const entries: MetadataRoute.Sitemap = paths.flatMap(({ path, row }) =>
+    localeSitemapRows(path, row).map(absolute),
+  );
+
 
   let published: readonly Awaited<ReturnType<typeof listAvailableProperties>>[number][] = [];
   try {
@@ -110,21 +152,29 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
 
   for (const [city, lastModified] of cities) {
-    entries.push({
-      url: `${origin}${PROPERTIES_ROUTE}?city=${encodeURIComponent(city)}`,
-      lastModified,
-      changeFrequency: "daily",
-      priority: 0.8,
-    });
+    entries.push(
+      ...localeSitemapRows(`${PROPERTIES_ROUTE}?city=${encodeURIComponent(city)}`, {
+        lastModified,
+        changeFrequency: "daily" as const,
+        priority: 0.8,
+      }).map(absolute),
+    );
   }
 
+  /*
+   * **The slug is the same in both languages, on purpose.** It is minted from the landlord's own
+   * Spanish title and reserved in `propertySlugs/{slug}`, whose document id *is* the slug — one
+   * listing, one slug, and the language lives in the prefix in front of it. Translating slugs would
+   * mean a second reservation collection and two URLs that can drift apart for one property.
+   */
   for (const property of published) {
-    entries.push({
-      url: `${origin}${propertyDetailRoute(property.slug)}`,
-      lastModified: property.updatedAt,
-      changeFrequency: "weekly",
-      priority: 0.9,
-    });
+    entries.push(
+      ...localeSitemapRows(propertyDetailRoute(property.slug), {
+        lastModified: property.updatedAt,
+        changeFrequency: "weekly" as const,
+        priority: 0.9,
+      }).map(absolute),
+    );
   }
 
   return entries;

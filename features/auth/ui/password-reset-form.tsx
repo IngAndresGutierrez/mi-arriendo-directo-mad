@@ -1,7 +1,8 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { MailCheckIcon } from "lucide-react";
@@ -28,7 +29,16 @@ import { passwordResetSchema, type EmailInput } from "../validations/auth";
  * before anything is sent. A form that sometimes said "no pudimos enviarlo" would be leaking the
  * same bit through a different door.
  */
-export function PasswordResetForm() {
+export function PasswordResetForm({
+  copy,
+}: {
+  /**
+   * The copy this renders, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing `shared/i18n/dictionary` here would put **both** languages into
+   * the browser bundle.
+   */
+  readonly copy: Dictionary["auth"];
+}) {
   const [isPending, startTransition] = useTransition();
   const [sentTo, setSentTo] = useState<string | null>(null);
 
@@ -53,7 +63,7 @@ export function PasswordResetForm() {
         </span>
 
         <h1 className="mt-4 text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
-          Revisa tu correo
+          {copy.checkYourEmail}
         </h1>
 
         {/*
@@ -62,14 +72,12 @@ export function PasswordResetForm() {
           is that the button stopped being busy.
         */}
         <p role="status" className="mt-2 text-muted-foreground">
-          Si existe una cuenta con <span className="font-medium text-foreground">{sentTo}</span>, te
-          enviamos un enlace para elegir una contraseña nueva. Vence en una hora y solo sirve una
-          vez.
+          {copy.resetSentToBefore} <span className="font-medium text-foreground">{sentTo}</span>
+          {copy.resetSentToAfter}
         </p>
 
         <p className="mt-6 text-sm text-muted-foreground">
-          ¿No te llegó? Revisa la carpeta de spam. Si el correo no está registrado no recibirás nada
-          — es la forma de no confirmarle a nadie más si tienes cuenta aquí.
+          {copy.resetNotArrived}
         </p>
 
         <div className="mt-8">
@@ -77,7 +85,7 @@ export function PasswordResetForm() {
             href={LOGIN_ROUTE}
             className="text-sm font-medium text-primary underline-offset-4 hover:underline dark:text-foreground"
           >
-            Volver a iniciar sesión
+            {copy.backToSignIn}
           </Link>
         </div>
       </div>
@@ -87,10 +95,10 @@ export function PasswordResetForm() {
   return (
     <>
       <h1 className="text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
-        Recuperar tu contraseña
+        {copy.resetTitle}
       </h1>
       <p className="mt-2 mb-8 text-muted-foreground">
-        Escribe el correo de tu cuenta y te enviamos un enlace para elegir una nueva.
+        {copy.resetFormNote}
       </p>
 
       {/* `post`, even though JavaScript submits it: see the note in `login-form.tsx`. */}
@@ -107,20 +115,20 @@ export function PasswordResetForm() {
       >
         <TextField
           id="email"
-          label="Correo electrónico"
+          label={copy.email}
           type="email"
           inputMode="email"
           autoComplete="email"
           autoCapitalize="none"
           spellCheck={false}
-          placeholder="tu@ejemplo.com"
+          placeholder={copy.emailPlaceholderAlt}
           error={errors.email?.message}
           disabled={isPending}
           {...register("email")}
         />
 
-        <SubmitButton loading={isPending} disabled={isPending} loadingLabel="Enviando…">
-          Enviarme el enlace
+        <SubmitButton loading={isPending} disabled={isPending} loadingLabel={copy.sendingLink}>
+          {copy.sendLink}
         </SubmitButton>
       </form>
 

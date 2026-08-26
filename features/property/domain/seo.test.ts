@@ -87,7 +87,7 @@ describe("clampText", () => {
 describe("propertyMetaTitle", () => {
   it("says what it is, where it is and what it costs", () => {
     // El espacio tras el `$` que pone `Intl` es un espacio duro, no uno normal.
-    expect(propertyMetaTitle(PROPERTY)).toBe(
+    expect(propertyMetaTitle(PROPERTY, "es")).toBe(
       "Apartamento en arriendo en Palermo, Manizales · $\u00a01.400.000",
     );
   });
@@ -95,8 +95,8 @@ describe("propertyMetaTitle", () => {
   /* El canon es la suma: publicar solo el arriendo y cobrar la administración aparte es la
      diferencia que el inquilino descubre al final. */
   it("prices the total, not the rent alone", () => {
-    expect(propertyMetaTitle(PROPERTY)).toContain("1.400.000");
-    expect(propertyMetaTitle(PROPERTY)).not.toContain("1.300.000");
+    expect(propertyMetaTitle(PROPERTY, "es")).toContain("1.400.000");
+    expect(propertyMetaTitle(PROPERTY, "es")).not.toContain("1.300.000");
   });
 
   /*
@@ -105,8 +105,8 @@ describe("propertyMetaTitle", () => {
    */
   it("never uses the landlord's own headline", () => {
     const shouty: Property = { ...PROPERTY, title: "HERMOSO APTO REMODELADO 😍😍" };
-    expect(propertyMetaTitle(shouty)).not.toContain("HERMOSO");
-    expect(propertyMetaTitle(shouty)).not.toContain("😍");
+    expect(propertyMetaTitle(shouty, "es")).not.toContain("HERMOSO");
+    expect(propertyMetaTitle(shouty, "es")).not.toContain("😍");
   });
 
   /* Y cabe: el layout le pega " · miarriendoDIRECTO.com" detrás, así que pasarse cuesta la marca. */
@@ -115,7 +115,7 @@ describe("propertyMetaTitle", () => {
       ...PROPERTY,
       area: { ...PROPERTY.area, neighborhood: "Ciudadela del Norte La Enea", city: "Villamaría" },
     };
-    expect(propertyMetaTitle(long).length).toBeLessThanOrEqual(TITLE_MAX);
+    expect(propertyMetaTitle(long, "es").length).toBeLessThanOrEqual(TITLE_MAX);
   });
 
   /*
@@ -129,7 +129,7 @@ describe("propertyMetaTitle", () => {
       ...PROPERTY,
       area: { ...PROPERTY.area, neighborhood: "Ciudadela del Norte La Enea", city: "Villamaría" },
     };
-    const title = propertyMetaTitle(long);
+    const title = propertyMetaTitle(long, "es");
     expect(title).toContain("Villamaría");
     expect(title).not.toContain("1.400.000");
     expect(title.length).toBeLessThanOrEqual(TITLE_MAX);
@@ -142,7 +142,7 @@ describe("propertyMetaTitle", () => {
       rent: 12_000_000,
       area: { ...PROPERTY.area, neighborhood: "La Francia", city: "Villamaría" },
     };
-    const title = propertyMetaTitle(long);
+    const title = propertyMetaTitle(long, "es");
     expect(title).toContain("La Francia");
     expect(title).toContain("Villamaría");
     expect(title).not.toContain("12.100.000");
@@ -151,7 +151,7 @@ describe("propertyMetaTitle", () => {
 
 describe("propertyMetaDescription", () => {
   it("carries the facts somebody compares on", () => {
-    const description = propertyMetaDescription(PROPERTY);
+    const description = propertyMetaDescription(PROPERTY, "es");
     expect(description).toContain("Palermo, Manizales");
     expect(description).toContain("$ 1.400.000");
     expect(description).toContain("2 habitaciones");
@@ -160,53 +160,113 @@ describe("propertyMetaDescription", () => {
   });
 
   it("says baño in the singular and baños in the plural", () => {
-    expect(propertyMetaDescription({ ...PROPERTY, bathrooms: 2 })).toContain("2 baños");
-    expect(propertyMetaDescription({ ...PROPERTY, bathrooms: 1 })).toContain("1 baño");
+    expect(propertyMetaDescription({ ...PROPERTY, bathrooms: 2 }, "es")).toContain("2 baños");
+    expect(propertyMetaDescription({ ...PROPERTY, bathrooms: 1 }, "es")).toContain("1 baño");
+  });
+
+  /*
+   * The same fact sheet in the other language. The listing detail page is the other half of what
+   * this product publishes to be found, and its `<title>` and preview card were Spanish on
+   * `/en/inmuebles/<slug>` for exactly the reason the catalogue's were: these functions took no
+   * locale. Nothing in the bar can see that — it is a string inside a `<head>`.
+   */
+  it("writes the fact sheet in the language it was asked for", () => {
+    const title = propertyMetaTitle(PROPERTY, "en");
+    expect(title).toContain("Apartment for rent in");
+    expect(title).not.toContain("en arriendo");
+
+    const description = propertyMetaDescription(PROPERTY, "en");
+    expect(description).toContain("bedrooms");
+    expect(description).toContain("no agency commission");
+    expect(propertyImageAlt(PROPERTY, "en")).toContain("for rent in");
+  });
+
+  /*
+   * **The ladder has to work in both languages, and it is not the same length in each.** English
+   * prose of the same meaning is shorter, so a title that had to drop its price in Spanish may not
+   * in English — what must hold in either is the rule: the price goes first, the neighbourhood
+   * second, and the city never goes. That last clause is the one that matters, and it is why this
+   * asserts the city rather than an exact string.
+   */
+  it("degrades in the same order in English, and never drops the city", () => {
+    const long = {
+      ...PROPERTY,
+      area: { ...PROPERTY.area, neighborhood: "Ciudadela del Norte La Enea Sector Dos", city: "Manizales" },
+    };
+
+    for (const locale of ["es", "en"] as const) {
+      const title = propertyMetaTitle(long, locale);
+      expect(title.length).toBeLessThanOrEqual(TITLE_MAX);
+      expect(title, `${locale} dropped the city`).toContain("Manizales");
+    }
   });
 
   /* Un apartaestudio no tiene "0 habitaciones": tiene el espacio y ya. */
   it("does not offer zero bedrooms", () => {
-    const studio = propertyMetaDescription({ ...PROPERTY, type: "studio", bedrooms: 0 });
+    const studio = propertyMetaDescription({ ...PROPERTY, type: "studio", bedrooms: 0 }, "es");
     expect(studio).not.toContain("0 habitaciones");
     expect(studio).toContain("sin habitación separada");
   });
 
   it("fits what a search result and a link preview will show", () => {
-    expect(propertyMetaDescription(PROPERTY).length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+    expect(propertyMetaDescription(PROPERTY, "es").length).toBeLessThanOrEqual(DESCRIPTION_MAX);
   });
 
   /* Lo que el propietario escribió es suyo y arranca casi siempre con un saludo. */
   it("does not paste the landlord's description into the preview", () => {
-    expect(propertyMetaDescription(PROPERTY)).not.toContain("Hola");
+    expect(propertyMetaDescription(PROPERTY, "es")).not.toContain("Hola");
   });
 });
 
 describe("propertyImageAlt", () => {
   it("describes the card for whoever cannot see it", () => {
-    expect(propertyImageAlt(PROPERTY)).toBe("Apartamento en arriendo en Palermo, Manizales");
+    expect(propertyImageAlt(PROPERTY, "es")).toBe("Apartamento en arriendo en Palermo, Manizales");
   });
 });
 
 describe("the catalog's own words", () => {
   it("names the city when there is one", () => {
-    expect(catalogMetaTitle({ city: "Manizales" })).toBe("Arriendos en Manizales");
-    expect(catalogMetaDescription({ city: "Manizales" })).toContain("en Manizales");
+    expect(catalogMetaTitle({ city: "Manizales" }, "es")).toBe("Arriendos en Manizales");
+    expect(catalogMetaDescription({ city: "Manizales" }, "es")).toContain("en Manizales");
   });
 
   it("and speaks of the whole country when there is not", () => {
-    expect(catalogMetaTitle({ city: null })).toContain("Colombia");
-    expect(catalogMetaDescription({ city: null })).toContain("toda Colombia");
+    expect(catalogMetaTitle({ city: null }, "es")).toContain("Colombia");
+    expect(catalogMetaDescription({ city: null }, "es")).toContain("toda Colombia");
   });
 
-  it("fits in a search result", () => {
-    expect(catalogMetaDescription({ city: null }).length).toBeLessThanOrEqual(DESCRIPTION_MAX);
-    expect(catalogMetaDescription({ city: "Villamaría" }).length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+  /*
+   * The bug this pair was added for: these functions had no `locale` at all, so `/en/inmuebles`
+   * shipped `<title>Inmuebles en arriendo en Colombia</title>` — a Spanish title on the one English
+   * page that exists to be found. It was invisible to `typecheck`, `lint`, `build` and every driver,
+   * and was caught by reading the `<head>` the server actually sent.
+   */
+  it("speaks the language it was asked for", () => {
+    expect(catalogMetaTitle({ city: "Manizales" }, "en")).toBe("Rentals in Manizales");
+    expect(catalogMetaTitle({ city: null }, "en")).toBe("Properties for rent in Colombia");
+    expect(catalogMetaDescription({ city: null }, "en")).toContain("across Colombia");
+  });
+
+  /* The city is a proper noun and stays itself in both languages. */
+  it("does not translate the city's name", () => {
+    for (const locale of ["es", "en"] as const) {
+      expect(catalogMetaTitle({ city: "Bogotá D.C." }, locale)).toContain("Bogotá D.C.");
+    }
+  });
+
+  it("fits in a search result, in either language", () => {
+    for (const locale of ["es", "en"] as const) {
+      expect(catalogMetaDescription({ city: null }, locale).length).toBeLessThanOrEqual(DESCRIPTION_MAX);
+      expect(catalogMetaDescription({ city: "Villamaría" }, locale).length).toBeLessThanOrEqual(
+        DESCRIPTION_MAX,
+      );
+    }
   });
 });
 
 describe("propertyJsonLd", () => {
   const url = "https://www.miarriendodirecto.com/inmuebles/apartamento-luminoso-con-balcon-manizales";
-  const data = propertyJsonLd(PROPERTY, url);
+  const data = propertyJsonLd(PROPERTY, url, "es");
 
   it("describes the page as a listing and the thing as somewhere to live", () => {
     expect(data["@type"]).toBe("RealEstateListing");
@@ -215,9 +275,9 @@ describe("propertyJsonLd", () => {
   });
 
   it("maps a house to a house and anything commercial to plain accommodation", () => {
-    const house = propertyJsonLd({ ...PROPERTY, type: "house" }, url);
+    const house = propertyJsonLd({ ...PROPERTY, type: "house" }, url, "es");
     expect((house.about as Record<string, unknown>)["@type"]).toBe("House");
-    const office = propertyJsonLd({ ...PROPERTY, type: "office" }, url);
+    const office = propertyJsonLd({ ...PROPERTY, type: "office" }, url, "es");
     expect((office.about as Record<string, unknown>)["@type"]).toBe("Accommodation");
   });
 
@@ -266,7 +326,7 @@ describe("propertyJsonLd", () => {
   });
 
   it("omits the image list rather than publishing an empty one", () => {
-    expect(propertyJsonLd({ ...PROPERTY, photos: [] }, url).image).toBeUndefined();
+    expect(propertyJsonLd({ ...PROPERTY, photos: [] }, url, "es").image).toBeUndefined();
   });
 
   it("serialises to JSON with nothing left over", () => {
@@ -306,7 +366,7 @@ describe("propertyBreadcrumbJsonLd", () => {
 });
 
 describe("catalogJsonLd", () => {
-  const build = (page: number, items: readonly Property[] = [PROPERTY]) =>
+  const build = (page: number, items: readonly Property[] = [PROPERTY], locale: "es" | "en" = "es") =>
     catalogJsonLd(
       items,
       { city: "Manizales", page },
@@ -314,7 +374,18 @@ describe("catalogJsonLd", () => {
       "/inmuebles?city=Manizales",
       (slug) => `/inmuebles/${slug}`,
       6,
+      locale,
     );
+
+  /*
+   * `inLanguage` was hard-coded to `es-CO`, so the English catalogue's structured data claimed to be
+   * Spanish — a claim a crawler can check against the text on the page, which is how a whole JSON-LD
+   * block earns being ignored.
+   */
+  it("declares the language the page is actually in", () => {
+    expect(build(1).inLanguage).toBe("es-CO");
+    expect(build(1, [PROPERTY], "en").inLanguage).toBe("en");
+  });
 
   it("lists what is on the page, with absolute links", () => {
     const list = build(1).mainEntity as Record<string, unknown>;

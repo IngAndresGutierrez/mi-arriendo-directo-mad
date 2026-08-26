@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { ArrowLeftIcon } from "lucide-react";
@@ -18,6 +19,12 @@ type PasswordStepProps = {
   isBusy: boolean;
   onBack: () => void;
   onSubmitPassword: (password: string) => Promise<void>;
+  /**
+   * The copy this step renders, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing `shared/i18n/dictionary` here would put **both** languages in
+   * the browser bundle of the signup screen.
+   */
+  readonly copy: Dictionary["auth"];
 };
 
 /** Signup step 2: create the account password. */
@@ -27,6 +34,7 @@ export function PasswordStep({
   isBusy,
   onBack,
   onSubmitPassword,
+  copy,
 }: PasswordStepProps) {
   const {
     register,
@@ -74,21 +82,21 @@ export function PasswordStep({
 
         <TextField
           id="password"
-          label="Contraseña"
+          label={copy.password}
           type="password"
           autoComplete="new-password"
-          placeholder="••••••••"
+          placeholder={copy.passwordPlaceholder}
           // The checklist describes the field; the error only shows when something slips
           // past it (exceeding the maximum length, for instance).
-          hint={<PasswordRequirements id={REQUIREMENTS_ID} value={password} />}
+          hint={<PasswordRequirements id={REQUIREMENTS_ID} value={password} copy={copy} />}
           error={errors.password?.message}
           disabled={isSaving}
           autoFocus
           {...register("password")}
         />
 
-        <SubmitButton loading={isSaving} loadingLabel="Creando cuenta…">
-          Crear cuenta
+        <SubmitButton loading={isSaving} loadingLabel={copy.creatingAccount}>
+          {copy.createAccount}
         </SubmitButton>
       </form>
     </>

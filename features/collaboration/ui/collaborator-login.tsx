@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
@@ -31,7 +32,15 @@ import { requestCodeSchema, verifyCodeSchema } from "../validations/errand";
  * Two steps in one component because they are one act. Splitting them across routes would put the
  * number in a URL — personal data in the history and the server log — for no gain.
  */
-export function CollaboratorLogin() {
+export function CollaboratorLogin({
+  common,
+}: {
+  /**
+   * Shared words the phone field needs, resolved by the page. A prop because this is a Client
+   * Component: importing the dictionary here would put both languages in the browser bundle.
+   */
+  readonly common: Dictionary["common"];
+}) {
   const router = useRouter();
   const [sentTo, setSentTo] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -179,6 +188,7 @@ export function CollaboratorLogin() {
           name="phoneCountry"
           render={({ field }) => (
             <PhoneField
+            copy={common}
               label="Tu número"
               // `?? "CO"`: the field's *input* type is optional because the schema defaults it, so
               // the value is `string | undefined` until Zod runs. The default is the same constant.

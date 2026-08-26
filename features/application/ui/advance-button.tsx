@@ -8,7 +8,12 @@ import { Button } from "@/shared/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui/tooltip";
 
 import { advanceApplication } from "../actions/advance";
-import { canAdvance, nextStage, STAGE_LABELS, type Application } from "../domain/application";
+import {
+  canAdvance,
+  nextStage,
+  type Application,
+  type ApplicationCopy,
+} from "../domain/application";
 
 /**
  * The one control that moves the process on, wherever it is rendered.
@@ -34,6 +39,7 @@ export function AdvanceButton({
   application,
   blockedBecause = null,
   describedById,
+  copy,
 }: {
   readonly application: Application;
   /**
@@ -45,6 +51,11 @@ export function AdvanceButton({
   readonly blockedBecause?: string | null;
   /** The paragraph repeating the reason, so the blocked button points at it for a screen reader. */
   readonly describedById?: string;
+  /**
+   * The process's vocabulary, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: ApplicationCopy;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -53,7 +64,7 @@ export function AdvanceButton({
   const target = nextStage(application.stage);
   if (!canAdvance(application) || !target) return null;
 
-  const label = `Continuar a “${STAGE_LABELS[target]}”`;
+  const label = `${copy.advanceTo} “${copy.stageLabels[target]}”`;
 
   if (blockedBecause) {
     /*

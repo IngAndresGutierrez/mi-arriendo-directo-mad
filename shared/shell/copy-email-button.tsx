@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useEffect, useRef, useState } from "react";
 import { CheckIcon, CopyIcon } from "lucide-react";
 
@@ -21,14 +22,21 @@ const CONFIRMATION_MS = 2500;
  * The clipboard can still refuse (an insecure origin, a permission the browser withholds), so
  * the failure is not silent: the address itself appears under the button, ready to select.
  */
-export function CopyEmailButton({ className }: { readonly className?: string }) {
+export function CopyEmailButton({
+  className,
+  copy,
+}: {
+  readonly className?: string
+  /** Its words, resolved by the server parent: this is a Client Component. */
+  readonly copy: Dictionary["support"];
+}) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   // A component unmounted mid-confirmation would otherwise set state on nothing.
   useEffect(() => () => clearTimeout(timer.current), []);
 
-  async function copy() {
+  async function copyAddress() {
     clearTimeout(timer.current);
     try {
       await navigator.clipboard.writeText(SUPPORT_EMAIL);
@@ -42,9 +50,9 @@ export function CopyEmailButton({ className }: { readonly className?: string }) 
 
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <Button type="button" variant="outline" size="xl" className="w-full" onClick={copy}>
+      <Button type="button" variant="outline" size="xl" className="w-full" onClick={copyAddress}>
         {state === "copied" ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
-        {state === "copied" ? "Correo copiado" : "Copiar correo"}
+        {state === "copied" ? copy.emailCopied : copy.copyEmail}
       </Button>
 
       {/*
@@ -52,12 +60,12 @@ export function CopyEmailButton({ className }: { readonly className?: string }) 
         inconsistently, and the confirmation is the whole point of the button.
       */}
       <p role="status" aria-live="polite" className="sr-only">
-        {state === "copied" ? `${SUPPORT_EMAIL} copiado al portapapeles` : ""}
+        {state === "copied" ? `${SUPPORT_EMAIL} ${copy.copiedToClipboardAfter}` : ""}
       </p>
 
       {state === "failed" && (
         <p className="text-xs break-all text-muted-foreground">
-          No pudimos copiarlo. La dirección es{" "}
+          {copy.copyFailed}{" "}
           <span className="font-medium text-foreground">{SUPPORT_EMAIL}</span>.
         </p>
       )}

@@ -5,12 +5,9 @@ export {
   approximateLocation,
   APPROX_RADIUS_M,
   LEASE_TERMS,
-  LEASE_TERM_LABELS,
   propertyIdFromSlug,
   propertySlug,
-  PROPERTY_STATUS_LABELS,
   PROPERTY_TYPES,
-  PROPERTY_TYPE_LABELS,
   propertyMonthlyCost,
   publicLocationLabel,
   type LeaseTerm,
@@ -27,7 +24,6 @@ export {
 export { CATALOG_MAX_SCAN, listAvailableProperties } from "./data/property";
 export { countCities, showcaseListings, type CityCount } from "./domain/cities";
 export {
-  bedroomBucketLabel,
   countFacets,
   filterProperties,
   hasActiveFilters,
@@ -61,3 +57,6 @@ export { PropertyFacts } from "./ui/property-facts";
 export { PropertyGallery } from "./ui/property-gallery";
 export { PropertyPriceCard } from "./ui/property-price-card";
 export { PropertyZoneMap } from "./ui/property-zone-map";
+
+/** The label records, resolved for one language. Replaces the six `X_LABELS` constants. */
+export { propertyLabels, type PropertyLabels } from "./domain/labels";

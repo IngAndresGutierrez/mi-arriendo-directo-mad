@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm } from "react-hook-form";
@@ -36,6 +37,7 @@ export function ErrandForm({
   propertyId,
   propertyTitle,
   properties,
+  common,
 }: {
   readonly propertyId: string;
   readonly propertyTitle: string;
@@ -49,6 +51,11 @@ export function ErrandForm({
    * twice, and the copy of a form is the one that stops matching the schema.
    */
   readonly properties?: readonly { readonly id: string; readonly title: string }[];
+  /**
+   * Shared words the phone field needs, resolved by the page. A prop because this is a Client
+   * Component: importing the dictionary here would put both languages in the browser bundle.
+   */
+  readonly common: Dictionary["common"];
 }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -222,6 +229,7 @@ export function ErrandForm({
             name="phoneCountry"
             render={({ field }) => (
               <PhoneField
+            copy={common}
                 label="Su WhatsApp"
                 country={field.value ?? "CO"}
                 onCountryChange={(iso) => {

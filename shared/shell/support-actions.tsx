@@ -1,3 +1,4 @@
+import type { Dictionary } from "@/shared/i18n";
 import { MailIcon } from "lucide-react";
 
 import { Button } from "@/shared/ui/button";
@@ -12,13 +13,20 @@ import { CopyEmailButton } from "./copy-email-button";
  * screen and by `/soporte`. Two copies of a contact button is two places to forget when the
  * number changes.
  */
-export function WhatsAppSupportButton({ className }: { readonly className?: string }) {
+export function WhatsAppSupportButton({
+  className,
+  copy,
+}: {
+  readonly className?: string;
+  /** Its words, resolved by the server parent: this is a Client Component. */
+  readonly copy: Dictionary["support"];
+}) {
   return (
     <Button asChild variant="accent" size="xl" className={cn("w-full", className)}>
       <a href={supportWhatsAppUrl()} target="_blank" rel="noreferrer">
         <WhatsAppIcon className="size-4" />
-        Escribir por WhatsApp
-        <span className="sr-only"> (se abre en una pestaña nueva)</span>
+        {copy.writeOnWhatsApp}
+        <span className="sr-only"> {copy.opensInNewTab}</span>
       </a>
     </Button>
   );
@@ -39,7 +47,14 @@ export function WhatsAppSupportButton({ className }: { readonly className?: stri
  * server. `display: none` also takes the hidden one out of the accessibility tree, so a screen
  * reader is offered exactly one email action.
  */
-export function EmailSupportButton({ className }: { readonly className?: string }) {
+export function EmailSupportButton({
+  className,
+  copy,
+}: {
+  readonly className?: string;
+  /** Its words, resolved by the server parent: this is a Client Component. */
+  readonly copy: Dictionary["support"];
+}) {
   return (
     <>
       <Button
@@ -50,21 +65,28 @@ export function EmailSupportButton({ className }: { readonly className?: string 
       >
         <a href={supportEmailUrl()}>
           <MailIcon className="size-4" />
-          Enviar un correo
+          {copy.sendEmail}
         </a>
       </Button>
 
-      <CopyEmailButton className={cn("hidden pointer-fine:flex", className)} />
+      <CopyEmailButton className={cn("hidden pointer-fine:flex", className)} copy={copy} />
     </>
   );
 }
 
 /** Both, stacked. WhatsApp first: it is the one that answers in minutes. */
-export function SupportActions({ className }: { readonly className?: string }) {
+export function SupportActions({
+  className,
+  copy,
+}: {
+  readonly className?: string;
+  /** Its words, resolved by the server parent: this is a Client Component. */
+  readonly copy: Dictionary["support"];
+}) {
   return (
     <div className={cn("space-y-2", className)}>
-      <WhatsAppSupportButton />
-      <EmailSupportButton />
+      <WhatsAppSupportButton copy={copy} />
+      <EmailSupportButton copy={copy} />
     </div>
   );
 }

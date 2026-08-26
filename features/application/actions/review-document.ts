@@ -6,7 +6,10 @@ import { z } from "zod";
 
 import { notify } from "@/features/notification";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
-import { listTenantDocuments, DOCUMENT_LABELS } from "@/features/tenant-profile";
+import { listTenantDocuments, dossierLabels } from "@/features/tenant-profile";
+import { readUserLocale } from "@/features/profile";
+import { dictionaryFor } from "@/shared/i18n/dictionary";
+import { localeFor } from "@/shared/i18n/locale";
 import { applicationRoute } from "@/shared/auth/routes";
 import { adminDb } from "@/shared/firebase/admin";
 
@@ -91,6 +94,10 @@ export async function reviewTenantDocument(
       getProfile(application.tenantUid),
     ]);
 
+    const recipientLocale = localeFor(await readUserLocale(application.tenantUid));
+
+    const documentLabel = dossierLabels(recipientLocale).documentLabels[document.kind];
+
     await notify({
       recipientUid: application.tenantUid,
       recipientEmail: tenant?.email ?? null,
@@ -99,9 +106,14 @@ export async function reviewTenantDocument(
       stage: application.stage,
       propertyTitle: application.propertyTitle,
       actorName: landlord?.fullName ?? "",
+      /*
+       * **The document's name in the *tenant's* language**, not the landlord's. This detail travels
+       * into a notification the tenant reads, and the request being served belongs to whoever
+       * pressed reject — the same rule `notify()` already follows for the email around it.
+       */
       detail: parsed.data.note
-        ? `${DOCUMENT_LABELS[document.kind]}: ${parsed.data.note}`
-        : `Se trata de: ${DOCUMENT_LABELS[document.kind]}.`,
+        ? `${documentLabel}: ${parsed.data.note}`
+        : dictionaryFor(recipientLocale).notify.documentIs(documentLabel),
     });
   }
 

@@ -1,5 +1,6 @@
 "use client";
 
+import { useLocale } from "@/shared/i18n";
 import {
   useCallback,
   useEffect,
@@ -8,7 +9,7 @@ import {
   useSyncExternalStore,
   useTransition,
 } from "react";
-import Link from "next/link";
+import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { useRouter } from "next/navigation";
 import { BellIcon, CheckCheckIcon, Volume2Icon, VolumeXIcon } from "lucide-react";
 
@@ -69,6 +70,11 @@ export function NotificationBell({
   readonly notifications: readonly Notification[];
   readonly unread: number;
 }) {
+  /*
+   * The reader's own language: the bell renders `notificationCopy`, and the context carries exactly
+   * one two-character string for cases like this.
+   */
+  const locale = useLocale();
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [, startTransition] = useTransition();
@@ -361,7 +367,7 @@ export function NotificationBell({
           ) : (
             <ul className="max-h-96 divide-y divide-border overflow-y-auto">
               {notifications.map((notification) => {
-                const copy = notificationCopy(notification);
+                const copy = notificationCopy(notification, locale);
 
                 return (
                   <li key={notification.id}>

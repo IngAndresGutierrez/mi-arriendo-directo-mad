@@ -1,3 +1,4 @@
+import { dictionary } from "@/shared/i18n/server";
 import type { ReactNode } from "react";
 import { cookies } from "next/headers";
 
@@ -37,15 +38,18 @@ export async function AppShell({
    * — `shared/` may not.
    */
 }) {
-  const collapsed = isSidebarCollapsed((await cookies()).get(SIDEBAR_COOKIE)?.value);
+  const [collapsed, copy] = await Promise.all([
+    cookies().then((jar) => isSidebarCollapsed(jar.get(SIDEBAR_COOKIE)?.value)),
+    dictionary().then((all) => all.nav),
+  ]);
 
   return (
     <TooltipProvider>
       <div className="flex min-h-svh bg-background">
-        <AppSidebar defaultCollapsed={collapsed} showErrands={showErrands} />
+        <AppSidebar defaultCollapsed={collapsed} showErrands={showErrands} copy={copy} />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <AppDrawer bell={bell} showErrands={showErrands} />
+          <AppDrawer bell={bell} showErrands={showErrands} copy={copy} />
 
           {/*
             The cap keeps the reading width sane on a wide monitor — without it a single card

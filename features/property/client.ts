@@ -8,10 +8,6 @@
 export {
   APPROX_RADIUS_M,
   LEASE_TERMS,
-  LEASE_TERM_LABELS,
-  PARKING_LABELS,
-  PROPERTY_STATUS_LABELS,
-  PROPERTY_TYPE_LABELS,
   propertyMonthlyCost,
   publicLocationLabel,
   type LeaseTerm,
@@ -19,3 +15,6 @@ export {
   type PropertyPhoto,
 } from "./domain/property";
 export { type CityCount } from "./domain/cities";
+
+/** The label records, resolved for one language. Replaces the six `X_LABELS` constants. */
+export { propertyLabels, type PropertyLabels } from "./domain/labels";

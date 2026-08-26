@@ -1,4 +1,6 @@
-import { STAGE_LABELS, type Stage } from "@/features/application/client";
+import type { Stage } from "@/features/application/client";
+import { dictionaryFor } from "@/shared/i18n/dictionary";
+import type { Locale } from "@/shared/i18n/locale";
 import { incidentAnchor, periodAnchor, periodLabel } from "@/features/lease/client";
 import {
   ERRANDS_ROUTE,
@@ -179,7 +181,16 @@ export function notificationCopy(
     readonly detail?: string;
     readonly period?: string;
   },
+  /**
+   * Whose language this is written in.
+   *
+   * **The recipient's, never the request's.** A notification is read by the party that did *not*
+   * cause it, so the locale of whoever pressed the button is the wrong one — the same rule the email
+   * chrome around these words already follows. Callers resolve it from `users/{uid}.locale`.
+   */
+  locale: Locale,
 ): { readonly title: string; readonly body: string } {
+  const stageLabels = dictionaryFor(locale).application.stageLabels;
   const who = notification.actorName || "Alguien";
   const property = notification.propertyTitle;
   // `septiembre de 2026`, on the notifications that are about one month. Empty on the rest.
@@ -438,17 +449,17 @@ export function notificationCopy(
     case "application_rejected":
       return {
         title: "Tu postulación fue rechazada",
-        body: `${who} no continuará con tu postulación a ${property}, en la etapa "${STAGE_LABELS[notification.stage]}".`,
+        body: `${who} no continuará con tu postulación a ${property}, en la etapa "${stageLabels[notification.stage]}".`,
       };
     case "application_withdrawn":
       return {
         title: "El inquilino retiró su postulación",
-        body: `${who} retiró su postulación a ${property}, en la etapa "${STAGE_LABELS[notification.stage]}".`,
+        body: `${who} retiró su postulación a ${property}, en la etapa "${stageLabels[notification.stage]}".`,
       };
     case "stage_advanced":
       return {
-        title: `Avanzaste a "${STAGE_LABELS[notification.stage]}"`,
-        body: `El proceso de ${property} pasó a la etapa "${STAGE_LABELS[notification.stage]}".`,
+        title: `Avanzaste a "${stageLabels[notification.stage]}"`,
+        body: `El proceso de ${property} pasó a la etapa "${stageLabels[notification.stage]}".`,
       };
     case "lease_started":
       /*

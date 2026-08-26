@@ -11,8 +11,8 @@
  */
 export const COVERS = {
   // The frame every product screen renders inside.
-  loading: ["app/(app)/", "shared/ui/skeleton", "shared/ui/nav-item", "shared/shell/"],
-  nav: ["shared/shell/app-nav", "shared/shell/app-shell", "shared/ui/nav-item", "app/(app)/inicio"],
+  loading: ["app/[lang]/(app)/", "shared/ui/skeleton", "shared/ui/nav-item", "shared/shell/"],
+  nav: ["shared/shell/app-nav", "shared/shell/app-shell", "shared/ui/nav-item", "app/[lang]/(app)/inicio"],
   "nav-profile": ["shared/shell/app-nav", "shared/ui/nav-item", "features/profile/"],
   drawer: ["shared/shell/app-drawer", "shared/shell/app-nav"],
   /*
@@ -27,7 +27,7 @@ export const COVERS = {
     "shared/shell/sidebar-state",
     "shared/ui/nav-item",
   ],
-  header: ["shared/shell/account-menu", "app/(public)/", "shared/shell/"],
+  header: ["shared/shell/account-menu", "app/[lang]/(public)/", "shared/shell/"],
 
   /*
    * Los ajustes de la cuenta. Cubre las tres piezas que compone la pantalla y que viven en tres
@@ -36,7 +36,7 @@ export const COVERS = {
    * deja de ser un interruptor y pasa a decidir si sale un correo.
    */
   ajustes: [
-    "app/(app)/ajustes",
+    "app/[lang]/(app)/ajustes",
     "features/notification/domain/preferences",
     "features/notification/validations/preferences",
     "features/notification/data/preferences",
@@ -52,14 +52,37 @@ export const COVERS = {
     "shared/auth/client",
   ],
 
+  /*
+   * Los dos idiomas. Cubre el módulo entero, el proxy que decide qué significa cada URL, y las dos
+   * superficies públicas donde se ve — más `shared/auth/routes` porque de ahí sale cada path que
+   * `LocaleLink` tiene que prefijar.
+   *
+   * Está también en `SELECTS_EVERY_DRIVER` por `shared/i18n/`, lo cual es correcto y no redundante:
+   * ese prefijo hace que un cambio de i18n corra **todos** los drivers, y esta entrada hace que un
+   * cambio en el header público o en el sitemap corra *este*.
+   */
+  i18n: [
+    "shared/i18n/",
+    "proxy.ts",
+    "app/[lang]/layout.tsx",
+    "app/[lang]/public-header.tsx",
+    "app/[lang]/(marketing)/",
+    "app/[lang]/(public)/inmuebles",
+    "shared/shell/legal-footer",
+    "shared/ui/nav-item",
+    "features/property/domain/seo",
+    "app/sitemap.ts",
+    "app/robots.ts",
+  ],
+
   // The public catalog.
   // `features/property/ui/` belongs here as much as it does to `lightbox`: `PropertyCard` *is*
   // the catalogue's unit, so a change to the card that only selected `lightbox` was a real miss.
-  catalog: ["app/(public)/inmuebles", "features/property/ui/", "features/property/domain/catalog", "features/property/validations/catalog"],
-  facets: ["app/(public)/inmuebles", "features/property/ui/", "features/property/domain/catalog"],
-  pagination: ["app/(public)/inmuebles", "features/property/domain/catalog"],
-  "listing-scroll": ["app/(public)/inmuebles", "shared/shell/"],
-  lightbox: ["app/(public)/inmuebles", "features/property/ui/"],
+  catalog: ["app/[lang]/(public)/inmuebles", "features/property/ui/", "features/property/domain/catalog", "features/property/validations/catalog"],
+  facets: ["app/[lang]/(public)/inmuebles", "features/property/ui/", "features/property/domain/catalog"],
+  pagination: ["app/[lang]/(public)/inmuebles", "features/property/domain/catalog"],
+  "listing-scroll": ["app/[lang]/(public)/inmuebles", "shared/shell/"],
+  lightbox: ["app/[lang]/(public)/inmuebles", "features/property/ui/"],
   /*
    * Lo que el sitio le dice a un buscador. Cubre las dos mitades: el catálogo y el detalle, que sí
    * llevan SEO, y el portal, que no — por eso `app/(app)/layout` está en la lista, porque es el
@@ -74,12 +97,12 @@ export const COVERS = {
    * driver protege.
    */
   legal: [
-    "app/terminos/",
-    "app/privacidad/",
-    "app/cookies/",
-    "app/legal-chrome.tsx",
-    "app/public-chrome.tsx",
-    "app/(public)/inmuebles",
+    "app/[lang]/terminos/",
+    "app/[lang]/privacidad/",
+    "app/[lang]/cookies/",
+    "app/[lang]/legal-chrome.tsx",
+    "app/[lang]/public-chrome.tsx",
+    "app/[lang]/(public)/inmuebles",
     "features/legal/",
     "shared/legal/",
     "shared/shell/legal-footer",
@@ -88,14 +111,14 @@ export const COVERS = {
     "app/robots.ts",
     "app/sitemap.ts",
     // El sitemap lista las tres páginas legales, así que moverlas es un cambio de SEO.
-    "app/terminos/",
-    "app/privacidad/",
-    "app/cookies/",
-    "app/opengraph-image",
-    "app/layout.tsx",
-    "app/(app)/layout.tsx",
-    "app/(auth)/",
-    "app/(public)/inmuebles",
+    "app/[lang]/terminos/",
+    "app/[lang]/privacidad/",
+    "app/[lang]/cookies/",
+    "app/[lang]/opengraph-image",
+    "app/[lang]/layout.tsx",
+    "app/[lang]/(app)/layout.tsx",
+    "app/[lang]/(auth)/",
+    "app/[lang]/(public)/inmuebles",
     "features/property/domain/seo",
     "features/property/data/property",
     "shared/seo/",
@@ -112,8 +135,8 @@ export const COVERS = {
    * ahí salen las ciudades del buscador y las tarjetas.
    */
   landing: [
-    "app/(marketing)/",
-    "app/(auth)/",
+    "app/[lang]/(marketing)/",
+    "app/[lang]/(auth)/",
     "app/sitemap.ts",
     "features/property/domain/cities",
     "features/property/ui/property-teaser-card",
@@ -127,22 +150,22 @@ export const COVERS = {
    * reglas es exactamente cuando hay que volver a comprobarlo.
    */
   "password-reset": [
-    "app/(auth)/recuperar",
+    "app/[lang]/(auth)/recuperar",
     "features/auth/",
     "features/notification/actions/send-email",
     "firestore.rules",
   ],
-  session: ["app/api/session", "shared/auth/", "features/auth/", "app/(auth)/"],
+  session: ["app/api/session", "shared/auth/", "features/auth/", "app/[lang]/(auth)/"],
   signout: ["app/api/session", "shared/auth/", "shared/shell/account-menu"],
-  onboarding: ["app/(auth)/", "features/profile/", "shared/geo/", "shared/phone/"],
-  profile: ["features/profile/", "features/tenant-profile/", "app/(app)/perfil-inquilino"],
+  onboarding: ["app/[lang]/(auth)/", "features/profile/", "shared/geo/", "shared/phone/"],
+  profile: ["features/profile/", "features/tenant-profile/", "app/[lang]/(app)/perfil-inquilino"],
   "department-city": ["shared/geo/", "features/profile/", "features/property/validations"],
-  prehydration: ["shared/form/", "app/(auth)/"],
+  prehydration: ["shared/form/", "app/[lang]/(auth)/"],
   "field-hint": ["shared/form/field-hint", "shared/form/text-field"],
 
   // The landlord's properties.
-  publish: ["features/property/", "app/(app)/inmuebles", "shared/geo/"],
-  "manage-properties": ["features/property/", "app/(app)/mis-inmuebles"],
+  publish: ["features/property/", "app/[lang]/(app)/inmuebles", "shared/geo/"],
+  "manage-properties": ["features/property/", "app/[lang]/(app)/mis-inmuebles"],
   /*
    * La ubicación en el mapa. `shared/map/` y `shared/geo/point` son suyos y de nadie más, pero
    * `features/property/` también entra: el punto viaja por el esquema, la acción y el detalle, y
@@ -153,15 +176,15 @@ export const COVERS = {
     "shared/map/",
     "shared/geo/point",
     "features/property/",
-    "app/(app)/inmuebles",
-    "app/(app)/mis-inmuebles",
-    "app/(public)/inmuebles",
+    "app/[lang]/(app)/inmuebles",
+    "app/[lang]/(app)/mis-inmuebles",
+    "app/[lang]/(public)/inmuebles",
   ],
   amount: ["shared/format/money", "features/property/validations"],
 
   // The rental process.
-  apply: ["features/application/", "app/(app)/contratos", "app/(app)/postularme"],
-  documents: ["features/tenant-profile/", "features/application/", "app/(app)/contratos"],
+  apply: ["features/application/", "app/[lang]/(app)/contratos", "app/[lang]/(app)/postularme"],
+  documents: ["features/tenant-profile/", "features/application/", "app/[lang]/(app)/contratos"],
   /*
    * La visita al inmueble: la segunda etapa, y la única que puede parar el proceso con la palabra
    * del inquilino. `shared/format/date` no hace falta listarlo — está en `SELECTS_EVERY_DRIVER`.
@@ -177,7 +200,7 @@ export const COVERS = {
     "features/application/ui/advance-button",
     "features/application/domain/application",
     "features/notification/domain/notification",
-    "app/(app)/contratos",
+    "app/[lang]/(app)/contratos",
   ],
   /*
    * El driver `collaborators` se fue con el modelo de invitaciones. Lo reemplaza `colaborador`,
@@ -191,9 +214,9 @@ export const COVERS = {
     "vercel.json",
   ],
   colaborador: [
-    "app/(collaborator)/",
+    "app/[lang]/(collaborator)/",
     "features/collaboration/",
-    "app/(app)/mis-inmuebles",
+    "app/[lang]/(app)/mis-inmuebles",
     "shared/shell/app-nav",
   ],
   interview: [
@@ -207,7 +230,7 @@ export const COVERS = {
     "features/application/validations/guarantee",
     "features/application/actions/guarantee",
     "features/application/ui/",
-    "app/(app)/contratos",
+    "app/[lang]/(app)/contratos",
     "features/tenant-profile/domain/tenant-profile",
   ],
   withdraw: ["features/application/"],
@@ -218,7 +241,7 @@ export const COVERS = {
     "features/application/ui/first-payment-panel",
     "features/application/ui/stage-actions",
     "features/application/ui/advance-button",
-    "app/(app)/contratos",
+    "app/[lang]/(app)/contratos",
   ],
   contract: [
     "features/application/domain/contract",
@@ -237,14 +260,14 @@ export const COVERS = {
     "features/application/ui/stage-actions",
     "features/application/ui/advance-button",
     "shared/format/bytes",
-    "app/(app)/contratos",
+    "app/[lang]/(app)/contratos",
   ],
   reminders: ["app/api/cron/", "features/application/domain/interview", "features/notification/"],
 
   // La tenencia: lo que corre después de la novena etapa.
   rental: [
     "features/lease/",
-    "app/(app)/arriendos",
+    "app/[lang]/(app)/arriendos",
     "features/application/actions/advance",
     "shared/format/date",
   ],
@@ -255,18 +278,18 @@ export const COVERS = {
     "features/lease/data/incident",
     "features/lease/actions/incident",
     "features/lease/ui/incident-list",
-    "app/(app)/arriendos",
+    "app/[lang]/(app)/arriendos",
     "storage.rules",
   ],
   notifications: ["features/notification/", "shared/lib/site-url"],
 
   // Layout assertions: alignment, no horizontal scrolling at 390px, the active nav entry.
-  "actions-layout": ["features/application/ui/", "app/(app)/contratos"],
+  "actions-layout": ["features/application/ui/", "app/[lang]/(app)/contratos"],
   // Its subject is the application summary on the process page, not the profile forms: the
   // entry it used to carry was another driver's, so renaming the section never selected it.
-  "application-layout": ["features/application/", "app/(app)/contratos"],
+  "application-layout": ["features/application/", "app/[lang]/(app)/contratos"],
   "birthdate-layout": ["shared/form/", "features/profile/"],
-  "rentals-layout": ["app/(app)/contratos", "shared/shell/"],
+  "rentals-layout": ["app/[lang]/(app)/contratos", "shared/shell/"],
 };
 
 /** Drivers that need a landlord, a tenant and a property, so they are the slow ones. */
@@ -301,7 +324,7 @@ export const SELECTS_EVERY_DRIVER = [
    */
   "shared/format/",
   "app/globals.css",
-  "app/layout.tsx",
+  "app/[lang]/layout.tsx",
   /*
    * `shared/auth/routes` es un primitivo compartido y estaba sin mapear, que es la otra mitad del
    * mismo fallo: de ahí salen **todas** las URLs del producto, así que cambiar el valor de una
@@ -312,12 +335,22 @@ export const SELECTS_EVERY_DRIVER = [
    */
   "shared/auth/routes",
   /*
+   * `shared/i18n/` es el caso más claro de este archivo: de ahí sale **cada cadena que un usuario
+   * lee**, más el prefijo de cada URL y el `<html lang>` de cada página. Mapearlo a una lista
+   * escrita a mano sería la lección de `shared/format/` por tercera vez.
+   *
+   * `proxy.ts` va con él y no con un driver: decide qué significa cada URL del producto antes de que
+   * nada renderice, así que un fallo ahí no rompe una pantalla, rompe el enrutamiento entero.
+   */
+  "shared/i18n/",
+  "proxy.ts",
+  /*
    * `app/public-header.tsx` es el header de **todas** las páginas públicas — la landing, el
    * catálogo, el detalle de un inmueble, las tres legales y `/soporte`— y nació justamente de que
    * había dos copias que se habían separado sin que nada lo notara. Mapearlo a mano sería repetir
    * el fallo un nivel más arriba.
    */
-  "app/public-header.tsx",
+  "app/[lang]/public-header.tsx",
   /*
    * `shared/legal/` es un primitivo compartido, y mapearlo a mano sería el error que este bloque
    * documenta dos veces: de ahí salen la identidad del Responsable (el pie, en todas las páginas

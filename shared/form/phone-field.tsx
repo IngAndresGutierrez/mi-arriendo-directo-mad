@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useId } from "react";
 
 import { Input } from "@/shared/ui/input";
@@ -23,6 +24,8 @@ type PhoneFieldProps = {
   disabled?: boolean;
   /** Props from react-hook-form's `register("phone.national")`. */
   inputProps: React.ComponentProps<"input">;
+  /** Its words, resolved by the server parent: this is a Client Component. */
+  copy: Dictionary["common"];
 };
 
 /**
@@ -32,6 +35,7 @@ type PhoneFieldProps = {
  * it is a separate control that needs its own accessible name.
  */
 export function PhoneField({
+  copy,
   label,
   country,
   onCountryChange,
@@ -59,7 +63,7 @@ export function PhoneField({
       <div className="flex items-stretch gap-2">
         <Select value={country} onValueChange={onCountryChange} disabled={disabled}>
           <SelectTrigger
-            aria-label="Código de país"
+            aria-label={copy.countryCode}
             // `data-[size=default]:h-11` and not just `h-11`: SelectTrigger ships
             // `data-[size=default]:h-8`, and a variant class beats a flat one on
             // specificity. Without this the selector ends up shorter than the input.
@@ -67,7 +71,7 @@ export function PhoneField({
             aria-invalid={countryError ? true : undefined}
           >
             {/* The trigger shows flag and dial code; the full name lives in the list. */}
-            <SelectValue placeholder="País">
+            <SelectValue placeholder={copy.country}>
               {selected ? (
                 <span className="flex items-center gap-1.5">
                   <span aria-hidden="true">{selected.flag}</span>

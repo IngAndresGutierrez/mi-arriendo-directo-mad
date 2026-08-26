@@ -1,5 +1,7 @@
 "use client";
 
+import type { DossierLabels } from "../domain/labels";
+import type { Dictionary } from "@/shared/i18n";
 import { Controller, useFormContext, useWatch } from "react-hook-form";
 
 import { AmountField } from "@/shared/form/amount-field";
@@ -12,22 +14,22 @@ import { Label } from "@/shared/ui/label";
 
 import {
   DOCUMENT_TYPES,
-  DOCUMENT_TYPE_LABELS,
-  EMPLOYER_LABELS,
   OCCUPATIONS,
-  OCCUPATION_LABELS,
   type Occupation,
 } from "../domain/tenant-profile";
 import type { TenantDossierInput } from "../validations/tenant-profile";
 
-const DOCUMENT_OPTIONS = DOCUMENT_TYPES.map((value) => ({
-  value,
-  label: DOCUMENT_TYPE_LABELS[value],
-}));
-const OCCUPATION_OPTIONS = OCCUPATIONS.map((value) => ({
-  value,
-  label: OCCUPATION_LABELS[value],
-}));
+/*
+ * Built **per render** from the `labels` prop rather than hoisted to module scope as they were:
+ * a module constant cannot be re-evaluated per language, and hoisting them again would freeze the
+ * options in whichever language happened to load first. Two `map`s over three and five values.
+ */
+function documentOptions(labels: DossierLabels) {
+  return DOCUMENT_TYPES.map((value) => ({ value, label: labels.documentTypes[value] }));
+}
+function occupationOptions(labels: DossierLabels) {
+  return OCCUPATIONS.map((value) => ({ value, label: labels.occupations[value] }));
+}
 
 /**
  * The dossier fields, shared by the two places that collect them: the application form and the
@@ -41,7 +43,26 @@ const OCCUPATION_OPTIONS = OCCUPATIONS.map((value) => ({
  * The copy says so, because a form that looks like a credit check and is not is a form that
  * misleads both sides.
  */
-export function DossierFields() {
+export function DossierFields({
+  common,
+  labels,
+  copy,
+}: {
+  /**
+   * Shared words this block needs (the phone field's two ARIA labels), resolved by the server
+   * parent. A prop because everything here is `"use client"`.
+   */
+  readonly common: Dictionary["common"];
+  /**
+   * The dossier's vocabulary, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly labels: DossierLabels;
+  /** The dossier's own sentences, resolved by the page. */
+  readonly copy: Dictionary["dossier"];
+}) {
+  const DOCUMENT_OPTIONS = documentOptions(labels);
+  const OCCUPATION_OPTIONS = occupationOptions(labels);
   const {
     control,
     register,
@@ -55,7 +76,7 @@ export function DossierFields() {
   return (
     <div className="space-y-8">
       <section className="space-y-4">
-        <h2 className="font-semibold text-primary dark:text-foreground">Quién eres</h2>
+        <h2 className="font-semibold text-primary dark:text-foreground">{copy.whoYouAre}</h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Controller
@@ -64,8 +85,8 @@ export function DossierFields() {
             render={({ field }) => (
               <SelectField
                 id="documentType"
-                label="Tipo de documento"
-                placeholder="Elige uno"
+                label={copy.documentType}
+                placeholder={copy.chooseOneMasc}
                 options={DOCUMENT_OPTIONS}
                 value={field.value}
                 onValueChange={field.onChange}
@@ -75,7 +96,7 @@ export function DossierFields() {
           />
           <TextField
             id="documentNumber"
-            label="Número de documento"
+            label={copy.documentNumber}
             inputMode="numeric"
             autoComplete="off"
             error={errors.documentNumber?.message}
@@ -85,7 +106,7 @@ export function DossierFields() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="font-semibold text-primary dark:text-foreground">De qué vives</h2>
+        <h2 className="font-semibold text-primary dark:text-foreground">{copy.howYouEarn}</h2>
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Controller
@@ -94,8 +115,8 @@ export function DossierFields() {
             render={({ field }) => (
               <SelectField
                 id="occupation"
-                label="Ocupación"
-                placeholder="Elige una"
+                label={copy.occupation}
+                placeholder={copy.chooseOne}
                 options={OCCUPATION_OPTIONS}
                 value={field.value}
                 onValueChange={field.onChange}
@@ -106,7 +127,7 @@ export function DossierFields() {
           {/* The question changes with the answer above it: an independent has no employer. */}
           <TextField
             id="employer"
-            label={occupation ? EMPLOYER_LABELS[occupation] : "Dónde trabajas"}
+            label={occupation ? labels.employerLabels[occupation] : labels.employerLabels.employee}
             autoComplete="organization"
             error={errors.employer?.message}
             {...register("employer")}
@@ -120,8 +141,8 @@ export function DossierFields() {
             render={({ field }) => (
               <AmountField
                 id="monthlyIncome"
-                label="Ingresos mensuales (COP)"
-                hint="Lo que recibes al mes, antes de descuentos."
+                label={copy.monthlyIncome}
+                hint={copy.monthlyIncomeHint}
                 value={String(field.value ?? "")}
                 onChange={field.onChange}
                 onBlur={field.onBlur}
@@ -131,7 +152,7 @@ export function DossierFields() {
           />
           <TextField
             id="householdSize"
-            label="Personas que vivirían ahí"
+            label={copy.household}
             type="number"
             min={1}
             inputMode="numeric"
@@ -142,7 +163,7 @@ export function DossierFields() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="font-semibold text-primary dark:text-foreground">Mascotas</h2>
+        <h2 className="font-semibold text-primary dark:text-foreground">{copy.pets}</h2>
 
         <div className="flex items-center gap-2.5">
           <Controller
@@ -157,15 +178,15 @@ export function DossierFields() {
             )}
           />
           <Label htmlFor="hasPets" className="cursor-pointer font-normal text-foreground">
-            Tengo mascotas
+            {copy.hasPets}
           </Label>
         </div>
 
         {hasPets ? (
           <TextField
             id="petsDescription"
-            label="Cuéntale al propietario"
-            hint="Cuántas, de qué tipo y tamaño. Es la razón más común por la que se rechaza una postulación: decirlo de frente juega a tu favor."
+            label={copy.tellTheLandlord}
+            hint={copy.petsHint}
             error={errors.petsDescription?.message}
             {...register("petsDescription")}
           />
@@ -173,9 +194,9 @@ export function DossierFields() {
       </section>
 
       <section className="space-y-4">
-        <h2 className="font-semibold text-primary dark:text-foreground">Referencia personal</h2>
+        <h2 className="font-semibold text-primary dark:text-foreground">{copy.reference}</h2>
         <p className="text-sm text-muted-foreground">
-          Alguien que pueda hablar por ti. No es un codeudor: la garantía se define más adelante.
+          {copy.referenceIntro}
         </p>
 
         <div className="grid gap-4 sm:grid-cols-2">
@@ -183,15 +204,15 @@ export function DossierFields() {
             id="reference.name"
             // Not "Nombre completo": next to the tenant's own name, that reads as being asked
             // for it a second time, which is exactly how this page looked before.
-            label="Nombre de tu referencia"
+            label={copy.referenceName}
             autoComplete="off"
             error={errors.reference?.name?.message}
             {...register("reference.name")}
           />
           <TextField
             id="reference.relationship"
-            label="Qué relación tienen"
-            hint="Jefe, arrendador anterior, colega…"
+            label={copy.referenceRelation}
+            hint={copy.referenceRelationHint}
             error={errors.reference?.relationship?.message}
             {...register("reference.relationship")}
           />
@@ -202,7 +223,8 @@ export function DossierFields() {
           name="reference.phoneCountry"
           render={({ field }) => (
             <PhoneField
-              label="Teléfono de tu referencia"
+            copy={common}
+              label={copy.referencePhone}
               country={field.value}
               onCountryChange={field.onChange}
               countryError={errors.reference?.phoneCountry?.message}
@@ -231,7 +253,7 @@ export function DossierFields() {
               onCheckedChange={field.onChange}
               error={errors.referenceAuthorized?.message}
             >
-              Esta persona sabe que voy a dar su nombre y su teléfono, y me autorizó a hacerlo.
+              {copy.referenceAuthorized}
             </ConsentCheckbox>
           )}
         />

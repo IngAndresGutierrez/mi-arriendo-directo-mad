@@ -1,5 +1,7 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
+import type { Locale } from "@/shared/i18n";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,6 +26,8 @@ export type AccountFormValues = {
   readonly phone: { readonly country: string; readonly national: string };
   /** Selects: `undefined` muestra el placeholder, y `null` no es un valor que acepten. */
   readonly gender: Gender | undefined;
+  /** Igual que `gender`: `undefined` deja el placeholder, y ningún select acepta `null`. */
+  readonly locale: Locale | undefined;
   readonly birthDate: string;
   readonly address: {
     readonly line: string;
@@ -45,7 +49,17 @@ export type AccountFormValues = {
  * —viene de la sesión verificada, no de un campo—, el rol —es un custom claim— y `termsAcceptedAt`,
  * que sería mentira si se moviera cada vez que alguien corrige una tilde de su apellido.
  */
-export function AccountForm({ account }: { readonly account: AccountFormValues }) {
+export function AccountForm({
+  account,
+  common,
+}: {
+  readonly account: AccountFormValues;
+  /**
+   * Shared words the fields below need, resolved by the page. A prop because this is a Client
+   * Component: importing the dictionary here would put both languages in the browser bundle.
+   */
+  readonly common: Dictionary["common"];
+}) {
   const router = useRouter();
   const [saved, setSaved] = useState(false);
 
@@ -63,6 +77,8 @@ export function AccountForm({ account }: { readonly account: AccountFormValues }
     data.set("phone.national", values.phone.national);
     // Solo se manda si se respondió: vacío borra el campo, que es lo que revoca el dato sensible.
     if (values.gender) data.set("gender", values.gender);
+    // Y lo mismo con el idioma: vacío borra el campo, que vuelve a ser "sin decidir".
+    if (values.locale) data.set("locale", values.locale);
     data.set("birthDate", values.birthDate);
     data.set("address.line", values.address.line);
     data.set("address.city", values.address.city);
@@ -105,7 +121,7 @@ export function AccountForm({ account }: { readonly account: AccountFormValues }
           <FormAlert>{form.formState.errors.root.message}</FormAlert>
         ) : null}
 
-        <AccountFields disabled={isSubmitting} />
+        <AccountFields disabled={isSubmitting} common={common} />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
           {saved && !isDirty ? (

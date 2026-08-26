@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useId, useRef, useState, useTransition } from "react";
 import Image from "next/image";
 import { ImagePlusIcon, Loader2Icon, StarIcon, Trash2Icon } from "lucide-react";
@@ -22,6 +23,11 @@ type PhotoUploaderProps = {
   readonly error?: string;
   /** Editing: the photo is already published, so removing it asks first. */
   readonly confirmBeforeRemove?: boolean;
+  /**
+   * Its words, resolved by the page that mounts the form. A prop and not a dictionary import: this
+   * is a Client Component, and importing the dictionary would put both languages in the bundle.
+   */
+  readonly copy: Dictionary["propertyForm"];
 };
 
 /**
@@ -34,7 +40,13 @@ type PhotoUploaderProps = {
  * The first photo is the cover: it is what the catalog card shows, so it is reorderable rather
  * than a separate field the landlord has to think about.
  */
-export function PhotoUploader({ photos, onChange, error, confirmBeforeRemove = false }: PhotoUploaderProps) {
+export function PhotoUploader({
+  photos,
+  onChange,
+  error,
+  confirmBeforeRemove = false,
+  copy,
+}: PhotoUploaderProps) {
   const inputId = useId();
   const errorId = `${inputId}-error`;
   const inputRef = useRef<HTMLInputElement>(null);
@@ -70,7 +82,7 @@ export function PhotoUploader({ photos, onChange, error, confirmBeforeRemove = f
          */
         const user = await ensureClientSession();
         if (!user) {
-          setLocalError("Tu sesión expiró. Vuelve a iniciar sesión para subir fotos.");
+          setLocalError(copy.photoSessionExpired);
           return;
         }
         const uid = user.uid;
@@ -86,7 +98,7 @@ export function PhotoUploader({ photos, onChange, error, confirmBeforeRemove = f
         );
         onChange([...photos, ...uploaded]);
       } catch {
-        setLocalError("No pudimos subir las fotos. Revisa tu conexión e inténtalo de nuevo.");
+        setLocalError(copy.photoUploadFailed);
       } finally {
         if (inputRef.current) inputRef.current.value = "";
       }
@@ -184,7 +196,7 @@ export function PhotoUploader({ photos, onChange, error, confirmBeforeRemove = f
         ) : (
           <ImagePlusIcon aria-hidden="true" />
         )}
-        {isUploading ? "Subiendo…" : photos.length === 0 ? "Agregar fotos" : "Agregar más fotos"}
+        {isUploading ? copy.uploadingPhotos : photos.length === 0 ? copy.addPhotos : copy.addMorePhotos}
       </Button>
 
       <p className="text-xs text-muted-foreground">
@@ -193,7 +205,7 @@ export function PhotoUploader({ photos, onChange, error, confirmBeforeRemove = f
 
       {/* A spinner inside a button says nothing to a screen reader. */}
       <p className="sr-only" aria-live="polite">
-        {isUploading ? "Subiendo las fotos." : ""}
+        {isUploading ? copy.uploadingPhotosStatus : ""}
       </p>
 
       {message && (
@@ -205,10 +217,10 @@ export function PhotoUploader({ photos, onChange, error, confirmBeforeRemove = f
       <ConfirmDialog
         open={pendingRemoval !== null}
         onOpenChange={(open) => (open ? undefined : setPendingRemoval(null))}
-        title="¿Quitar esta foto?"
-        description="Deja de verse en el anuncio y se borra al guardar los cambios. No se puede deshacer."
-        confirmLabel="Quitar foto"
-        pendingLabel="Quitando…"
+        title={copy.removePhotoTitle}
+        description={copy.removePhotoBody}
+        confirmLabel={copy.removePhotoConfirm}
+        pendingLabel={copy.removePhotoPending}
         onConfirm={() => {
           if (pendingRemoval) remove(pendingRemoval);
           setPendingRemoval(null);

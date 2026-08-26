@@ -19,9 +19,9 @@
 /**
  * The two categories, and the whole of the honesty of this design.
  *
- * `necessary` is not a choice and is not presented as one: the session cookie and the sidebar
- * width are what make the product work, and a toggle that cannot be switched off is a lie about
- * who is deciding. `analytics` is the only optional category, because Firebase Analytics is the
+ * `necessary` is not a choice and is not presented as one: the session cookie, the sidebar width
+ * and the language the reader was last in are what make the product work, and a toggle that cannot
+ * be switched off is a lie about who is deciding. `analytics` is the only optional category, because Firebase Analytics is the
  * only optional thing that runs. **There is no `advertising` category** — declaring one for a
  * product that serves no ads would be describing a processing that does not happen, which is the
  * one structured-data-style mistake that turns a policy into a liability.

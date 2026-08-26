@@ -26,36 +26,28 @@ import { roundPoint, type GeoPoint } from "@/shared/geo/point";
  */
 type StoredTimestamp = { toDate(): Date };
 
+/**
+ * **The words for these unions live in `shared/i18n/messages`, resolved by `domain/labels.ts`.**
+ *
+ * They used to be `PROPERTY_TYPE_LABELS`, `LEASE_TERM_LABELS`, `PROPERTY_STATUS_LABELS` and
+ * `PARKING_LABELS`, right here beside each union — the "keys in English, labels in es-CO" pattern.
+ * The keys have not changed and are still the stored values; a second language is what moved the
+ * words out. `propertyLabels(locale)` returns exactly the same records, built from these unions, so
+ * a value added below with no word for it still fails `pnpm typecheck`.
+ */
+
 /** Long-term rental only: this product does not do nightly or monthly stays. */
 export const LEASE_TERMS = [6, 12] as const;
 export type LeaseTerm = (typeof LEASE_TERMS)[number];
 
-export const LEASE_TERM_LABELS: Readonly<Record<LeaseTerm, string>> = {
-  6: "6 meses",
-  12: "1 año",
-};
 
 export const PROPERTY_TYPES = ["apartment", "house", "studio", "retail", "office"] as const;
 export type PropertyType = (typeof PROPERTY_TYPES)[number];
 
-/** Keys in English (they are stored values); labels in es-CO (they are copy). */
-export const PROPERTY_TYPE_LABELS: Readonly<Record<PropertyType, string>> = {
-  apartment: "Apartamento",
-  house: "Casa",
-  studio: "Apartaestudio",
-  retail: "Local",
-  office: "Oficina",
-};
 
 export const PROPERTY_STATUSES = ["draft", "available", "rented", "inactive"] as const;
 export type PropertyStatus = (typeof PROPERTY_STATUSES)[number];
 
-export const PROPERTY_STATUS_LABELS: Readonly<Record<PropertyStatus, string>> = {
-  draft: "Borrador",
-  available: "Disponible",
-  rented: "Arrendado",
-  inactive: "Inactivo",
-};
 
 /**
  * Parking, as it is actually offered in a Colombian building: a private spot, a communal one
@@ -65,11 +57,6 @@ export const PROPERTY_STATUS_LABELS: Readonly<Record<PropertyStatus, string>> = 
 export const PARKING_KINDS = ["private", "communal", "none"] as const;
 export type ParkingKind = (typeof PARKING_KINDS)[number];
 
-export const PARKING_LABELS: Readonly<Record<ParkingKind, string>> = {
-  private: "Tiene parqueadero",
-  communal: "Parqueadero comunitario",
-  none: "No tiene parqueadero",
-};
 
 /**
  * Socio-economic stratum, 1 to 6. It is not decoration: in Colombia it sets the utility

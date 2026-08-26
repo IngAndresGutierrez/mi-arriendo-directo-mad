@@ -1,3 +1,5 @@
+import type { Dictionary } from "@/shared/i18n";
+
 /**
  * The interview: a landlord proposes a time, the tenant confirms, and afterwards the landlord
  * writes down how it went.
@@ -19,11 +21,14 @@ export const INTERVIEW_MINUTES = 30;
 export const INTERVIEW_CHANNELS = ["meet", "whatsapp", "phone"] as const;
 export type InterviewChannel = (typeof INTERVIEW_CHANNELS)[number];
 
-export const INTERVIEW_CHANNEL_LABELS: Readonly<Record<InterviewChannel, string>> = {
-  meet: "Videollamada por Google Meet",
-  whatsapp: "Videollamada por WhatsApp",
-  phone: "Llamada telefónica",
-};
+/**
+ * **The words for these three unions live in `shared/i18n/messages`, under `interview`.**
+ *
+ * They were `INTERVIEW_CHANNEL_LABELS`, `INTERVIEW_RESULT_LABELS` and `INTERVIEW_STATE_LABELS`. The
+ * keys are the stored values and have not changed; `interviewBlockerMessage` takes the copy now, so
+ * it still decides *which* sentence — which is what its test is about — in either language.
+ */
+export type InterviewCopy = Dictionary["interview"];
 
 /**
  * Where a Meet is created.
@@ -51,10 +56,6 @@ export function channelNeedsLink(channel: InterviewChannel): boolean {
 export const INTERVIEW_RESULTS = ["went_well", "with_reservations"] as const;
 export type InterviewResult = (typeof INTERVIEW_RESULTS)[number];
 
-export const INTERVIEW_RESULT_LABELS: Readonly<Record<InterviewResult, string>> = {
-  went_well: "Salió bien",
-  with_reservations: "Con reparos",
-};
 
 export type InterviewFeedback = {
   readonly result: InterviewResult;
@@ -154,13 +155,6 @@ export function interviewState(interview: Interview | null): InterviewState {
   return "proposed";
 }
 
-export const INTERVIEW_STATE_LABELS: Readonly<Record<InterviewState, string>> = {
-  none: "Sin agendar",
-  proposed: "Esperando confirmación",
-  declined: "Hay que proponer otro horario",
-  confirmed: "Agendada",
-  done: "Realizada",
-};
 
 /**
  * Why the process cannot move past the interview.
@@ -180,20 +174,20 @@ export function interviewBlocker(interview: Interview | null): InterviewBlocker 
   return null;
 }
 
-export function interviewBlockerMessage(blocker: InterviewBlocker, isLandlord: boolean): string | null {
+export function interviewBlockerMessage(
+  blocker: InterviewBlocker,
+  isLandlord: boolean,
+  copy: InterviewCopy,
+): string | null {
+  const { blockers } = copy;
+
   switch (blocker) {
     case "not_proposed":
-      return isLandlord
-        ? "Propón una fecha y una hora para la entrevista antes de continuar."
-        : "El propietario todavía no ha propuesto una fecha para la entrevista.";
+      return isLandlord ? blockers.notProposedLandlord : blockers.notProposedTenant;
     case "not_confirmed":
-      return isLandlord
-        ? "El inquilino aún no confirma el horario propuesto."
-        : "Confirma el horario propuesto para que el proceso pueda seguir.";
+      return isLandlord ? blockers.notConfirmedLandlord : blockers.notConfirmedTenant;
     case "no_feedback":
-      return isLandlord
-        ? "Después de la entrevista, escribe cómo te fue para poder continuar."
-        : "El propietario todavía no ha registrado cómo fue la entrevista.";
+      return isLandlord ? blockers.noFeedbackLandlord : blockers.noFeedbackTenant;
     default:
       return null;
   }

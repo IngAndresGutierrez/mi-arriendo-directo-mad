@@ -1,3 +1,4 @@
+import { dictionary } from "@/shared/i18n/server";
 import type { ReactNode } from "react";
 import { CheckIcon, ClockIcon, LockIcon } from "lucide-react";
 
@@ -14,7 +15,6 @@ import {
   stageProgressLabel,
   stageState,
   STAGES,
-  STAGE_LABELS,
   type Application,
   type Stage,
 } from "../domain/application";
@@ -40,7 +40,7 @@ export type StageWork = {
   readonly content: ReactNode;
 };
 
-export function StageTimeline({
+export async function StageTimeline({
   application,
   isLandlord,
   work,
@@ -69,6 +69,8 @@ export function StageTimeline({
    */
   readonly work?: Partial<Record<Stage, StageWork>>;
 }) {
+  /* A Server Component, so it reads the language itself. */
+  const copy = (await dictionary()).application;
   const stopped = application.status !== "open";
   /*
    * Terminado no es lo mismo que estar en la última etapa: `first_payment` pide el dinero, así que
@@ -82,7 +84,7 @@ export function StageTimeline({
       <div className="flex items-center justify-between gap-3">
         <h2 className="font-semibold text-primary dark:text-foreground">El proceso</h2>
         <span className="rounded-full bg-muted px-3 py-1 text-xs font-medium text-muted-foreground">
-          {stageProgressLabel(application)}
+          {stageProgressLabel(application, copy)}
         </span>
       </div>
 
@@ -141,7 +143,7 @@ export function StageTimeline({
                 )}
               >
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-medium text-foreground">{STAGE_LABELS[stage]}</h3>
+                  <h3 className="font-medium text-foreground">{copy.stageLabels[stage]}</h3>
                   <span
                     className={cn(
                       "rounded-full px-2 py-0.5 text-xs font-medium",
@@ -160,7 +162,7 @@ export function StageTimeline({
                 </div>
 
                 <p className="mt-1 text-sm text-muted-foreground">
-                  {stageDescription(stage, isLandlord)}
+                  {stageDescription(stage, isLandlord, copy)}
                 </p>
 
                 {/*

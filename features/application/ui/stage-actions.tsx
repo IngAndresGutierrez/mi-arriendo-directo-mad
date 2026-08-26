@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { Label } from "@/shared/ui/label";
 
 import { rejectApplication, withdrawApplication } from "../actions/advance";
-import { canClose, STAGE_LABELS, type Application } from "../domain/application";
+import { canClose, type Application, type ApplicationCopy } from "../domain/application";
 import { AdvanceButton } from "./advance-button";
 
 /**
@@ -26,6 +26,7 @@ export function StageActions({
   isLandlord,
   blockedBecause,
   resolveAt,
+  copy,
 }: {
   readonly application: Application;
   readonly isLandlord: boolean;
@@ -38,6 +39,11 @@ export function StageActions({
   readonly blockedBecause?: string | null;
   /** The id of the section that has to be dealt with, so the button can point at it. */
   readonly resolveAt?: string;
+  /**
+   * The process's vocabulary, resolved by the page. A prop and not a dictionary import: this is a
+   * Client Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: ApplicationCopy;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -83,6 +89,7 @@ export function StageActions({
         */}
         {isLandlord ? (
           <AdvanceButton
+            copy={copy}
             application={application}
             blockedBecause={blockedBecause}
             describedById={`${application.id}-blocked`}
@@ -140,7 +147,7 @@ export function StageActions({
         description={
           <>
             El proceso se detiene en la etapa{" "}
-            <strong className="text-foreground">{STAGE_LABELS[application.stage]}</strong> y el
+            <strong className="text-foreground">{copy.stageLabels[application.stage]}</strong> y el
             inquilino verá que lo rechazaste. No se puede deshacer.
             <span className="mt-3 block space-y-1.5">
               <Label htmlFor="reason" className="font-normal">

@@ -1,7 +1,7 @@
+import { propertyLabels } from "./labels";
 import { describe, expect, it } from "vitest";
 
 import {
-  bedroomBucketLabel,
   countFacets,
   EMPTY_FILTERS,
   filterProperties,
@@ -204,10 +204,44 @@ describe("hasActiveFilters", () => {
   });
 });
 
-describe("bedroomBucketLabel", () => {
-  it("names the buckets, the last one open-ended", () => {
-    expect(bedroomBucketLabel(1)).toBe("1 habitación");
-    expect(bedroomBucketLabel(3)).toBe("3 habitaciones");
-    expect(bedroomBucketLabel(4)).toBe("4 o más");
+/*
+ * `bedroomBucketLabel` moved into the dictionary as `property.bedroomBucket`, and
+ * `propertyLabels(locale).bedrooms` is what resolves it into the record the facets read. The
+ * assertion is the same one — the last bucket is open-ended — now made in both languages, because
+ * "4 or more" is the case a naive plural rule gets wrong.
+ */
+describe("the bedroom buckets", () => {
+  it("names them, the last one open-ended, in each language", () => {
+    const es = propertyLabels("es").bedrooms;
+    expect(es[1]).toBe("1 habitación");
+    expect(es[3]).toBe("3 habitaciones");
+    expect(es[4]).toBe("4 o más");
+
+    const en = propertyLabels("en").bedrooms;
+    expect(en[1]).toBe("1 bedroom");
+    expect(en[3]).toBe("3 bedrooms");
+    expect(en[4]).toBe("4 or more");
+  });
+});
+
+/*
+ * The guarantee the whole label module exists for: every value of every union has a word in every
+ * language. A member added to `PROPERTY_TYPES` with nothing said about it fails `pnpm typecheck`,
+ * and this catches the other half — a key present but empty.
+ */
+describe("propertyLabels", () => {
+  it("has a non-empty word for every value in both languages", () => {
+    for (const locale of ["es", "en"] as const) {
+      for (const [group, record] of Object.entries(propertyLabels(locale))) {
+        for (const [key, label] of Object.entries(record)) {
+          expect(label, `${locale}.${group}.${key}`).toBeTruthy();
+        }
+      }
+    }
+  });
+
+  it("gives the two languages different words", () => {
+    expect(propertyLabels("es").types.house).toBe("Casa");
+    expect(propertyLabels("en").types.house).toBe("House");
   });
 });

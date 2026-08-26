@@ -1,5 +1,6 @@
 "use client";
 
+import type { Dictionary } from "@/shared/i18n";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOutIcon } from "lucide-react";
@@ -17,6 +18,8 @@ type SignOutButtonProps = {
   readonly variant?: "drawer" | "inline";
   /** `"drawer"` only: icon over label, for the collapsed rail. */
   readonly collapsed?: boolean;
+  /** The menu's words, resolved by `AppShell` on the server. See `AppNav`. */
+  readonly copy: Dictionary["nav"];
 };
 
 /**
@@ -25,7 +28,11 @@ type SignOutButtonProps = {
  * One component for both surfaces on purpose: the sign-out sequence (revoke, replace, refresh)
  * must not be duplicated, only its presentation changes.
  */
-export function SignOutButton({ variant = "drawer", collapsed = false }: SignOutButtonProps) {
+export function SignOutButton({
+  variant = "drawer",
+  collapsed = false,
+  copy,
+}: SignOutButtonProps) {
   const router = useRouter();
   const [isSigningOut, setSigningOut] = useState(false);
 
@@ -37,7 +44,7 @@ export function SignOutButton({ variant = "drawer", collapsed = false }: SignOut
     router.refresh();
   }
 
-  const label = isSigningOut ? "Saliendo…" : "Cerrar sesión";
+  const label = isSigningOut ? copy.signingOut : copy.signOut;
 
   if (variant === "inline") {
     return (

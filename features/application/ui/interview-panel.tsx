@@ -1,5 +1,6 @@
 "use client";
 
+import type { InterviewCopy } from "../domain/interview";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -29,24 +30,25 @@ import {
   interviewTimeRange,
   interviewWhen,
   INTERVIEW_CHANNELS,
-  INTERVIEW_CHANNEL_LABELS,
   INTERVIEW_MINUTES,
   INTERVIEW_RESULTS,
-  INTERVIEW_RESULT_LABELS,
   MEET_CREATE_URL,
   type Interview,
   type InterviewChannel,
 } from "../domain/interview";
 
-const CHANNEL_OPTIONS = INTERVIEW_CHANNELS.map((value) => ({
-  value,
-  label: INTERVIEW_CHANNEL_LABELS[value],
-}));
+/*
+ * Built **per render** from the `copy` prop rather than hoisted to module scope: a module constant
+ * cannot be re-evaluated per language, so hoisting would freeze the options in whichever one loaded
+ * first. Two `map`s over three and two values.
+ */
+function channelOptions(copy: InterviewCopy) {
+  return INTERVIEW_CHANNELS.map((value) => ({ value, label: copy.channels[value] }));
+}
 
-const RESULT_OPTIONS = INTERVIEW_RESULTS.map((value) => ({
-  value,
-  label: INTERVIEW_RESULT_LABELS[value],
-}));
+function resultOptions(copy: InterviewCopy) {
+  return INTERVIEW_RESULTS.map((value) => ({ value, label: copy.results[value] }));
+}
 
 /**
  * The interview stage, from whichever side is reading.
@@ -61,12 +63,18 @@ export function InterviewPanel({
   interview,
   isLandlord,
   readOnly = false,
+  copy,
 }: {
   readonly applicationId: string;
   readonly interview: Interview | null;
   readonly isLandlord: boolean;
   /** A finished stage keeps its panel, without its controls. */
   readonly readOnly?: boolean;
+  /**
+   * This panel's words, resolved by the page. A prop and not a dictionary import: this is a Client
+   * Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: InterviewCopy;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -80,7 +88,7 @@ export function InterviewPanel({
     startTransition(async () => {
       const result = await action();
       if (!result.ok) {
-        setError(result.message ?? "No pudimos guardar el cambio.");
+        setError(result.message ?? copy.saveFailed);
         return;
       }
       onDone?.();
@@ -94,7 +102,7 @@ export function InterviewPanel({
   return (
     <div className="space-y-4">
       {interview ? (
-        <Appointment interview={interview} isLandlord={isLandlord} />
+        <Appointment interview={interview} isLandlord={isLandlord} copy={copy} />
       ) : (
         <p className="text-sm text-muted-foreground">
           {isLandlord
@@ -106,6 +114,7 @@ export function InterviewPanel({
       {/* Lo que toca hacer ahora, según quién mira y en qué punto está la cita. */}
       {state === "proposed" && !isLandlord && !readOnly && (
         <TenantAnswer
+          copy={copy}
           pending={pending}
           onConfirm={() => run(() => confirmInterview(applicationId))}
           onDecline={(note) => run(() => declineInterview(applicationId, { note }))}
@@ -114,12 +123,13 @@ export function InterviewPanel({
 
       {state === "declined" && !isLandlord && !readOnly && (
         <p className="text-sm text-muted-foreground">
-          Le avisamos al propietario que ese horario no te sirve. Te escribirá con otro.
+          {copy.weToldTheLandlord}
         </p>
       )}
 
       {state === "confirmed" && isLandlord && !readOnly && (
         <FeedbackForm
+          copy={copy}
           pending={pending}
           onSubmit={(values) => run(() => recordInterviewFeedback(applicationId, values))}
         />
@@ -127,12 +137,13 @@ export function InterviewPanel({
 
       {state === "confirmed" && !isLandlord && (
         <p className="text-sm text-muted-foreground">
-          Confirmaste la entrevista. Después de hablar, el propietario escribirá aquí cómo fue.
+          {copy.confirmedNote}
         </p>
       )}
 
       {showProposeForm ? (
         <ProposeForm
+          copy={copy}
           pending={pending}
           again={state !== "none"}
           onCancel={proposing ? () => setProposing(false) : undefined}
@@ -145,9 +156,7 @@ export function InterviewPanel({
         !readOnly &&
         state === "proposed" && (
           <Button type="button" variant="outline" size="xl" onClick={() => setProposing(true)}>
-            <CalendarClockIcon aria-hidden="true" />
-            Proponer otro horario
-          </Button>
+            <CalendarClockIcon aria-hidden="true" />{copy.proposeAnotherAction}</Button>
         )
       )}
 
@@ -164,9 +173,15 @@ export function InterviewPanel({
 function Appointment({
   interview,
   isLandlord,
+  copy,
 }: {
   readonly interview: Interview;
   readonly isLandlord: boolean;
+  /**
+   * This panel's words, resolved by the page. A prop and not a dictionary import: this is a Client
+   * Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: InterviewCopy;
 }) {
   const state = interviewState(interview);
   const confirmed = state === "confirmed" || state === "done";
@@ -185,10 +200,10 @@ function Appointment({
           )}
         >
           {confirmed && <CheckIcon className="size-3" aria-hidden="true" />}
-          {confirmed ? "Confirmada" : state === "declined" ? "Sin horario" : "Sin confirmar"}
+          {confirmed ? copy.confirmedBadge : state === "declined" ? copy.noSlotBadge : copy.unconfirmedBadge}
         </span>
         <span className="text-xs text-muted-foreground">
-          {INTERVIEW_CHANNEL_LABELS[interview.channel]} · {INTERVIEW_MINUTES} minutos
+          {copy.channels[interview.channel]} · {INTERVIEW_MINUTES} {copy.minutes}
         </span>
       </div>
 
@@ -213,17 +228,15 @@ function Appointment({
         */
         <Button asChild variant="accent" size="xl">
           <a href={interview.link} target="_blank" rel="noopener noreferrer">
-            <VideoIcon aria-hidden="true" />
-            Entrar a la videollamada
-            <ExternalLinkIcon aria-hidden="true" />
+            <VideoIcon aria-hidden="true" />{copy.joinCall}<ExternalLinkIcon aria-hidden="true" />
           </a>
         </Button>
       )}
       {!interview.link && channelNeedsLink(interview.channel) === false && (
         <p className="text-sm text-muted-foreground">
           {interview.channel === "whatsapp"
-            ? "La videollamada será por WhatsApp, al número que registraron."
-            : "Será una llamada telefónica al número que registraron."}
+            ? "{copy.whatsappNote}"
+            : "{copy.phoneNote}"}
         </p>
       )}
 
@@ -244,7 +257,7 @@ function Appointment({
       {interview.feedback && (
         <div className="space-y-1 border-t border-border pt-3">
           <p className="text-sm font-medium text-foreground">
-            {INTERVIEW_RESULT_LABELS[interview.feedback.result]}
+            {copy.results[interview.feedback.result]}
           </p>
           <p className="text-sm text-muted-foreground">{interview.feedback.note}</p>
         </div>
@@ -258,10 +271,16 @@ function TenantAnswer({
   pending,
   onConfirm,
   onDecline,
+  copy,
 }: {
   readonly pending: boolean;
   readonly onConfirm: () => void;
   readonly onDecline: (note: string) => void;
+  /**
+   * This panel's words, resolved by the page. A prop and not a dictionary import: this is a Client
+   * Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: InterviewCopy;
 }) {
   const [asking, setAsking] = useState(false);
   const [note, setNote] = useState("");
@@ -269,22 +288,18 @@ function TenantAnswer({
   if (asking) {
     return (
       <div className="space-y-2">
-        <Label htmlFor="interview-decline">¿Qué horario te sirve?</Label>
+        <Label htmlFor="interview-decline">{copy.whichSlotWorks}</Label>
         <Input
           id="interview-decline"
           className="h-11"
-          placeholder="Entre semana después de las 6 p. m."
+          placeholder={copy.declinePlaceholder}
           value={note}
           maxLength={300}
           onChange={(event) => setNote(event.target.value)}
         />
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" size="xl" disabled={pending} onClick={() => onDecline(note)}>
-            Enviar y pedir otro horario
-          </Button>
-          <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={() => setAsking(false)}>
-            Cancelar
-          </Button>
+          <Button type="button" variant="outline" size="xl" disabled={pending} onClick={() => onDecline(note)}>{copy.sendAndAskAnother}</Button>
+          <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={() => setAsking(false)}>{copy.cancel}</Button>
         </div>
       </div>
     );
@@ -294,11 +309,9 @@ function TenantAnswer({
     <div className="flex flex-wrap items-center gap-2">
       <Button type="button" variant="accent" size="xl" disabled={pending} onClick={onConfirm}>
         <CheckIcon aria-hidden="true" />
-        {pending ? "Confirmando…" : "Confirmar el horario"}
+        {pending ? copy.confirming : copy.confirmSlot}
       </Button>
-      <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={() => setAsking(true)}>
-        No puedo a esa hora
-      </Button>
+      <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={() => setAsking(true)}>{copy.cantThatTime}</Button>
     </div>
   );
 }
@@ -309,6 +322,7 @@ function ProposeForm({
   again,
   onCancel,
   onSubmit,
+  copy,
 }: {
   readonly pending: boolean;
   readonly again: boolean;
@@ -320,6 +334,11 @@ function ProposeForm({
     link: string;
     note: string;
   }) => void;
+  /**
+   * This panel's words, resolved by the page. A prop and not a dictionary import: this is a Client
+   * Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: InterviewCopy;
 }) {
   const [day, setDay] = useState("");
   const [time, setTime] = useState("");
@@ -330,12 +349,12 @@ function ProposeForm({
   return (
     <div className="space-y-3 rounded-xl border border-dashed border-border p-4">
       <p className="text-sm font-medium text-foreground">
-        {again ? "Propón otro horario" : `Propón la entrevista de ${INTERVIEW_MINUTES} minutos`}
+        {again ? copy.proposeAnother : `Propón la entrevista de ${INTERVIEW_MINUTES} minutos`}
       </p>
 
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
-          <Label htmlFor="interview-day">Fecha</Label>
+          <Label htmlFor="interview-day">{copy.date}</Label>
           <Input
             id="interview-day"
             type="date"
@@ -345,7 +364,7 @@ function ProposeForm({
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="interview-time">Hora (Colombia)</Label>
+          <Label htmlFor="interview-time">{copy.time}</Label>
           <Input
             id="interview-time"
             type="time"
@@ -358,16 +377,16 @@ function ProposeForm({
 
       <SelectField
         id="interview-channel"
-        label="Por dónde"
-        placeholder="Elige el medio"
-        options={CHANNEL_OPTIONS}
+        label={copy.channelLabel}
+        placeholder={copy.channelPlaceholder}
+        options={channelOptions(copy)}
         value={channel}
         onValueChange={(value) => setChannel(value as InterviewChannel)}
       />
 
       {channelNeedsLink(channel) && (
         <div className="space-y-2">
-          <Label htmlFor="interview-link">Enlace de la reunión</Label>
+          <Label htmlFor="interview-link">{copy.meetingLink}</Label>
           <Input
             id="interview-link"
             type="url"
@@ -386,9 +405,7 @@ function ProposeForm({
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none dark:text-foreground"
-            >
-              Crear la reunión en Google Meet
-              <ExternalLinkIcon className="size-3.5" aria-hidden="true" />
+            >{copy.createMeet}<ExternalLinkIcon className="size-3.5" aria-hidden="true" />
             </a>{" "}
             y pega aquí el enlace. El inquilino lo verá al confirmar.
           </p>
@@ -396,11 +413,11 @@ function ProposeForm({
       )}
 
       <div className="space-y-2">
-        <Label htmlFor="interview-note">Mensaje (opcional)</Label>
+        <Label htmlFor="interview-note">{copy.message}</Label>
         <Input
           id="interview-note"
           className="h-11"
-          placeholder="Si no te sirve, dime qué días puedes."
+          placeholder="{copy.declineHint}"
           value={note}
           maxLength={300}
           onChange={(event) => setNote(event.target.value)}
@@ -416,12 +433,10 @@ function ProposeForm({
           onClick={() => onSubmit({ day, time, channel, link, note })}
         >
           <CalendarClockIcon aria-hidden="true" />
-          {pending ? "Enviando…" : "Proponer y avisar al inquilino"}
+          {pending ? copy.sending : "Proponer y avisar al inquilino"}
         </Button>
         {onCancel && (
-          <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={onCancel}>
-            Cancelar
-          </Button>
+          <Button type="button" variant="ghost" size="xl" disabled={pending} onClick={onCancel}>{copy.cancel}</Button>
         )}
       </div>
     </div>
@@ -432,38 +447,44 @@ function ProposeForm({
 function FeedbackForm({
   pending,
   onSubmit,
+  copy,
 }: {
   readonly pending: boolean;
   readonly onSubmit: (values: { result: string; note: string }) => void;
+  /**
+   * This panel's words, resolved by the page. A prop and not a dictionary import: this is a Client
+   * Component, and importing the dictionary would put both languages in the browser bundle.
+   */
+  readonly copy: InterviewCopy;
 }) {
   const [result, setResult] = useState<string>("went_well");
   const [note, setNote] = useState("");
 
   return (
     <div className="space-y-3 rounded-xl border border-dashed border-border p-4">
-      <p className="text-sm font-medium text-foreground">Después de la entrevista</p>
+      <p className="text-sm font-medium text-foreground">{copy.afterTheInterview}</p>
 
       <SelectField
         id="interview-result"
-        label="¿Cómo te fue?"
-        placeholder="Elige una opción"
-        options={RESULT_OPTIONS}
+        label={copy.howDidItGo}
+        placeholder={copy.chooseOption}
+        options={resultOptions(copy)}
         value={result}
         onValueChange={setResult}
       />
 
       <div className="space-y-2">
-        <Label htmlFor="interview-feedback">Qué quedó de la conversación</Label>
+        <Label htmlFor="interview-feedback">{copy.conclusionLabel}</Label>
         <Input
           id="interview-feedback"
           className="h-11"
-          placeholder="Quedó de enviar el soporte de ingresos del mes pasado."
+          placeholder={copy.conclusionPlaceholder}
           value={note}
           maxLength={600}
           onChange={(event) => setNote(event.target.value)}
         />
         <p className="text-sm text-muted-foreground">
-          El inquilino también lo lee. Sin esto el proceso no puede avanzar.
+          {copy.conclusionHint}
         </p>
       </div>
 
@@ -480,7 +501,7 @@ function FeedbackForm({
         disabled={pending || note.trim().length < 10}
         onClick={() => onSubmit({ result, note })}
       >
-        {pending ? "Guardando…" : "Guardar la conclusión"}
+        {pending ? copy.saving : copy.saveConclusion}
       </Button>
     </div>
   );
