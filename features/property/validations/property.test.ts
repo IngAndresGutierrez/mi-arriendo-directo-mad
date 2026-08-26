@@ -7,6 +7,8 @@ import { describe, expect, it } from "vitest";
 import { LEASE_TERMS, PHOTOS_MAX, RENT_MIN, STRATA } from "../domain/property";
 import {
   MAX_MONTHS_AHEAD,
+  draftPropertySchema,
+  propertyFormSchema,
   publishPropertySchema,
   validateAvailableFrom,
 } from "./property";
@@ -260,5 +262,129 @@ describe("validateAvailableFrom", () => {
 
   it("rejects text that is not a date", () => {
     expect(validateAvailableFrom("2026-13-45", today).ok).toBe(false);
+  });
+});
+
+describe("draftPropertySchema", () => {
+  it("accepts the form with no photos at all", () => {
+    const parsed = draftPropertySchema.parse({ ...VALID_PROPERTY, photos: [] });
+    expect(parsed.photos).toEqual([]);
+    // Everything else survived the relaxation: a draft is a listing, not a sketch.
+    expect(parsed.rent).toBe(1_800_000);
+    expect(parsed.address.registryNumber).toBe("050-123456");
+  });
+
+  it("accepts photos when there are some: a draft is not a listing *without* photos", () => {
+    expect(draftPropertySchema.parse(VALID_PROPERTY).photos).toHaveLength(1);
+  });
+
+  it("still refuses more than the maximum", () => {
+    const tooMany = Array.from({ length: PHOTOS_MAX + 1 }, (_, index) => ({
+      path: `properties/uid-1/${index}.jpg`,
+      url: `https://example.com/${index}.jpg`,
+    }));
+    expect(draftPropertySchema.safeParse({ ...VALID_PROPERTY, photos: tooMany }).success).toBe(
+      false,
+    );
+  });
+
+  /*
+   * The load-bearing property of the whole feature: the photos are the ONLY thing a draft may be
+   * missing. If this ever stops holding, promoting a draft stops being a promotion and becomes a
+   * second form to fill in — on fields its author filled three weeks ago and has stopped thinking
+   * about. Weakening `draftPropertySchema` to `.partial()` is what this catches.
+   */
+  it.each(["title", "description", "rent", "stratum", "availableFrom", "bathrooms", "address"])(
+    "still requires %s when it is absent altogether",
+    (field) => {
+      // The key is **deleted**, not blanked. An empty string is refused by `min()` even after a
+      // `.partial()`, so a test that only blanks fields passes on the very relaxation it exists
+      // to catch — which is what this one did before it was made to fail on purpose.
+      const withoutField: Record<string, unknown> = { ...VALID_PROPERTY, photos: [] };
+      delete withoutField[field];
+
+      expect(draftPropertySchema.safeParse(withoutField).success).toBe(false);
+    },
+  );
+
+  it("still requires the whole address, matrícula included", () => {
+    for (const field of ["registryNumber", "line", "neighborhood", "city", "department"]) {
+      const address: Record<string, unknown> = { ...VALID_PROPERTY.address };
+      delete address[field];
+      const parsed = draftPropertySchema.safeParse({ ...VALID_PROPERTY, photos: [], address });
+
+      expect(parsed.success, `address.${field} should still be required`).toBe(false);
+    }
+  });
+});
+
+describe("propertyFormSchema", () => {
+  it("gives a draft the lax schema and a publish the strict one", () => {
+    const withoutPhotos = { ...VALID_PROPERTY, photos: [] };
+    expect(propertyFormSchema("draft").safeParse(withoutPhotos).success).toBe(true);
+    expect(propertyFormSchema("publish").safeParse(withoutPhotos).success).toBe(false);
+  });
+});
+
+describe("the listing video", () => {
+  const VIDEO = {
+    path: "properties/uid-1/abc-recorrido.mp4",
+    url: "https://example.com/abc-recorrido.mp4",
+    contentType: "video/mp4",
+  };
+
+  it("is optional: a listing with no video publishes", () => {
+    // The rule the whole feature rests on. Making it required would lock every listing published
+    // before the video existed out of its own edit form — the map's argument, one field over.
+    expect(publishPropertySchema.safeParse(VALID_PROPERTY).success).toBe(true);
+  });
+
+  it("is accepted when it is there", () => {
+    const parsed = publishPropertySchema.safeParse({ ...VALID_PROPERTY, video: VIDEO });
+
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.video).toStrictEqual(VIDEO);
+  });
+
+  it("is optional on a draft too, and accepted there", () => {
+    // A landlord with the walkthrough but not the stills is exactly what drafts are for, so the
+    // field has to survive the one override `draftPropertySchema` makes.
+    const withoutPhotos = { ...VALID_PROPERTY, photos: [] };
+    expect(draftPropertySchema.safeParse(withoutPhotos).success).toBe(true);
+    expect(draftPropertySchema.safeParse({ ...withoutPhotos, video: VIDEO }).success).toBe(true);
+  });
+
+  it("refuses a content type outside the three containers", () => {
+    // This string is written straight into `<source type>` on a public page, and it is the same
+    // set the Storage rules allow: a free-form string here would let the two disagree.
+    for (const contentType of ["video/x-msvideo", "image/jpeg", "video/mp4; codecs=avc1", ""]) {
+      const parsed = publishPropertySchema.safeParse({
+        ...VALID_PROPERTY,
+        video: { ...VIDEO, contentType },
+      });
+
+      expect(parsed.success, `${contentType || "(empty)"} should be refused`).toBe(false);
+    }
+  });
+
+  it("refuses a video with no path, and one with a url that is not a url", () => {
+    expect(
+      publishPropertySchema.safeParse({ ...VALID_PROPERTY, video: { ...VIDEO, path: "" } }).success,
+    ).toBe(false);
+    expect(
+      publishPropertySchema.safeParse({ ...VALID_PROPERTY, video: { ...VIDEO, url: "nope" } })
+        .success,
+    ).toBe(false);
+  });
+
+  it("does not let a video stand in for the photos", () => {
+    /*
+     * The one confusion worth a test. `photos[0]` is the cover the catalogue card and the shared
+     * Open Graph card both draw, so a listing whose only media is a video has nothing to render
+     * there — and `PHOTOS_MIN` is what stops it reaching the catalogue.
+     */
+    const videoOnly = { ...VALID_PROPERTY, photos: [], video: VIDEO };
+
+    expect(publishPropertySchema.safeParse(videoOnly).success).toBe(false);
   });
 });

@@ -8,6 +8,7 @@ import {
   fixtures,
   ok,
   onStage,
+  PHOTOS_INPUT,
   satisfyVisit,
   settled,
   stepLabel,
@@ -55,7 +56,7 @@ await owner.getByLabel("Barrio").fill("Palermo");
 await owner.getByLabel("Número de matrícula inmobiliaria", { exact: true }).fill("050-123456");
 await owner.getByLabel("Dirección", { exact: true }).fill("Calle 60 #10-20");
 await owner.getByLabel("Canon mensual (COP)").click(); await owner.keyboard.type("1800000");
-await owner.setInputFiles('input[type="file"]', [PHOTO_1, PHOTO_2]);
+await owner.setInputFiles(PHOTOS_INPUT, [PHOTO_1, PHOTO_2]);
 await owner.waitForSelector('img[alt="Foto de portada"]', { timeout: 30000 });
 await owner.getByRole("button", { name: /Publicar inmueble/i }).click();
 await owner.waitForURL(/\/mis-inmuebles$/, { timeout: 40000 });

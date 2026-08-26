@@ -81,6 +81,86 @@ export type PropertyPhoto = {
 };
 
 /**
+ * The listing's walkthrough video, and **one is the whole design**.
+ *
+ * A property is a place, and what a video adds over twenty photographs is the one thing
+ * photographs are bad at: walking through it — how the rooms connect, how much light the
+ * corridor gets, how loud the street is. That question has one answer, so this is a field and
+ * not an array. Three clips would make the tenant choose which to watch, turn the gallery into
+ * a playlist, and put 150 MB of un-transcoded video behind a public page whose readers are
+ * mostly on a Colombian mobile plan.
+ *
+ * It is **deliberately not a member of `photos`**. `photos[0]` is the cover: it is what the
+ * catalogue card draws, what the generated Open Graph card draws, and what this player uses as
+ * its own poster frame. A video sitting in that array would make every one of those consumers
+ * ask "is this one playable?" first, and the day one forgot to ask, the cover of a listing
+ * would be a file no `<img>` can render. A field that means two things is where the bug goes.
+ *
+ * `contentType` is stored because the `<source type>` attribute is what lets a browser decide
+ * whether to bother fetching 50 MB, and because the fallback needs to name the format. There is
+ * deliberately no `bytes` and no `duration`: nothing reads them, and this product has no
+ * transcoding step that could produce a duration it did not invent.
+ */
+export const PROPERTY_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"] as const;
+export type PropertyVideoType = (typeof PROPERTY_VIDEO_TYPES)[number];
+
+/**
+ * 50 MB — the same number an incident's video gets, and for the same reason: it is about a
+ * minute off a phone at a middling setting.
+ *
+ * It is a **second** limit and not a bigger shared one. `PHOTO_MAX_BYTES` stays at 8 MB because a
+ * 50 MB *photograph* is a mistake nobody makes on purpose, and the cheapest place to stop a
+ * mistake is where it can still be described in a sentence the landlord can act on: "recórtalo".
+ */
+export const PHOTO_MAX_BYTES = 8 * 1024 * 1024;
+export const VIDEO_MAX_BYTES = 50 * 1024 * 1024;
+
+/** The walkthrough, once the browser has put it in the landlord's own folder. */
+export type PropertyVideo = {
+  /** `properties/{landlordUid}/{id}.mp4` — always inside the owner's folder, checked on the way in. */
+  readonly path: string;
+  readonly url: string;
+  /** What went into Cloud Storage, and what comes out as `<source type>`. */
+  readonly contentType: PropertyVideoType;
+};
+
+export function isPropertyVideoType(value: string): value is PropertyVideoType {
+  return (PROPERTY_VIDEO_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Whether this file can be the listing's video — and, when it can, **what its content type is**.
+ *
+ * Two things in one answer, and that is the point rather than convenience. The alternative is a
+ * predicate plus a `file.type as PropertyVideoType` at the call site, and that cast is a claim
+ * the compiler cannot check sitting one line away from the check that would have justified it.
+ * Returning the narrowed value means the only way to obtain a `PropertyVideoType` is to have
+ * asked. Same shape as `validateAvailableFrom`.
+ *
+ * The refusal is a **reason code, never a sentence**, because this surface is translated: the
+ * uploader is handed its words as a `Dictionary["propertyForm"]` slice, so a Spanish string
+ * returned from the domain would render inside the English form. `attachmentProblem` in
+ * `features/lease` does return the sentence, which is right there — the incidents are one of the
+ * surfaces still in Spanish — and copying it here would have translated the form and left this
+ * one message behind, which is the bug `catalogMetaTitle` already paid for.
+ *
+ * `too_large` and `unsupported_type` stay apart because they are acted on differently: one says
+ * trim it, the other says convert it, and "no pudimos subir el video" says neither.
+ */
+export function acceptedVideo(
+  file: { readonly type: string; readonly size: number },
+):
+  | { readonly ok: true; readonly contentType: PropertyVideoType }
+  | { readonly ok: false; readonly reason: "unsupported_type" | "empty" | "too_large" } {
+  const contentType = file.type;
+  if (!isPropertyVideoType(contentType)) return { ok: false, reason: "unsupported_type" };
+  if (file.size <= 0) return { ok: false, reason: "empty" };
+  if (file.size > VIDEO_MAX_BYTES) return { ok: false, reason: "too_large" };
+
+  return { ok: true, contentType };
+}
+
+/**
  * The public part of the address. The street lives in `PropertyLocation`.
  *
  * `approx` is the only coordinate that may appear in a world-readable document, and it is
@@ -124,6 +204,14 @@ export interface PropertyDoc {
   /** Kept on the document so the canonical URL cannot drift from what was published. */
   readonly slug: string;
   readonly photos: readonly PropertyPhoto[];
+  /**
+   * The walkthrough, when the landlord recorded one. **Optional, and it stays optional** — the
+   * same rule the map point follows and for the same two reasons: every listing published before
+   * this feature has none and must keep rendering in its own edit form, and a landlord with no
+   * video is not a landlord with an incomplete listing. It is also why it can never stand in for
+   * `PHOTOS_MIN`: the card and the shared card both need a still image.
+   */
+  readonly video?: PropertyVideo;
   readonly createdAt: StoredTimestamp;
   readonly updatedAt: StoredTimestamp;
 }
@@ -244,4 +332,40 @@ export function approximateLocation(point: GeoPoint): GeoPoint {
     Math.floor(value / LOCATION_GRID) * LOCATION_GRID + LOCATION_GRID / 2;
 
   return roundPoint({ lat: snap(point.lat), lng: snap(point.lng) });
+}
+
+/**
+ * What a listing is missing before it can go on the catalogue, or `null` when nothing is.
+ *
+ * **A draft is a property with everything filled in except its photos**, and that is the whole
+ * definition. It exists because the two halves of publishing arrive at different times: a
+ * landlord knows the canon, the stratum and the matrícula while sitting at a desk, and the
+ * photographs need somebody to be *at* the flat — which is an errand
+ * (`features/collaboration`, `type: "photos"`), and an errand is about a property, so the
+ * property has to exist first. Before this, the only way to have a property was to publish it,
+ * so the listing went on the catalogue with no photos or the landlord kept the whole thing in a
+ * notes app until the photographer came back.
+ *
+ * The gap is **only** the photos, deliberately. Relaxing more of the form would turn a draft
+ * into a half-filled one that fails on fields the landlord has long forgotten about, at the
+ * moment they press publish; keeping it at one field means promoting a draft is a promotion and
+ * not a second form to get through.
+ *
+ * Pure, and read by **both** the card that offers the button and the action that performs it —
+ * the same reason `availableActions` answers for the errand screen and the errand action at
+ * once: a control the server would refuse is a lie, and two copies of "when may this be
+ * published?" are two things that drift.
+ *
+ * It cannot answer for `availableFrom`, and that is not an oversight: a draft that sat for a
+ * month has a date in the past, which is a question about the clock rather than the document —
+ * the same split that keeps `validateAvailableFrom` out of the schema. The action re-checks it
+ * against the server's own clock.
+ */
+export function publishBlocker(
+  property: Pick<Property, "status" | "photos">,
+): "not_draft" | "no_photos" | null {
+  if (property.status !== "draft") return "not_draft";
+  if (property.photos.length < PHOTOS_MIN) return "no_photos";
+
+  return null;
 }

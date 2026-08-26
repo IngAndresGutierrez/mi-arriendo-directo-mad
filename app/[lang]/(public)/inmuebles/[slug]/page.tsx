@@ -13,6 +13,7 @@ import {
   PropertyFacts,
   PropertyGallery,
   PropertyPriceCard,
+  PropertyVideoPlayer,
   PropertyZoneMap,
   propertyLabels,
   resolvePublicProperty,
@@ -208,6 +209,28 @@ export default async function PropertyDetailPage(props: DetailProps) {
           <p className="text-pretty whitespace-pre-line text-muted-foreground">
             {property.description}
           </p>
+
+          {/*
+            The walkthrough, when the landlord recorded one. After the description and before the
+            location: photos → words → video → where it is, which is the order somebody reads a
+            listing in. Not up in the header beside the gallery — that block is the LCP region of
+            the most-shared page on the site, and a second 16:9 frame there pushes the price card
+            below the fold on a phone.
+          */}
+          {property.video && (
+            <div className="pt-4">
+              <h2 className="pb-3 text-xl font-semibold text-primary dark:text-foreground">
+                {t.videoHeading}
+              </h2>
+              <PropertyVideoPlayer
+                video={property.video}
+                cover={property.photos[0]}
+                label={t.videoOf(property.title)}
+                fallbackNote={t.videoFallbackNote}
+                fallbackAction={t.videoFallbackAction}
+              />
+            </div>
+          )}
 
           <h2 className="pt-4 text-xl font-semibold text-primary dark:text-foreground">{t.location}</h2>
           <p className="text-muted-foreground">

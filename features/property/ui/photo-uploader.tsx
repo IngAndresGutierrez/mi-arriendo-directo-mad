@@ -177,6 +177,13 @@ export function PhotoUploader({
         ref={inputRef}
         id={inputId}
         type="file"
+        /*
+          The driver's stable handle, the same idiom as `data-slot="stage-actions"` on the process
+          page. Since the walkthrough uploader landed there are two file inputs on this form, and
+          every driver that reached for `input[type="file"]` was picking this one purely by
+          document order — a guess, not a statement about which input it meant.
+        */
+        data-slot="property-photos"
         accept={ACCEPTED.join(",")}
         multiple
         className="sr-only"

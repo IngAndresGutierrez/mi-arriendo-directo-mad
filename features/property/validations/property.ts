@@ -11,6 +11,7 @@ import {
   PHOTOS_MAX,
   PHOTOS_MIN,
   PROPERTY_TYPES,
+  PROPERTY_VIDEO_TYPES,
   RENT_MAX,
   RENT_MIN,
   STRATA,
@@ -52,6 +53,23 @@ const count = (label: string, { min, max }: { min: number; max: number }) =>
 const photo = z.object({
   path: z.string().min(1, { error: "La foto no tiene ruta" }),
   url: z.url({ error: "La URL de la foto no es válida" }),
+});
+
+/**
+ * The walkthrough video the browser already uploaded, when there is one.
+ *
+ * Same contract as `photo`: only the shape is checked here, and that the path sits inside **this**
+ * landlord's folder is checked in the Server Action, which is the only layer that knows the uid.
+ *
+ * `contentType` is an enum rather than a free string, and that is the one rule worth stating: it
+ * is written straight into `<source type>` on a public page, so anything accepted here is
+ * something a browser is asked to interpret. Keeping it to the three containers the Storage rules
+ * also allow means the schema and the bucket cannot disagree about what a video is.
+ */
+const listingVideo = z.object({
+  path: z.string().min(1, { error: "El video no tiene ruta" }),
+  url: z.url({ error: "La URL del video no es válida" }),
+  contentType: z.enum(PROPERTY_VIDEO_TYPES, { error: "Ese formato de video no es válido" }),
 });
 
 /**
@@ -176,7 +194,45 @@ export const publishPropertySchema = z.object({
     .array(photo)
     .min(PHOTOS_MIN, { error: "Sube al menos una foto" })
     .max(PHOTOS_MAX, { error: `Máximo ${PHOTOS_MAX} fotos` }),
+
+  /*
+   * The video is optional in **both** schemas, which is why it is declared once here rather than
+   * added to each: a draft is a listing waiting for its photographs, and a landlord who has the
+   * walkthrough but not the stills is exactly the case drafts exist for. `draftPropertySchema`
+   * overrides `photos` and nothing else, so this carries across untouched.
+   */
+  video: listingVideo.optional(),
 });
+
+/**
+ * What a landlord submits to **save a draft**: the publish form minus the one thing they cannot
+ * have yet.
+ *
+ * Derived from `publishPropertySchema` rather than written beside it, so the two cannot drift:
+ * a field added to the form is required in both, and the single `photos` override is the whole
+ * difference between a draft and a listing — which is exactly what `publishBlocker` says in the
+ * domain, and what makes promoting a draft a promotion instead of a second form.
+ *
+ * **Nothing else is relaxed, on purpose.** A draft that also let the canon, the address or the
+ * matrícula through empty would be a half-filled form that fails at the moment its author presses
+ * publish, on fields they filled in three weeks earlier and have long stopped thinking about.
+ */
+export const draftPropertySchema = publishPropertySchema.extend({
+  photos: z.array(photo).max(PHOTOS_MAX, { error: `Máximo ${PHOTOS_MAX} fotos` }),
+});
+
+/**
+ * The two ways out of the property form. It travels in the `FormData`, so it is re-read and
+ * re-checked on the server: a client that posts `draft` gets a draft, and one that posts
+ * anything else gets the publish schema, which is the strict one.
+ */
+export const PROPERTY_FORM_INTENTS = ["publish", "draft"] as const;
+export type PropertyFormIntent = (typeof PROPERTY_FORM_INTENTS)[number];
+
+/** The schema an intent is validated with. The default is the strict one, never the lax one. */
+export function propertyFormSchema(intent: PropertyFormIntent) {
+  return intent === "draft" ? draftPropertySchema : publishPropertySchema;
+}
 
 /** What the Server Action validates (after coercion). */
 export type PublishPropertyInput = z.output<typeof publishPropertySchema>;

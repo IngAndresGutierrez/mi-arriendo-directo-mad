@@ -7,11 +7,12 @@ import {
   createAccount,
   fillBirthdate,
   fixtures,
+  LOGIN_PATH,
   MONTHS,
   ok,
+  PHOTOS_INPUT,
   settled,
   stubTiles,
-  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1, photo2: PHOTO_2 } = fixtures();
@@ -81,7 +82,7 @@ await p.getByLabel("Barrio").fill("Palermo");
 await p.getByLabel("Número de matrícula inmobiliaria", { exact: true }).fill("050-123456");
 await p.getByLabel("Dirección", { exact: true }).fill("Calle 60 #10-20");
 await p.getByLabel("Canon mensual (COP)").click(); await p.keyboard.type("2500000");
-await p.setInputFiles('input[type="file"]', [PHOTO_1, PHOTO_2]);
+await p.setInputFiles(PHOTOS_INPUT, [PHOTO_1, PHOTO_2]);
 await p.waitForSelector('img[alt="Foto de portada"]', { timeout: 30000 });
 await p.getByRole("button", { name: /Publicar inmueble/i }).click();
 await p.waitForURL(/\/mis-inmuebles$/, { timeout: 40000 });

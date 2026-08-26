@@ -200,6 +200,54 @@ describe("properties", () => {
     await assertFails(addDoc(collection(db, "properties"), publishedProperty({ photos: [] })));
   });
 
+  it("accepts a listing with a walkthrough video, and one without", async () => {
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+
+    await assertSucceeds(
+      addDoc(
+        collection(db, "properties"),
+        publishedProperty({
+          video: {
+            path: `properties/${UID_LANDLORD}/abc-recorrido.mp4`,
+            url: "https://example.com/abc-recorrido.mp4",
+            contentType: "video/mp4",
+          },
+        }),
+      ),
+    );
+    // Absent is the ordinary case, and `publishedProperty()` carries no video: without this the
+    // optional half of the rule would be untested and a required `video` would still be green.
+    await assertSucceeds(addDoc(collection(db, "properties"), publishedProperty()));
+  });
+
+  it("rejects a video that smuggles extra keys into the public document", async () => {
+    /*
+     * The reason the rule uses `hasOnly` rather than checking the three fields it wants. This
+     * document is world-readable and the rule above it spends thirty lines keeping the street and
+     * the exact coordinate out of it; an unconstrained nested map is the way straight back in, one
+     * field at a time. Exactly the leak `!('point' in incoming().area)` already closed for `area`.
+     */
+    const db = actingAs(env, UID_LANDLORD, "landlord");
+    const withVideo = (video: unknown) =>
+      addDoc(collection(db, "properties"), publishedProperty({ video }));
+
+    const valid = {
+      path: `properties/${UID_LANDLORD}/abc-recorrido.mp4`,
+      url: "https://example.com/abc-recorrido.mp4",
+      contentType: "video/mp4",
+    };
+
+    await assertFails(withVideo({ ...valid, line: "Calle 60 #10-20" }));
+    await assertFails(withVideo({ ...valid, point: { lat: 5.0675, lng: -75.4925 } }));
+    // a container no browser here decodes, and one that is not a string at all
+    await assertFails(withVideo({ ...valid, contentType: "video/x-msvideo" }));
+    await assertFails(withVideo({ ...valid, contentType: 4 }));
+    // a half-built map: the fields are checked, not just the key set
+    await assertFails(withVideo({ path: valid.path, url: valid.url }));
+    await assertFails(withVideo({ ...valid, path: "" }));
+    await assertFails(withVideo("https://example.com/abc-recorrido.mp4"));
+  });
+
   it("rejects a lease shorter than the product allows", async () => {
     const db = actingAs(env, UID_LANDLORD, "landlord");
     await assertFails(addDoc(collection(db, "properties"), publishedProperty({ minLeaseMonths: 1 })));

@@ -13,6 +13,7 @@ export {
   type LeaseTerm,
   type Property,
   type PropertyPhoto,
+  type PropertyVideo,
 } from "./domain/property";
 export { type CityCount } from "./domain/cities";
 

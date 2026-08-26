@@ -246,7 +246,28 @@ service cloud.firestore {
             && incoming().slug.size() <= 80
             && incoming().photos is list
             && incoming().photos.size() >= 1
-            && incoming().photos.size() <= 20;
+            && incoming().photos.size() <= 20
+            /*
+             * The walkthrough video, when there is one. Optional, so the whole check hangs off
+             * `'video' in incoming()` — and the parentheses are not optional here either: `&&`
+             * binds tighter than `||`, so without them an absent video would swallow every
+             * clause after it, which today is the closing semicolon and tomorrow is whatever
+             * gets appended below.
+             *
+             * `hasOnly` is the point of the block rather than the type checks. This document is
+             * world-readable, and the enclosing rule spends thirty lines keeping the street and
+             * the exact coordinate out of it; a nested map with unconstrained keys is a door
+             * straight back in — `video.point`, `video.address` — one field at a time, which is
+             * exactly how `area` would have leaked before `!('point' in incoming().area)`.
+             */
+            && (!('video' in incoming()) || (
+                 incoming().video.keys().hasOnly(['path', 'url', 'contentType'])
+                 && incoming().video.path is string
+                 && incoming().video.path.size() > 0
+                 && incoming().video.url is string
+                 && incoming().video.url.size() > 0
+                 && incoming().video.contentType in ['video/mp4', 'video/quicktime', 'video/webm']
+               ));
       }
 
       // The exact street address. It lives apart because Security Rules cannot hide a field:

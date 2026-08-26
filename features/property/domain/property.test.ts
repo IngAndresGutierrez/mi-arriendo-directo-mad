@@ -9,10 +9,15 @@ import { distanceMeters, isInColombia, type GeoPoint } from "@/shared/geo/point"
 import {
   APPROX_RADIUS_M,
   LOCATION_GRID,
+  PHOTO_MAX_BYTES,
+  VIDEO_MAX_BYTES,
+  acceptedVideo,
   approximateLocation,
   propertyIdFromSlug,
   propertySlug,
+  publishBlocker,
 } from "./property";
+import type { Property, PropertyStatus } from "./property";
 
 describe("propertySlug", () => {
   it("builds a readable slug from the title and the city", () => {
@@ -139,5 +144,103 @@ describe("approximateLocation", () => {
     expect(approximateLocation({ lat: 0.001, lng: -70.001 }).lat).toBeGreaterThan(0);
     expect(distanceMeters({ lat: -0.001, lng: -70 }, approximateLocation({ lat: -0.001, lng: -70 })))
       .toBeLessThanOrEqual(APPROX_RADIUS_M);
+  });
+});
+
+describe("publishBlocker", () => {
+  const listing = (
+    status: PropertyStatus,
+    photos: number,
+  ): Pick<Property, "status" | "photos"> => ({
+    status,
+    photos: Array.from({ length: photos }, (_, index) => ({
+      path: `properties/uid-1/${index}.jpg`,
+      url: `https://example.com/${index}.jpg`,
+    })),
+  });
+
+  it("lets a draft with photos through", () => {
+    expect(publishBlocker(listing("draft", 3))).toBeNull();
+  });
+
+  it("holds a draft with no photos, which is the whole reason drafts exist", () => {
+    expect(publishBlocker(listing("draft", 0))).toBe("no_photos");
+  });
+
+  it("one photo is enough: PHOTOS_MIN is the publish rule, not a suggestion", () => {
+    expect(publishBlocker(listing("draft", 1))).toBeNull();
+  });
+
+  it("refuses anything that is not a draft, in every direction", () => {
+    // Not just `available`. Re-publishing a rented or a deactivated listing through this door
+    // would be a status change nobody asked for, dressed up as "publicar".
+    expect(publishBlocker(listing("available", 3))).toBe("not_draft");
+    expect(publishBlocker(listing("rented", 3))).toBe("not_draft");
+    expect(publishBlocker(listing("inactive", 3))).toBe("not_draft");
+  });
+
+  it("answers not_draft before no_photos", () => {
+    // The order matters on screen: a published listing whose photos were all removed is not a
+    // draft waiting for a photographer, and telling its owner to add one would be a wrong errand.
+    expect(publishBlocker(listing("available", 0))).toBe("not_draft");
+  });
+});
+
+describe("acceptedVideo", () => {
+  const file = (type: string, size: number) => ({ type, size });
+
+  it("accepts the three containers, and hands back the narrowed type", () => {
+    for (const type of ["video/mp4", "video/quicktime", "video/webm"]) {
+      const result = acceptedVideo(file(type, 12 * 1024 * 1024));
+
+      expect(result.ok, type).toBe(true);
+      // The narrowed value is the whole reason this returns a result instead of a boolean: it is
+      // what removes the `file.type as PropertyVideoType` from the uploader.
+      if (result.ok) expect(result.contentType).toBe(type);
+    }
+  });
+
+  it("accepts quicktime, because an iPhone records .mov by default", () => {
+    // Stated as its own case rather than folded into the loop above: dropping it would reject the
+    // file most Colombian landlords would actually produce, and the loop would still be green
+    // with two entries.
+    expect(acceptedVideo(file("video/quicktime", 30 * 1024 * 1024)).ok).toBe(true);
+  });
+
+  it("refuses a photo, however small, with the reason that says to convert it", () => {
+    const result = acceptedVideo(file("image/jpeg", 200_000));
+
+    expect(result).toStrictEqual({ ok: false, reason: "unsupported_type" });
+  });
+
+  it("refuses a container no browser here would decode", () => {
+    // avi and mkv are the two a landlord is most likely to have lying around, and neither plays
+    // in a browser. Accepting them would produce an empty player on a public page.
+    expect(acceptedVideo(file("video/x-msvideo", 1_000)).ok).toBe(false);
+    expect(acceptedVideo(file("video/x-matroska", 1_000)).ok).toBe(false);
+    expect(acceptedVideo(file("application/pdf", 1_000)).ok).toBe(false);
+    expect(acceptedVideo(file("", 1_000)).ok).toBe(false);
+  });
+
+  it("refuses an empty file before it refuses its size", () => {
+    expect(acceptedVideo(file("video/mp4", 0))).toStrictEqual({ ok: false, reason: "empty" });
+  });
+
+  it("draws the line exactly at VIDEO_MAX_BYTES, inclusive", () => {
+    // The boundary, both sides. `>` vs `>=` here is the difference between rejecting a file the
+    // Storage rules would have taken and accepting one they will refuse — and the second is the
+    // bad one, because the refusal then arrives from the bucket with no sentence attached.
+    expect(acceptedVideo(file("video/mp4", VIDEO_MAX_BYTES)).ok).toBe(true);
+    expect(acceptedVideo(file("video/mp4", VIDEO_MAX_BYTES + 1))).toStrictEqual({
+      ok: false,
+      reason: "too_large",
+    });
+  });
+
+  it("does not hold a video to the photo limit", () => {
+    // The whole reason there are two constants. A single shared 8 MB ceiling would reject every
+    // real walkthrough, and a single shared 50 MB one would accept a 50 MB photograph.
+    expect(VIDEO_MAX_BYTES).toBeGreaterThan(PHOTO_MAX_BYTES);
+    expect(acceptedVideo(file("video/mp4", PHOTO_MAX_BYTES + 1)).ok).toBe(true);
   });
 });

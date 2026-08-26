@@ -288,6 +288,30 @@ export const en: Dictionary = {
     removePhotoConfirm: "Remove photo",
     removePhotoPending: "Removing…",
 
+    /* One video per listing: see the Spanish note. MP4 first for the same reason. */
+    videoLabel: "Property video",
+    videoOptional: "Optional",
+    addVideo: "Add a video",
+    changeVideo: "Change the video",
+    removeVideo: "Remove video",
+    uploadingVideo: "Uploading…",
+    uploadingVideoStatus: "Uploading the video.",
+    videoPreviewLabel: "Preview of the video you uploaded",
+    videoHint:
+      "A short walkthrough shows what photos cannot: how the rooms connect and how much light gets in. MP4, MOV or WEBM, up to 50 MB. MP4 plays on every device.",
+    videoTooLarge: "That video is over 50 MB. Trim it or record a shorter one.",
+    videoUnsupported: "MP4, MOV or WEBM only.",
+    videoEmpty: "That file is empty.",
+    videoUploadFailed: "We could not upload the video. Check your connection and try again.",
+    videoRejected:
+      "The server would not accept that file. Check that it is MP4, MOV or WEBM and under 50 MB.",
+    videoSessionExpired: "Your session expired. Sign in again to upload the video.",
+    removeVideoTitle: "Remove this video?",
+    removeVideoBody:
+      "It stops showing on the listing and is deleted when you save. It cannot be undone.",
+    removeVideoConfirm: "Remove video",
+    removeVideoPending: "Removing…",
+
     mapLabel: "Location on the map",
     mapHintField: "the location on the map",
     mapHintBefore: "The listing publishes an area of about",
@@ -301,6 +325,16 @@ export const en: Dictionary = {
     searchingNeighborhood: "Looking up the neighbourhood…",
     pointMarked: "Point marked:",
     noPoint: "No point on the map. You can publish without marking it.",
+
+
+    saveDraft: "Save as draft",
+    savingDraft: "Saving draft…",
+    draftHint:
+      "No photos yet? Save the draft with everything else: only you can see it, and from your list you can send somebody to take them.",
+    publishDraft: "Publish",
+    publishingDraft: "Publishing…",
+    publishDraftNoPhotos: "Add at least one photo before publishing it.",
+    publishDraftFailed: "We could not publish the property.",
 
     publish: "List property",
     publishing: "Publishing…",
@@ -960,6 +994,14 @@ export const en: Dictionary = {
     ownerOnlyAddress:
       "— only you can see this. The tenant receives the address when you approve their application.",
     aboutTheProperty: "About this property",
+
+    /* The listing's video. See the Spanish note: the fallback line is always shown, not only on
+       failure, because a browser that cannot decode the file shows an empty player silently. */
+    videoHeading: "Property video",
+    videoOf: (title: string) => `Video of ${title}`,
+    videoBadge: "Has video",
+    videoFallbackNote: "Not playing?",
+    videoFallbackAction: "Open the file",
     locationDisclaimer:
       "For safety, the exact address is shared with the tenant once the landlord approves their application.",
     forRent: (what: string) => `${what} for rent`,

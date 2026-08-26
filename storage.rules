@@ -19,16 +19,33 @@ service firebase.storage {
       allow delete: if false;                  // traceability: only the backend deletes
     }
 
-    // listing photos: public read, and each landlord writes only inside their own folder.
-    // The path is keyed by uid and not by propertyId on purpose: photos are uploaded from the
-    // browser before the property exists, so there is no id to scope them to yet.
+    // listing photos and the walkthrough video: public read, and each landlord writes only
+    // inside their own folder. The path is keyed by uid and not by propertyId on purpose: files
+    // are uploaded from the browser before the property exists, so there is no id to scope them
+    // to yet.
+    //
+    // Two limits, not one, exactly as in the incidents block below: 8 MB does not hold a
+    // walkthrough of a flat, and a 50 MB *photograph* is a mistake nobody makes on purpose. A
+    // single 50 MB ceiling for both would turn the second into an accepted upload nobody meant,
+    // on a bucket every visitor can read. `validSize()` is the 8 MB one and cannot cover video.
+    //
+    // **Anchored regexes**, and here that is load-bearing rather than tidiness: `matches` is not
+    // anchored on its own, so the `image/(jpeg|png|webp)` this rule used to carry also accepted
+    // any contentType with that substring buried in it. This is the one bucket in the product
+    // with `allow read: if true`, so it is the one where a permissive match is served to
+    // strangers.
     match /properties/{userId}/{allPaths=**} {
       allow read: if true;
       allow write: if request.auth != null
                    && request.auth.uid == userId
-                   && validSize()
-                   && request.resource.contentType.matches('image/(jpeg|png|webp)');
-      // the owner may drop a photo they just uploaded, before or after publishing
+                   && request.resource.size > 0
+                   && (
+                        (request.resource.contentType.matches('^image/(jpeg|png|webp)$')
+                         && request.resource.size < 8 * 1024 * 1024)
+                     || (request.resource.contentType.matches('^video/(mp4|quicktime|webm)$')
+                         && request.resource.size < 50 * 1024 * 1024)
+                      );
+      // the owner may drop a photo or the video they just uploaded, before or after publishing
       allow delete: if request.auth != null && request.auth.uid == userId;
     }
 

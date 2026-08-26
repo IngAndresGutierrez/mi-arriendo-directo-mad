@@ -7,10 +7,11 @@ import {
   createAccount,
   fillBirthdate,
   fixtures,
+  LOGIN_PATH,
   MONTHS,
+  PHOTOS_INPUT,
   settled,
   stubTiles,
-  LOGIN_PATH,
 } from "./lib.mjs";
 
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
@@ -103,7 +104,7 @@ await settled(page);
     await page.getByLabel("Número de matrícula inmobiliaria", { exact: true }).fill("050-123456");
     await page.getByLabel("Canon mensual (COP)").fill("1800000");
     await page.getByLabel("Administración (COP)").fill("250000");
-    await page.setInputFiles('input[type="file"]', [PHOTO_1, PHOTO_2]);
+    await page.setInputFiles(PHOTOS_INPUT, [PHOTO_1, PHOTO_2]);
     await page.waitForSelector('img[alt="Foto de portada"]', { timeout: 30000 });
     await page.waitForSelector("text=2 de 20", { timeout: 15000 });
   });

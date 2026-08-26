@@ -109,9 +109,21 @@ export async function PropertyCard({
             </span>
           )}
 
+          {/*
+            The video is announced on the card and **not** played there. Six cards each fetching a
+            walkthrough is six heavy requests on the page where somebody is comparing six
+            listings, and what should draw the eye in a card is the price. But a walkthrough nobody
+            knows exists is a walkthrough nobody watches, and the catalogue is where the choice
+            between the six is actually made — so the badge is the whole of it, and the video
+            itself lives one click away on the detail page.
+
+            Not `tone="accent"`: `furnished` already holds the one cyan on this card, and a second
+            would be two shouts. Same rule as one `accent` per view, inside a card.
+          */}
           <span className="absolute top-3 left-3 flex flex-wrap gap-1.5">
             <Badge>{labels.types[property.type]}</Badge>
             {property.furnished && <Badge tone="accent">{t.furnished}</Badge>}
+            {property.video && <Badge>{t.videoBadge}</Badge>}
             {property.petsAllowed && <Badge>{t.petsAllowed}</Badge>}
           </span>
         </Link>

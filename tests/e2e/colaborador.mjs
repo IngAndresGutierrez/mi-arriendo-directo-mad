@@ -20,8 +20,9 @@ import {
   config,
   createAccount,
   fixtures,
-  openSession,
   ok,
+  openSession,
+  PHOTOS_INPUT,
   settled,
   watch,
 } from "./lib.mjs";
@@ -100,7 +101,7 @@ try {
   await p.getByLabel("Número de matrícula inmobiliaria", { exact: true }).fill("050-123456");
   await p.getByLabel("Canon mensual (COP)").fill("1800000");
   await p.getByLabel("Administración (COP)").fill("250000");
-  await p.setInputFiles('input[type="file"]', [PHOTO_1, PHOTO_2]);
+  await p.setInputFiles(PHOTOS_INPUT, [PHOTO_1, PHOTO_2]);
   await p.waitForSelector('img[alt="Foto de portada"]', { timeout: 30000 });
   await p.getByRole("button", { name: /Publicar inmueble/i }).click();
   await p.waitForURL(/\/mis-inmuebles$/, { timeout: 40000 });

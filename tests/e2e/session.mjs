@@ -7,10 +7,11 @@ import {
   fillBirthdate,
   fixtures,
   hydrated,
+  LOGIN_PATH,
   MONTHS,
   ok,
+  PHOTOS_INPUT,
   settled,
-  LOGIN_PATH,
 } from "./lib.mjs";
 const { apiKey: API_KEY, stamp: STAMP, shotDir: SHOT_DIR } = config();
 const { photo1: PHOTO_1 } = fixtures();
@@ -76,7 +77,7 @@ if (!stillHasCookie) throw new Error("se perdió también la cookie: la prueba n
 ok("reproducido: el navegador perdió la sesión del SDK y conserva la del servidor", `sdk=${sdkUser ? "algo" : "vacío"}`);
 
 // ---------- y aun así la subida funciona ----------
-await p.setInputFiles('input[type="file"]', [PHOTO_1]);
+await p.setInputFiles(PHOTOS_INPUT, [PHOTO_1]);
 const expired = p.locator("text=Tu sesión expiró");
 const uploaded = p.locator('img[alt="Foto de portada"]');
 await Promise.race([

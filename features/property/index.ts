@@ -8,11 +8,15 @@ export {
   propertyIdFromSlug,
   propertySlug,
   PROPERTY_TYPES,
+  PROPERTY_VIDEO_TYPES,
+  acceptedVideo,
   propertyMonthlyCost,
   publicLocationLabel,
+  publishBlocker,
   type LeaseTerm,
   type Property,
   type PropertyPhoto,
+  type PropertyVideo,
   type PropertyType,
 } from "./domain/property";
 export {
@@ -45,10 +49,11 @@ export {
 } from "./domain/seo";
 export { catalogQuery, parseCatalogFilters, parseCityFilter } from "./validations/catalog";
 export { publishProperty } from "./actions/publish-property";
-export { deleteProperty, updateProperty } from "./actions/manage-property";
+export { deleteProperty, publishDraft, updateProperty } from "./actions/manage-property";
 export { getOwnedProperty, hasProperties, listLandlordProperties } from "./data/property";
 export { PropertyForm } from "./ui/property-form";
 export { PropertyManageCard } from "./ui/property-manage-card";
+export { PropertyVideoPlayer } from "./ui/property-video";
 export { PropertyCard } from "./ui/property-card";
 export { PropertyTeaserCard } from "./ui/property-teaser-card";
 export { CatalogFilters } from "./ui/catalog-filters";

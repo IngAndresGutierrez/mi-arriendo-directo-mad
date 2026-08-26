@@ -14,10 +14,10 @@
 import { readFileSync } from "node:fs";
 
 import {
-  BASE,
+  adminDb,
   assertNoHorizontalScroll,
   assertQuiet,
-  adminDb,
+  BASE,
   config,
   createAccount,
   fixtures,
@@ -25,6 +25,7 @@ import {
   launch,
   ok,
   openSession,
+  PHOTOS_INPUT,
   settled,
   stubTiles,
   watch,
@@ -122,7 +123,7 @@ try {
     await page.getByLabel("Número de matrícula inmobiliaria", { exact: true }).fill("050-123456");
     await page.getByLabel("Canon mensual (COP)").fill("2400000");
     await page.getByLabel("Administración (COP)").fill("0");
-    await page.setInputFiles('input[type="file"]', [PHOTO_1, PHOTO_2]);
+    await page.setInputFiles(PHOTOS_INPUT, [PHOTO_1, PHOTO_2]);
     await page.waitForSelector('img[alt="Foto de portada"]', { timeout: 30000 });
   });
 

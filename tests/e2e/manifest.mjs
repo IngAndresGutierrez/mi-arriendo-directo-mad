@@ -167,6 +167,29 @@ export const COVERS = {
   publish: ["features/property/", "app/[lang]/(app)/inmuebles", "shared/geo/"],
   "manage-properties": ["features/property/", "app/[lang]/(app)/mis-inmuebles"],
   /*
+   * El borrador toca las dos mitades: el formulario y la lista del propietario, y también el
+   * detalle público — lo que afirma es que un borrador NO se ve ahí ni en el catálogo.
+   */
+  draft: [
+    "features/property/",
+    "app/[lang]/(app)/mis-inmuebles",
+    "app/[lang]/(app)/inmuebles",
+    "app/[lang]/(public)/inmuebles",
+  ],
+  /*
+   * El video toca las tres superficies: el formulario donde se sube, el detalle público donde se
+   * reproduce y el catálogo, que lo anuncia con una insignia sin montar un reproductor. `storage.rules`
+   * entra porque es lo que decide si el archivo puede subirse — un cambio ahí y el control falla
+   * con `storage/unauthorized`, que no se ve en ninguna otra parte de la barra.
+   */
+  video: [
+    "features/property/",
+    "app/[lang]/(app)/inmuebles",
+    "app/[lang]/(app)/mis-inmuebles",
+    "app/[lang]/(public)/inmuebles",
+    "storage.rules",
+  ],
+  /*
    * La ubicación en el mapa. `shared/map/` y `shared/geo/point` son suyos y de nadie más, pero
    * `features/property/` también entra: el punto viaja por el esquema, la acción y el detalle, y
    * un cambio en cualquiera de los tres rompe la separación entre la coordenada exacta y la

@@ -6,7 +6,7 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { useRouter } from "next/navigation";
-import { CheckIcon, LinkIcon, PencilIcon, Trash2Icon, UserPlusIcon } from "lucide-react";
+import { CheckIcon, LinkIcon, PencilIcon, SendIcon, Trash2Icon, UserPlusIcon } from "lucide-react";
 
 import { assignErrandRoute, editPropertyRoute, propertyDetailRoute } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
@@ -14,10 +14,11 @@ import { Button } from "@/shared/ui/button";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { cn } from "@/shared/lib/utils";
 
-import { deleteProperty } from "../actions/manage-property";
+import { deleteProperty, publishDraft } from "../actions/manage-property";
 import {
   propertyMonthlyCost,
   publicLocationLabel,
+  publishBlocker,
   type Property,
 } from "../domain/property";
 
@@ -57,9 +58,16 @@ export function PropertyManageCard({
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDeleting, startDelete] = useTransition();
+  const [isPublishing, startPublish] = useTransition();
 
   const cover = property.photos[0];
   const path = propertyDetailRoute(property.slug);
+  /*
+   * The same function the Server Action calls before it writes. Two copies of "when may this be
+   * published?" — one in the card and one in the endpoint — are two things that drift, and the
+   * one that drifts first is the button, which then offers something the server refuses.
+   */
+  const blocker = publishBlocker(property);
 
   async function copyLink() {
     try {
@@ -69,6 +77,17 @@ export function PropertyManageCard({
     } catch {
       setError(copy.copyLinkFailed);
     }
+  }
+
+  function publish() {
+    startPublish(async () => {
+      const result = await publishDraft(property.id);
+      if (!result.ok) {
+        setError(result.message ?? copy.publishDraftFailed);
+        return;
+      }
+      router.refresh();
+    });
   }
 
   function remove() {
@@ -144,10 +163,44 @@ export function PropertyManageCard({
           click it should discourage, and it asks for confirmation anyway.
         */}
         <div className="flex flex-wrap items-center gap-2 pt-2">
-          <Button type="button" variant="secondary" size="lg" onClick={copyLink}>
-            {copied ? <CheckIcon aria-hidden="true" /> : <LinkIcon aria-hidden="true" />}
-            {copied ? copy.linkCopied : copy.copyLink}
-          </Button>
+          {/*
+            A draft gets "Publicar" where a listing gets "Copiar enlace", and the swap is not
+            cosmetic on either side.
+
+            Publishing is what the card is *for* while the listing is a draft, so it takes the one
+            filled slot — the same reasoning that put the link there for a published listing, which
+            is the thing you do most with one. Not `accent`: a list of drafts would then be a column
+            of cyan buttons, which is the rule the catalogue's cards already follow.
+
+            And the link **goes**, because on a draft it is a dead one. `getVisibleProperty` answers
+            `null` to everybody but the owner, so a URL copied here 404s for whoever it is sent to —
+            a button that hands over a broken link is worse than no button, and it is the "Continuar
+            que no continúa" in another costume.
+          */}
+          {property.status === "draft" ? (
+            <Button
+              type="button"
+              variant="secondary"
+              size="lg"
+              onClick={blocker === null ? publish : undefined}
+              /*
+                `aria-disabled`, never `disabled`: a disabled button drops out of the tab order and
+                stops firing hover, so the reason beneath it becomes unreachable for exactly the
+                people who most need it read out. The click does nothing — a control announced as
+                unavailable that turns out to act is its own kind of lie.
+              */
+              aria-disabled={blocker !== null || isPublishing}
+              className={blocker !== null ? "opacity-60" : undefined}
+            >
+              <SendIcon aria-hidden="true" />
+              {isPublishing ? copy.publishingDraft : copy.publishDraft}
+            </Button>
+          ) : (
+            <Button type="button" variant="secondary" size="lg" onClick={copyLink}>
+              {copied ? <CheckIcon aria-hidden="true" /> : <LinkIcon aria-hidden="true" />}
+              {copied ? copy.linkCopied : copy.copyLink}
+            </Button>
+          )}
           <Button asChild variant="outline" size="lg">
             <Link href={editPropertyRoute(property.id)}>
               <PencilIcon aria-hidden="true" />
@@ -188,6 +241,15 @@ export function PropertyManageCard({
             Eliminar
           </Button>
         </div>
+
+        {/*
+          Why the button will not act, said in the page rather than only on the control. What to do
+          about it is already on the same row twice — "Editar" to upload them, "Encargar" to send
+          somebody to take them — which is the whole point of a draft existing.
+        */}
+        {blocker === "no_photos" && (
+          <p className="pt-1 text-sm text-muted-foreground">{copy.publishDraftNoPhotos}</p>
+        )}
 
         {error && (
           <p role="alert" className="pt-1 text-sm text-destructive">

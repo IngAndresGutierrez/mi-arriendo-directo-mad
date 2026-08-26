@@ -61,6 +61,20 @@ export const MONTHS = [
 /** Test accounts live on domains the cleanup script recognises. Never a real address. */
 export const TEST_DOMAIN = "@miarriendodirecto.test";
 
+/**
+ * Los dos `input[type=file]` del formulario de publicar, por su `data-slot`.
+ *
+ * Existen porque desde que el inmueble acepta un video hay **dos** en esa pantalla, y los 21
+ * drivers que escribían `input[type="file"]` a secas estaban acertando por orden en el documento:
+ * el de fotos va primero. Eso es una suposición sobre el DOM, no una afirmación sobre qué input
+ * quieren — y el día que el video se coloque encima, veintiún drivers suben un MP4 a la galería.
+ *
+ * Aquí y no en cada driver por la razón de siempre: un cambio en el marcado es una edición, no
+ * veintiuna. No van dentro de `settled()` ni de nada por navegación, así que no cuestan tiempo.
+ */
+export const PHOTOS_INPUT = 'input[data-slot="property-photos"]';
+export const VIDEO_INPUT = 'input[data-slot="property-video"]';
+
 export const ok = (message, extra = "") =>
   console.log(`  OK    ${message}${extra ? " — " + extra : ""}`);
 

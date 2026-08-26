@@ -2,6 +2,8 @@ import "server-only";
 
 import { adminDb } from "@/shared/firebase/admin";
 
+import type { PropertyFormIntent } from "../validations/property";
+
 /**
  * Claims a slug for a property, and hands back the one that was actually free.
  *
@@ -52,10 +54,31 @@ function mapPointFrom(formData: FormData): { lat: string; lng: string } | undefi
     : undefined;
 }
 
-/** Photos are uploaded from the browser into the landlord's own folder, and nowhere else. */
-export function photosBelongTo(uid: string, photos: readonly { path: string }[]): boolean {
+/**
+ * Which of the two buttons the landlord pressed: "Publicar inmueble" or "Guardar como borrador".
+ *
+ * It arrives in the `FormData` and is **narrowed here rather than trusted**, and the fallback is
+ * the strict side: anything that is not the literal `draft` is a publish, so a malformed or
+ * missing intent produces a listing that had to pass the full schema rather than a draft that
+ * skipped it. The lax path is the one that has to be asked for by name.
+ */
+export function propertyFormIntent(formData: FormData): PropertyFormIntent {
+  return formData.get("intent") === "draft" ? "draft" : "publish";
+}
+
+/**
+ * Every file on this listing was uploaded from the browser into **this** landlord's own folder,
+ * and nowhere else.
+ *
+ * It was `photosBelongTo` while photos were the only thing a listing carried. The walkthrough
+ * video takes the identical path — `properties/{uid}/…`, uploaded by the browser before the
+ * property has an id — so it needs the identical check, and a second function beside this one is
+ * how the two come to disagree about what `..` means. The caller hands it everything with a
+ * `path`; what it answers is "are all of these yours?".
+ */
+export function filesBelongTo(uid: string, files: readonly { path: string }[]): boolean {
   const prefix = `properties/${uid}/`;
-  return photos.every((photo) => photo.path.startsWith(prefix) && !photo.path.includes(".."));
+  return files.every((file) => file.path.startsWith(prefix) && !file.path.includes(".."));
 }
 
 
@@ -75,6 +98,24 @@ export function parsePropertyForm(
     photos = typeof photosRaw === "string" ? JSON.parse(photosRaw) : [];
   } catch {
     return { error: "No pudimos leer las fotos. Vuelve a subirlas." };
+  }
+
+  /*
+   * The video travels as JSON in one field, like the photos, and an empty field means "there is
+   * none" rather than an error: it is the ordinary case for every listing that has no walkthrough.
+   *
+   * It is `undefined` and never `null` when absent, because the schema declares it `.optional()`
+   * — a `null` there would fail validation with "Ese formato de video no es válido" on a listing
+   * whose author never touched the control, which is the shape of error nobody can act on.
+   */
+  const videoRaw = formData.get("video");
+  let video: unknown = undefined;
+  if (typeof videoRaw === "string" && videoRaw !== "") {
+    try {
+      video = JSON.parse(videoRaw);
+    } catch {
+      return { error: "No pudimos leer el video. Vuelve a subirlo." };
+    }
   }
 
   return {
@@ -102,6 +143,9 @@ export function parsePropertyForm(
         department: formData.get("address.department"),
       },
       photos,
+      // Omitted rather than set to `undefined`, so `'video' in value` is false for a listing
+      // without one. Zod treats the two the same; Firestore's `update` does not.
+      ...(video === undefined ? {} : { video }),
     },
   };
 }

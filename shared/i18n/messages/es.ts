@@ -326,6 +326,35 @@ export const es = {
     removePhotoConfirm: "Quitar foto",
     removePhotoPending: "Quitando…",
 
+    /*
+      El video del inmueble. Uno solo: un inmueble tiene un recorrido, y tres clips obligarían al
+      inquilino a elegir cuál ver. La pista dice MP4 primero porque es el único de los tres que se
+      reproduce en todos los navegadores — un .mov de iPhone no lo hace en Chrome, y eso no es algo
+      que este producto pueda arreglar sin transcodificar.
+    */
+    videoLabel: "Video del inmueble",
+    videoOptional: "Opcional",
+    addVideo: "Agregar video",
+    changeVideo: "Cambiar video",
+    removeVideo: "Quitar video",
+    uploadingVideo: "Subiendo…",
+    uploadingVideoStatus: "Subiendo el video.",
+    videoPreviewLabel: "Vista previa del video que subiste",
+    videoHint:
+      "Un recorrido corto muestra lo que las fotos no pueden: cómo se conectan los espacios y cuánta luz entra. MP4, MOV o WEBM, hasta 50 MB. En MP4 se ve en todos los dispositivos.",
+    videoTooLarge: "El video pesa más de 50 MB. Recórtalo o graba uno más corto.",
+    videoUnsupported: "Solo MP4, MOV o WEBM.",
+    videoEmpty: "Ese archivo está vacío.",
+    videoUploadFailed: "No pudimos subir el video. Revisa tu conexión e inténtalo de nuevo.",
+    videoRejected:
+      "El servidor no aceptó el archivo. Revisa que sea MP4, MOV o WEBM y que no pase de 50 MB.",
+    videoSessionExpired: "Tu sesión expiró. Vuelve a entrar para subir el video.",
+    removeVideoTitle: "¿Quitar el video?",
+    removeVideoBody:
+      "Deja de mostrarse en el anuncio y se borra cuando guardes. No se puede deshacer.",
+    removeVideoConfirm: "Quitar video",
+    removeVideoPending: "Quitando…",
+
     mapLabel: "Ubicación en el mapa",
     mapHintField: "la ubicación en el mapa",
     mapHintBefore: "En el anuncio se publica una zona de unos",
@@ -339,6 +368,20 @@ export const es = {
     searchingNeighborhood: "Buscando el barrio…",
     pointMarked: "Punto marcado:",
     noPoint: "Sin punto en el mapa. Puedes publicar sin marcarlo.",
+
+
+    /*
+      Los dos botones del formulario. "Publicar inmueble" sigue siendo el `accent` de la vista y
+      el borrador es `brand`: son dos salidas de la misma pantalla, no dos llamadas a la acción.
+    */
+    saveDraft: "Guardar como borrador",
+    savingDraft: "Guardando borrador…",
+    draftHint:
+      "¿Todavía no tienes las fotos? Guarda el borrador con el resto de la información: solo lo ves tú, y desde tu lista puedes encargarle las fotos a alguien.",
+    publishDraft: "Publicar",
+    publishingDraft: "Publicando…",
+    publishDraftNoPhotos: "Súbele al menos una foto para poder publicarlo.",
+    publishDraftFailed: "No pudimos publicar el inmueble.",
 
     publish: "Publicar inmueble",
     publishing: "Publicando…",
@@ -1066,6 +1109,21 @@ export const es = {
     ownerOnlyAddress:
       "— solo lo ves tú. El inquilino recibe la dirección cuando apruebes su postulación.",
     aboutTheProperty: "Sobre el inmueble",
+
+    /*
+      El video del anuncio. `videoOf` es una función y por eso esta namespace es server-only: la
+      página resuelve el nombre accesible y le pasa la cadena terminada al reproductor, que es un
+      Server Component sin una línea de JavaScript.
+
+      La nota del respaldo se dice siempre, no solo cuando falla: un navegador que no puede
+      decodificar el archivo muestra un reproductor vacío y no avisa de nada, así que la salida
+      tiene que estar visible antes de que se necesite.
+    */
+    videoHeading: "Video del inmueble",
+    videoOf: (title: string) => `Video de ${title}`,
+    videoBadge: "Con video",
+    videoFallbackNote: "¿No se reproduce?",
+    videoFallbackAction: "Abrir el archivo",
     locationDisclaimer:
       "Por seguridad, la dirección exacta se comparte con el inquilino cuando el propietario aprueba su postulación.",
     forRent: (what: string) => `${what} en arriendo`,

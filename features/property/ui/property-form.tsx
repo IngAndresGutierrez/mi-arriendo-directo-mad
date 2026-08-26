@@ -2,7 +2,7 @@
 
 import type { Dictionary } from "@/shared/i18n";
 import type { PropertyLabels } from "../domain/labels";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Controller, useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -20,6 +20,8 @@ import { TextField } from "@/shared/form/text-field";
 import { Checkbox } from "@/shared/ui/checkbox";
 import { Label } from "@/shared/ui/label";
 
+import { Button } from "@/shared/ui/button";
+
 import { updateProperty } from "../actions/manage-property";
 import { publishProperty } from "../actions/publish-property";
 import {
@@ -29,15 +31,35 @@ import {
   STRATA,
   type Property,
   type PropertyPhoto,
+  type PropertyVideo,
 } from "../domain/property";
 import {
   bogotaDay,
+  draftPropertySchema,
   publishPropertySchema,
+  type PropertyFormIntent,
   type PublishPropertyFormValues,
   type PublishPropertyInput,
 } from "../validations/property";
 import { LocationPicker } from "./location-picker";
 import { PhotoUploader } from "./photo-uploader";
+import { VideoUploader } from "./video-uploader";
+
+/**
+ * One resolver per intent, hoisted: the schemas are module constants, so these are too.
+ *
+ * The form has two ways out — publish, and save a draft — and they differ in exactly one rule,
+ * the photos. That rule has to be applied **before** `handleSubmit` calls the action, or the
+ * strict resolver would refuse a draft over the one field a draft exists to be missing, and the
+ * lax one would let a listing onto the catalogue with no photograph. So the resolver is picked
+ * per submit from a ref, not fixed at `useForm` time.
+ *
+ * A ref rather than state, and that is not a style choice: the button's `onClick` and the form's
+ * `submit` run in the **same** event turn, so a `setState` in the first has not landed by the
+ * time the second reads it, and every draft would be validated as a publish.
+ */
+const PUBLISH_RESOLVER = zodResolver(publishPropertySchema);
+const DRAFT_RESOLVER = zodResolver(draftPropertySchema);
 
 /** Departments are proper nouns out of DANE: they are their own label in every language. */
 const DEPARTMENT_OPTIONS = DEPARTMENTS.map((value) => ({ value, label: value }));
@@ -75,6 +97,7 @@ const FIELD_NAMES = [
   "availableFrom",
   "address",
   "photos",
+  "video",
 ] as const;
 
 type FieldName = (typeof FIELD_NAMES)[number];
@@ -148,10 +171,24 @@ export function PropertyForm({
   const LEASE_OPTIONS = leaseOptions(labels);
   const router = useRouter();
   const isEditing = property !== undefined;
+  const isDraft = property?.status === "draft";
   const [photos, setPhotos] = useState<readonly PropertyPhoto[]>(property?.photos ?? []);
+  /*
+   * Held in state beside the photos, for the same reason they are: the uploader reports a finished
+   * upload rather than a file, and `form.setValue` alone would leave the preview with nothing to
+   * render. `null` and not `undefined` in the component's own state — the schema wants the key
+   * absent, and that conversion happens once, on submit.
+   */
+  const [video, setVideo] = useState<PropertyVideo | null>(property?.video ?? null);
+
+  /** Which button was pressed. Read by the resolver and by the submit — see the note above. */
+  const intent = useRef<PropertyFormIntent>("publish");
+  /** Which of the two buttons should spin. `isSubmitting` says *that* one is, not which. */
+  const [pending, setPending] = useState<PropertyFormIntent | null>(null);
 
   const form = useForm<PublishPropertyFormValues, unknown, PublishPropertyInput>({
-    resolver: zodResolver(publishPropertySchema),
+    resolver: (values, context, options) =>
+      (intent.current === "draft" ? DRAFT_RESOLVER : PUBLISH_RESOLVER)(values, context, options),
     mode: "onBlur",
     defaultValues: property
       ? {
@@ -178,6 +215,7 @@ export function PropertyForm({
             department: property.area.department,
           },
           photos: [...property.photos],
+          video: property.video,
         }
       : {
           title: "",
@@ -207,6 +245,7 @@ export function PropertyForm({
             department: undefined,
           },
           photos: [],
+          video: undefined,
         },
   });
 
@@ -228,8 +267,25 @@ export function PropertyForm({
   const neighborhood = useWatch({ control: form.control, name: "address.neighborhood" });
   const point = useWatch({ control: form.control, name: "address.point" });
 
+  /**
+   * The intent belongs to **one** submit, so it is put back to the strict default as soon as it
+   * has been read — here and on an invalid submit alike. Without that, pressing "Guardar como
+   * borrador", failing validation on the canon and then pressing "Publicar inmueble" would save
+   * a draft: the ref would still be holding the previous press.
+   */
+  function takeIntent(): PropertyFormIntent {
+    const submitted = intent.current;
+    intent.current = "publish";
+
+    return submitted;
+  }
+
   async function onSubmit(values: PublishPropertyInput) {
+    const submitted = takeIntent();
+    setPending(submitted);
     const data = new FormData();
+    // The server re-reads it and re-picks the schema: the browser having validated proves nothing.
+    data.set("intent", submitted);
     data.set("title", values.title);
     data.set("description", values.description);
     data.set("type", values.type);
@@ -254,12 +310,19 @@ export function PropertyForm({
     data.set("address.city", values.address.city);
     data.set("address.department", values.address.department);
     data.set("photos", JSON.stringify(values.photos));
+    /*
+     * An empty string when there is none, which `parsePropertyForm` reads as "no video" rather
+     * than as an unreadable one. `JSON.stringify(undefined)` is the string `"undefined"`, which
+     * would have arrived at the server as a parse error about a video nobody touched.
+     */
+    data.set("video", values.video ? JSON.stringify(values.video) : "");
 
     const result = property
       ? await updateProperty(property.id, data)
       : await publishProperty(data);
 
     if (!result.ok) {
+      setPending(null);
       for (const [field, messages] of Object.entries(result.fieldErrors ?? {})) {
         if (isFieldName(field)) form.setError(field, { message: messages?.[0] });
       }
@@ -280,7 +343,19 @@ export function PropertyForm({
 
   // `post`, though JS handles the submit: see the note in `login-form.tsx`.
   return (
-    <form method="post" onSubmit={form.handleSubmit(onSubmit)} className="space-y-10" noValidate>
+    <form
+      method="post"
+      /*
+        Wrapped rather than passed straight in: both callbacks read the intent ref, and
+        `react-hooks/refs` cannot tell that `handleSubmit` will only call them from the submit
+        event. Inside an event handler it can, which is also where the read genuinely happens.
+      */
+      onSubmit={(event) => {
+        void form.handleSubmit(onSubmit, takeIntent)(event);
+      }}
+      className="space-y-10"
+      noValidate
+    >
       {errors.root?.message ? <FormAlert>{errors.root.message}</FormAlert> : null}
 
       <section className="space-y-4">
@@ -599,11 +674,84 @@ export function PropertyForm({
             form.setValue("photos", [...next], { shouldValidate: form.formState.isSubmitted });
           }}
         />
+
+        {/*
+          Under the photos and inside the same section, because it answers the same question — what
+          a tenant will see — and a tenth section for one optional control would be a heading
+          somebody scrolls past. The photos come first: they are what publishing requires and what
+          the card and the shared preview draw, and the video is what a landlord adds on top.
+
+          `undefined` on the way into the form, never `null`: the schema declares the field
+          `.optional()`, and a `null` would fail validation with a message about a format on a
+          listing whose author had just removed the video.
+        */}
+        <VideoUploader
+          copy={t}
+          video={video}
+          confirmBeforeRemove={isEditing}
+          error={errors.video?.message}
+          onChange={(next) => {
+            setVideo(next);
+            form.setValue("video", next ?? undefined, {
+              shouldValidate: form.formState.isSubmitted,
+            });
+          }}
+        />
       </section>
 
-      <SubmitButton loading={isSubmitting} loadingLabel={isEditing ? t.saving : t.publishing}>
-        {isEditing ? t.saveChanges : t.publish}
-      </SubmitButton>
+      {/*
+        Two ways out, and only one of them is the call to action — the one-cyan-per-view rule.
+        Publishing is what this screen is for, so it keeps the `accent`; saving a draft is a real
+        control that is not that one, which is exactly what `brand` is for. An `outline` would
+        have put it among the furniture beside "Cancelar", and a second cyan would have made the
+        landlord choose between two shouts.
+
+        The pair only appears where there is a choice to make. Editing a listing that is already
+        on the catalogue offers "Guardar cambios" alone, as it always did: the other button there
+        would mean *unpublishing*, which is a decision about a listing strangers may already have
+        applied to and does not belong on the same submit as a spelling fix.
+      */}
+      <div className="flex flex-col gap-3 sm:flex-row-reverse sm:items-start">
+        <div className="sm:flex-1">
+          <SubmitButton
+            loading={isSubmitting && pending === "publish"}
+            disabled={isSubmitting}
+            loadingLabel={isEditing && !isDraft ? t.saving : t.publishing}
+          >
+            {isEditing && !isDraft ? t.saveChanges : t.publish}
+          </SubmitButton>
+        </div>
+
+        {(!isEditing || isDraft) && (
+          <Button
+            type="submit"
+            variant="brand"
+            size="xl"
+            className="w-full sm:w-auto"
+            disabled={isSubmitting}
+            onClick={() => {
+              intent.current = "draft";
+            }}
+          >
+            {isSubmitting && pending === "draft"
+              ? isEditing
+                ? t.saving
+                : t.savingDraft
+              : isEditing
+                ? t.saveChanges
+                : t.saveDraft}
+          </Button>
+        )}
+      </div>
+
+      {/*
+        Said on the screen where the decision is made, not in a tooltip: somebody who has filled
+        in nine sections and has no photographs is about to close the tab, and the sentence that
+        stops them is the one telling them there is somewhere to put the work.
+      */}
+      {!isEditing && (
+        <p className="text-sm text-muted-foreground">{t.draftHint}</p>
+      )}
     </form>
   );
 }
