@@ -6,21 +6,20 @@ import { notFound } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 
 import { requireCompleteProfile } from "@/features/profile";
-import {
-  getOwnedProperty,
-  getPropertyLocation,
-  getVerification,
-  PropertyForm,
-  VerificationPanel,
-  verificationBlocker,
-  verificationState,
-} from "@/features/property";
+import { getOwnedProperty, getPropertyLocation, PropertyForm } from "@/features/property";
 import { MY_PROPERTIES_ROUTE } from "@/shared/auth/routes";
 
 export const metadata: Metadata = {
   title: "Editar inmueble",
 };
 
+/*
+ * **Sin panel de verificación de propietario, a propósito y por ahora.** El dominio, la acción, las
+ * reglas y la cola de `/verificaciones` siguen en pie y probados; lo único que se retiró es el punto
+ * de entrada desde este formulario, que es lo que hace que nadie pueda pedirla todavía. Volver a
+ * enseñarla es renderizar `VerificationPanel` aquí de nuevo — vive en `@/features/property` con
+ * `getVerification`, `verificationState` y `verificationBlocker`.
+ */
 export default async function EditPropertyPage(props: PageProps<"/[lang]/mis-inmuebles/[id]/editar">) {
   const { id } = await props.params;
   const user = await requireCompleteProfile();
@@ -31,11 +30,6 @@ export default async function EditPropertyPage(props: PageProps<"/[lang]/mis-inm
   if (!property) notFound();
 
   const location = await getPropertyLocation(id, user.uid);
-  const registryNumber = location?.registryNumber ?? "";
-  const verification = await getVerification(id);
-  const state = verificationState(verification, registryNumber);
-  const blocker = verificationBlocker(property, registryNumber, state);
-  const blocked = blocker ? (BLOCKED[blocker] ?? "") : null;
 
   return (
     <div className="mx-auto w-full max-w-2xl">
@@ -65,28 +59,6 @@ export default async function EditPropertyPage(props: PageProps<"/[lang]/mis-inm
         // rendered for them.
         mapPoint={location?.point ?? null}
       />
-
-      {/*
-        La verificación vive aquí y no en una pantalla propia: la matrícula que se revisa se escribe
-        en este mismo formulario, y editarla es lo que tumba la insignia. Poner las dos cosas a la
-        vista es lo que hace que esa consecuencia se entienda.
-      */}
-      <VerificationPanel
-        propertyId={property.id}
-        state={state}
-        verification={verification}
-        blocker={blocked}
-      />
     </div>
   );
 }
-
-/** Las razones, en palabras, y en un solo sitio: la acción devuelve las mismas. */
-const BLOCKED: Readonly<Record<string, string>> = {
-  not_published:
-    "Publica el inmueble primero: la insignia es lo que lee quien mira el anuncio, y un borrador no lo ve nadie.",
-  no_registry:
-    "Falta la matrícula inmobiliaria. Es el número con el que se pide el certificado, así que sin ella no hay nada que revisar.",
-  in_review: "",
-  already_verified: "",
-};

@@ -244,7 +244,7 @@ export const COVERS = {
     "features/property/ui/verified-badge",
     "features/property/ui/verification-panel",
     "features/property/ui/verification-queue",
-    "app/[lang]/verificaciones",
+    "app/[lang]/(app)/verificaciones",
     "app/[lang]/(app)/mis-inmuebles",
     "app/[lang]/(public)/inmuebles",
     "firestore.rules",

@@ -110,51 +110,56 @@ if ((await visitante.textContent("body")).includes("Propietario verificado")) {
 }
 ok("un anuncio sin verificar no muestra insignia");
 
-// ---------- el propietario la solicita ----------
+// ---------- el punto de entrada está retirado a propósito ----------
+/*
+ * **El panel de verificación ya no se ofrece desde el formulario de edición**, por decisión de
+ * producto y por ahora. Lo que se afirma aquí es esa ausencia, no la del dominio: la acción, las
+ * reglas, la cola y la insignia siguen enteras y las conduce el resto de este fichero.
+ *
+ * Lo que se perdió con la entrada, dicho por su nombre en vez de tapado: que la matrícula la lea el
+ * servidor de `private/location` y no de la petición, y que el certificado aterrice dentro de la
+ * carpeta del propietario. Las dos vivían en `requestVerification`, que hoy no tiene desde dónde
+ * llamarse. Vuelven el día que el panel vuelva.
+ */
 await dueño.goto(EDITAR, { waitUntil: "domcontentloaded" });
 await settled(dueño);
-const panel = dueño.getByRole("region", { name: /Propietario verificado/i });
-await panel.waitFor({ timeout: 20000 });
-
-/*
- * El certificado se sube desde el navegador con el SDK web, como todo lo demás: el cuerpo de una
- * Server Action está topado en 1 MB. El fichero se fabrica aquí mismo — un PDF mínimo válido basta,
- * porque lo que la acción comprueba contra el bucket es el tipo y el tamaño.
- */
-/*
- * **El bloque del certificado vive detrás de un interruptor.** Pedirlo es una gestión aparte —ir a
- * la SNR, pagarlo, bajarlo— y no algo que se haga de paso mientras se corrige el precio, así que
- * desplegado siempre ocupaba media pantalla de edición con un formulario que casi nunca se usa.
- */
-if ((await dueño.locator('input[data-slot="verification-documents"]').count()) !== 0) {
-  throw new Error("el formulario del certificado se ofrece sin que nadie lo haya pedido");
+if ((await dueño.getByRole("region", { name: /Propietario verificado/i }).count()) !== 0) {
+  throw new Error("el formulario de edición sigue ofreciendo la verificación");
 }
-await dueño.getByRole("switch", { name: /verificar la titularidad/i }).click();
-
-await dueño.setInputFiles('input[data-slot="verification-documents"]', {
-  name: "certificado-tradicion.pdf",
-  mimeType: "application/pdf",
-  buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n", "latin1"),
-});
-await dueño.getByRole("button", { name: /Solicitar la verificación/ }).click();
-await dueño.waitForSelector("text=Recibimos tu solicitud", { timeout: 40000 });
-
-const solicitada = await expediente();
-if (!solicitada?.submittedAt) throw new Error("no quedó registrada la solicitud");
-if (solicitada.registryNumber !== MATRICULA) {
-  throw new Error(`el expediente guardó la matrícula ${solicitada.registryNumber}`);
+if ((await dueño.getByRole("switch", { name: /verificar la titularidad/i }).count()) !== 0) {
+  throw new Error("el interruptor del certificado sigue en el formulario de edición");
 }
-if (!solicitada.documents?.[0]?.path?.startsWith(`verifications/${dueñoCuenta.localId}/`)) {
-  throw new Error("el certificado quedó fuera de la carpeta del propietario");
-}
-/*
- * **Y la matrícula la lee el servidor de `private/location`, no de la solicitud.** Es el número al
- * que se va a atar la aprobación: un cliente que pudiera mandarlo elegiría de qué habla su insignia.
- */
+ok("el formulario de edición ya no ofrece la verificación");
+
+// ---------- la solicitud se siembra, con la forma exacta que escribe la acción ----------
+await db
+  .collection("properties")
+  .doc(propiedad.id)
+  .collection("private")
+  .doc("verification")
+  .set({
+    documents: [
+      {
+        path: `verifications/${dueñoCuenta.localId}/certificado-tradicion.pdf`,
+        name: "certificado-tradicion.pdf",
+        contentType: "application/pdf",
+        size: 64,
+      },
+    ],
+    submittedAt: new Date().toISOString(),
+    verifiedAt: null,
+    rejectedAt: null,
+    note: "",
+    registryNumber: MATRICULA,
+    reviewerUid: "",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp(),
+  });
+
 if ((await publica()).ownershipVerifiedAt) {
-  throw new Error("solicitar la verificación ya puso la insignia");
+  throw new Error("una solicitud pendiente ya puso la insignia");
 }
-ok("el propietario la solicita, y solicitar no verifica nada");
+ok("una solicitud pendiente no verifica nada")
 
 // ---------- un propietario no entra a la cola de revisión ----------
 await dueño.goto(`${BASE}/verificaciones`, { waitUntil: "domcontentloaded" });
@@ -289,16 +294,35 @@ if ((await visitante.textContent("body")).includes("Propietario verificado")) {
 ok("y el anuncio deja de mostrarla");
 
 // ---------- un rechazo nunca sale en el anuncio ----------
-await dueño.goto(EDITAR, { waitUntil: "domcontentloaded" });
-await settled(dueño);
-await dueño.getByRole("switch", { name: /verificar la titularidad/i }).click();
-await dueño.setInputFiles('input[data-slot="verification-documents"]', {
-  name: "certificado-viejo.pdf",
-  mimeType: "application/pdf",
-  buffer: Buffer.from("%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n", "latin1"),
-});
-await dueño.getByRole("button", { name: /Solicitar la verificación/ }).click();
-await dueño.waitForSelector("text=Recibimos tu solicitud", { timeout: 40000 });
+/*
+ * Sembrada otra vez, y con el gesto que importa: **una nueva solicitud limpia el veredicto
+ * anterior**, no lo apila. Un rechazo de hace un mes habla de los papeles que se reemplazaron.
+ */
+await db
+  .collection("properties")
+  .doc(propiedad.id)
+  .collection("private")
+  .doc("verification")
+  .set(
+    {
+      documents: [
+        {
+          path: `verifications/${dueñoCuenta.localId}/certificado-viejo.pdf`,
+          name: "certificado-viejo.pdf",
+          contentType: "application/pdf",
+          size: 64,
+        },
+      ],
+      submittedAt: new Date().toISOString(),
+      verifiedAt: null,
+      rejectedAt: null,
+      note: "",
+      registryNumber: "060-999999",
+      reviewerUid: "",
+      updatedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true },
+  );
 
 await revisor.goto(`${BASE}/verificaciones`, { waitUntil: "domcontentloaded" });
 await settled(revisor);
@@ -325,14 +349,21 @@ if (/rechaz|no se pudo verificar/i.test(trasRechazo)) {
 }
 ok("un rechazo no aparece en el anuncio: no es una marca sobre una persona");
 
-// ---------- pero su motivo sí llega al propietario ----------
-await dueño.goto(EDITAR, { waitUntil: "domcontentloaded" });
-await settled(dueño);
-const panelTrasRechazo = await dueño.getByRole("region", { name: /Propietario verificado/i }).innerText();
-if (!panelTrasRechazo.includes("cuatro meses")) {
-  throw new Error("el motivo del rechazo no le llega al propietario: " + panelTrasRechazo);
+// ---------- su motivo queda escrito, aunque hoy no tenga lector ----------
+/*
+ * **Y esto es lo que cuesta esconder el panel, dicho entero.** El motivo del rechazo se guarda, y
+ * el único sitio donde el propietario lo leía era ese panel; retirado, se escribe para nadie. No es
+ * un fallo vivo —tampoco hay desde dónde pedir la verificación, así que el bucle está dormido
+ * completo— pero es la mitad que hay que volver a mirar el día que el panel vuelva. Lo que sí se
+ * puede afirmar hoy es que el revisor no rechaza al vacío.
+ */
+const rechazada = await expediente();
+if (!rechazada.rejectedAt) throw new Error("el rechazo no quedó fechado en el expediente");
+if (!rechazada.note.includes("cuatro meses")) {
+  throw new Error("el motivo del rechazo no quedó escrito: " + rechazada.note);
 }
-ok("y el motivo sí le llega a quien tiene que corregirlo");
+if (rechazada.verifiedAt) throw new Error("el rechazo dejó en pie la verificación anterior");
+ok("el motivo queda escrito y fechado, y el rechazo no deja en pie la aprobación vieja");
 
 assertQuiet(problemas);
 await navegador.close();

@@ -41,11 +41,11 @@ export async function LegalFooter() {
     <footer className="mt-8 shrink-0 border-t border-border pt-3 pb-2 lg:mt-4">
       <div className="flex flex-col gap-1.5 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <ul className="flex flex-col gap-y-0.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-1.5">
-          {/*controllerIdentityLines().map((line) => (
+          {controllerIdentityLines().map((line) => (
             <li key={line} className="sm:not-first:before:mr-1.5 sm:not-first:before:content-['·']">
               {line}
             </li>
-          ))*/}
+          ))}
         </ul>
 
         <nav aria-label={t.legalAriaLabel}>

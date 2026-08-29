@@ -114,6 +114,21 @@ for (const { ruta, titulo } of PAGINAS) {
     const pie = p.locator("footer");
     if ((await pie.count()) === 0) throw new Error(`${ruta} no trae pie de página`);
 
+    /*
+     * **La identidad del Responsable, verbatim.** Ley 1480 art. 50 obliga a publicar quién opera
+     * esto y cómo se le escribe, y el correo de privacidad es el que arranca el reloj de una
+     * solicitud de hábeas data. Nada lo afirmaba, y un rediseño del pie lo dejó comentado dentro de
+     * un `<ul>` vacío sin que ningún comando de la barra dijera nada: `pnpm build` compila un
+     * bloque comentado, y el único rastro era un aviso de import sin usar en `pnpm lint`. Se
+     * comprueba desde la página, que es donde tiene que estar.
+     */
+    const textoPie = await pie.innerText();
+    for (const dato of ["Mi Arriendo Directo S.A.S.", DOMICILIO, "miarriendodirecto@gmail.com"]) {
+      if (!textoPie.includes(dato)) {
+        throw new Error(`el pie de ${ruta} no publica la identidad del responsable: falta "${dato}"`);
+      }
+    }
+
     const nav = p.getByRole("navigation", { name: "Información legal" });
     for (const nombre of ["Términos y condiciones", "Tratamiento de datos", "Cookies"]) {
       const enlace = nav.getByRole("link", { name: nombre });
@@ -134,6 +149,7 @@ for (const { ruta, titulo } of PAGINAS) {
         throw new Error(`"${nombre}" en el pie de ${ruta} abre en pestaña nueva sin noopener`);
       }
     }
+    ok(`${ruta} publica la identidad del responsable en el pie`);
     ok(`${ruta} alcanza las tres políticas desde el pie, en pestaña nueva`);
   }
 }
