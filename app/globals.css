@@ -272,6 +272,40 @@
 }
 
 /*
+   The public shell's measure, as a variable rather than a class.
+
+   `PublicHeader`, `PublicChrome`'s `<main>` and the footer inside it all have to agree on one
+   width, or the logo stops sitting above the edge of the content underneath it. That was one
+   literal (`max-w-6xl`) written in three files, and it was fine while every public page wanted the
+   same measure.
+
+   The catalogue does not. It is a facets column plus a grid of listings, and at 72rem a wide
+   screen spends a third of itself on margins while the cards get two to a row. A listing's detail
+   page, the support page and the three legal documents want the opposite: they are read, and prose
+   at 96rem is prose nobody finishes.
+
+   **So the page picks the measure and the chrome above it follows** — which is backwards for a
+   prop, because `app/[lang]/(public)/layout.tsx` renders the chrome for both `/inmuebles` and
+   `/inmuebles/<slug>` and a layout cannot know which of them it is wrapping. `:has()` is what makes
+   the direction work: the page marks itself `data-shell-width="wide"`, the shell it is inside
+   raises `--shell-measure`, and the header, the content and the footer widen together. The default
+   lives on `:root` so anything rendering `PublicHeader` outside a `[data-shell]` — the landing —
+   still gets a number rather than `max-width: var(--undefined)`, which computes to `none` and would
+   have stretched the landing's header edge to edge.
+
+   The alternative was moving `/inmuebles` into a route group of its own so it could be given a
+   second chrome. That is one more layout, one more group, and four entries in
+   `tests/e2e/manifest.mjs` to keep pointing at the right folder, for a difference of one number.
+*/
+:root {
+  --shell-measure: 72rem;
+}
+
+[data-shell]:has([data-shell-width="wide"]) {
+  --shell-measure: 96rem;
+}
+
+/*
    Printing the rental notice.
 
    The whole rule is "hide my siblings", and it is that short because `PrintSheet` portals the

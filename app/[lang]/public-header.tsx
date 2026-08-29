@@ -55,7 +55,11 @@ export async function PublicHeader() {
       costs nothing there and does the right thing on a phone, where the page scrolls as a page.
     */
     <header className="sticky top-0 z-40 shrink-0 border-b border-border bg-background/90 backdrop-blur">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-6 py-3">
+      {/*
+        `--shell-measure`, not a literal: the bar has to end where the content under it ends,
+        and the catalogue widens that. `app/globals.css` holds the variable and why.
+      */}
+      <div className="mx-auto flex w-full max-w-(--shell-measure) items-center justify-between gap-4 px-6 py-3">
         <Link href={LANDING_ROUTE} aria-label={t.homeAriaLabel}>
           <Logo width={170} preload />
         </Link>

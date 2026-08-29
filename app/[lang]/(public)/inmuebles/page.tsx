@@ -95,7 +95,12 @@ export default async function CatalogPage(props: CatalogProps) {
    * that is actually waiting on Firestore.
    */
   return (
-    <div className="lg:flex lg:min-h-0 lg:flex-1 lg:flex-col lg:overflow-hidden">
+    /*
+     * `data-shell-width="wide"` raises `--shell-measure` on the chrome above this page — see
+     * `app/globals.css`. It is set here and not in the layout because the layout wraps this page
+     * *and* a listing's detail, and those two want opposite measures.
+     */
+    <div data-shell-width="wide">
       <h1 className="text-3xl font-semibold tracking-tight text-balance text-primary sm:text-4xl dark:text-foreground">
         {filters.city ? t.titleInCity(filters.city) : t.titleDefault}
       </h1>
@@ -142,7 +147,7 @@ async function CatalogResults({
   const page = paginate(sortProperties(filterProperties(published, filters), filters.sort), filters.page);
 
   return (
-    <div className="mt-8 grid items-start gap-6 lg:mt-6 lg:min-h-0 lg:flex-1 lg:grid-cols-[17rem_minmax(0,1fr)] lg:items-stretch">
+    <div className="mt-8 grid items-start gap-6 lg:mt-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
         {/*
           Lo que hay en esta página, para una máquina. Va aquí dentro y no en el componente de la
           página porque necesita los resultados ya filtrados y paginados: un `ItemList` que
@@ -162,15 +167,25 @@ async function CatalogResults({
           )}
         />
 
-        {/* From `lg` the facets have a column; below that they are behind the toolbar's button. */}
+        {/*
+          From `lg` the facets have a column; below that they are behind the toolbar's button.
+
+          **Sticky, not a panel inside a fixed frame.** The page scrolls as a page now, so a facets
+          column in normal flow would scroll away and leave somebody reading page three of a
+          filtered catalogue with no way to see what they had filtered by. `top-20` clears the
+          header, which is `sticky top-0` and therefore covers the first 4rem; the column keeps its
+          own scrolling only for the case it does not fit, which is a long city list on a short
+          screen — and there `max-h` is measured against the viewport rather than against a parent,
+          because it no longer has one with a height.
+        */}
         <aside
           aria-label={copy.filtersAriaLabel}
-          className="hidden rounded-2xl border border-border bg-card p-5 lg:block lg:h-full lg:overflow-y-auto"
+          className="hidden rounded-2xl border border-border bg-card p-5 lg:sticky lg:top-20 lg:block lg:max-h-[calc(100svh-6rem)] lg:overflow-y-auto"
         >
           <CatalogFilters filters={filters} facets={facets} labels={labels} />
         </aside>
 
-        <div className="flex min-w-0 flex-col space-y-6 lg:h-full lg:min-h-0">
+        <div className="flex min-w-0 flex-col space-y-6">
           <CatalogToolbar
             filters={filters}
             facets={facets}
@@ -192,18 +207,31 @@ async function CatalogResults({
               )}
             </div>
           ) : (
-            /* La lista es la única zona con desplazamiento propio; `pr-1` deja aire para su barra. */
-            <ul className="space-y-5 lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1">
+            /*
+              Tres por fila desde `xl` y dos antes, que es donde cabe cada cosa: a `lg` la columna
+              de resultados ya cedió 17rem a los filtros, así que una tercera columna ahí serían
+              tarjetas de 220px. `items-stretch` —que es el defecto— iguala la altura dentro de una
+              fila, y la tarjeta lo aprovecha para alinear los tres botones.
+
+              **La lista ya no tiene desplazamiento propio.** Lo tuvo, y era la mitad cara de un
+              marco fijo: una tarjeta cortada por el borde de un panel, sin página debajo que
+              siguiera. Con la página desplazándose entera `auto-rows-max` y `content-start` dejan
+              de ser necesarios contra el reparto de altura de una rejilla con altura definida
+              —ya no la tiene— pero se quedan porque siguen siendo lo que dice la verdad: cada fila
+              mide lo que mide su contenido.
+            */
+            <ul className="grid auto-rows-max grid-cols-1 content-start gap-5 sm:grid-cols-2 xl:grid-cols-3">
               {page.items.map((property, index) => (
                 <PropertyCard
                   key={property.id}
                   property={property}
                   /*
-                    The first two are above the fold on a wide screen; on a phone only the
-                    first is, so the second starts a little early. The trade is for not
-                    leaving the LCP to lazy loading. Everything below stays lazy.
+                    The first row is above the fold on a wide screen — three cards now, not one
+                    — and on a phone only the first is, so the other two start a little early.
+                    The trade is for not leaving the LCP to lazy loading. Everything below stays
+                    lazy.
                   */
-                  eager={index < 2}
+                  eager={index < 3}
                 />
               ))}
             </ul>
@@ -212,8 +240,7 @@ async function CatalogResults({
           {page.pages > 1 && (
             <nav
               aria-label={copy.paginationAriaLabel}
-              /* `shrink-0`: se queda visible al pie de la columna en vez de irse con el scroll. */
-              className="flex shrink-0 items-center justify-between gap-4 border-t border-border pt-4"
+              className="flex items-center justify-between gap-4 border-t border-border pt-4"
             >
               <PageLink
                 to={page.page - 1}
@@ -247,9 +274,13 @@ function CatalogSkeleton({ label }: { readonly label: string }) {
         <Skeleton className="hidden h-96 w-full rounded-2xl lg:block" />
         <div className="space-y-5">
           <Skeleton className="h-24 w-full rounded-2xl" />
-          {[0, 1, 2].map((card) => (
-            <Skeleton key={card} className="h-52 w-full rounded-2xl" />
-          ))}
+          {/* La misma rejilla que los resultados: un esqueleto de una columna delante de tres es
+              un salto de maquetación en el momento en que llega Firestore. */}
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+            {[0, 1, 2, 3, 4, 5].map((card) => (
+              <Skeleton key={card} className="h-[30rem] w-full rounded-2xl" />
+            ))}
+          </div>
         </div>
       </div>
     </LoadingScreen>

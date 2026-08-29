@@ -17,12 +17,16 @@ import {
 /**
  * One listing as a shop-window card: photo on top, price under it.
  *
- * **A second card rather than a variant of `PropertyCard`.** That one is the catalogue's row — a
- * photo beside a six-fact grid, laid out to be scanned vertically against the five rows under it —
- * and it is the right shape there. A landing shows three across, where the same component would
- * either squeeze the facts into a column too narrow to read or force a `layout` prop whose two
- * branches share almost no markup. What they do share is the rules that matter, and those live
- * where they already lived: `propertyMonthlyCost` and `publicLocationLabel`.
+ * **A second card rather than a variant of `PropertyCard`, and the reason moved.** It used to be
+ * the axis: that one was the catalogue's row — a photo beside a six-fact grid — and this one
+ * stacked, so they shared almost no markup. The catalogue is three across now and its card stacks
+ * too, so what keeps them apart is density rather than shape. A shop window is glanced at on the
+ * way past: it carries the price, two facts and nothing else, with no badges, no verification and
+ * no button, because the whole card is one link to the listing. The catalogue's card is what
+ * somebody compares six of, so it carries all six facts, the tags, the breakdown of the canon and
+ * the date it frees up. Merging them would mean a `density` prop whose two branches disagree about
+ * most of the card. What they do share is the rules that matter, and those live where they always
+ * lived: `propertyMonthlyCost` and `publicLocationLabel`.
  *
  * So the two invariants come across intact. **The price is the total**, rent plus administration,
  * because a card showing only the rent makes every listing with a fee look cheaper than it is. And
