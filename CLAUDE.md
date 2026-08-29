@@ -185,13 +185,48 @@ exist now** — they had been linked from the signup and onboarding screens, and
 long as those links existed is not something `pnpm build` can catch: a `<Link>` to a route that is
 not there compiles perfectly. `tests/e2e/legal.mjs` is what pins them.
 
-**On a wide screen the catalog is a fixed frame and only the list scrolls.** From `lg` the public
-chrome is `fixed inset-0` and `main` owns the overflow; the results column keeps its own
-`overflow-y-auto` so the heading, the facets and the pager stay put — a filter you cannot see is
-a filter you forget you applied. `h-svh` alone was not enough: the document still scrolled the
-header out of view by its own height. Below `lg` the page scrolls as a page, because an inner
-scroller on a phone fights the address bar and pull-to-refresh, and there the facets are behind a
-button anyway. `CATALOG_PAGE_SIZE` is **6**.
+**The catalog scrolls as a page, at every width, and it used to be the opposite.** `PublicChrome`
+was `lg:fixed lg:inset-0` with `main` owning the overflow and the results column keeping its own
+`overflow-y-auto`, so the heading, the facets and the pager never moved — a filter you cannot see is
+a filter you forget you applied, which is a real argument and not why it went. What it cost was
+visible from the screen: a listing cut off by the bottom edge of a panel with no page under it to
+keep scrolling, and a legal footer at the end of a *region* rather than at the end of the document.
+
+What replaces the frame is not nothing. The header is `sticky top-0` — inert inside the old fixed
+frame, doing its job now — and the facets column is `lg:sticky lg:top-20` under it, with its own
+`max-h` measured against the viewport, since it no longer has a parent with a height. So the filters
+still stay in view and nothing has an inner scrollbar.
+
+**Three per row from `xl`, two from `sm`, one below**, over a wide shell: `--shell-measure` is
+72rem everywhere and **96rem on the catalogue alone**. It is a CSS variable read through `:has()`
+rather than a prop because `app/[lang]/(public)/layout.tsx` renders one chrome for both `/inmuebles`
+and `/inmuebles/<slug>`, and those two want opposite measures — a listing's detail is read, and
+prose at 96rem is prose nobody finishes. The page marks itself `data-shell-width="wide"` and the
+header, the content and the footer widen together; `app/globals.css` holds the rule and the
+reasoning.
+
+**The card stacks now** — photo on top, then where, then the price, then the title, the six facts
+and a full-width "Ver inmueble". A row card cannot be three to a row: at a third of the column the
+photo becomes a stamp or eats the facts. The price leads because that is the comparison somebody
+came to the catalogue to make, and the title is `line-clamp-2` so one landlord's paragraph does not
+make the whole row taller.
+
+**And the grid carries `auto-rows-max content-start`, which is not decoration.** While the list was
+a scroller with a definite height, `auto` rows made Chromium hand each row an equal share of the
+container — including a *negative* share: both rows computed to 217px, the card's `overflow-hidden`
+clipped it just under the photo, and six listings rendered with no title, no price and no button
+while `scrollHeight === clientHeight` so the list did not even scroll. It looked like the card had
+failed to render; the content was three hundred pixels below the bottom edge. Neither class is
+load-bearing now that nothing has a definite height, and both stay because they state the truth: a
+row is as tall as what is in it.
+
+**The result count is `sr-only`.** "10 inmuebles encontrados" had a row and a rule of its own under
+the toolbar — about 45px of the one screen that decides whether somebody keeps scrolling, spent on a
+number the cards underneath already show. It is still an `aria-live` region, because it is what
+tells somebody using a screen reader how many results a filter just left, and it is rendered
+unconditionally or the region would not exist between one change and the next.
+
+`CATALOG_PAGE_SIZE` is **6**.
 
 ## The landing (`app/(marketing)/`)
 

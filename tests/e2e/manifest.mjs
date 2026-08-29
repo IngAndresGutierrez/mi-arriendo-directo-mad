@@ -81,7 +81,14 @@ export const COVERS = {
   catalog: ["app/[lang]/(public)/inmuebles", "features/property/ui/", "features/property/domain/catalog", "features/property/validations/catalog"],
   facets: ["app/[lang]/(public)/inmuebles", "features/property/ui/", "features/property/domain/catalog"],
   pagination: ["app/[lang]/(public)/inmuebles", "features/property/domain/catalog"],
-  "listing-scroll": ["app/[lang]/(public)/inmuebles", "shared/shell/"],
+  // `public-chrome.tsx` es de este driver tanto como de `legal`: el marco fijo vivía ahí, y
+  // quitarlo es exactamente lo que este comprueba.
+  "listing-scroll": [
+    "app/[lang]/(public)/inmuebles",
+    "app/[lang]/public-chrome.tsx",
+    "features/property/ui/",
+    "shared/shell/",
+  ],
   lightbox: ["app/[lang]/(public)/inmuebles", "features/property/ui/"],
   /*
    * Lo que el sitio le dice a un buscador. Cubre las dos mitades: el catálogo y el detalle, que sí

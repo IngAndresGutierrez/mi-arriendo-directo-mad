@@ -90,17 +90,17 @@ export async function PropertyCard({
 
   return (
     /*
-      `flex flex-col` so the price block can claim `mt-auto`: the grid already stretches every card
-      in a row to the height of the tallest, so a card with a short title would otherwise end in a
-      band of card-coloured nothing with its button halfway up the row. The middle absorbs the
-      difference instead, and the three prices — and the three buttons — line up across the row.
+      `flex flex-col` so the button can claim `mt-auto`: the grid stretches every card in a row to
+      the height of the tallest, so a card with a one-line title would otherwise end in a band of
+      card-coloured nothing with its button halfway up the row. The middle absorbs the difference
+      instead, and the three buttons line up across the row.
 
-      **And no `h-full` on top of that**, which is the version that shipped for ten minutes: a grid
-      item is already stretched by `align-items: stretch`, so `height: 100%` asks for a percentage
-      of a row height that is itself being derived from this item. Chromium resolved the circle at
-      217px, `overflow-hidden` clipped the card just under the photo, and every listing rendered as
-      a picture with no title, no price and no button. It looked like the content had failed to
-      render; it was there, three hundred pixels below the bottom edge.
+      **And no `h-full` next to it**, which the first version had: a grid item is already stretched
+      by `align-items: stretch`, so `height: 100%` is a percentage of a row height being derived
+      from this very item. It was not what clipped the card — that was the grid handing each row an
+      equal share of a container with a definite height, and the note on the `<ul>` in
+      `app/[lang]/(public)/inmuebles/page.tsx` has it — but it is the same circularity from the
+      other end, and it buys nothing the stretch does not already do.
     */
     <li className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card transition-shadow hover:shadow-md">
       <Link
