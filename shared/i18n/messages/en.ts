@@ -257,8 +257,10 @@ export const en: Dictionary = {
     addressTooltip:
       "Only the tenant whose application you approve sees it. The listing shows the neighbourhood and the city.",
     /* `matrícula inmobiliaria` is Colombia's property registry number; there is no English term. */
-    registryNumber: "Property registry number (matrícula inmobiliaria)",
+    registryNumber: "Property registry number (matrícula inmobiliaria) — optional",
     registryPlaceholder: "050-123456",
+    registryHint:
+      "You can publish without it. You need it to request the verified-owner badge and to quote the rental insurance policy.",
     registryTooltip:
       "The number on the certificado de tradición, issued by the Oficina de Registro de Instrumentos Públicos. It is not published: it identifies the property to the registry.",
 

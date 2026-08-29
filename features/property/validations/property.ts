@@ -81,19 +81,43 @@ const listingVideo = z.object({
  * Matrícula inmobiliaria: the number the Oficina de Registro de Instrumentos Públicos gives
  * every property in Colombia, usually written `050-123456`.
  *
- * Validated loosely on purpose. The shape is a registry circle and a sequential number, but the
- * circle can be two or three digits, the separator is written as a hyphen, a space or nothing at
- * all, and older records are shorter than newer ones. A stricter pattern would reject real
- * numbers off real certificates, and what it would buy is a false sense of having verified
- * something: the only real check is against the registry, which is not something this product
- * does.
+ * **Optional, and it used to be required.** Requiring it put a trip to a government office in
+ * front of publishing: a landlord who does not have the number to hand — most of them, at the
+ * moment they sit down to write a listing — either goes to find it or leaves. Nothing in the
+ * publishing flow actually needs it. What needs it is the **ownership verification** (it is the
+ * number the certificate is pulled with, so `verificationBlocker` answers `no_registry` without
+ * one) and the **Sura policy**, whose quoter asks for it — and both of those are decisions the
+ * landlord takes later, on a screen where the field is one edit away.
+ *
+ * So the two halves already tolerated its absence before this: the converter defaults it to `""`
+ * for listings published before it existed, `verificationBlocker` refuses without one, and the
+ * public detail page and the guarantee panel both render it conditionally. Making it optional is
+ * the schema catching up with a domain that was already honest about it.
+ *
+ * **An empty string is the absence, not `undefined`.** The field is a text input that always
+ * posts, and the stored document has always used `""` for "no number" — so a second way of
+ * spelling absence would mean every reader checking for both.
+ *
+ * When a number *is* given, it is validated loosely, on purpose. The shape is a registry circle
+ * and a sequential number, but the circle can be two or three digits, the separator is written as
+ * a hyphen, a space or nothing at all, and older records are shorter than newer ones. A stricter
+ * pattern would reject real numbers off real certificates, and what it would buy is a false sense
+ * of having verified something: the only real check is against the registry, which is not
+ * something this product does.
  */
 const registryNumber = z
   .string({ error: "Ingresa la matrícula inmobiliaria" })
   .trim()
-  .min(6, { error: "La matrícula es demasiado corta" })
   .max(20, { error: "La matrícula es demasiado larga" })
-  .regex(/^[0-9][0-9\s-]*[0-9]$/, {
+  /*
+   * Two `refine`s and not one, so each keeps the message it had: "demasiado corta" tells somebody
+   * who typed four digits what to do, and the pattern message tells somebody who typed a letter.
+   * One combined rule would answer the same sentence to both.
+   */
+  .refine((value) => value === "" || value.length >= 6, {
+    error: "La matrícula es demasiado corta",
+  })
+  .refine((value) => value === "" || /^[0-9][0-9\s-]*[0-9]$/.test(value), {
     error: "Solo números, con o sin guion. Por ejemplo: 050-123456",
   });
 
@@ -213,9 +237,10 @@ export const publishPropertySchema = z.object({
  * difference between a draft and a listing — which is exactly what `publishBlocker` says in the
  * domain, and what makes promoting a draft a promotion instead of a second form.
  *
- * **Nothing else is relaxed, on purpose.** A draft that also let the canon, the address or the
- * matrícula through empty would be a half-filled form that fails at the moment its author presses
- * publish, on fields they filled in three weeks earlier and have long stopped thinking about.
+ * **Nothing else is relaxed, on purpose.** A draft that also let the canon or the address through
+ * empty would be a half-filled form that fails at the moment its author presses publish, on fields
+ * they filled in three weeks earlier and have long stopped thinking about. (The matrícula is no
+ * longer in that sentence because it is no longer required of either.)
  */
 export const draftPropertySchema = publishPropertySchema.extend({
   photos: z.array(photo).max(PHOTOS_MAX, { error: `Máximo ${PHOTOS_MAX} fotos` }),

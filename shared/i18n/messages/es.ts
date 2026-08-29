@@ -295,8 +295,15 @@ export const es = {
     addressPlaceholder: "Calle 60 #10-20 apto 301",
     addressTooltip:
       "Solo la ve el inquilino cuya postulación apruebes. En el anuncio se muestran el barrio y la ciudad.",
-    registryNumber: "Número de matrícula inmobiliaria",
+    registryNumber: "Número de matrícula inmobiliaria (opcional)",
     registryPlaceholder: "050-123456",
+    /*
+     * La pista permanente dice **para qué sirve dejarla**, no qué es: quien no la tiene a mano
+     * necesita saber si puede seguir sin ella —puede— y qué se está saltando. El tooltip sigue
+     * explicando qué es el número, que es la otra pregunta.
+     */
+    registryHint:
+      "Puedes publicar sin ella. La necesitas para pedir la insignia de propietario verificado y para cotizar la póliza de arrendamiento.",
     registryTooltip:
       "El número del certificado de tradición, que expide la Oficina de Registro de Instrumentos Públicos. No se publica: identifica el inmueble ante el registro.",
 

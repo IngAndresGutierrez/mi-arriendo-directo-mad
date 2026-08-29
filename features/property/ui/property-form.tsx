@@ -561,6 +561,7 @@ export function PropertyForm({
             placeholder={t.registryPlaceholder}
             inputMode="numeric"
             autoComplete="off"
+            hint={t.registryHint}
             hintTooltip={t.registryTooltip}
             error={errors.address?.registryNumber?.message}
             {...form.register("address.registryNumber")}

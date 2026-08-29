@@ -307,8 +307,10 @@ describe("draftPropertySchema", () => {
     },
   );
 
-  it("still requires the whole address, matrícula included", () => {
-    for (const field of ["registryNumber", "line", "neighborhood", "city", "department"]) {
+  it("still requires the whole address", () => {
+    // `registryNumber` is deliberately absent from this list: it is optional now. Its own rules
+    // are in the `describe` below, including the one that says an absent one is accepted.
+    for (const field of ["line", "neighborhood", "city", "department"]) {
       const address: Record<string, unknown> = { ...VALID_PROPERTY.address };
       delete address[field];
       const parsed = draftPropertySchema.safeParse({ ...VALID_PROPERTY, photos: [], address });
@@ -386,5 +388,66 @@ describe("the listing video", () => {
     const videoOnly = { ...VALID_PROPERTY, photos: [], video: VIDEO };
 
     expect(publishPropertySchema.safeParse(videoOnly).success).toBe(false);
+  });
+});
+
+/**
+ * La matrícula inmobiliaria, que dejó de ser obligatoria.
+ *
+ * Es la parte del formulario que mandaba a alguien a buscar un papel antes de poder publicar, y
+ * publicar no la necesita: la necesitan la verificación de propiedad y el cotizador de Sura, que
+ * son decisiones posteriores. Lo que estas pruebas fijan es que la relajación es exactamente eso —
+ * vacío pasa — y que en cuanto hay algo escrito las reglas de siempre siguen aplicando, porque una
+ * matrícula a medias es peor que ninguna: se guarda, no verifica nada y nadie vuelve a mirarla.
+ */
+describe("registryNumber, ahora opcional", () => {
+  const withRegistry = (registryNumber: unknown) =>
+    publishPropertySchema.safeParse({
+      ...VALID_PROPERTY,
+      address: { ...VALID_PROPERTY.address, registryNumber },
+    });
+
+  it("accepts an empty one, which is what 'optional' means for a text input that always posts", () => {
+    const parsed = withRegistry("");
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.address.registryNumber).toBe("");
+  });
+
+  it("accepts whitespace as absence, because that is what an emptied field posts", () => {
+    const parsed = withRegistry("   ");
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.address.registryNumber).toBe("");
+  });
+
+  /*
+   * Opcional es el **valor**, no la clave: el campo es un input de texto que siempre se envía, así
+   * que la ausencia se escribe `""` y sólo `""`. Una clave que falta significa que quien llamó
+   * armó el objeto mal, y aceptarla sería aceptar dos formas de decir lo mismo — que es exactamente
+   * lo que obliga a cada lector a comprobar las dos.
+   */
+  it("keeps the key required even though the value may be empty", () => {
+    const address: Record<string, unknown> = { ...VALID_PROPERTY.address };
+    delete address.registryNumber;
+
+    expect(publishPropertySchema.safeParse({ ...VALID_PROPERTY, address }).success).toBe(false);
+  });
+
+  it.each(["050-123456", "050 123456", "50123456", "0501234567890"])(
+    "still accepts the shapes a certificate is written in: %s",
+    (value) => {
+      expect(withRegistry(value).success).toBe(true);
+    },
+  );
+
+  it("still rejects one that is too short to be a matrícula", () => {
+    expect(withRegistry("12345").success).toBe(false);
+  });
+
+  it("still rejects one that is too long", () => {
+    expect(withRegistry("1".repeat(21)).success).toBe(false);
+  });
+
+  it.each(["050-ABC123", "abc", "050-123456-"])("still rejects %s", (value) => {
+    expect(withRegistry(value).success).toBe(false);
   });
 });
