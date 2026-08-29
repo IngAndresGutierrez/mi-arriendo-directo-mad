@@ -309,6 +309,16 @@ ok("el aviso de redes no lleva código, que es de lo que se trata");
  * este producto imprime hacia un anuncio, y que se separaran sería la clase de fallo que solo se
  * nota cuando alguien no llega.
  */
+/*
+ * El color de "tarjeta marcada" se lee del producto, con «Para la pared» todavía elegida, en vez de
+ * escribir aquí un `rgb(...)`: afirmar el token sería mantener una segunda copia del diseño, y este
+ * driver ya se equivocó una vez copiando una regla del producto.
+ */
+const colorMarcada = await p.evaluate(() => {
+  const card = [...document.querySelectorAll("label")].find((el) => el.querySelector('input[type="radio"]')?.checked);
+  return getComputedStyle(card).backgroundColor;
+});
+
 await p.getByRole("radio", { name: /Para redes/ }).check();
 /*
  * **Esperar el cuadrado, no el `<img>`.** El elemento no se desmonta al cambiar de formato, solo le
@@ -323,6 +333,28 @@ await p.waitForFunction(() => {
   return Boolean(img && img.complete && img.naturalWidth > 0 && img.naturalWidth === img.naturalHeight);
 }, null, { timeout: 30000 });
 ok("elegir «Para redes» cambia la vista previa al cuadrado");
+/*
+ * Y que el resaltado **siga** a la selección: la marcada tiene que llevar ahora el color que llevaba
+ * la otra, y la otra dejarlo. Comprobar solo que "son distintas" pasaba con las dos invertidas, que
+ * es justo lo que se veía en pantalla mientras la transición no había pintado todavía.
+ *
+ * Es un `waitForFunction` porque `transition-colors` interpola y `getComputedStyle` antes del primer
+ * frame devuelve el color **anterior** — dos capturas mostraron la tarjeta equivocada resaltada y
+ * mandaron a buscar un fallo de estilos que no existía.
+ */
+await p.waitForFunction((esperado) => {
+  const cards = [...document.querySelectorAll("label")].filter((el) => el.querySelector('input[type="radio"]'));
+  if (cards.length !== 2) return false;
+  const marcada = cards.find((el) => el.querySelector("input").checked);
+  const otra = cards.find((el) => !el.querySelector("input").checked);
+  if (!marcada || !otra) return false;
+  return (
+    getComputedStyle(marcada).backgroundColor === esperado &&
+    getComputedStyle(otra).backgroundColor !== esperado
+  );
+}, colorMarcada, { timeout: 10000 });
+ok("el resaltado se mueve con la selección", colorMarcada);
+
 await p.screenshot({ path: `${SHOT_DIR}/aviso-redes-pantalla.png`, fullPage: true });
 await p.getByRole("button", { name: /Copiar el texto/i }).click();
 await p.waitForSelector("text=Texto copiado", { timeout: 5000 });
