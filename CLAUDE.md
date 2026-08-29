@@ -137,6 +137,7 @@ The constants live in `shared/auth/routes.ts`; use those, never literal strings.
 | `/cookies` | `COOKIES_ROUTE` | The **five** things this product stores in a browser, by name, and the switch that makes the analytics authorisation revocable. `locale` is the fifth — a cookie this product sets and did not declare is exactly what that page exists to prevent. |
 | `/soporte` | `SUPPORT_ROUTE` | How to reach a person: WhatsApp and email, each saying what it is good for. No form and no ticket number — there is no queue behind one. **It is the one page that renders in either chrome** (`app/soporte/`, outside both route groups): the product's menu when there is a session, the public header when there is not. Needing help is not something you should have to sign in to do, and "Contacto" sits in the public header either way. |
 | `/mis-inmuebles/<id>/editar` | `editPropertyRoute(id)` | Editing one. **Both publishing and saving an edit end on the list**, not on the listing: what a landlord does next is copy its link, publish another, or look at what they already have, and all three are there. |
+| `/mis-inmuebles/<id>/aviso` | `propertyPosterRoute(id)` | The rental notice: the listing as an A4 sheet to print, with a QR, and a square to post, with the link as text instead. `.../aviso/pared` and `.../aviso/redes` are the PNGs. Offered only while the listing is `available` — see "The rental notice" below. |
 | `/inmuebles/<slug>` | `propertyDetailRoute(slug)` | Public detail of one property. No session needed. **The map lives here**: a circle over the zone, never a pin — see "The map" below. |
 | `/inmuebles` | `PROPERTIES_ROUTE` | Public catalog with facets. `?city`, `?type`, `?bedrooms`, `?lease`, `?features`, `?sort`, `?page`; anything the options do not recognise is ignored rather than queried. |
 
@@ -371,6 +372,143 @@ each other and a shared link always reproduces what was on screen. Only the city
 for search engines: the facets and the page number are ways of looking at the same catalog.
 The `users/{uid}` document and the `role` claim are created during onboarding, not at signup:
 the rules require `fullName` and the signup design does not ask for it.
+
+## The rental notice (`/mis-inmuebles/<id>/aviso`)
+
+The Open Graph card solves what a *link* previews as. This solves the other half: what a landlord
+hands to somebody who is not looking at a link. **A4 to print and tape to the doorway, and a
+1080×1080 square for a WhatsApp status or a Facebook group** — and the two differ in how the link
+reaches a person, which is the whole design. The sheet carries a QR code, because a camera is the
+only route from paper into a listing. The square carries none, because it is looked at on the phone
+that would have to scan it; there the link travels as text beside the image.
+
+**Three things are deliberately not on it, and the first is the reason the feature is shaped this
+way at all.** A poster is a *file*, and the point of the feature is that the file gets forwarded — so
+whatever is on it is published in a way that cannot be withdrawn.
+
+- **No street and no coordinate.** Same rule as the card, the JSON-LD and the map. A sheet taped to
+  the building does not need the address — it is at it — and one posted to Instagram must not carry
+  one.
+- **No phone number.** The obvious thing to put on a "se arrienda" sign and the wrong thing here
+  twice over: personal data on a file that circulates with no way to withdraw it, and a route around
+  the product — the QR leads to the listing and from there to an application with a validated
+  profile behind it, where a phone number leads to a WhatsApp thread with a stranger.
+- **Not the landlord's own headline.** "HERMOSO APTO REMODELADO 😍" is neither specific nor
+  comparable, exactly as in the `<title>`. What sells at two metres is the price, the neighbourhood
+  and the size, in the same shape every time.
+
+**A listing that is not `available` gets no notice**, and `posterBlocker` is the rule — checked on
+the screen *and* in the image route, because a page guard protects a screen and not an endpoint.
+Only an `available` listing has a public page, so a code printed from a draft opens a 404 for
+everybody who scans it **and keeps working for its owner**, who therefore can never find out. It is
+the failure the manage card already avoids by swapping "Copiar enlace" for "Publicar" on a draft,
+one step further along: there the broken link is in a clipboard, here it is on a wall. The card
+offers "Aviso" only while `posterBlocker` answers `null`; the screen explains the two reasons apart
+(a draft is one button away, a rented listing is finished) rather than 404ing at its own owner.
+
+**The URL in the code is `metadataOrigin()`, never `resolveSiteUrl()`.** This is the sharpest case
+of the distinction in `shared/lib/site-url.ts`: a link in an email must reach the person reading it
+now, and a link printed on paper must work in eight months, from a stranger's phone, long after the
+preview deployment that generated it is gone. "Wherever this request came from" is the one answer
+guaranteed to be wrong. `tests/e2e/poster.mjs` asserts the decoded code does **not** point at the
+server that produced it. The locale prefix travels with it, and nothing else does — no campaign
+parameter, because the line printed under the code is meant to be typed by somebody whose camera
+will not focus.
+
+**The square carries no QR code, and that is the correction the first version needed.** A square is
+looked at *on the phone that would have to scan it*, and a phone cannot scan its own screen — so the
+code was a quarter of the composition doing nothing. What travels on social is **text**:
+`content.shareText`, the fact sheet plus the link, which the share sheet hands to the target app as
+the caption and which the screen also offers as one button to copy. That is where a link actually
+becomes tappable — a WhatsApp group, a Facebook post, a story's link sticker — because no network
+makes a link inside an image tappable. The caption is also **printed on the screen**, not hidden
+behind the button: the clipboard can refuse, and a landlord may want to change a word first.
+
+`navigator.share({ files, text })` is best effort and is written down as such — WhatsApp takes the
+text as the caption, others drop it silently — which is exactly why "Copiar el texto" is a control of
+its own rather than a fallback. On Instagram and Facebook the caption is pasted by hand, and a
+mechanism that only works where the share sheet cooperates fails quietly on the two networks this
+format exists for. The square keeps the **address** printed large instead, for the reader who saw it
+in a status with no caption attached.
+
+`shareText` is `property.seoDescription` plus the URL — the sentence the Open Graph card already
+uses, deliberately **unclamped**: 160 characters is a fact about what a search result shows, and a
+caption in a WhatsApp group is not one. Reusing it means the paste preview and the caption above it
+make the same claim.
+
+**Everything above the closing band is one composition for both shapes.** The same five things in
+the same order — headline, photo, price, where, facts — because two layouts would be two places for
+that to drift, with the printed one being the copy nobody looks at again. What differs is proportion
+(`LAYOUT`, a record of numbers in `features/property/ui/rental-poster.tsx`) and the closing band,
+which differs because the link reaches a person in two different ways. That is a difference in kind,
+not in proportion.
+
+**A square is a fixed box, and A4 is not.** The sheet has slack the middle band absorbs, so a footer
+one line taller than budgeted just pushes down; on the square it falls off the bottom edge, and what
+falls off first is the wordmark. It did, at `photo: 470` — the numbers are 400 and a 26px address
+now, the closing band is `flexShrink: 0`, and this was found by drawing it and looking. Nothing in
+the bar can see a band that overflowed a PNG.
+
+**The QR lives in `shared/qr/`, not in the property module**, and it answers in two steps on purpose.
+`qrMatrix` produces the modules and `qrSvg` draws them, so a unit test can decode the first with an
+independent reader (`jsqr`, a devDependency) and count the second. A single "give me a PNG" function
+would be one opaque blob no assertion can look inside — and a QR that does not scan is the failure
+nobody notices until somebody is standing in front of a wall with their phone out. Three details
+that are not preferences:
+
+- **`qrcode-generator`'s own `stringToBytes` truncates to Latin-1** (`charCodeAt(i) & 0xff`), turning
+  an accented character into a different byte rather than into an error. It is replaced with
+  `TextEncoder`, which is how the library is meant to be configured, and a test pins it.
+- **`qrRenderSize` snaps the drawing down to a whole number of pixels per module.** At a size that
+  is not a multiple of the module count the rasteriser rounds some rows up and some down, which
+  merges neighbouring modules.
+- **The code paints its own white ground, quiet zone included.** The panel behind it is brand purple,
+  and a code with no ground of its own is a code drawn on purple, which no scanner reads. Error
+  correction is `Q` (25%), one level for both formats: the printed one gets sun, tape and torn
+  corners, and two levels would be two different codes for one listing.
+
+**A satori tree is the one component in this repository that nothing can inspect** — it is laid out
+into a PNG on the server and what comes back is pixels. So everything that could be *wrong* rather
+than merely ugly lives in `features/property/domain/poster.ts` and is unit-tested there (the two
+negatives above included), and `tests/e2e/poster.mjs` downloads the real PNG, draws it to a canvas
+and **decodes the code out of its pixels**. That assertion exists at no other level of the bar.
+
+**Printing is `window.print()` over a rule in `app/globals.css`, and the sheet is portalled to
+`<body>`.** That is what makes the rule "hide my siblings" — one line — instead of a fight with the
+cascade: hiding the page from inside it means either `visibility: hidden`, which still reserves the
+layout and prints blank pages after the poster, or naming each wrapper of the app shell, which
+breaks the day the shell changes. `Ctrl+P` anywhere on the screen prints the A4 sheet whatever
+format is selected, because printing a square onto A4 is not something anybody wants.
+
+**And `!important` inverts layer order — which is the opposite of the rule this file relies on two
+blocks above, and it printed a blank page.** The portalled sheet used to carry the `hidden`
+attribute, un-hidden by `display: block !important` under `@media print`. Tailwind's preflight
+carries `[hidden] { display: none !important }` **inside a layer**, and for important declarations
+the cascade reverses layer precedence: unlayered important *loses* to layered important. So the
+sheet stayed `display: none`, and Chromium produced one correctly-sized, entirely empty A4 page. The
+attribute is gone and `[data-print-sheet]` is hidden from the stylesheet instead, where nothing
+competes and neither declaration needs `!important` at all. (The `prefers-reduced-motion` override
+higher up in that file is still correct: it is a *normal* declaration, and there unlayered wins.)
+
+**The driver asserts the PDF contains an image, not just one page** — and that distinction is the
+whole lesson. Counting pages passes happily on a blank sheet: the broken PDF was 1.112 bytes, had a
+perfect A4 `MediaBox` and nothing inside it. Both halves were proved by breaking them on purpose:
+`visibility` instead of `display` comes back as two pages, and the `hidden` attribute comes back as
+"una hoja en blanco".
+
+**One cyan per view, and which action earns it depends on the format.** The wall sheet exists to be
+printed, so `Imprimir` takes the accent. On the square it is `Compartir`, or — where the browser
+cannot hand a file to a share sheet, which is most desktops — `Copiar el texto`, because there that
+*is* the whole flow: download the square, paste the caption, post. The share button is not rendered
+at all when `navigator.canShare({ files })` says no, rather than rendered and failing: a control that
+fails is worse than one that is absent, the same rule the signature's WhatsApp channel follows.
+`Descargar` is `brand` in every case.
+
+**`shared/lib/embed-image.ts` is why the OG card and the notice cannot disagree about a broken
+photo.** Handed a remote `<img src>`, satori fetches it during the layout pass and a 404 throws from
+in there, taking the whole image with it — a missing photograph becomes a missing card. Fetching it
+first turns that into a `null` each composition answers differently. It was extracted from the Open
+Graph route rather than copied.
 
 ## Project skills
 The skills in `.claude/skills/` are the source of truth for their area. The last two are

@@ -165,6 +165,22 @@ export const COVERS = {
 
   // The landlord's properties.
   publish: ["features/property/", "app/[lang]/(app)/inmuebles", "shared/geo/"],
+  /*
+   * El aviso de arriendo. Es el único sitio del repositorio donde se puede afirmar que el código QR
+   * de verdad lleva al anuncio: el aviso es un PNG que compone satori en el servidor, así que ni un
+   * test unitario ni `pnpm build` pueden mirar dentro. `shared/qr/` entra porque de ahí sale la
+   * matriz, y `shared/lib/embed-image` porque de ahí sale la foto que se incrusta.
+   */
+  poster: [
+    "features/property/domain/poster",
+    "features/property/ui/rental-poster",
+    "features/property/ui/poster-actions",
+    "features/property/ui/property-manage-card",
+    "app/[lang]/(app)/mis-inmuebles",
+    "shared/qr/",
+    "shared/lib/embed-image",
+    "shared/lib/site-url",
+  ],
   "manage-properties": ["features/property/", "app/[lang]/(app)/mis-inmuebles"],
   /*
    * El borrador toca las dos mitades: el formulario y la lista del propietario, y también el

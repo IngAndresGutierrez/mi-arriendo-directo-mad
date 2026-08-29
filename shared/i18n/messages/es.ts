@@ -261,6 +261,8 @@ export const es = {
    * label records (`propertyLabels`) and nothing else.
    */
   propertyForm: {
+    /** The card's link to the rental notice. Only on a published listing: see `posterBlocker`. */
+    notice: "Aviso",
     sectionProperty: "El inmueble",
     sectionFeatures: "Características",
     sectionLocation: "Ubicación",
@@ -1148,6 +1150,69 @@ export const es = {
       `${what} en arriendo en ${where} por ${price} al mes. ${facts}. ` +
       "Trato directo con el propietario, sin comisión de inmobiliaria.",
     imageAlt: (what: string, where: string) => `${what} en arriendo en ${where}`,
+  },
+
+  /**
+   * El aviso de arriendo: el inmueble en una hoja y en una imagen cuadrada.
+   *
+   * **Todo aquí son cadenas planas, sin una sola función, y no por casualidad.** Este espacio de
+   * nombres cruza entero a `PosterActions`, que es un Client Component, y una función no atraviesa
+   * la frontera RSC — es el fallo que este producto ya pagó cuatro veces. `dictionary.test.ts` lo
+   * comprueba; lo que hay que hacer al necesitar un valor dentro de una frase es resolverla en el
+   * servidor, como hace `posterContent`.
+   */
+  poster: {
+    /* Lo que se lee desde el otro lado de la calle. En mayúsculas porque es un titular impreso. */
+    headline: "SE ARRIENDA",
+    perMonth: "al mes",
+    scanPrompt: "Escanea el código para ver las fotos, el precio y postularte",
+    /* En redes no hay código que escanear: lo que lleva a alguien al anuncio es el enlace. */
+    linkPrompt: "Míralo y postúlate en",
+    brandPrefix: "miarriendo",
+    brandSuffix: "DIRECTO.com",
+
+    title: "Aviso de arriendo",
+    meta: "Genera el aviso de este inmueble para imprimir o compartir.",
+    lead:
+      "El código QR lleva directo al anuncio: quien lo escanee ve las fotos, el precio y puede postularse. " +
+      "El aviso no lleva la dirección ni tu teléfono.",
+    backToProperties: "Mis inmuebles",
+
+    wallName: "Para la pared",
+    wallHint: "A4 vertical. Imprímelo y pégalo en la portería o en la ventana.",
+    socialName: "Para redes",
+    socialHint:
+      "Cuadrado, sin código QR: nadie escanea desde el mismo celular en el que lo está viendo. " +
+      "Lo que lleva al anuncio es el texto que va con la imagen.",
+
+    previewAlt: "Vista previa del aviso",
+    loadingPreview: "Preparando el aviso…",
+    preparingPrint: "Preparando…",
+    previewFailed: "No pudimos generar el aviso. Recarga la página e inténtalo de nuevo.",
+
+    print: "Imprimir",
+    download: "Descargar",
+    share: "Compartir",
+    sharing: "Abriendo…",
+    downloadFailed: "No pudimos preparar el archivo. Inténtalo de nuevo.",
+    shareTitle: "Aviso de arriendo",
+
+    /* El botón que hace tappable el enlace: en Instagram y Facebook la leyenda se pega a mano. */
+    copyText: "Copiar el texto",
+    textCopied: "Texto copiado",
+    copyTextFailed: "No pudimos copiar el texto. Selecciónalo y cópialo a mano.",
+    captionLabel: "Texto para acompañar la imagen",
+    captionHint:
+      "Va con la imagen cuando compartes. En Instagram y Facebook pégalo tú en la leyenda: " +
+      "ahí es donde el enlace se vuelve tocable.",
+
+    blockedDraftTitle: "Publica el inmueble primero",
+    blockedDraft:
+      "Este anuncio todavía es un borrador, así que su enlace solo funciona para ti: el código de un aviso impreso ahora llevaría a una página que nadie más puede abrir.",
+    blockedUnavailableTitle: "Este anuncio ya no está disponible",
+    blockedUnavailable:
+      "Solo los inmuebles disponibles tienen una página pública, y el código de un aviso tiene que llevar a alguna parte.",
+    goToProperties: "Volver a mis inmuebles",
   },
 
   catalog: {

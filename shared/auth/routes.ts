@@ -178,6 +178,28 @@ export function assignErrandRoute(propertyId: string): string {
   return `${MY_PROPERTIES_ROUTE}/${propertyId}/encargar`;
 }
 
+/**
+ * The rental notice of one listing: the sheet to print and the square to post.
+ *
+ * Keyed by id like editing, and for the same reason — the slug is derived from the title and a
+ * landlord may change it, while what this screen is *about* does not move.
+ */
+export function propertyPosterRoute(propertyId: string): string {
+  return `${MY_PROPERTIES_ROUTE}/${propertyId}/aviso`;
+}
+
+/**
+ * The notice itself, as a PNG.
+ *
+ * `format` is a **segment**, in Spanish like every path here — `pared` or `redes`. It is typed as a
+ * string rather than as the union that produces it because `shared/` may not import a feature:
+ * `POSTER_FORMAT_SEGMENTS` in `features/property` is where the two values are decided, and this is
+ * only where they are glued onto a path.
+ */
+export function propertyPosterImageRoute(propertyId: string, format: string): string {
+  return `${propertyPosterRoute(propertyId)}/${format}`;
+}
+
 /** Editing one of them. Keyed by id, not by slug: the slug is what the edit may change. */
 export function editPropertyRoute(id: string): string {
   return `${MY_PROPERTIES_ROUTE}/${id}/editar`;

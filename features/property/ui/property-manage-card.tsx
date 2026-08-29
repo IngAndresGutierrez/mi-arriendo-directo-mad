@@ -6,15 +6,21 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { useRouter } from "next/navigation";
-import { CheckIcon, LinkIcon, PencilIcon, SendIcon, Trash2Icon, UserPlusIcon } from "lucide-react";
+import { CheckIcon, LinkIcon, PencilIcon, QrCodeIcon, SendIcon, Trash2Icon, UserPlusIcon } from "lucide-react";
 
-import { assignErrandRoute, editPropertyRoute, propertyDetailRoute } from "@/shared/auth/routes";
+import {
+  assignErrandRoute,
+  editPropertyRoute,
+  propertyDetailRoute,
+  propertyPosterRoute,
+} from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
 import { cn } from "@/shared/lib/utils";
 
 import { deleteProperty, publishDraft } from "../actions/manage-property";
+import { posterBlocker } from "../domain/poster";
 import {
   propertyMonthlyCost,
   publicLocationLabel,
@@ -199,6 +205,24 @@ export function PropertyManageCard({
             <Button type="button" variant="secondary" size="lg" onClick={copyLink}>
               {copied ? <CheckIcon aria-hidden="true" /> : <LinkIcon aria-hidden="true" />}
               {copied ? copy.linkCopied : copy.copyLink}
+            </Button>
+          )}
+          {/*
+            The rental notice — the listing as a sheet to print and a square to post.
+
+            It appears **only while the listing is public**, decided by `posterBlocker`, the same
+            function the screen and the image endpoint use. A notice is a QR code, and a QR code
+            printed from a draft opens a 404 for everybody who scans it while still working for its
+            owner: offering the button and then explaining that it cannot be used is the "Continuar
+            que no continúa" one screen earlier. It sits beside "Copiar enlace" for the same
+            reason — both are ways of handing this listing to somebody else.
+          */}
+          {posterBlocker(property) === null && (
+            <Button asChild variant="outline" size="lg">
+              <Link href={propertyPosterRoute(property.id)}>
+                <QrCodeIcon aria-hidden="true" />
+                {copy.notice}
+              </Link>
             </Button>
           )}
           <Button asChild variant="outline" size="lg">

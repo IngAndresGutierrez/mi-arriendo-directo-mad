@@ -221,6 +221,8 @@ export const en: Dictionary = {
   },
 
   propertyForm: {
+    /** The card's link to the rental notice. Only on a published listing: see `posterBlocker`. */
+    notice: "Notice",
     sectionProperty: "The property",
     sectionFeatures: "Features",
     sectionLocation: "Location",
@@ -1027,6 +1029,58 @@ export const en: Dictionary = {
       `${what} for rent in ${where} for ${price} a month. ${facts}. ` +
       "Straight from the landlord, with no agency commission.",
     imageAlt: (what: string, where: string) => `${what} for rent in ${where}`,
+  },
+
+  /** Plain strings only — see the note on the Spanish side. This namespace crosses to a client. */
+  poster: {
+    headline: "FOR RENT",
+    perMonth: "per month",
+    scanPrompt: "Scan the code to see photos, the price and apply",
+    linkPrompt: "See it and apply at",
+    brandPrefix: "miarriendo",
+    brandSuffix: "DIRECTO.com",
+
+    title: "Rental notice",
+    meta: "Generate this listing's notice to print or to share.",
+    lead:
+      "The QR code goes straight to the listing: whoever scans it sees the photos, the price and can apply. " +
+      "The notice carries neither the address nor your phone number.",
+    backToProperties: "My properties",
+
+    wallName: "For the wall",
+    wallHint: "A4 portrait. Print it and put it up at the entrance or in a window.",
+    socialName: "For social",
+    socialHint:
+      "Square, with no QR code: nobody scans one from the same phone they are looking at it on. " +
+      "What leads to the listing is the text you post with the image.",
+
+    previewAlt: "Preview of the notice",
+    loadingPreview: "Preparing the notice…",
+    preparingPrint: "Preparing…",
+    previewFailed: "We could not generate the notice. Reload the page and try again.",
+
+    print: "Print",
+    download: "Download",
+    share: "Share",
+    sharing: "Opening…",
+    downloadFailed: "We could not prepare the file. Try again.",
+    shareTitle: "Rental notice",
+
+    copyText: "Copy the text",
+    textCopied: "Text copied",
+    copyTextFailed: "We could not copy the text. Select it and copy it by hand.",
+    captionLabel: "Text to post with the image",
+    captionHint:
+      "It travels with the image when you share. On Instagram and Facebook you paste it into the " +
+      "caption yourself: that is where the link becomes tappable.",
+
+    blockedDraftTitle: "Publish the listing first",
+    blockedDraft:
+      "This listing is still a draft, so its link only works for you: the code on a notice printed now would lead to a page nobody else can open.",
+    blockedUnavailableTitle: "This listing is no longer available",
+    blockedUnavailable:
+      "Only available listings have a public page, and the code on a notice has to lead somewhere.",
+    goToProperties: "Back to my properties",
   },
 
   catalog: {

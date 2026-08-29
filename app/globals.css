@@ -270,3 +270,55 @@
     @apply font-sans;
   }
 }
+
+/*
+   Printing the rental notice.
+
+   The whole rule is "hide my siblings", and it is that short because `PrintSheet` portals the
+   poster to a direct child of `<body>`. The alternatives both fail on paper rather than on screen:
+   `visibility: hidden` still reserves the layout, so the sheet is followed by blank pages, and
+   naming the app shell's wrappers is a rule that breaks the day the shell changes.
+
+   **The sheet is hidden from here and not with the `hidden` attribute, and that cost a blank
+   page.** Tailwind's preflight carries `[hidden] { display: none !important }` inside a layer, and
+   for *important* declarations the cascade **inverts** layer order — unlayered important loses to
+   layered important, the exact opposite of the normal-declaration rule this file relies on two
+   blocks up for `prefers-reduced-motion`. So `display: block !important` here never won, the
+   element stayed `display: none` under print media, and Chromium produced one correctly-sized,
+   entirely empty A4 page. It was invisible to `typecheck`, `lint`, `build` and to a driver that
+   only counted pages; `tests/e2e/poster.mjs` asserts the PDF contains an image now.
+
+   With the attribute gone there is no competing declaration at all, so neither of these needs
+   `!important`: an unlayered normal declaration already beats every layered utility.
+
+   `size: A4 portrait` with no margin, and `object-fit: contain` inside a full-page box: the image
+   *is* A4 at 150 dpi, so it lands edge to edge, and a printer that insists on its own hardware
+   margin shrinks it evenly instead of clipping the QR off a corner.
+*/
+[data-print-sheet] {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 0;
+  }
+
+  body > *:not([data-print-sheet]) {
+    display: none;
+  }
+
+  [data-print-sheet] {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  [data-print-sheet] img {
+    display: block;
+    width: 100%;
+    height: 100vh;
+    object-fit: contain;
+  }
+}

@@ -10,6 +10,7 @@ import {
   propertyLabels,
   type Property,
 } from "@/features/property";
+import { embedRemoteImage } from "@/shared/lib/embed-image";
 import {
   BRAND_CYAN,
   BRAND_PURPLE,
@@ -62,39 +63,20 @@ export const alt = "Inmueble en arriendo en miarriendoDIRECTO.com";
  */
 export const revalidate = 3600;
 
-/** Long enough for Cloud Storage on a bad day, short enough that a crawler does not give up. */
-const PHOTO_TIMEOUT_MS = 4_000;
-
-/** Beyond this, embedding costs more memory than the card is worth. Landlords upload from a phone. */
-const PHOTO_MAX_BYTES = 5_000_000;
-
 /**
  * The cover photo as a data URI, or `null`.
  *
- * Fetched here rather than handed to satori as a remote `<img src>` so that a failure is a value
- * this code can see. Left to the renderer, a photo that 404s throws from inside the layout pass and
- * takes the whole card with it — turning a missing picture into a missing preview.
+ * Fetched through `embedRemoteImage` rather than handed to satori as a remote `<img src>` so that a
+ * failure is a value this code can see. Left to the renderer, a photo that 404s throws from inside
+ * the layout pass and takes the whole card with it — turning a missing picture into a missing
+ * preview. The rental notice makes the same call for the same reason, which is why the fetch, the
+ * timeout and the size cap live in `shared/lib` instead of once here and once there.
  */
 async function coverImage(property: Property): Promise<string | null> {
   const photo = property.photos[0];
   if (!photo) return null;
 
-  try {
-    const response = await fetch(photo.url, { signal: AbortSignal.timeout(PHOTO_TIMEOUT_MS) });
-    if (!response.ok) return null;
-
-    const type = response.headers.get("content-type") ?? "";
-    if (!type.startsWith("image/")) return null;
-
-    const bytes = Buffer.from(await response.arrayBuffer());
-    if (bytes.byteLength > PHOTO_MAX_BYTES) return null;
-
-    return `data:${type};base64,${bytes.toString("base64")}`;
-  } catch (error) {
-    console.error(`opengraph-image: could not read the cover of ${property.id}:`, error);
-
-    return null;
-  }
+  return embedRemoteImage(photo.url, { label: `the cover of ${property.id}` });
 }
 
 /**

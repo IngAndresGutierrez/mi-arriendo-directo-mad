@@ -16,6 +16,12 @@ export {
   type PropertyVideo,
 } from "./domain/property";
 export { type CityCount } from "./domain/cities";
+export {
+  POSTER_FORMATS,
+  POSTER_FORMAT_SEGMENTS,
+  POSTER_SIZES,
+  type PosterFormat,
+} from "./domain/poster";
 
 /** The label records, resolved for one language. Replaces the six `X_LABELS` constants. */
 export { propertyLabels, type PropertyLabels } from "./domain/labels";
