@@ -14,6 +14,12 @@
  * Helvetica at 7pt and the masked value reads better with an asterisk.
  *
  * Pure and here rather than beside the stamping so it can be tested without a PDF.
+ *
+ * **In `shared/` and no longer inside `features/application`**, because the second caller arrived:
+ * the tenancy generates the rent receipt and the paz y salvo, and "what a standard PDF font can
+ * draw" is not a fact about a rental application. Two domains needing it is exactly the rule that
+ * decides where a module lives — and the alternative was `features/lease` reaching into another
+ * feature's internals, which eslint refuses for good reason.
  */
 export function drawableText(value: string): string {
   return value.replace(/[•·]/g, "*").replace(/[^\x20-\xFF]/g, "?");

@@ -15,7 +15,7 @@ import {
   type Contract,
   type ContractSignature,
 } from "../domain/contract";
-import { drawableText, wrapText } from "./../domain/pdf-text";
+import { drawableText, wrapText } from "@/shared/pdf/text";
 
 /**
  * Builds the PDF the parties download: the original with each stroke drawn on the spot the

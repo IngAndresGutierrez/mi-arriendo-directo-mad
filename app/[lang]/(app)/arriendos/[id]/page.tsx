@@ -5,6 +5,7 @@ import { ArrowLeftIcon } from "lucide-react";
 
 import {
   checkoutBlocker,
+  clearanceBlocker,
   focusMonth,
   getHandovers,
   getLeaseFor,
@@ -68,7 +69,18 @@ export default async function RentalPage(props: PageProps<"/[lang]/arriendos/[id
     // Y las actas son una tercera, por lo mismo.
     getHandovers(lease.id),
   ]);
-  const summary = leaseSummary(leaseSchedule(lease, today), periods, today);
+  const schedule = leaseSchedule(lease, today);
+  const summary = leaseSummary(schedule, periods, today);
+  /*
+   * Por qué no hay paz y salvo, decidido una vez y a partir de los mismos meses que dibuja la lista.
+   * Dos copias de "¿está al día esta tenencia?" serían el par cuya primera divergencia deja el botón
+   * ofreciendo un documento que el endpoint después rechaza.
+   */
+  const byPeriod = new Map(periods.map((period) => [period.id, period]));
+  const clearanceProblem = clearanceBlocker(
+    schedule.map((month) => ({ month, stored: byPeriod.get(month.id) ?? null })),
+    today,
+  );
   const focus = focusMonth(rows, isLandlord);
   const reports = await incidentRows(incidents);
 
@@ -144,7 +156,14 @@ export default async function RentalPage(props: PageProps<"/[lang]/arriendos/[id
           openMonths={openMonths}
           incidentCount={reports.length}
           handoverAlert={handoverAlert}
-          info={<LeaseSummaryPanel lease={lease} summary={summary} today={today} />}
+          info={
+            <LeaseSummaryPanel
+              lease={lease}
+              summary={summary}
+              today={today}
+              clearanceProblem={clearanceProblem}
+            />
+          }
           payments={
             <>
               <PayoutCard leaseId={lease.id} payout={lease.payout} isLandlord={isLandlord} />

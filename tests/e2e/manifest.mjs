@@ -216,6 +216,20 @@ export const COVERS = {
     "storage.rules",
     "firestore.rules",
   ],
+  /*
+   * El recibo de pago y el paz y salvo. Es el único sitio donde se puede afirmar que el PDF sale con
+   * algo dentro: `pdf-lib` produce un archivo válido y vacío si se dibuja fuera de la página, y
+   * `pdf.save()` revienta desde la línea que escribe el fichero cuando llega un emoji. `shared/pdf`
+   * entra porque de ahí sale la función que dobla ese carácter.
+   */
+  certificates: [
+    "features/lease/domain/certificate",
+    "features/lease/actions/certificate-pdf",
+    "features/lease/ui/lease-summary-panel",
+    "features/lease/ui/month-list",
+    "app/api/arriendos",
+    "shared/pdf/",
+  ],
   "manage-properties": ["features/property/", "app/[lang]/(app)/mis-inmuebles"],
   /*
    * El borrador toca las dos mitades: el formulario y la lista del propietario, y también el

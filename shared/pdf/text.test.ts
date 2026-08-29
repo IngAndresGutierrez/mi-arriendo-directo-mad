@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { drawableText, wrapText } from "./pdf-text";
+import { drawableText, wrapText } from "./text";
 
 describe("drawableText", () => {
   it("keeps Spanish accents, which WinAnsi does encode", () => {

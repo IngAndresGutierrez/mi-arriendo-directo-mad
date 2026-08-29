@@ -7,11 +7,13 @@ import {
   ChevronDownIcon,
   ExternalLinkIcon,
   FileTextIcon,
+  ReceiptTextIcon,
   UploadIcon,
   XIcon,
 } from "lucide-react";
 
 import { receiptFileProblem, RECEIPT_CONTENT_TYPES } from "@/features/application/client";
+import { rentReceiptRoute } from "@/shared/auth/routes";
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
@@ -383,6 +385,33 @@ function MonthBody({
                 {formatBogotaDateTime(verdict.at)}
               </span>
             </p>
+          ) : null}
+
+          {/*
+            El recibo, y solo sobre un mes **confirmado**.
+
+            Ley 820 obliga al arrendador a dar un comprobante escrito con la fecha, el valor y el
+            periodo; en la práctica eso es un "listo, recibido" por WhatsApp que no sobrevive a un
+            desacuerdo. Aquí lo genera el registro, así que ninguna de las dos partes depende de que
+            la otra se acuerde de expedirlo.
+
+            `outline` y no `accent`: la acción de esta pantalla es el mes que hay que pagar, y un mes
+            ya pagado no compite con ella. Se abre en una pestaña nueva porque es un PDF, y volver de
+            un PDF con el botón atrás pierde la posición en una lista de doce meses.
+          */}
+          {row.state === "paid" ? (
+            <div className="mt-3 border-t border-border pt-3">
+              <Button asChild variant="outline" size="lg">
+                <a
+                  href={rentReceiptRoute(leaseId, row.month.id)}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                >
+                  <ReceiptTextIcon className="size-4" aria-hidden="true" />
+                  Recibo de pago
+                </a>
+              </Button>
+            </div>
           ) : null}
         </div>
       ) : null}

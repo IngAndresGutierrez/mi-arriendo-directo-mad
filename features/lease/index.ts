@@ -34,6 +34,18 @@ export {
   type HandoverPhoto,
   type HandoverState,
 } from "./domain/handover";
+export {
+  certificateReference,
+  clearance,
+  clearanceBlocker,
+  receiptBlocker,
+  rentReceipt,
+  type Clearance,
+  type ClearanceBlocker,
+  type ReceiptBlocker,
+  type RentReceipt,
+} from "./domain/certificate";
+export { clearancePdf, receiptPdf } from "./actions/certificate-pdf";
 export { getHandover, getHandovers, handoverView, type HandoverView } from "./data/handover";
 export { HandoverPanel } from "./ui/handover-panel";
 export {

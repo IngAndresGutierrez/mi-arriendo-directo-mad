@@ -276,6 +276,27 @@ export function safeRedirect(value: string | string[] | undefined): string {
 }
 
 /**
+ * El recibo de un mes de arriendo, en PDF.
+ *
+ * Bajo `/api` como el contrato, y por lo mismo: no es una pantalla, es un archivo. Y sin idioma —
+ * un Route Handler no puede leer un root param, así que vive fuera de `[lang]` igual que los otros
+ * cuatro. Los documentos de esta mitad del producto están en español de todas formas.
+ */
+export function rentReceiptRoute(leaseId: string, period: string): string {
+  return `/api/arriendos/${leaseId}/recibo/${period}`;
+}
+
+/**
+ * El paz y salvo del arriendo entero, en PDF.
+ *
+ * Sin periodo en la ruta: es cierto **a la fecha en que se pide**, así que la URL no puede fijar una
+ * — y dos emitidos con un mes de diferencia son documentos distintos con referencias distintas.
+ */
+export function clearanceRoute(leaseId: string): string {
+  return `/api/arriendos/${leaseId}/paz-y-salvo`;
+}
+
+/**
  * The contract of one process, streamed from our own origin.
  *
  * Same-origin on purpose: the signature placer hands this to `pdf.js`, which fetches it, and a

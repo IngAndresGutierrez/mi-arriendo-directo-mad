@@ -1,8 +1,11 @@
-import { CalendarRangeIcon } from "lucide-react";
+import { CalendarRangeIcon, FileCheckIcon } from "lucide-react";
 
+import { clearanceRoute } from "@/shared/auth/routes";
 import { formatLongDate } from "@/shared/format/date";
+import { Button } from "@/shared/ui/button";
 import { formatCOP } from "@/shared/format/money";
 
+import type { ClearanceBlocker } from "../domain/certificate";
 import {
   currentTermEnd,
   leaseTermState,
@@ -25,10 +28,19 @@ export function LeaseSummaryPanel({
   lease,
   summary,
   today,
+  clearanceProblem,
 }: {
   readonly lease: Lease;
   readonly summary: LeaseSummary;
   readonly today: string;
+  /**
+   * Why the paz y salvo cannot be issued right now, or `null`.
+   *
+   * Decided by the page from the same months the list renders, and passed in rather than recomputed
+   * here: two copies of "is this tenancy up to date?" is the pair whose first divergence would let
+   * the button offer a document the endpoint then refuses.
+   */
+  readonly clearanceProblem: ClearanceBlocker | null;
 }) {
   const state = leaseTermState(lease, today);
   const termEnd = currentTermEnd(lease, today);
@@ -101,6 +113,37 @@ export function LeaseSummaryPanel({
             : `Hay ${summary.overdue} meses sin pagar: ${formatCOP(summary.totalOverdue)} en total.`}
         </p>
       ) : null}
+
+      {/*
+        El paz y salvo, y **lo genera cualquiera de las dos partes desde el registro**.
+
+        Normalmente es un documento que expide el acreedor — lo que significa que también es uno que
+        el acreedor puede **retener**, y un inquilino sin nada que mostrarle al siguiente propietario
+        no tiene defensa contra eso. Aquí cada mes que lista es una confirmación que el propietario
+        ya hizo, así que el certificado no afirma nada nuevo: repite lo que él ya dijo.
+
+        Y el motivo por el que no se puede se dice en la pantalla, no en el enlace: `clearanceBlocker`
+        distingue tres —hay mora, hay algo esperando confirmación, o todavía no se ha confirmado
+        nada— porque se actúa distinto en cada uno.
+      */}
+      <div className="mt-4 border-t border-border pt-4">
+        {clearanceProblem ? (
+          <p className="text-sm text-muted-foreground">
+            {clearanceProblem === "overdue"
+              ? "El paz y salvo estará disponible cuando no queden canones vencidos."
+              : clearanceProblem === "in_review"
+                ? "Hay un comprobante esperando la confirmación del propietario. El paz y salvo sale cuando esté confirmado."
+                : "Todavía no hay ningún canon confirmado que certificar."}
+          </p>
+        ) : (
+          <Button asChild variant="brand" size="xl">
+            <a href={clearanceRoute(lease.id)} target="_blank" rel="noreferrer noopener">
+              <FileCheckIcon className="size-4" aria-hidden="true" />
+              Descargar el paz y salvo
+            </a>
+          </Button>
+        )}
+      </div>
 
       {state === "renewed" ? (
         /*

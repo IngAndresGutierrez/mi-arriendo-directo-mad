@@ -1709,6 +1709,82 @@ design working: there is no service account, so no URL can be signed — and the
 document while only the link comes from the signature, so the areas, the conditions and the objection
 all still render. It is the same property the contract panel already pays for.
 
+## El recibo de pago y el paz y salvo (`features/lease`, `/api/arriendos/<id>/…`)
+
+Los dos documentos que la tenencia produce sola. Ninguno se sube y ninguno se firma: los dos se
+**derivan enteros de lo que el propietario ya confirmó**, y esa es la decisión de la que cuelga todo
+lo demás.
+
+**El inquilino los puede emitir él mismo, y ese es el punto.** Un paz y salvo normalmente lo expide
+el acreedor — lo que significa que también es un documento que el acreedor puede **retener**, y un
+inquilino sin nada que mostrarle al siguiente propietario no tiene defensa contra eso. Aquí cada mes
+que lista es una confirmación que el propietario ya hizo, así que el certificado no afirma nada
+nuevo: repite lo que él ya dijo, y se lo puede decir a quien pregunte.
+
+**Por eso la redacción está en el código y no en una plantilla.** Ninguno de los dos dice *el
+propietario certifica*; dicen **según el registro de esta plataforma, el propietario confirmó haber
+recibido** — que es cierto, comprobable contra la pantalla que las dos partes leen, y no una
+afirmación que este producto esté en posición de hacer en nombre de nadie.
+
+**El recibo es una obligación, no una cortesía.** Ley 820 de 2003 pone en el arrendador dar al
+arrendatario un comprobante escrito con la fecha, el valor y el periodo que cubre el pago; en la
+práctica eso es un "listo, recibido" por WhatsApp que no sobrevive a un desacuerdo. **La página
+enuncia el fondo y no cita ningún artículo**: el numeral merece la lectura de un abogado antes de
+que este producto lo imprima.
+
+**Solo un mes confirmado tiene recibo.** Un recibo certifica que el dinero **llegó**, y eso solo lo
+puede decir la persona cuya cuenta es — un mes con el comprobante subido y sin veredicto se ve
+pagado desde el lado del inquilino y no lo está. `receiptBlocker` lo niega en el endpoint y no solo
+en la pantalla: un guardia de página protege una pantalla, no una URL que alguien teclea.
+
+**El paz y salvo se niega con tres motivos distintos**, no con un "no": mora es plata que transferir,
+`in_review` es un propietario a quien perseguir, y una tenencia sin nada confirmado no tiene qué
+certificar. Un mes **que todavía no vence no lo bloquea** — dice *al día a la fecha* y nunca *el
+contrato terminó*, porque bajo Ley 820 el arriendo se prorroga quiera alguien o no, y afirmar lo
+segundo sería decir algo que la ley niega. `leaseTermState` se niega igual un nivel más arriba.
+
+**Nada se guarda.** Los dos se generan al pedirlos, así que una copia almacenada sería una segunda
+fuente de verdad que un veredicto corregido dejaría vieja — la misma razón por la que `leaseSummary`
+cuenta los periodos en vez de mantener contadores. Cuesta una lectura de Firestore y una página de
+texto.
+
+**"Referencia" y nunca "número".** Un recibo numerado insinúa numeración DIAN, que es otro régimen
+con su propia autorización y sus propias consecuencias por equivocarse. Se deriva del id y del
+periodo, así que el mismo mes da siempre la misma y no hay contador que mantener — y toma los
+**últimos** seis caracteres del id, porque los ids legibles llevan prefijo y cortando por delante
+todas las tenencias de una corrida compartirían referencia.
+
+**Ni la cuenta de pago ni la calle.** La primera por la regla que ya siguen los avisos: un documento
+que circula con el número de cuenta de alguien dentro es la forma de toda estafa de pagos. La segunda
+porque `features/lease` no puede leerla —vive en `properties/{id}/private/location`— y esa restricción
+resulta ser la respuesta correcta de todas formas: un paz y salvo se le enseña a un desconocido.
+
+**`shared/pdf/text.ts` salió de `features/application`** cuando llegó el segundo consumidor. "Lo que
+una fuente estándar de PDF puede dibujar" no es un hecho sobre una postulación, y la alternativa era
+que `features/lease` entrara en las interioridades de otro módulo, que es justo lo que eslint impide.
+
+**Tres defectos que solo se vieron leyendo el papel**, y ninguna comprobación de la barra podía:
+
+- **Escribí el español sin tildes "por si acaso"**, que es exactamente la superstición que
+  `drawableText` existe para no necesitar: WinAnsi **sí** codifica los acentos del español y
+  `shared/pdf/text.test.ts` lo fija contra `pdf-lib`. Lo que no codifica es un emoji, y de eso se
+  ocupa la función.
+- **Dos formatos de fecha, uno debajo del otro**: "4 de mayo de 2026" y "5 de **may** de 2026", por
+  mezclar `formatLongDate` con `formatBogotaDateTime`. El mes abreviado se lee como un fallo en un
+  papel que alguien archiva.
+- **La referencia cortaba por el principio del id**, así que todas las tenencias de una corrida
+  compartían los seis caracteres.
+
+**`tests/e2e/certificates.mjs` mira dentro del PDF, y esa es la única aserción que sirve.** `pdf-lib`
+produce un archivo perfectamente válido y **completamente vacío** si algo se dibuja fuera de la
+página, así que comprobar el `content-type` y el tamaño pasa sobre una hoja en blanco. El driver
+descomprime los flujos con `zlib` y **decodifica los literales hexadecimales** —`<6D6961…> Tj`, que
+es como `pdf-lib` escribe una cadena— antes de buscar el valor, los nombres y la referencia. Sin ese
+segundo paso el texto no aparece por ninguna parte.
+
+Y `pdf.save()` **revienta desde la línea que escribe el fichero** con un emoji en el título del
+inmueble: el driver siembra uno a propósito, y quitar `drawableText` deja la ruta en 500.
+
 ## Recovering a password (`features/auth`)
 
 Two screens: `/recuperar` asks for the address, `/recuperar/confirmar` takes the code and sets the
