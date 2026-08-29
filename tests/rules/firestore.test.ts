@@ -851,6 +851,87 @@ describe("leases", () => {
     });
   });
 
+  describe("its acta de entrega", () => {
+    const PATH = `leases/${LEASE_ID}/handovers/checkin`;
+
+    /*
+     * El acta dice en qué estado está la casa de alguien, con fotos de sus habitaciones. La leen las
+     * dos partes —el propietario la redacta y el inquilino la responde— y nadie más.
+     */
+    it("both parties read the acta; a third party and an anonymous visitor do NOT", async () => {
+      await assertSucceeds(getDoc(doc(actingAs(env, UID_TENANT, "tenant"), PATH)));
+      await assertSucceeds(getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), PATH)));
+      await assertFails(getDoc(doc(actingAs(env, UID_THIRD_PARTY, "tenant"), PATH)));
+      await assertFails(getDoc(doc(anonymous(env), PATH)));
+    });
+
+    it("both parties list the actas, and a stranger cannot", async () => {
+      await assertSucceeds(
+        getDocs(collection(actingAs(env, UID_TENANT, "tenant"), `leases/${LEASE_ID}/handovers`)),
+      );
+      await assertSucceeds(
+        getDocs(collection(actingAs(env, UID_LANDLORD, "landlord"), `leases/${LEASE_ID}/handovers`)),
+      );
+      await assertFails(
+        getDocs(collection(actingAs(env, UID_THIRD_PARTY, "tenant"), `leases/${LEASE_ID}/handovers`)),
+      );
+    });
+
+    /*
+     * **Ninguna de las dos partes escribe un acta desde el cliente, y aquí eso es lo que sostiene
+     * toda la garantía.** Lo que las reglas no pueden preguntar: que solo el propietario redacte,
+     * que solo el inquilino responda, que cada foto esté en la carpeta de quien la sube y exista de
+     * verdad en el bucket, y sobre todo que la **huella la recalcule el servidor** a partir de las
+     * áreas. Un cliente que pudiera mandar su propia huella podría aceptar una versión y dejar la
+     * aceptación clavada en otra, que es exactamente la garantía entera perdida.
+     */
+    it("neither party writes an acta from the client", async () => {
+      const acta = {
+        areas: [{ id: "a1", name: "Sala", condition: "good", note: "", photos: [] }],
+        fingerprint: "Sala|good||",
+        submittedAt: null,
+        acceptance: null,
+        objection: null,
+      };
+
+      for (const [uid, role] of [
+        [UID_TENANT, "tenant"],
+        [UID_LANDLORD, "landlord"],
+      ] as const) {
+        const db = actingAs(env, uid, role);
+        await assertFails(setDoc(doc(db, `leases/${LEASE_ID}/handovers/checkout`), acta));
+        await assertFails(setDoc(doc(db, PATH), acta));
+        await assertFails(updateDoc(doc(db, PATH), { submittedAt: null }));
+        await assertFails(deleteDoc(doc(db, PATH)));
+      }
+    });
+
+    /**
+     * Y el caso concreto que más importa: el inquilino **no** puede aceptarse el acta a sí mismo
+     * escribiendo la aceptación, ni el propietario puede escribirla en nombre del inquilino.
+     */
+    it("nobody writes the acceptance from the client", async () => {
+      const aceptacion = {
+        acceptance: {
+          at: "2026-09-02T10:00:00.000Z",
+          fingerprint: "Cocina|good|Todo funciona.|handovers/x/abc-cocina.jpg",
+          ip: "1.2.3.4",
+          userAgent: "Mozilla/5.0",
+        },
+      };
+
+      await assertFails(updateDoc(doc(actingAs(env, UID_TENANT, "tenant"), PATH), aceptacion));
+      await assertFails(updateDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), PATH), aceptacion));
+    });
+
+    /** Como con los meses: una tenencia inventada no presta acceso a lo que se cuelgue de ella. */
+    it("an acta under a tenancy that does not exist is denied", async () => {
+      await assertFails(
+        getDoc(doc(actingAs(env, UID_TENANT, "tenant"), "leases/lease-invented/handovers/checkin")),
+      );
+    });
+  });
+
   describe("its incidents", () => {
     /*
      * Un incidente dice dónde vive alguien y qué está roto ahí. Lo leen las dos partes — el

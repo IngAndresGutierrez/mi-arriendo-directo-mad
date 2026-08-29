@@ -1,15 +1,16 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { BanknoteIcon, FileTextIcon, WrenchIcon } from "lucide-react";
+import { BanknoteIcon, ClipboardListIcon, FileTextIcon, WrenchIcon } from "lucide-react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/shared/ui/tabs";
 
+import { handoverAnchor } from "../domain/handover";
 import { incidentAnchor } from "../domain/incident";
 import { periodAnchor } from "../domain/lease";
 
-/** The three subjects of a tenancy. The value is what a hash has to resolve to. */
-type TabValue = "informacion" | "pagos" | "incidentes";
+/** The four subjects of a tenancy. The value is what a hash has to resolve to. */
+type TabValue = "informacion" | "pagos" | "entrega" | "incidentes";
 
 /**
  * Which tab an anchor lives on.
@@ -25,12 +26,18 @@ function tabForHash(hash: string): TabValue | null {
 
   if (anchor.startsWith(periodAnchor(""))) return "pagos";
   if (anchor.startsWith(incidentAnchor("")) || anchor === "incidentes") return "incidentes";
+  if (anchor.startsWith(handoverAnchor(""))) return "entrega";
 
   return null;
 }
 
 /**
- * The tenancy in three tabs: what it is, what is paid, and what is broken.
+ * The tenancy in four tabs: what it is, what is paid, how it was handed over, and what is broken.
+ *
+ * The acta joined them last and it is genuinely a fourth subject rather than a section of one of the
+ * others: the term is the agreement, the months are the money, an incident is something that broke
+ * *during* the tenancy, and the acta is the state of the property at the two moments that bracket
+ * it. Filing it under Información would bury a record with photographs in a reference card.
  *
  * **The default is Pagos, not Información**, even though Información is listed first. The question
  * this page exists to answer is not "¿vamos a hacer esto?" — that is the nine-stage process — it is
@@ -52,17 +59,28 @@ function tabForHash(hash: string): TabValue | null {
 export function LeaseTabs({
   info,
   payments,
+  handover,
   incidents,
   openMonths,
   incidentCount,
+  handoverAlert,
 }: {
   /** Already-created JSX, not components: a function does not cross the RSC boundary. */
   readonly info: ReactNode;
   readonly payments: ReactNode;
+  readonly handover: ReactNode;
   readonly incidents: ReactNode;
   /** Months that still need something, so the rail says where the work is. */
   readonly openMonths: number;
   readonly incidentCount: number;
+  /**
+   * Whether an acta is waiting on the person looking at the page.
+   *
+   * A boolean and not a count, because there are only ever two actas and "one of them needs you" is
+   * the whole message. Same rule as the months' counter: the number goes where the work is, and a
+   * badge on every tab is a badge nobody reads.
+   */
+  readonly handoverAlert: boolean;
 }) {
   const [value, setValue] = useState<TabValue>("pagos");
 
@@ -137,6 +155,11 @@ export function LeaseTabs({
           */}
           {openMonths > 0 ? <Count value={openMonths} tone="attention" /> : null}
         </TabsTrigger>
+        <TabsTrigger value="entrega">
+          <ClipboardListIcon className="size-4" aria-hidden="true" />
+          Entrega
+          {handoverAlert ? <Dot /> : null}
+        </TabsTrigger>
         <TabsTrigger value="incidentes">
           <WrenchIcon className="size-4" aria-hidden="true" />
           Incidentes
@@ -150,6 +173,9 @@ export function LeaseTabs({
       </TabsContent>
       <TabsContent value="pagos" className="space-y-6">
         {payments}
+      </TabsContent>
+      <TabsContent value="entrega" className="space-y-6">
+        {handover}
       </TabsContent>
       <TabsContent value="incidentes" className="space-y-6">
         {incidents}
@@ -165,6 +191,22 @@ export function LeaseTabs({
  * that was reported is not a thing anybody has to act on today, and colouring it like a debt would
  * make the rail cry wolf about a leak somebody already fixed.
  */
+/**
+ * "Algo te espera aquí", sin número.
+ *
+ * Un punto y no un contador porque solo hay dos actas: decir "1" al lado de "Entrega" es escribir un
+ * número que no informa de nada. Lleva su propio `sr-only`, porque un color no es un mensaje para
+ * quien no lo ve — la regla que este producto sigue en todas partes.
+ */
+function Dot() {
+  return (
+    <span className="ml-1 inline-flex items-center">
+      <span className="size-2 rounded-full bg-status-overdue" aria-hidden="true" />
+      <span className="sr-only">tiene algo pendiente</span>
+    </span>
+  );
+}
+
 function Count({ value, tone }: { readonly value: number; readonly tone: "attention" | "quiet" }) {
   return (
     <span

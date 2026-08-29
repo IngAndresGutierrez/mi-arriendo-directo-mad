@@ -198,6 +198,24 @@ export const COVERS = {
     "app/api/cron/canon-reminders",
     "vercel.json",
   ],
+  /*
+   * El acta de entrega. Cubre las tres capas que solo se ven juntas en un navegador: la subida de
+   * fotos por el SDK web (que ni `build` ni un test unitario tocan), la huella que el servidor
+   * recalcula en cada guardado, y el ancla a la que lleva el aviso.
+   */
+  handover: [
+    "features/lease/domain/handover",
+    "features/lease/validations/handover",
+    "features/lease/data/handover",
+    "features/lease/actions/handover",
+    "features/lease/ui/handover-panel",
+    "features/lease/ui/handover-actions",
+    "features/lease/ui/use-picked-files",
+    "features/lease/ui/lease-tabs",
+    "app/[lang]/(app)/arriendos",
+    "storage.rules",
+    "firestore.rules",
+  ],
   "manage-properties": ["features/property/", "app/[lang]/(app)/mis-inmuebles"],
   /*
    * El borrador toca las dos mitades: el formulario y la lista del propietario, y también el

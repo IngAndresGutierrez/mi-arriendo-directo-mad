@@ -486,6 +486,25 @@ service cloud.firestore {
         allow get, list: if isAdmin() || (isSignedIn() && isParentLeaseParty());
         allow create, update, delete: if false;  // Server Actions only
       }
+
+      // The acta de entrega: what state the property was handed over in, and handed back in. The
+      // document id IS the kind (`checkin` / `checkout`), which is what makes two check-ins
+      // impossible — the same trick the month uses.
+      //
+      // Read by both parties, like a month and an incident, and for the same reason: it is a record
+      // about somebody's home and both of them are named in it.
+      //
+      // Written only by the Server Action, and here that is not a preference. The rules cannot
+      // express any of what has to hold: that only the landlord drafts and only the tenant answers,
+      // that every photo sits in the caller's own Storage folder and actually exists in the bucket,
+      // and — above all — that the fingerprint an acceptance binds to is **recomputed by the server**
+      // from the areas rather than taken from the client. A client that could send its own
+      // fingerprint could accept one version and leave the acceptance pinned to another, which is
+      // the whole guarantee gone.
+      match /handovers/{kind} {
+        allow get, list: if isAdmin() || (isSignedIn() && isParentLeaseParty());
+        allow create, update, delete: if false;  // Server Actions only
+      }
     }
 
     // -------------------------- contracts and payments ----------------------

@@ -4,6 +4,46 @@
  * Anything not exported here is internal to the feature.
  */
 export {
+  AREA_CONDITIONS,
+  AREA_CONDITION_LABELS,
+  HANDOVER_KINDS,
+  HANDOVER_KIND_LABELS,
+  HANDOVER_STATE_LABELS,
+  MAX_AREA_PHOTOS,
+  MAX_HANDOVER_AREAS,
+  MAX_OBJECTION_PHOTOS,
+  SUGGESTED_AREAS,
+  acceptanceApplies,
+  availableHandoverActions,
+  checkoutBlocker,
+  damagedAreas,
+  handoverAnchor,
+  handoverFingerprint,
+  handoverFolder,
+  handoverPhotoProblem,
+  handoverState,
+  isHandoverKind,
+  isHandoverSettled,
+  isOwnHandoverPath,
+  mayDo,
+  objectionApplies,
+  type AreaCondition,
+  type Handover,
+  type HandoverArea,
+  type HandoverKind,
+  type HandoverPhoto,
+  type HandoverState,
+} from "./domain/handover";
+export { getHandover, getHandovers, handoverView, type HandoverView } from "./data/handover";
+export { HandoverPanel } from "./ui/handover-panel";
+export {
+  acceptHandover,
+  objectHandover,
+  saveHandoverDraft,
+  submitHandover,
+  type HandoverActionResult,
+} from "./actions/handover";
+export {
   CANON_REMINDERS,
   REMINDER_HORIZON_DAYS,
   canonReminderAudience,

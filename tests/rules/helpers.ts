@@ -298,6 +298,35 @@ export async function seed(env: RulesTestEnvironment): Promise<void> {
       updatedAt: new Date(),
     });
 
+    // El acta de entrega: mismo público que un mes y que un incidente, así que la misma regla tiene
+    // que valer. El id del documento **es** el tipo de acta, que es lo que hace imposible que
+    // existan dos entregas.
+    await db.doc(`leases/${LEASE_ID}/handovers/checkin`).set({
+      areas: [
+        {
+          id: "a1",
+          name: "Cocina",
+          condition: "good",
+          note: "Todo funciona.",
+          photos: [
+            {
+              path: `handovers/${UID_LANDLORD}/abc-cocina.jpg`,
+              fileName: "cocina.jpg",
+              contentType: "image/jpeg",
+              bytes: 210_000,
+              uploadedAt: "2026-09-01T15:00:00.000Z",
+            },
+          ],
+        },
+      ],
+      fingerprint: "Cocina|good|Todo funciona.|handovers/x/abc-cocina.jpg",
+      submittedAt: "2026-09-01T15:05:00.000Z",
+      acceptance: null,
+      objection: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
     // A second tenancy, somebody else's: without it an unfiltered `list` would only ever find the
     // reader's own and the rule would look stricter than it is.
     await db.doc("leases/lease-someone-else").set({

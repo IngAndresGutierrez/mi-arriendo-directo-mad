@@ -116,10 +116,17 @@ const URL_ARRIENDO = `${BASE}/arriendos/${LEASE_ID}`;
 await inq.goto(URL_ARRIENDO, { waitUntil: "domcontentloaded" });
 await settled(inq);
 
-// Abre en "Pagos": los incidentes son la tercera pestaña y hay que ir a ella.
+/*
+ * Abre en "Pagos", así que hay que ir a Incidentes.
+ *
+ * **Se afirma que la pestaña existe, no cuántas hay.** La versión anterior contaba tres y se puso
+ * roja el día que llegó el acta de entrega — que es una cuarta sección legítima y no tiene nada que
+ * ver con este driver. Contar era una segunda copia de "de cuántas partes se compone un arriendo",
+ * exactamente la clase de regla del producto que un driver no debe repetir.
+ */
 const rail = inq.getByRole("tablist", { name: /Secciones del arriendo/i });
-if ((await rail.getByRole("tab").count()) !== 3) {
-  throw new Error(`el arriendo no tiene tres pestañas: ${await rail.innerText()}`);
+if ((await rail.getByRole("tab", { name: /Incidentes/i }).count()) !== 1) {
+  throw new Error(`el arriendo no ofrece la pestaña de incidentes: ${await rail.innerText()}`);
 }
 await leaseTab(inq, "Incidentes");
 

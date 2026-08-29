@@ -4,14 +4,18 @@ import { redirect } from "next/navigation";
 import { ArrowLeftIcon } from "lucide-react";
 
 import {
+  checkoutBlocker,
   focusMonth,
+  getHandovers,
   getLeaseFor,
+  handoverView,
   incidentRows,
   leaseSchedule,
   leaseSummary,
   listIncidents,
   listPeriods,
   monthRows,
+  HandoverPanel,
   IncidentList,
   LeaseSummaryPanel,
   LeaseTabs,
@@ -55,12 +59,14 @@ export default async function RentalPage(props: PageProps<"/[lang]/arriendos/[id
    * three have to agree: the derived calendar, the documents that exist for it, and a signed URL
    * per receipt — and only the server can produce the third.
    */
-  const [rows, periods, incidents] = await Promise.all([
+  const [rows, periods, incidents, actas] = await Promise.all([
     monthRows(lease, today),
     listPeriods(lease.id),
     // Los incidentes son otra subcolección y no dependen de los meses: en paralelo, o la página
     // paga dos viajes de ida y vuelta por lo que puede pedir a la vez.
     listIncidents(lease.id),
+    // Y las actas son una tercera, por lo mismo.
+    getHandovers(lease.id),
   ]);
   const summary = leaseSummary(leaseSchedule(lease, today), periods, today);
   const focus = focusMonth(rows, isLandlord);
@@ -71,6 +77,27 @@ export default async function RentalPage(props: PageProps<"/[lang]/arriendos/[id
    * `leaseSummary` sobre los mismos documentos, y el rail sólo necesita el número.
    */
   const openMonths = summary.overdue + summary.inReview;
+
+  /*
+   * Las dos actas con sus fotos ya firmadas. En paralelo entre ellas: una entrega con doce espacios
+   * son setenta URLs que firmar, y encadenadas serían el presupuesto entero de render de la página.
+   */
+  const [checkinView, checkoutView] = await Promise.all([
+    handoverView(actas.checkin),
+    handoverView(actas.checkout),
+  ]);
+
+  /*
+   * El punto del rail: si alguna de las dos actas espera algo de **quien está mirando**. El
+   * propietario tiene trabajo mientras haya un borrador o una objeción que responder; el inquilino,
+   * mientras haya un acta enviada esperándole. Se calcula desde el mismo `handoverState` que
+   * dibujan los paneles, no desde una segunda regla.
+   */
+  const handoverAlert = [checkinView.state, checkoutView.state].some((state) =>
+    isLandlord
+      ? state === "draft" || state === "disputed"
+      : state === "awaiting_tenant" || state === "disputed",
+  );
 
   return (
     <div className="mx-auto w-full max-w-3xl">
@@ -116,6 +143,7 @@ export default async function RentalPage(props: PageProps<"/[lang]/arriendos/[id
         <LeaseTabs
           openMonths={openMonths}
           incidentCount={reports.length}
+          handoverAlert={handoverAlert}
           info={<LeaseSummaryPanel lease={lease} summary={summary} today={today} />}
           payments={
             <>
@@ -125,6 +153,32 @@ export default async function RentalPage(props: PageProps<"/[lang]/arriendos/[id
                 rows={rows}
                 focus={focus?.month.id ?? null}
                 isLandlord={isLandlord}
+              />
+            </>
+          }
+          handover={
+            <>
+              <HandoverPanel
+                leaseId={lease.id}
+                kind="checkin"
+                view={checkinView}
+                isLandlord={isLandlord}
+                blocked={false}
+              />
+              <HandoverPanel
+                leaseId={lease.id}
+                kind="checkout"
+                view={checkoutView}
+                isLandlord={isLandlord}
+                /* Una devolución se lee al lado de la entrega, así que necesita que exista. */
+                blocked={checkoutBlocker(actas.checkin) !== null}
+                /*
+                  Y arranca con los mismos espacios que la entrega. Es lo que hace que la comparación
+                  exista: dos actas que nombran habitaciones distintas no se pueden leer una al lado
+                  de la otra. Solo los nombres — el estado y las fotos son lo que se va a volver a
+                  mirar.
+                */
+                seed={(actas.checkin?.areas ?? []).map((area) => area.name)}
               />
             </>
           }

@@ -1,7 +1,7 @@
 import type { Stage } from "@/features/application/client";
 import { dictionaryFor } from "@/shared/i18n/dictionary";
 import type { Locale } from "@/shared/i18n/locale";
-import { incidentAnchor, periodAnchor, periodLabel } from "@/features/lease/client";
+import { handoverAnchor, incidentAnchor, periodAnchor, periodLabel } from "@/features/lease/client";
 import {
   ERRANDS_ROUTE,
   HOME_ROUTE,
@@ -108,6 +108,15 @@ export const NOTIFICATION_TYPES = [
   "canon_due_soon",
   "canon_due_today",
   "canon_overdue",
+  /*
+   * El acta de entrega. Tres tipos y no un `handover_updated`, por lo de siempre: "revísala" es una
+   * tarea del inquilino, "la aceptó" es un cierre para el propietario y "puso observaciones" es una
+   * tarea urgente que además trae el motivo dentro. Un solo tipo obligaría a abrir la app para
+   * saber cuál de las tres cosas pasó.
+   */
+  "handover_submitted",
+  "handover_accepted",
+  "handover_objected",
   "incident_reported",
   "incident_in_progress",
   "incident_awaiting_confirmation",
@@ -158,6 +167,16 @@ export type NotificationDoc = {
    * dead for as long as the anchors had existed.
    */
   readonly collaboration?: string;
+  /**
+   * Which acta, on the three notifications that are about one. `checkin` or `checkout`.
+   *
+   * Here for the same reason `period` and `incident` are: it is what the link needs, so an aviso
+   * about the acta lands on the acta instead of at the top of a page with four tabs on it. And like
+   * both of them it **must be copied in `toNotification`** — a field added to the document without a
+   * line in that converter is a field the bell never sees, which is the bug that left every month's
+   * anchor dead for as long as the anchors had existed.
+   */
+  readonly handover?: string;
   /** ISO 8601, or `null` while unread. */
   readonly readAt: string | null;
   readonly createdAt: unknown;
@@ -181,6 +200,17 @@ export type Notification = Omit<NotificationDoc, "createdAt"> & {
  * Spanish abbreviates times as "3:00 p. m." — with the period — so a body that appends its own
  * lands on "3:00 p. m..", which reads like a typo because it is one.
  */
+/**
+ * "entrega" o "devolución", según de cuál de las dos actas habla el aviso.
+ *
+ * Se lee del campo y no del tipo porque los tres tipos sirven a las dos actas: el corte está en de
+ * qué acta se habla, no en qué pasó con ella. Un aviso viejo sin el campo dice "entrega", que es la
+ * que existía primero — la misma dirección en la que fallan `localeFor` y `allowsChannel`.
+ */
+function actaWord(notification: { readonly handover?: string }): string {
+  return notification.handover === "checkout" ? "devolución" : "entrega";
+}
+
 function sentence(text: string): string {
   const trimmed = text.trim();
 
@@ -191,6 +221,7 @@ export function notificationCopy(
   notification: Pick<Notification, "type" | "stage" | "propertyTitle" | "actorName"> & {
     readonly detail?: string;
     readonly period?: string;
+    readonly handover?: string;
   },
   /**
    * Whose language this is written in.
@@ -545,6 +576,32 @@ export function notificationCopy(
           ? `El canon de ${month} de ${property} está vencido y no se ha registrado el pago. Ábrelo en el arriendo.`
           : `Hay un canon vencido en ${property} sin pago registrado. Ábrelo en el arriendo.`,
       };
+    /*
+     * Las tres del acta de entrega. El acta dice en qué estado está la casa de alguien; lo que sale
+     * del producto es lo mínimo que sigue llevando a la página, igual que con un incidente.
+     */
+    case "handover_submitted":
+      return {
+        title: `El propietario preparó el acta de ${actaWord(notification)}`,
+        body: `Revisa espacio por espacio cómo quedó registrado ${property} y acéptala o deja tus observaciones.`,
+      };
+    case "handover_accepted":
+      return {
+        title: `El inquilino aceptó el acta de ${actaWord(notification)}`,
+        body: `${who || "El inquilino"} confirmó que el acta de ${property} coincide con lo que ve.`,
+      };
+    case "handover_objected":
+      /*
+       * El motivo sí viaja, a diferencia de la descripción de un incidente: viene acotado a mil
+       * caracteres y es lo único con lo que el propietario decide si corrige el acta o llama. Sin él
+       * el aviso sería un mensaje diciendo que hay un mensaje.
+       */
+      return {
+        title: `El inquilino puso observaciones al acta de ${actaWord(notification)}`,
+        body: notification.detail
+          ? sentence(`${who || "El inquilino"} respondió sobre ${property}: ${notification.detail}`)
+          : `${who || "El inquilino"} dejó observaciones sobre el acta de ${property}. Ábrela para leerlas.`,
+      };
     case "incident_reported":
       /*
        * El título, que es el `detail`, y nunca la descripción ni un adjunto. Lo que sale del
@@ -626,6 +683,9 @@ const LEASE_NOTIFICATION_TYPES: readonly NotificationType[] = [
   "canon_due_soon",
   "canon_due_today",
   "canon_overdue",
+  "handover_submitted",
+  "handover_accepted",
+  "handover_objected",
   "incident_reported",
   "incident_in_progress",
   "incident_awaiting_confirmation",
@@ -679,6 +739,7 @@ export function notificationPath(
   notification: Pick<Notification, "applicationId" | "stage" | "type"> & {
     readonly period?: string;
     readonly incident?: string;
+    readonly handover?: string;
   },
 ): string {
   /*
@@ -711,7 +772,9 @@ export function notificationPath(
       ? `#${incidentAnchor(notification.incident)}`
       : notification.period
         ? `#${periodAnchor(notification.period)}`
-        : "";
+        : notification.handover
+          ? `#${handoverAnchor(notification.handover)}`
+          : "";
 
     return `${rentalRoute(notification.applicationId)}${anchor}`;
   }

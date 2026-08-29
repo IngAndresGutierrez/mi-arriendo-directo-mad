@@ -79,6 +79,30 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    // the acta de entrega's photos. Keyed by uid like the three blocks above, and forced by the same
+    // fact: Storage rules cannot read Firestore, so "is this person a party to that tenancy?" is a
+    // question they cannot ask. Which acta a photo belongs to is recorded in Firestore, where it can
+    // be — and the other party, who by this rule cannot read the object at all, opens it through a
+    // URL the server signs.
+    //
+    // **Images only, and one limit rather than two.** The incidents take video and argue for it well;
+    // an acta is the opposite case, because its value is that a checkout photo can be put beside the
+    // check-in photo of the same wall. Two videos of a wall compare worse than two pictures of it.
+    //
+    // Anchored regex: `matches` is not anchored on its own, so `image/(jpeg|png|webp)` would also
+    // accept a contentType with that substring buried in it.
+    match /handovers/{userId}/{allPaths=**} {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size > 0
+                   && request.resource.contentType.matches('^image/(jpeg|png|webp)$')
+                   && request.resource.size < 8 * 1024 * 1024;
+      // Both parties read this record through the server. A landlord who could delete the photo the
+      // tenant objected with would be able to remove the evidence against their own acta.
+      allow delete: if false;
+    }
+
     // signed contracts: generated and served by the backend
     match /contracts/{allPaths=**} {
       allow read, write: if false;

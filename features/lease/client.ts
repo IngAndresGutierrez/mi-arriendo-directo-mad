@@ -59,3 +59,34 @@ export {
   type IncidentState,
   type IncidentUpdate,
 } from "./domain/incident";
+
+/**
+ * The acta de entrega's pure half, for the components that render it — and for
+ * `features/notification`, which needs `handoverAnchor` to build the link a bell entry opens.
+ */
+export {
+  AREA_CONDITIONS,
+  AREA_CONDITION_LABELS,
+  HANDOVER_KINDS,
+  HANDOVER_KIND_LABELS,
+  HANDOVER_STATE_LABELS,
+  MAX_AREA_PHOTOS,
+  MAX_HANDOVER_AREAS,
+  MAX_OBJECTION_PHOTOS,
+  OBJECTION_NOTE_MAX,
+  OBJECTION_NOTE_MIN,
+  SUGGESTED_AREAS,
+  availableHandoverActions,
+  damagedAreas,
+  handoverAnchor,
+  handoverFolder,
+  handoverPhotoProblem,
+  handoverState,
+  isHandoverSettled,
+  type AreaCondition,
+  type Handover,
+  type HandoverArea,
+  type HandoverKind,
+  type HandoverPhoto,
+  type HandoverState,
+} from "./domain/handover";

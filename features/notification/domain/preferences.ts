@@ -91,6 +91,13 @@ const CATEGORY_OF: Readonly<Record<NotificationType, NotificationCategory>> = {
   incident_resolved: "lease",
   incident_withdrawn: "lease",
   incident_comment: "lease",
+  /*
+   * El acta va con el arriendo y no con los recordatorios: no avisa de algo que va a pasar, avisa
+   * de que la otra parte hizo algo — que es la definición de esta categoría.
+   */
+  handover_submitted: "lease",
+  handover_accepted: "lease",
+  handover_objected: "lease",
 
   /*
    * Los dos recordatorios de una entrevista, y son categoría propia por lo que piden: no son la

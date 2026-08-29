@@ -1474,10 +1474,16 @@ emails were fine, which is why nobody noticed: `renderNotificationEmail` reads t
 the way out, not the stored document on the way back in. A field added to the document needs a line
 in that converter.
 
-## The tenancy has three tabs
+## The tenancy has four tabs
 
-`/arriendos/<id>` is **Información · Pagos · Incidentes** — the term and the summary, where the canon
-goes plus every month, and the reports. Three subjects, three panels.
+`/arriendos/<id>` is **Información · Pagos · Entrega · Incidentes** — the term and the summary, where
+the canon goes plus every month, the acta de entrega, and the reports. Four subjects, four panels.
+
+**Entrega joined last and it is a subject rather than a section of one of the others**: the term is
+the agreement, the months are the money, an incident is something that broke *during* the tenancy,
+and the acta is the state of the property at the two moments that bracket it. Filing it under
+Información would bury a record with photographs inside a reference card. See "The acta de entrega"
+below.
 
 **Información is listed first and Pagos is the one that opens.** The question this page exists to
 answer is "¿está pagado este mes?", and the month that needs something is what somebody came for;
@@ -1488,8 +1494,8 @@ links to `#mes-2026-09` and every one about a report to `#incidente-<id>`, and R
 panel that is not showing — so a link whose target is not mounted scrolls nowhere and fails silently,
 which is the worst kind of regression because the email looks fine and the click looks like nothing
 happened. The hash picks the tab, in the browser, because **a fragment is never sent to the server**
-and no Server Component can read it. The mapping is derived from `periodAnchor("")` and
-`incidentAnchor("")`, never from literals. The tab is deliberately *not* written into the URL on
+and no Server Component can read it. The mapping is derived from `periodAnchor("")`,
+`incidentAnchor("")` and `handoverAnchor("")`, never from literals. The tab is deliberately *not* written into the URL on
 click: the hash is a contract with links that already exist, and a `?tab=` every click rewrote would
 be a second source of truth beside it.
 
@@ -1508,8 +1514,8 @@ actionable) and then waits for the active tab, not for the click. Splitting this
 three assertions that read the summary out of `document.body.innerText`.
 
 **Not built, and deliberately so for now**: who pays for a repair (above), the IPC raise at renewal,
-and the closing described above. *(The canon-due reminder **is** built now — see "Canon reminders"
-below.)* A landlord recording "me pagó en efectivo" without a tenant
+and the closing described above. *(The canon-due reminder and the acta de entrega **are** built now —
+see "Canon reminders" and "The acta de entrega" below.)* A landlord recording "me pagó en efectivo" without a tenant
 receipt is not built either — the flow is symmetric with the first canon on purpose. `/arriendos`
 also does **not** mark the property `rented`, which the process does not do on finishing either.
 
@@ -1595,6 +1601,113 @@ holds it pass an hour would be precisely the way to bypass Ley 2300 — so the d
 what it decided and asserts on that: window open, the full path; window closed, that **nothing** left
 (which is the assertion the statute is about). Both are real; the second covers less and says so out
 loud instead of pretending the run happened.
+
+## The acta de entrega (`features/lease`, the Entrega tab)
+
+**This is the document that decides who pays for the scratch on the door**, and in Colombia there is
+nothing else standing in for it. Ley 820 forbids a cash deposit, so at the end of a tenancy neither
+party is holding money the other has to argue back — what they have instead is whatever they wrote
+down at the start. Today that is a WhatsApp thread of photos nobody can find, and the argument is
+decided by whoever remembers harder.
+
+Two per tenancy at `leases/{leaseId}/handovers/{kind}`, `checkin` and `checkout`, and **the document
+id is the kind** — which is what makes two check-ins impossible, the same trick `periods/{YYYY-MM}`
+uses on the month.
+
+**The rule the whole thing rests on: an acceptance belongs to the version it accepted.** Every acta
+carries a fingerprint of its contents and an acceptance records the fingerprint it was given for.
+Change an area, add a photo, move "bien" to "con daños", and the fingerprint moves — so the
+acceptance stops applying **by itself, with no cleanup**, and the acta is waiting on the tenant
+again. That is `documentHash` on the contract signature and `verdictApplies` on a receipt for the
+third time in this product, and it is the same reason each time: a record that can be changed after
+it was agreed to is not evidence, it is a claim. `handover.test.ts` asserts it by editing an accepted
+acta, and it goes red if `acceptanceApplies` stops comparing.
+
+**The fingerprint is computed on the server and never accepted from the client.** That is the one
+line the guarantee rests on, and it is why `firestore.rules` denies every client write on this
+subcollection: a client that could send its own fingerprint could accept one version while the
+acceptance stayed pinned to another. The pure half — `handoverFingerprint`, a canonical string — is
+in the domain and unit-tested field by field, because a field left out of it is a field somebody can
+change after the acta was accepted without the acceptance noticing. The sha256 the action wraps it
+in is only there to keep the stored value short; this is change detection, not authentication.
+
+**The landlord writes and the tenant answers, and the asymmetry is not arbitrary.** It is the
+landlord's property being handed over and they are the party who has to be able to say what state it
+was in; a record about the home somebody lives in that they cannot contradict is not a record but an
+assertion. The tenant's protection is not drafting — it is that **an objection goes on the record
+permanently** and the acta cannot reach `accepted` without them. `availableHandoverActions` returns a
+list and both the screen and the action read it, the rule an errand's `availableActions` already
+states: a control the server would refuse is a lie.
+
+**Revising an accepted acta is allowed and costs the acceptance.** Forbidding the edit would be
+worse: a landlord who spots a mistake in an agreed record and cannot fix it writes the correction
+somewhere this product cannot see. The objection also **stays visible when it is stale**, saying so —
+hiding it once the landlord revised would erase half of what the acta is for, which is the record
+that the two of them disagreed and about what.
+
+**It does not decide who pays.** Ley 820 puts habitability repairs on the landlord and tenant-caused
+damage on the tenant, and which of those a cracked tile is depends on facts this product does not
+have. The same call the incidents already make by keeping the disagreement instead of settling it.
+
+**It is not a signature, and that is a decision rather than an oversight.** `acceptedAt` with an ip
+and a user agent bound to a fingerprint is the evidence shape `acceptedClauseAt` and
+`checksAuthorizedAt` already use. The full apparatus — a one-time code to a verified channel, a drawn
+stroke, a stamped PDF — exists in `features/application` for the contract, which creates obligations.
+An acta records a state. The pieces are there if a lawyer wants it upgraded.
+
+**The check-out is gated on the check-in having been *submitted*, not accepted.** A checkout is a
+comparison, so there has to be something to compare against; requiring acceptance would let a tenant
+who never answers block the landlord from ever closing the tenancy, which is a hostage this product
+must not create. The gate is stated on screen rather than by hiding the section — a landlord looking
+for the devolución would otherwise conclude the product has none.
+
+**Images only, one 8 MB limit, no video** — the opposite call to the incidents, and for a stated
+reason. A video is the point of an incident (a leak that only leaks when the tap runs); the value of
+an acta is that the checkout photo goes beside the check-in photo of the same wall, and two videos of
+a wall compare worse than two pictures of it.
+
+**`usePickedFiles` was extracted from `incident-list.tsx`, not copied.** What is in it is not
+boilerplate: the `blob:` URLs are revoked **only on unmount** (the first version revoked the first
+file's preview when a second was added, and no driver saw it because a driver picks both at once),
+and the files are **held, not uploaded on pick**, because these buckets deny `delete` to every client.
+The four things that differ per form — ceiling, judgement, folder, wording — are arguments.
+
+**One registry per editor, in a ref.** The first version of the editor kept the area→uploader `Map`
+at module scope, which is a bug with two names: the check-in and the check-out editors can be open on
+the same page, so one acta's save would upload the other's photos. And the child registers in an
+**effect**, never during render — the first version called it in the body, which happens to work and
+is exactly what React's rules forbid.
+
+**The condition chips needed a focus ring, and Playwright found it.** The radio is `sr-only` so the
+whole chip is the control — accessible and keyboard-navigable, except that the focus indicator would
+be drawn by an input that occupies no space. Somebody navigating by keyboard could change a room's
+condition without seeing which one they were on. It surfaced because Playwright refuses to click a
+hidden input, which is the same refusal a screen reader user would have experienced silently.
+
+**Four tabs now, and `Entrega` is genuinely a fourth subject**: the term is the agreement, the months
+are the money, an incident is something that broke *during* the tenancy, and the acta is the state of
+the property at the two moments that bracket it. Its rail badge is a **dot, not a count** — there are
+only ever two actas, so "1" beside "Entrega" is a number that informs nobody — and it carries its own
+`sr-only` text, because a colour is not a message to somebody who cannot see it.
+
+**Una regla probada no es una regla desplegada, y esto costó una subida rota en producción.** Las
+fotos del acta necesitan `handovers/{userId}/**` en `storage.rules`; el emulador carga el fichero
+local, así que `pnpm test:rules` y los 51 drivers pasaron en verde con la regla **sin desplegar** y
+lo primero que dijo lo contrario fue "No tienes permiso para subir este archivo" en la pantalla de
+una persona. Es la misma forma exacta que el hueco de los índices compuestos: la barra entera
+comprueba que la regla es correcta y ninguna comprobación mira si está en el proyecto.
+
+**Una regla nueva —de Firestore o de Storage— es `firebase deploy --only firestore:rules,storage` en
+el mismo cambio.** Storage es la mitad que se olvida, porque `firestore.rules` sale nombrado en todas
+partes y la de Storage solo cuando algo sube un archivo.
+
+**`tests/e2e/handover.mjs` covers what nothing else can**: that the photos reach the bucket (the
+upload is done by the browser's web SDK, which neither `build` nor a unit test touches), that editing
+after acceptance drops the acceptance, that each party sees only its own controls, and that the bell
+lands on `#entrega-checkin`. **The photos do not render in the emulated suite** and that is the
+design working: there is no service account, so no URL can be signed — and the record comes from the
+document while only the link comes from the signature, so the areas, the conditions and the objection
+all still render. It is the same property the contract panel already pays for.
 
 ## Recovering a password (`features/auth`)
 
@@ -2420,6 +2533,12 @@ pnpm test:rules    # 9s — firestore.rules, storage.rules, firestore.indexes.js
                    #      every command here and only fails on production. A new
                    #      where(...).orderBy(...) needs its entry in firestore.indexes.json and
                    #      `firebase deploy --only firestore:indexes` in the same change.
+                   #      AND it proves a rule is CORRECT, never that it is DEPLOYED: the emulator
+                   #      loads the local file, so a new `match` passes every check here and answers
+                   #      storage/unauthorized on production. It cost a broken upload once, on the
+                   #      acta's photos. A rules change is
+                   #      `firebase deploy --only firestore:rules,storage` in the same change —
+                   #      Storage is the half that gets forgotten.
 pnpm e2e --since   # ~15s per driver — the browser level. Reads `git diff --name-only` and runs
                    #      only the drivers whose paths it touches (tests/e2e/manifest.mjs).
 pnpm typegen       # 3s — only when a route moved or was renamed (see below). Everything under

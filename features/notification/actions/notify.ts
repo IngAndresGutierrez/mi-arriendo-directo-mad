@@ -70,6 +70,13 @@ export type NotifyInput = {
    */
   readonly collaboration?: string;
   /**
+   * `checkin` o `checkout`, en los tres avisos que hablan de un acta de entrega.
+   *
+   * Mismo trabajo que `period` y que `incident`: es lo que el enlace necesita para caer en el acta
+   * y no al principio de una página con cuatro pestañas.
+   */
+  readonly handover?: string;
+  /**
    * E.164, and only for what is worth a WhatsApp: a reminder minutes before a call.
    *
    * Passing a phone is what says "this one also goes out over WhatsApp". Every other movement of
@@ -107,6 +114,7 @@ export async function notify(input: NotifyInput): Promise<void> {
       ...(input.period ? { period: input.period } : {}),
       ...(input.incident ? { incident: input.incident } : {}),
       ...(input.collaboration ? { collaboration: input.collaboration } : {}),
+      ...(input.handover ? { handover: input.handover } : {}),
       readAt: null,
       createdAt: FieldValue.serverTimestamp(),
     });
