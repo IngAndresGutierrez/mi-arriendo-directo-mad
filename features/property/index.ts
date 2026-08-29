@@ -65,6 +65,30 @@ export { catalogQuery, parseCatalogFilters, parseCityFilter } from "./validation
 export { publishProperty } from "./actions/publish-property";
 export { deleteProperty, publishDraft, updateProperty } from "./actions/manage-property";
 export { getOwnedProperty, hasProperties, listLandlordProperties } from "./data/property";
+export {
+  CERTIFICATE_MAX_AGE_DAYS,
+  MAX_VERIFICATION_DOCUMENTS,
+  VERIFICATION_STATE_LABELS,
+  isVerified,
+  sameRegistry,
+  verificationBlocker,
+  verificationDocumentProblem,
+  verificationFolder,
+  verificationState,
+  type PropertyVerification,
+  type VerificationState,
+} from "./domain/verification";
+export {
+  getVerification,
+  listPendingVerifications,
+  verificationView,
+  type PendingVerification,
+  type VerificationView,
+} from "./data/verification";
+export { decideVerification, requestVerification } from "./actions/verification";
+export { VerifiedBadge, VerifiedNotice } from "./ui/verified-badge";
+export { VerificationPanel } from "./ui/verification-panel";
+export { VerificationQueue } from "./ui/verification-queue";
 export { PropertyForm } from "./ui/property-form";
 export { PropertyManageCard } from "./ui/property-manage-card";
 export { PropertyVideoPlayer } from "./ui/property-video";

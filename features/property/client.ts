@@ -25,3 +25,13 @@ export {
 
 /** The label records, resolved for one language. Replaces the six `X_LABELS` constants. */
 export { propertyLabels, type PropertyLabels } from "./domain/labels";
+
+/** La verificación de titularidad, su mitad pura: los componentes de cliente la necesitan. */
+export {
+  MAX_VERIFICATION_DOCUMENTS,
+  VERIFICATION_STATE_LABELS,
+  isVerified,
+  verificationDocumentProblem,
+  verificationFolder,
+  type VerificationState,
+} from "./domain/verification";

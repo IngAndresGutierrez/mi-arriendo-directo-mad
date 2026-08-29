@@ -1785,6 +1785,95 @@ segundo paso el texto no aparece por ninguna parte.
 Y `pdf.save()` **revienta desde la línea que escribe el fichero** con un emoji en el título del
 inmueble: el driver siembra uno a propósito, y quitar `drawableText` deja la ruta en 500.
 
+## Propietario verificado (`features/property`, `/verificaciones`)
+
+**La respuesta a la única objeción que impide arrendar directo: "¿y si me estafan?"** La estafa es
+siempre la misma forma — un inmueble que alguien no es suyo, una "reserva" o un primer mes, y un
+teléfono que deja de contestar. La mitad ya la niega este producto por no mover la plata; la otra
+mitad es que el inquilino no tiene forma de saber con quién habla.
+
+**La insignia afirma exactamente una cosa**: una persona leyó el certificado de tradición y libertad
+de la matrícula de ese inmueble y la cuenta que lo publica figura en él como propietaria. Nada sobre
+el estado del inmueble, nada sobre el carácter de nadie y ninguna garantía sobre el arriendo. Una
+insignia que dijera "Verificado" sin decir **qué** se verificó significa lo que cada lector quiera, y
+el día que una de esas tenencias salga mal el producto responde por una promesa que nunca hizo en voz
+alta — la misma disciplina con la que la landing se niega a poner "ahorra hasta un 30%".
+
+Por eso, **en la ficha del inmueble la frase que la acota está a la vista y no detrás de un hover**.
+Este producto ya escribió esa regla para la entrada deshabilitada del menú, y aquí pesa más: la frase
+es la parte que impide que la insignia se estire. En una tarjeta del catálogo no hay sitio, así que
+ahí la afirmación completa viaja como nombre accesible y el trabajo de la tarjeta es llevar a la
+página donde está escrita.
+
+**Es manual, y eso no es un parche.** La SNR no tiene API abierta para esto y el certificado es un
+documento de pago que se saca de a uno; `domain/property.ts` ya lo dice de la matrícula: *"the only
+real check is against the registry, which this product does not do"*. Así que lo lee una persona, y
+la insignia dice "revisamos" y no "el sistema verificó".
+
+**Dos mitades y cada una donde le toca.** La evidencia —el certificado, la nota del revisor— es lo
+más sensible que este producto guarda sobre un inmueble: un certificado de tradición lleva la
+dirección completa y la identidad del dueño, que es exactamente por lo que la matrícula es privada.
+Vive en `properties/{id}/private/verification`, al lado de la dirección. El **resultado** es una sola
+marca de tiempo en el documento público, y **solo la positiva**.
+
+**Un rechazo no se publica nunca.** Queda entre el propietario y quien revisó: publicar "verificación
+rechazada" sería una marca sobre una persona que este producto no puede justificar — un certificado
+puede estar vencido, puede faltarle un copropietario, y nada de eso es un hallazgo sobre nadie. El
+**motivo sí le llega al propietario**, porque "el certificado tiene cuatro meses" y "el certificado
+nombra a otra persona" son dos cosas distintas que hacer después; un rechazo sin motivo es un muro, y
+`verificationVerdictSchema` lo exige para rechazar y lo rechaza para aprobar.
+
+**`ownershipVerifiedAt` está congelado en `firestore.rules`, y ahí está toda la garantía.** El dueño
+**sí** puede editar su propio anuncio desde el cliente —para eso está esa rama de la regla— y el
+documento no tiene `hasOnly` sobre sus claves: sin nombrar ese campo en `unchanged([...])`, quien
+publica podría escribirse la insignia y publicar "Propietario verificado" sobre un inmueble que nadie
+revisó. **La única afirmación que el lector no puede comprobar sería justo la que su interesado puede
+falsificar.** Solo el Admin SDK la escribe, desde `decideVerification`.
+
+**Cambiar la matrícula tumba la insignia sola.** Una aprobación dice que esta cuenta figura como
+propietaria del inmueble detrás de *ese* número; cambiado el número, la frase habla de otro inmueble.
+`updateProperty` retira el campo público y `verificationState` devuelve `stale` en cuanto los dos
+números dejan de coincidir — la misma atadura que el `documentHash` de la firma y la huella del acta,
+por tercera vez, y con la misma propiedad: no hay nada que limpiar a mano. La comparación es floja a
+propósito (`sameRegistry`): `050-123456` y `50 123456` son el mismo inmueble, y perder la insignia por
+un guion al reescribir la dirección sería absurdo.
+
+**El panel del propietario vive en la pantalla de edición**, no en una propia: la matrícula que se
+revisa se escribe en ese mismo formulario y editarla es lo que tumba la insignia, así que poner las
+dos cosas a la vista es lo que hace que la consecuencia se entienda.
+
+**`/verificaciones` es la única pantalla de administración del producto**, y está fuera de `(app)`
+porque no es una sección del portal de nadie: `requireRole("admin")` la cierra entera, y ofrecerla en
+el menú anunciaría un sitio al que dos de los tres roles no pueden entrar — el mismo motivo por el que
+`/colaborador` vive fuera del portal. La cola se arma desde los anuncios publicados con un `get` por
+expediente: un `collectionGroup` sobre `private` barrería todas las direcciones del producto para
+encontrar unos pocos documentos. Deja de ser la forma correcta a unos cientos de anuncios, y lo que
+querrá entonces es una marca en el documento público con su índice, no un número mayor.
+
+### Dos trampas que costaron el driver
+
+**El claim de rol se pone DESPUÉS del onboarding.** `openSession` completa el perfil, y completar el
+perfil es lo que escribe el rol como custom claim — así que un `admin` puesto antes lo pisa el propio
+registro. Y después hay que **volver a emitir la cookie** con un idToken recién firmado, porque el rol
+viaja dentro de ella: es la trampa que `CLAUDE.md` ya documenta como *"after `setCustomUserClaims`,
+re-mint the session cookie"*, pagada otra vez.
+
+**Un test de reglas puede pasar por el motivo equivocado.** La primera versión del caso "el
+propietario no puede escribirse la insignia" esparcía el documento entero en el `updateDoc`, lo que
+cambiaba `createdAt` — así que la escritura se negaba por *otra* razón y el test seguía verde con el
+campo desprotegido. Se descubrió quitando `ownershipVerifiedAt` de la lista congelada y viendo que no
+pasaba nada. Es un `updateDoc` de un solo campo ahora.
+
+**Y la cola de revisión es compartida.** El driver espera a que **su** fila desaparezca, no a que la
+cola quede vacía: cualquier corrida anterior que muriera antes de su limpieza deja la suya esperando,
+y "no hay solicitudes" sería una afirmación sobre el emulador y no sobre lo que el driver acaba de
+hacer. Misma lección que `facets` con el catálogo.
+
+**No verificado en navegador:** abrir el certificado desde la cola. El enlace lo firma el servidor y
+la suite emulada no tiene cuenta de servicio, así que la fila muestra "no se pudo abrir ahora mismo"
+— que es el diseño funcionando (el registro sale del documento, solo el enlace sale de la firma), pero
+deja ese clic sin conducir.
+
 ## Recovering a password (`features/auth`)
 
 Two screens: `/recuperar` asks for the address, `/recuperar/confirmar` takes the code and sets the

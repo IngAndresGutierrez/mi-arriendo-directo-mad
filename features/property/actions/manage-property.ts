@@ -8,8 +8,9 @@ import { requireCompleteProfile } from "@/features/profile";
 import { MY_PROPERTIES_ROUTE, propertyDetailRoute } from "@/shared/auth/routes";
 import { adminDb, adminStorage } from "@/shared/firebase/admin";
 
-import { getOwnedProperty } from "../data/property";
+import { getOwnedProperty, getPropertyLocation } from "../data/property";
 import { approximateLocation, propertySlug, publishBlocker } from "../domain/property";
+import { sameRegistry } from "../domain/verification";
 import { propertyFormSchema, validateAvailableFrom } from "../validations/property";
 import { filesBelongTo, parsePropertyForm, propertyFormIntent, reserveSlug } from "./form-input";
 
@@ -85,11 +86,29 @@ export async function updateProperty(
   const status = current.status === "draft" && intent === "publish" ? "available" : current.status;
 
   const propertyRef = adminDb().collection("properties").doc(propertyId);
+
+  /*
+   * **Cambiar la matrícula tumba la insignia de propietario verificado, sola.**
+   *
+   * Una aprobación dice que esta cuenta figura como propietaria del inmueble detrás de *ese* número
+   * de matrícula; cambiado el número, la frase habla de otro inmueble. Es la misma atadura que el
+   * `documentHash` de la firma y la huella del acta, y tiene la misma propiedad: no hay nada que
+   * limpiar a mano, porque la comparación *es* el estado — `verificationState` devuelve `stale` en
+   * cuanto los dos números dejan de coincidir, y esto solo retira el campo público que el catálogo
+   * lee sin poder comparar nada.
+   *
+   * Suelta a propósito (`sameRegistry`): `050-123456` y `50 123456` son el mismo inmueble, y perder
+   * la insignia por un guion al reescribir la dirección sería absurdo.
+   */
+  const previous = await getPropertyLocation(propertyId, user.uid);
+  const registryChanged = !sameRegistry(previous?.registryNumber ?? "", address.registryNumber);
+
   const batch = adminDb().batch();
   batch.update(propertyRef, {
     ...listing,
     slug,
     status,
+    ...(registryChanged ? { ownershipVerifiedAt: FieldValue.delete() } : {}),
     /*
      * `FieldValue.delete()` and not an omission, which is the whole difference between an
      * `update` and a `set`: leaving the key out of an `update` **keeps** what is stored, so a

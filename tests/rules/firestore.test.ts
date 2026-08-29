@@ -11,6 +11,7 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
   doc,
   getDoc,
   getDocs,
@@ -115,6 +116,99 @@ describe("users", () => {
 describe("properties", () => {
   it("the published catalog is visible without signing in", async () => {
     await assertSucceeds(getDoc(doc(anonymous(env), `properties/${PROPERTY_ID}`)));
+  });
+
+  /*
+   * **La insignia de propietario verificado, que es la única afirmación de la página pública que un
+   * desconocido tiene que creerse.**
+   *
+   * El dueño sí puede editar su propio anuncio desde el cliente —para eso está esa rama de la
+   * regla— y el documento no tiene `hasOnly` sobre el conjunto de claves. Sin congelar este campo,
+   * quien publica podría escribirse la insignia él mismo y publicar "Propietario verificado" sobre
+   * un inmueble que nadie revisó: la única afirmación que el lector no puede comprobar sería
+   * justamente la que su interesado puede falsificar.
+   */
+  it("a landlord CANNOT write the verified badge onto their own listing", async () => {
+    /*
+     * **Un `updateDoc` de un solo campo, y eso no es un detalle del test.** La primera versión
+     * esparcía el documento entero, lo que cambiaba `createdAt` — así que la escritura se negaba por
+     * *otra* razón y el test pasaba con el campo desprotegido. Se descubrió quitando `ownershipVerifiedAt`
+     * de la lista congelada y viendo que seguía verde: un test que no puede fallar es peor que ninguno.
+     */
+    await assertFails(
+      updateDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `properties/${PROPERTY_ID}`), {
+        ownershipVerifiedAt: "2026-09-02T10:00:00.000Z",
+      }),
+    );
+  });
+
+  /** Ni borrarla, que es la otra mitad: una insignia que el interesado puede quitar tampoco vale. */
+  it("a landlord cannot remove a badge that was granted either", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .doc(`properties/${PROPERTY_ID}`)
+        .update({ ownershipVerifiedAt: "2026-09-02T10:00:00.000Z" });
+    });
+
+    await assertFails(
+      updateDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), `properties/${PROPERTY_ID}`), {
+        ownershipVerifiedAt: deleteField(),
+      }),
+    );
+
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx
+        .firestore()
+        .doc(`properties/${PROPERTY_ID}`)
+        .update({ ownershipVerifiedAt: deleteField() });
+    });
+  });
+
+  /** El expediente de la verificación vive donde la dirección, y por el mismo motivo. */
+  it("the verification file is read by its owner and an admin, and by nobody else", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc(`properties/${PROPERTY_ID}/private/verification`).set({
+        documents: [
+          {
+            path: `verifications/${UID_LANDLORD}/certificado.pdf`,
+            fileName: "certificado.pdf",
+            contentType: "application/pdf",
+            bytes: 120_000,
+            uploadedAt: "2026-09-01T10:00:00.000Z",
+          },
+        ],
+        submittedAt: "2026-09-01T10:00:00.000Z",
+        verifiedAt: null,
+        rejectedAt: null,
+        note: "",
+        registryNumber: "050-123456",
+        reviewerUid: "",
+      });
+    });
+
+    const PATH = `properties/${PROPERTY_ID}/private/verification`;
+    await assertSucceeds(getDoc(doc(actingAs(env, UID_LANDLORD, "landlord"), PATH)));
+    await assertSucceeds(getDoc(doc(actingAs(env, UID_ADMIN, "admin"), PATH)));
+    await assertFails(getDoc(doc(actingAs(env, UID_TENANT, "tenant"), PATH)));
+    await assertFails(getDoc(doc(anonymous(env), PATH)));
+  });
+
+  /** Y nadie lo escribe desde el cliente: el veredicto lo pone el Admin SDK tras leer el certificado. */
+  it("nobody writes the verification verdict from the client, not even an admin", async () => {
+    const veredicto = { verifiedAt: "2026-09-02T10:00:00.000Z", reviewerUid: UID_ADMIN };
+
+    for (const [uid, role] of [
+      [UID_LANDLORD, "landlord"],
+      [UID_ADMIN, "admin"],
+    ] as const) {
+      await assertFails(
+        updateDoc(
+          doc(actingAs(env, uid, role), `properties/${PROPERTY_ID}/private/verification`),
+          veredicto,
+        ),
+      );
+    }
   });
 
   it("a draft is NOT visible to third parties, but is to its owner", async () => {

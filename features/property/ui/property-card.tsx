@@ -17,6 +17,8 @@ import { propertyDetailRoute } from "@/shared/auth/routes";
 import { formatCOP } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 
+import { VerifiedBadge } from "./verified-badge";
+
 import {
 
   propertyMonthlyCost,
@@ -139,6 +141,15 @@ export async function PropertyCard({
             <p className="truncate text-sm text-muted-foreground">
               {publicLocationLabel(property.area)} · {property.area.department}
             </p>
+            {/*
+              La insignia va **aquí y no en la fila de etiquetas sobre la foto**: aquellas describen
+              el inmueble —tipo, amoblado, video— y esta describe a quien lo publica. Mezclarlas
+              sería pedirle al lector que distinga dos clases de afirmación por su posición.
+
+              Verde y no cian: el cian de esta tarjeta lo tiene "Amoblado", y la regla de un solo
+              acento vale también dentro de una tarjeta.
+            */}
+            {property.ownershipVerifiedAt ? <VerifiedBadge className="mt-2" /> : null}
           </div>
 
           <ul className="grid gap-x-6 gap-y-2 text-sm text-foreground sm:grid-cols-2">

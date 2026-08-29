@@ -103,6 +103,30 @@ service firebase.storage {
       allow delete: if false;
     }
 
+    // the certificado de tradición y libertad a landlord attaches to have their ownership verified.
+    //
+    // **The most sensitive thing this product holds about a property.** That certificate carries the
+    // full street address and the owner's identity — which is exactly why the matrícula that pulls it
+    // is kept in `properties/{id}/private/location` and never published. So: the uploader reads their
+    // own, nobody else reads anything, and the reviewer opens it through a URL the server signs.
+    //
+    // Keyed by uid like every other block here, and forced by the same fact: Storage rules cannot ask
+    // Firestore whether this person owns that property.
+    //
+    // PDF or a photograph of one, 8 MB. Anchored regex: `matches` is not anchored on its own.
+    match /verifications/{userId}/{allPaths=**} {
+      allow read:  if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null
+                   && request.auth.uid == userId
+                   && request.resource.size > 0
+                   && (request.resource.contentType == 'application/pdf'
+                       || request.resource.contentType.matches('^image/(jpeg|png|webp)$'))
+                   && request.resource.size < 8 * 1024 * 1024;
+      // A reviewer's decision rests on this file. Somebody who could delete it after being approved
+      // would leave a badge standing on evidence that is gone.
+      allow delete: if false;
+    }
+
     // signed contracts: generated and served by the backend
     match /contracts/{allPaths=**} {
       allow read, write: if false;

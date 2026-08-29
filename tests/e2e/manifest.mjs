@@ -230,6 +230,26 @@ export const COVERS = {
     "app/api/arriendos",
     "shared/pdf/",
   ],
+  /*
+   * La insignia de propietario verificado. Es la única afirmación de la página pública que un
+   * desconocido tiene que creerse, y su interesado es quien tiene motivos para falsificarla — así
+   * que `firestore.rules` entra aquí, porque de ahí sale que no pueda escribírsela él mismo.
+   */
+  verification: [
+    "features/property/domain/verification",
+    "features/property/validations/verification",
+    "features/property/data/verification",
+    "features/property/actions/verification",
+    "features/property/actions/manage-property",
+    "features/property/ui/verified-badge",
+    "features/property/ui/verification-panel",
+    "features/property/ui/verification-queue",
+    "app/[lang]/verificaciones",
+    "app/[lang]/(app)/mis-inmuebles",
+    "app/[lang]/(public)/inmuebles",
+    "firestore.rules",
+    "storage.rules",
+  ],
   "manage-properties": ["features/property/", "app/[lang]/(app)/mis-inmuebles"],
   /*
    * El borrador toca las dos mitades: el formulario y la lista del propietario, y también el

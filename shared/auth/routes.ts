@@ -276,6 +276,15 @@ export function safeRedirect(value: string | string[] | undefined): string {
 }
 
 /**
+ * La cola de verificaciones, y **la única pantalla de administración de este producto**.
+ *
+ * Vive fuera de `(app)` porque no es una sección del portal de nadie: `requireRole("admin")` la
+ * cierra entera, y ofrecerla en el menú a las otras dos personas sería anunciar un sitio al que no
+ * pueden entrar. La ruta va en español como todas, aunque solo la lea quien revisa.
+ */
+export const ADMIN_VERIFICATIONS_ROUTE = "/verificaciones";
+
+/**
  * El recibo de un mes de arriendo, en PDF.
  *
  * Bajo `/api` como el contrato, y por lo mismo: no es una pantalla, es un archivo. Y sin idioma —

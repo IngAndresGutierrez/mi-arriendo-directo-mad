@@ -212,6 +212,21 @@ export interface PropertyDoc {
    * `PHOTOS_MIN`: the card and the shared card both need a still image.
    */
   readonly video?: PropertyVideo;
+  /**
+   * ISO 8601, and **present only when a person read the certificado de tradición y libertad** and
+   * found this account named on it as owner. Absent otherwise — see `domain/verification.ts`.
+   *
+   * The one field on this public document that is **not** written by its owner: `firestore.rules`
+   * freezes it against every client, so it can only arrive through `decideVerification` with the
+   * Admin SDK. It is the single claim on the page a stranger is asked to trust, and its subject is
+   * exactly the person with a reason to forge it.
+   *
+   * It lives here, denormalised onto the public document, because the catalogue draws the badge on
+   * six cards from one query — reading a private subdocument per card would be six extra reads on
+   * the most-fetched page in the product. The evidence stays in
+   * `properties/{id}/private/verification`, where the certificate's address belongs.
+   */
+  readonly ownershipVerifiedAt?: string;
   readonly createdAt: StoredTimestamp;
   readonly updatedAt: StoredTimestamp;
 }

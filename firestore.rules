@@ -175,8 +175,18 @@ service cloud.firestore {
                     && incoming().landlordUid == uid()
                     && validProperty()
                     && incoming().status in ['draft', 'available'];
+      /*
+       * **`ownershipVerifiedAt` is in the frozen set, and that is the whole verification feature.**
+       *
+       * The owner may update their own listing from the client — that is what this branch is for —
+       * and there is no `hasOnly` on the key set, so without naming it here a landlord could simply
+       * write the badge onto their own property and publish "Propietario verificado" about a flat
+       * nobody checked. The one claim on the public page that a stranger is asked to trust would be
+       * the one claim its subject can forge. Only the Admin SDK writes it, from `decideVerification`,
+       * after a person has read the certificado de tradición.
+       */
       allow update: if (isPropertyOwner() && validProperty()
-                        && unchanged(['landlordUid', 'createdAt']))
+                        && unchanged(['landlordUid', 'createdAt', 'ownershipVerifiedAt']))
                     || isAdmin();
       allow delete: if isPropertyOwner() || isAdmin();
 

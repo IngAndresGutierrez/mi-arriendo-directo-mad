@@ -11,6 +11,7 @@ import {
   propertyMetaTitle,
   publicLocationLabel,
   PropertyFacts,
+  VerifiedNotice,
   PropertyGallery,
   PropertyPriceCard,
   PropertyVideoPlayer,
@@ -169,6 +170,17 @@ export default async function PropertyDetailPage(props: DetailProps) {
             <span className="text-muted-foreground/70">· {property.area.department}</span>
           </p>
           <PropertyFacts property={property} />
+
+          {/*
+            La afirmación completa, a la vista y no detrás de un hover.
+
+            Es lo único de esta página que un desconocido tiene que creerse sin poder comprobarlo, así
+            que la frase que la acota va con ella: qué se revisó y qué **no**. Este producto ya
+            escribió esa regla para la entrada deshabilitada del menú — "una explicación que solo
+            aparece al pasar el ratón es una mala explicación" — y aquí pesa más, porque la frase es
+            la parte que impide que la insignia signifique lo que cada quien quiera.
+          */}
+          {property.ownershipVerifiedAt ? <VerifiedNotice /> : null}
 
           {/* Someone who liked this one is usually looking in that city, not at that one. */}
           <Link
