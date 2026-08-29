@@ -97,6 +97,17 @@ export const NOTIFICATION_TYPES = [
   "canon_receipt_uploaded",
   "canon_receipt_rejected",
   "canon_paid",
+  /*
+   * Los tres recordatorios de un canon, y son tres tipos y no un `canon_reminder` con los días
+   * dentro por la razón de siempre: la copia es el punto. "Prepara el pago" es una nota, "vence
+   * hoy" es una tarea y "estás en mora" es una mala noticia que además tiene que oír el
+   * propietario. Un solo tipo obligaría a abrir la app para saber cuál de las tres es.
+   *
+   * A diferencia de los otros diez de esta lista, **nadie los provoca**: los dispara un cron.
+   */
+  "canon_due_soon",
+  "canon_due_today",
+  "canon_overdue",
   "incident_reported",
   "incident_in_progress",
   "incident_awaiting_confirmation",
@@ -503,6 +514,37 @@ export function notificationCopy(
           ? `${who} confirmó que recibió el canon de ${month} de ${property}.`
           : `${who} confirmó que recibió el canon de ${property}.`,
       };
+    /*
+     * Los tres del canon. Ninguno nombra a nadie: no los causó una persona, los causó el
+     * calendario — igual que los dos de la entrevista, y por eso `actorName` llega vacío y estas
+     * frases no lo usan.
+     *
+     * **Ninguno lleva la cuenta bancaria**, que es la misma regla que ya sigue `payout_ready`: un
+     * correo con el número de cuenta de alguien dentro es la forma de toda estafa de pagos, y el
+     * nuestro llegaría desde un dominio que el inquilino se cree. Dónde pagar se lee en la página,
+     * detrás de la sesión.
+     */
+    case "canon_due_soon":
+      return {
+        title: "Tu canon vence pronto",
+        body: month
+          ? `El canon de ${month} de ${property} vence en unos días. Puedes pagarlo y subir el comprobante desde el arriendo.`
+          : `Se acerca el vencimiento de un canon de ${property}. Págalo y sube el comprobante desde el arriendo.`,
+      };
+    case "canon_due_today":
+      return {
+        title: "Tu canon vence hoy",
+        body: month
+          ? `Hoy vence el canon de ${month} de ${property}. Sube el comprobante cuando hagas la transferencia.`
+          : `Hoy vence un canon de ${property}. Sube el comprobante cuando hagas la transferencia.`,
+      };
+    case "canon_overdue":
+      return {
+        title: "Hay un canon en mora",
+        body: month
+          ? `El canon de ${month} de ${property} está vencido y no se ha registrado el pago. Ábrelo en el arriendo.`
+          : `Hay un canon vencido en ${property} sin pago registrado. Ábrelo en el arriendo.`,
+      };
     case "incident_reported":
       /*
        * El título, que es el `detail`, y nunca la descripción ni un adjunto. Lo que sale del
@@ -581,6 +623,9 @@ const LEASE_NOTIFICATION_TYPES: readonly NotificationType[] = [
   "canon_receipt_uploaded",
   "canon_receipt_rejected",
   "canon_paid",
+  "canon_due_soon",
+  "canon_due_today",
+  "canon_overdue",
   "incident_reported",
   "incident_in_progress",
   "incident_awaiting_confirmation",

@@ -1507,11 +1507,94 @@ has no handler for yet, and Playwright will not retry a click on an element that
 actionable) and then waits for the active tab, not for the click. Splitting this page cost `rental`
 three assertions that read the summary out of `document.body.innerText`.
 
-**Not built, and deliberately so for now**: who pays for a repair (above), the daily reminder cron
-that would tell the tenant a canon is due, the IPC raise at renewal, and the closing described
-above. A landlord recording "me pagó en efectivo" without a tenant
+**Not built, and deliberately so for now**: who pays for a repair (above), the IPC raise at renewal,
+and the closing described above. *(The canon-due reminder **is** built now — see "Canon reminders"
+below.)* A landlord recording "me pagó en efectivo" without a tenant
 receipt is not built either — the flow is symmetric with the first canon on purpose. `/arriendos`
 also does **not** mark the property `rented`, which the process does not do on finishing either.
+
+## Canon reminders (`features/lease`, `/api/cron/canon-reminders`)
+
+**The one movement of a tenancy nobody causes.** Every other notification in `/arriendos` is
+somebody doing something and the product telling the other party; a month falling due is the clock,
+so a Vercel Cron wakes the server. It is the reminder `CLAUDE.md` listed as not built, and it is
+what makes the tenancy half of the product worth having open month after month.
+
+**Three types, not one.** `canon_due_soon` (3 days ahead), `canon_due_today`, `canon_overdue` (the
+day *after*, never the same evening — a transfer made on the due date can land the next morning, and
+telling somebody they are in arrears about money they already sent is the message that makes them
+stop trusting every other one). One `canon_reminder` carrying the day count inside would be a bell
+nobody can act on without opening the app, which is the rule the visits and the incidents already
+paid for.
+
+**The two early ones are the tenant's business alone; arrears reach both.** A bell that rings at a
+landlord for the calendar is a bell muted before the month it matters. From the moment a month is
+late it stops being a task for one person and becomes a fact about the tenancy — and finding that
+out a month later from a bank statement is the failure `/arriendos` exists to prevent.
+
+**`remindableMonths` is not `currentMonth`, and that was a real bug rather than a refinement.** The
+month a tenancy is "in" is the month `today` falls in, so for a canon due on the **1st**, a sweep
+looking only at the current month sees a due date three weeks past while the next month — the one
+three days away — is not a candidate at all. "Vence pronto" could never fire for that tenancy, and
+would fire normally for one due on the 28th: a delivery failure that looks like an infrastructure
+problem for months. The window is expressed in **days from each due date**, and its test fails if
+the lead time is dropped.
+
+**One reminder per tenancy per tick, on the oldest month that still needs one** — `focusMonth`'s
+rule from the tenant's side of the page, for the same reason. A tenancy three months behind would
+otherwise land three emails at once on the person least able to absorb them; running hourly, the
+next tick carries the next month.
+
+**It does not nag.** Each reminder goes out **once**, recorded in `remindersSent` on the period
+document, and `REMINDER_HORIZON_DAYS` (30) is where the sweep stops having anything useful to say —
+a month sixty days late is a decision the two of them have to make, and a product still sending
+"recuerda pagar" reads as a machine that has not noticed. A recurring weekly chase is a different
+product decision with a different legal weight (Ley 2300 limits the *frequency* of collection
+contact, not only its hours) and building it without answering that question would arrive as a
+complaint rather than as a bug.
+
+**`remindersSent` lives on the month, and the sweep opens the month to write it.** A period document
+only exists once something has happened in that month — a reminder going out is something happening
+in it — so the sweep `set`s with a merge, storing the schedule's `amount` and `dueDate`, which is
+exactly what `PeriodDoc` keeps them for. It is written **before** anything is sent, like the
+interview sweep: a crash between the write and the send costs one reminder, the other order costs
+the same reminder every hour until the month is paid.
+
+**Ley 2300 gates the whole sweep, and that is why the cron is hourly.** A message about money
+somebody owes is collection contact whichever side of the due date it falls on, and the statute
+restricts days and hours for **email** as well as for WhatsApp — `sendWhatsApp` already guards
+itself, and the email half has no sender to hide the guard in. So `remindDueCanons` asks
+`collectionContactBlocker` first and refuses outright, letting the next tick handle it: on a Sunday
+or a public holiday every tick is refused and the reminder leaves Monday morning, which is correct
+behaviour rather than a missed run. **A single daily tick is what this must not be** — one deploy
+away from landing outside the window, and a holiday would skip the day entirely.
+
+The bell goes quiet with it, and that is a deliberate simplification rather than a reading of the
+law: a notification nobody wrote is one the next tick writes an hour later, and splitting the
+channels here would put "may we contact this person" in two places.
+
+**No WhatsApp, stated rather than half-built.** `notify()` sends one only when a phone is passed,
+and a business-initiated WhatsApp outside the 24-hour window has to be a **Meta-approved template**.
+There is one for the interview reminder and none for a canon, so passing a phone here would deliver
+the interview's words about a rent payment. It needs `WHATSAPP_CANON_TEMPLATE` approved first.
+
+**Category `reminders`, not `lease`** — the same call the interview reminders make: somebody who
+turned off their tenancy emails because they are on top of it still wants the one that says the
+canon is due on Thursday.
+
+**`MAX_SCAN` is 400 and it is the same trade `CATALOG_MAX_SCAN` makes.** Firestore cannot answer
+"which tenancies have a month falling due": the schedule is derived from `startDate` and `months`,
+on purpose, so there is no field to index. It stops being the right shape in the low thousands of
+tenancies, and what it wants then is **not a bigger number** — it is a `nextCanonReminderAt` cursor
+on the lease, indexed. The set is unbounded for a second reason worth naming: **ending a tenancy is
+not built**, so a lease from four years ago is still a document this sweep reads.
+
+**`tests/e2e/canon-reminders.mjs` has two branches on purpose, and that is a real limitation.**
+There is no honest way to move the clock — the route sits behind `CRON_SECRET`, and letting whoever
+holds it pass an hour would be precisely the way to bypass Ley 2300 — so the driver asks the sweep
+what it decided and asserts on that: window open, the full path; window closed, that **nothing** left
+(which is the assertion the statute is about). Both are real; the second covers less and says so out
+loud instead of pretending the run happened.
 
 ## Recovering a password (`features/auth`)
 

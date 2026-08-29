@@ -51,3 +51,16 @@ export {
 export { readNotificationPreferences } from "./data/preferences";
 export { saveNotificationPreferences } from "./actions/save-preferences";
 export { NotificationPreferencesCard } from "./ui/notification-preferences";
+
+/**
+ * Ley 2300 de 2023, for the callers that send collection contact.
+ *
+ * It lives in this module because the WhatsApp sender already guards itself with it — "the guard
+ * is in the sender, not at each call site" — and the canon sweep needs the same answer for the
+ * email half, which has no sender to hide it in.
+ */
+export {
+  canContactForCollection,
+  collectionContactBlocker,
+  type ContactBlocker,
+} from "./domain/contact-window";

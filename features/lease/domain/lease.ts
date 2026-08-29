@@ -92,6 +92,22 @@ export type PeriodDoc = {
   readonly dueDate: string;
   readonly receipt: PaymentReceipt | null;
   readonly verdict: ReceiptVerdict | null;
+  /**
+   * Which canon reminders have already gone out for this month.
+   *
+   * On the month rather than on the tenancy, because the question is per-month: September's
+   * reminders say nothing about October's. It is what makes the sweep idempotent — it runs every
+   * hour, so what was sent is written **before** anything leaves, exactly as the interview
+   * reminders do it. A crash between the write and the send costs one reminder; the other order
+   * costs the same reminder every hour until the month is paid.
+   *
+   * Optional in the type and nowhere else: every period written before reminders existed has no
+   * such key, and those documents are in the database now. `toPeriod` defaults it, and the rule
+   * that reads it tolerates its absence anyway — a pure function that is only total because its
+   * one caller is careful is a function waiting for a second caller. That lesson cost this module
+   * a `Cannot read properties of undefined` on `updates` once already.
+   */
+  readonly remindersSent?: readonly string[];
   readonly createdAt: unknown;
   readonly updatedAt: unknown;
 };

@@ -4,6 +4,17 @@
  * Anything not exported here is internal to the feature.
  */
 export {
+  CANON_REMINDERS,
+  REMINDER_HORIZON_DAYS,
+  canonReminderAudience,
+  daysFromDue,
+  dueCanonReminder,
+  isCanonReminderId,
+  remindableMonths,
+  type CanonReminderId,
+} from "./domain/canon-reminder";
+export { remindDueCanons, type CanonSweep } from "./actions/remind-canons";
+export {
   currentMonth,
   currentTermEnd,
   isOpen,

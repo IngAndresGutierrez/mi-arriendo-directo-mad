@@ -181,6 +181,23 @@ export const COVERS = {
     "shared/lib/embed-image",
     "shared/lib/site-url",
   ],
+  /*
+   * Los recordatorios del canon. Es el único sitio donde se puede afirmar que la ruta del cron no
+   * corre sin secreto y que la barrida escribe antes de mandar — un cron no tiene pantalla.
+   * `features/notification/domain/contact-window` entra porque de ahí sale la única razón por la
+   * que la barrida se puede negar a correr.
+   */
+  "canon-reminders": [
+    "features/lease/domain/canon-reminder",
+    "features/lease/actions/remind-canons",
+    "features/lease/domain/lease",
+    "features/lease/data/lease",
+    "features/notification/domain/contact-window",
+    "features/notification/domain/notification",
+    "features/notification/domain/preferences",
+    "app/api/cron/canon-reminders",
+    "vercel.json",
+  ],
   "manage-properties": ["features/property/", "app/[lang]/(app)/mis-inmuebles"],
   /*
    * El borrador toca las dos mitades: el formulario y la lista del propietario, y también el

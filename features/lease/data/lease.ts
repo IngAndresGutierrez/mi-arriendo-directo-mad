@@ -58,6 +58,8 @@ function toPeriod(snapshot: Snapshot): Period | null {
     id: snapshot.id,
     receipt: doc.receipt ?? null,
     verdict: doc.verdict ?? null,
+    /* Defaulted, like `receipt`: a month written before the reminders existed has no such key. */
+    remindersSent: Array.isArray(doc.remindersSent) ? doc.remindersSent : [],
     createdAt: iso(doc.createdAt),
     updatedAt: iso(doc.updatedAt),
   };

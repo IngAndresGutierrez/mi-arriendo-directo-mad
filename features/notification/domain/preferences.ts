@@ -99,6 +99,15 @@ const CATEGORY_OF: Readonly<Record<NotificationType, NotificationCategory>> = {
    */
   interview_reminder_day: "reminders",
   interview_reminder_soon: "reminders",
+  /*
+   * Los tres del canon son recordatorios y no `lease`, por lo mismo que los de la entrevista: no
+   * son la noticia de que algo pasó, son el aviso de que algo va a pasar. Y la consecuencia
+   * importa — quien apaga los correos de su arriendo porque ya está encima de él sigue queriendo
+   * el que le dice que el canon vence el jueves.
+   */
+  canon_due_soon: "reminders",
+  canon_due_today: "reminders",
+  canon_overdue: "reminders",
 
   collaborator_invited: "errands",
   collaborator_accepted: "errands",
