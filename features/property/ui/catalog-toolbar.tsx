@@ -133,20 +133,31 @@ export function CatalogToolbar({
             />
           </SheetContent>
         </Sheet>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-3">
-        <p className="text-sm text-muted-foreground" aria-live="polite">
-          {total === 0 ? labels.ui.noMatch : foundLabel}
-        </p>
 
         {hasActiveFilters(filters) && (
-          <Button asChild variant="ghost" size="sm">
+          <Button asChild variant="ghost" size="lg">
             {/* A plain link, so it also works as "start over" with JavaScript still loading. */}
             <a href={PROPERTIES_ROUTE}>{labels.ui.clearFilters}</a>
           </Button>
         )}
       </div>
+
+      {/*
+        **El recuento sigue aquí, y ya no ocupa una fila.** Vivía bajo un separador con su propio
+        `pt-3`, así que costaba unos 45px de la primera pantalla —la que decide si alguien sigue
+        bajando— para decir un número que las tarjetas de debajo ya enseñan. Quitarlo del todo sí
+        habría sido una pérdida: es una región `aria-live`, y es lo que le dice a quien navega con
+        lector de pantalla cuántos resultados dejó un filtro que acaba de aplicar, que es
+        exactamente la persona que no puede contar las tarjetas de un vistazo.
+
+        Tiene que renderizarse siempre —no dentro de un condicional— o la región deja de existir
+        entre un cambio y otro y no anuncia nada. `sr-only` recorta a 1px sin sacar el nodo del
+        flujo, así que `innerText` lo sigue leyendo: los drivers que sacan el total de la página
+        siguen encontrándolo.
+      */}
+      <p className="sr-only" aria-live="polite">
+        {total === 0 ? labels.ui.noMatch : foundLabel}
+      </p>
     </div>
   );
 }
