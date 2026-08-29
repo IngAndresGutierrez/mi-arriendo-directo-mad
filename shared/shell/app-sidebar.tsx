@@ -31,11 +31,14 @@ import {
 export function AppSidebar({
   defaultCollapsed,
   showErrands = false,
+  showVerifications = false,
   copy,
 }: {
   readonly defaultCollapsed: boolean;
   /** Whether this person has properties: it decides the one conditional menu entry. */
   readonly showErrands?: boolean;
+  /** Si quien mira revisa verificaciones: la segunda entrada condicional del menú. */
+  readonly showVerifications?: boolean;
   /** The menu's words, resolved by `AppShell` on the server. See `AppNav`. */
   readonly copy: Dictionary["nav"];
 }) {
@@ -117,7 +120,7 @@ export function AppSidebar({
         </Tooltip>
       </div>
 
-      <AppNav showErrands={showErrands} collapsed={collapsed} copy={copy} />
+      <AppNav showErrands={showErrands} showVerifications={showVerifications} collapsed={collapsed} copy={copy} />
     </div>
   );
 }

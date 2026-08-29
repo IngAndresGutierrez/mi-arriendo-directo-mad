@@ -250,6 +250,22 @@ export const COVERS = {
     "firestore.rules",
     "storage.rules",
   ],
+  /*
+   * La nota de cumplimiento de pago. Es el único sitio donde se puede afirmar la promesa entera:
+   * que el propietario recibe la nota y **no** los pagos — se mira el documento completo, carga RSC
+   * incluida, que es donde un objeto de más cruza sin verse en pantalla.
+   */
+  "payment-score": [
+    "features/lease/domain/payment-score",
+    "features/lease/data/payment-score",
+    "features/lease/ui/payment-score-card",
+    "features/application/actions/authorize-score",
+    "features/application/ui/payment-score-panel",
+    "features/application/domain/application",
+    "features/application/data/application",
+    "app/[lang]/(app)/contratos",
+    "app/[lang]/(app)/perfil-inquilino",
+  ],
   "manage-properties": ["features/property/", "app/[lang]/(app)/mis-inmuebles"],
   /*
    * El borrador toca las dos mitades: el formulario y la lista del propietario, y también el

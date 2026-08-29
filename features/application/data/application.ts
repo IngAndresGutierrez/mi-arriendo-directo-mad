@@ -56,6 +56,9 @@ function toApplication(snapshot: Snapshot): Application | null {
     })),
     // Written by `authorizeBackgroundChecks`, absent on every application made before it existed.
     checksAuthorizedAt: doc.checksAuthorizedAt ? iso(doc.checksAuthorizedAt) : null,
+    /* Nombrado aquí como todo lo demás: un campo que el convertidor no copia es uno que la pantalla
+       nunca ve — la trampa que dejó muertos los anclajes de la campana durante meses. */
+    scoreAuthorizedAt: doc.scoreAuthorizedAt ? iso(doc.scoreAuthorizedAt) : null,
     checkResults: Object.fromEntries(
       Object.entries(doc.checkResults ?? {}).map(([source, result]) => [
         source,

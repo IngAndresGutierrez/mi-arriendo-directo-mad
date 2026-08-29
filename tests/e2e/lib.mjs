@@ -640,6 +640,32 @@ export function stepLabel(stage) {
 }
 
 /** Espera a que la página diga que el proceso está en esa etapa. */
+/**
+ * Abre el panel de una etapa del proceso, si está plegado.
+ *
+ * Los paneles **arrancan plegados** y el encabezado lleva el estado, así que un clic revela los
+ * controles y no la noticia. Para un driver eso significa que `innerText` sobre la etapa devuelve
+ * solo la cabecera hasta que alguien la abre — que es exactamente el fallo que parece "el panel no
+ * se renderizó".
+ *
+ * `etapaId` es el del ancla: `stageAnchor` cambia los guiones bajos por guiones, así que
+ * `tenant_data` es `etapa-tenant-data`.
+ */
+export async function openStagePanel(page, etapaId) {
+  const toggle = page.locator(`li#${etapaId} button[aria-expanded]`).first();
+  if (!(await toggle.count())) return;
+  if ((await toggle.getAttribute("aria-expanded")) === "true") return;
+
+  await toggle.click();
+  await page.waitForFunction(
+    (id) =>
+      document.querySelector(`li#${id} button[aria-expanded]`)?.getAttribute("aria-expanded") ===
+      "true",
+    etapaId,
+    { timeout: 5000 },
+  );
+}
+
 export async function onStage(page, stage, timeout = 20000) {
   const label = stepLabel(stage);
   await page.waitForFunction(

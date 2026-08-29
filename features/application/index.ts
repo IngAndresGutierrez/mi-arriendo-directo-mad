@@ -186,3 +186,5 @@ export {
   GUARANTEE_PROVIDER,
   type Guarantee,
 } from "./domain/guarantee";
+export { authorizePaymentScore } from "./actions/authorize-score";
+export { PaymentScorePanel } from "./ui/payment-score-panel";

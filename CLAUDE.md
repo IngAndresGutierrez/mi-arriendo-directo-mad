@@ -550,7 +550,23 @@ So there are three levels, and the rule is **one `accent` per view**:
 | --- | --- |
 | `accent` | the one action of that view. Cyan. If two are on screen at once, one of them is wrong. |
 | `brand` | a real control that is not that one. Brand purple on the border and the label. |
+| `soft` | a real control that is not the one being pointed at, on a row that already has a `secondary` and a `brand`. Neutral fill, no brand colour. |
 | `outline` / `ghost` | furniture: cancel, dismiss, a row-level copy button. |
+
+**`soft` llegó por la tarjeta de un inmueble**, que acabó con cinco acciones y dos de ellas
+compartiendo `outline` — que es la trampa que esta misma sección documenta un párrafo antes: dos
+botones idénticos se leen como uno repetido y se elige por posición. Sale de tokens
+(`--muted` / `--foreground`), así que es un nivel de énfasis nuevo y no un color nuevo, que es la
+única forma en que este sistema admite crecer.
+
+**Y el peso separa la importancia; el tooltip separa el significado.** Cinco botones en fila son
+cinco palabras sueltas: "Aviso" no dice que produzca una hoja para imprimir y "Encargar" no dice que
+le vaya a escribir a alguien por WhatsApp. Cada acción de la tarjeta lleva su frase.
+
+**Envolver un botón en un `TooltipTrigger asChild` le sobrescribe el `data-slot`** con
+`tooltip-trigger`. Un driver que buscara `[data-slot="button"]` dentro de esa tarjeta encuentra cero
+elementos y su aserción pasa sobre una lista vacía — pasó, y se descubrió cambiando dos pesos a
+propósito y viendo que seguía verde. `data-variant` sigue ahí y es lo que hay que mirar.
 
 `brand` uses **`--brand-panel`, never `--primary`**: in dark mode `--primary` *is* the cyan, so a
 `border-primary` secondary button would end up competing with the very CTA it defers to. The same
@@ -1842,10 +1858,28 @@ un guion al reescribir la dirección sería absurdo.
 revisa se escribe en ese mismo formulario y editarla es lo que tumba la insignia, así que poner las
 dos cosas a la vista es lo que hace que la consecuencia se entienda.
 
+**Y el bloque del certificado va detrás de un interruptor con su tooltip.** Pedirlo es una gestión
+aparte —ir a la SNR, pagar el certificado, bajarlo— y no algo que se haga de paso mientras se corrige
+el precio: desplegado siempre ocupaba media pantalla de edición con un formulario que la mayoría de
+las veces no se va a usar, y empujaba hacia abajo lo que sí. Misma decisión que el interruptor de la
+póliza. Con `aria-labelledby` y no un `aria-label` duplicado: un `Switch` de Radix es un
+`<button role="switch">`, así que `<label for>` no lo nombra — la trampa que ya costó los dos
+interruptores de cookies.
+
 **`/verificaciones` es la única pantalla de administración del producto**, y está fuera de `(app)`
-porque no es una sección del portal de nadie: `requireRole("admin")` la cierra entera, y ofrecerla en
-el menú anunciaría un sitio al que dos de los tres roles no pueden entrar — el mismo motivo por el que
-`/colaborador` vive fuera del portal. La cola se arma desde los anuncios publicados con un `get` por
+porque no es una sección del portal de nadie: `requireRole("admin")` la cierra entera.
+
+**Y sí está en el menú, para quien puede abrirla.** La primera versión la dejó fuera razonando que
+anunciar un sitio al que dos de los tres roles no pueden entrar es peor que no ofrecerlo — cierto, y
+la conclusión estaba mal: lo que hace falta es enseñársela **solo a quien puede entrar**, que es
+exactamente lo que ya hacía "Encargos". Una pantalla a la que solo se llega tecleando la URL es una
+pantalla que no existe, y así estuvo. `showVerifications` sale del **rol de la cookie de sesión** y
+no de una lectura: el rol ya viaja firmado, así que el menú y `requireRole` no pueden discrepar.
+
+**Para volverse admin hace falta el custom claim y volver a entrar.** `setCustomUserClaims(uid,
+{ role: "admin" })` y después cerrar sesión y abrirla otra vez: el rol viaja dentro de la cookie, que
+se firmó antes del claim — la trampa que este archivo ya documenta y que el driver de esta función
+volvió a pagar. La cola se arma desde los anuncios publicados con un `get` por
 expediente: un `collectionGroup` sobre `private` barrería todas las direcciones del producto para
 encontrar unos pocos documentos. Deja de ser la forma correcta a unos cientos de anuncios, y lo que
 querrá entonces es una marca en el documento público con su índice, no un número mayor.
@@ -1873,6 +1907,117 @@ hacer. Misma lección que `facets` con el catálogo.
 la suite emulada no tiene cuenta de servicio, así que la fila muestra "no se pudo abrir ahora mismo"
 — que es el diseño funcionando (el registro sale del documento, solo el enlace sale de la firma), pero
 deja ese clic sin conducir.
+
+## Cumplimiento de pago: la calificación del inquilino (`features/lease`)
+
+**Ataca el requisito que frena la mitad de los arriendos en Colombia**: el codeudor con finca raíz.
+Un inquilino que pagó doce meses a tiempo tiene una prueba de que es buen pagador y hoy no tiene
+forma de enseñarla — este producto sí tiene el registro, porque cada mes confirmado es un acto que
+el propietario ya hizo.
+
+### Por qué no es una regla de tres
+
+`10/12 × 5 = 4,2` parece razonable hasta que se mira lo que hace en los bordes:
+
+- **`1/1` a tiempo daría 5 estrellas y `0/1` daría 0.** Un solo dato no puede producir ni el juicio
+  máximo ni la condena. Lo arregla la **suavización**: la nota parte de una expectativa previa
+  (`PRIOR_RATE`) con peso de `PRIOR_WEIGHT` meses imaginarios, y los meses reales la mueven.
+- **No tiene memoria del tiempo**, así que nadie se recupera nunca — y quien no puede recuperarse
+  tampoco tiene incentivo para mejorar. Lo arregla el **decaimiento**: cada mes pesa la mitad cada
+  `HALF_LIFE_MONTHS` (18).
+- **Es binaria**: dos días tarde contarían como cuarenta. Lo arregla la **severidad**, tres tramos.
+
+`rate = (Σ wᵢ·dᵢ + W·P) / (Σ dᵢ + W)`. **Un año perfecto son cinco estrellas; seis meses perfectos,
+cuatro** — la evidencia de medio año no es la de un año, y una nota que no las distinguiera estaría
+diciendo que sí. Y **10 de 12 con dos meses en mora son tres estrellas, no 4,2**; con dos atrasos
+leves, cuatro.
+
+**Los parámetros son una conjetura hasta que haya datos reales**, y decirlo forma parte de tenerlos:
+calibrarlos es mirar la distribución de cumplimiento del producto cuando exista, no afinar el número
+hasta que la curva "se vea bien".
+
+### El defecto que la mataba: la nota **es** el historial
+
+Con la regla de tres, un propietario que ve "4,2 estrellas" y sabe que hay 12 meses despeja
+`4,2/5 × 12 = 10,08` y ya sabe que fueron 10 a tiempo y 2 tarde. El objetivo —"nunca verán los
+pagos"— lo rompe una división. Es exactamente el razonamiento del mapa: *una coordenada con cinco
+decimales **es** la dirección*, y por eso existe `approximateLocation()`.
+
+La respuesta es la misma, **cuantizar a propósito**:
+
+- **estrellas enteras**, nunca un decimal;
+- **jamás el denominador**: hacia el propietario sale `PaymentScore`, que lleva la nota y una franja
+  gruesa ("más de un año") y **no contiene los conteos**. No es una convención — el tipo no los
+  tiene, así que no hay forma de filtrarlos por descuido. Viven en `PaymentScoreDetail`, que es lo
+  que ve el propio inquilino;
+- y `toDisclosedScore` es una función y no un `pick` en el sitio de uso: recortar en cada llamada es
+  recordar recortar.
+
+### Las tres decisiones de producto
+
+**Sin historial no es una nota baja.** Por debajo de `MIN_RATED_MONTHS` (6) no hay nota, y es un
+estado neutro. Este producto existe **precisamente** para que el proceso no se pare en "consiga un
+codeudor"; una nota que castigara al que no tiene historial reconstruiría esa barrera con otro
+nombre. Compartirla es **opcional** y el proceso no se bloquea por no hacerlo, por lo mismo.
+
+**"A tiempo" se mide contra lo que hizo el inquilino, no contra cuándo confirmó el propietario.**
+Uno que tarda una semana en mirar su cuenta le arruinaría la nota a quien pagó el día uno. Se usa
+`paidOn` —que el propietario confirmó con esa fecha a la vista, así que es el único dato del registro
+que las dos partes respaldaron— y cuando es posterior a la subida, manda la subida. Y un mes con
+comprobante **esperando confirmación no cuenta en contra**: es la misma asimetría del paz y salvo,
+al revés.
+
+**Cinco días de gracia**, porque pagar en los primeros días del mes es lo normal en Colombia y una
+nota que nadie saca es una nota en la que nadie cree.
+
+### Habeas data
+
+**La nota se calcula al leer y no se guarda nunca.** Además de la razón de siempre —un valor
+almacenado es una segunda fuente de verdad—, aquí hay una más fuerte: una tabla guardada del
+comportamiento de pago de la gente **es un buró de crédito**, que es otro objeto jurídico con otras
+obligaciones. Derivarla significa que el producto no tiene esa tabla.
+
+**El inquilino ve la suya siempre, con los conteos, en Mi perfil.** No es una cortesía: una
+calificación que la persona calificada no puede consultar ni controvertir es exactamente lo que el
+hábeas data regula. La ironía del diseño es que **se le pueden ocultar los pagos al propietario y no
+se le puede ocultar la nota al inquilino**.
+
+**El propietario solo la ve con autorización expresa por proceso.** La nota sale de arriendos con
+*otros* propietarios, así que enseñársela a este es una finalidad distinta de la que se autorizó al
+registrarse — Decreto 1074 art. 2.2.2.25.2.5 pide autorización fresca cuando cambia la finalidad. Se
+guarda `scoreAuthorizedAt` con `scoreAuthorizedVersion`, la misma forma exacta que
+`checksAuthorizedAt`. Por proceso y no como ajuste: una autorización es para una finalidad y un
+destinatario, no para una categoría.
+
+**Y el corte está en el servidor.** `score` llega `null` cuando no hay permiso, así que la nota no
+viaja en la carga RSC — un componente que la recibiera y decidiera no pintarla la seguiría llevando
+dentro, que es donde este producto ya se quemó dos veces con el diccionario.
+
+**Lo que sigue necesitando un abogado, dicho y no escondido:** el comportamiento de pago sobre una
+obligación cae plausiblemente bajo **Ley 1266 de 2012** (hábeas data financiero), más estricta que la
+1581. El argumento de que queda fuera es que este producto no reporta a nadie, no guarda tabla de
+comportamiento y solo revela a un propietario que el inquilino eligió. **Es un argumento, no una
+sentencia**, y es lo único de esta funcionalidad que hay que firmar antes de encenderla con usuarios
+reales.
+
+### Lo que costó el driver
+
+**El calendario se prorroga.** Sembrar doce meses pagados en un arriendo que empezó hace catorce
+dejaba dos en mora, y catorce dejaba uno: bajo la Ley 820 `leaseSchedule` extiende el calendario por
+un término entero. El producto tenía razón las tres veces y la siembra no; ahora paga cada mes ya
+vencido, contados desde la fecha de inicio que el propio driver eligió.
+
+**Una comprobación de fuga con el mismo número a los dos lados no comprueba nada.** El canon del
+arriendo anterior era igual al de la postulación, así que encontrar "1.800.000" en la página no decía
+si venía del historial: la página muestra legítimamente su propio canon. El arriendo anterior tiene
+ahora una cifra distinta.
+
+**Y buscar la etiqueta pintada tampoco.** La primera versión de "sin autorización la nota no viaja"
+buscaba el texto de la tarjeta, que no está de todas formas porque la tarjeta no se dibuja — así que
+pasaba también con la nota dentro de la carga RSC. Se descubrió quitando el corte del servidor y
+viendo que seguía verde. Ahora busca el **prop serializado**, y afirma además la mitad positiva: con
+permiso el mismo sondeo sí lo encuentra, que es lo que hace que el cero signifique "no está" y no "no
+sé mirar".
 
 ## Recovering a password (`features/auth`)
 

@@ -67,6 +67,20 @@ export {
 } from "./domain/canon-reminder";
 export { remindDueCanons, type CanonSweep } from "./actions/remind-canons";
 export {
+  HISTORY_BAND_LABELS,
+  MIN_RATED_MONTHS,
+  historyBand,
+  monthPunctuality,
+  paidOnDate,
+  paymentScoreDetail,
+  starsLabel,
+  toDisclosedScore,
+  type PaymentScore,
+  type PaymentScoreDetail,
+} from "./domain/payment-score";
+export { paymentScoreFor } from "./data/payment-score";
+export { OwnPaymentScoreCard, PaymentScoreCard } from "./ui/payment-score-card";
+export {
   currentMonth,
   currentTermEnd,
   isOpen,

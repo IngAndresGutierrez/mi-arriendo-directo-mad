@@ -23,11 +23,14 @@ import { AppNav } from "./app-nav";
 export function AppDrawer({
   bell,
   showErrands = false,
+  showVerifications = false,
   copy,
 }: {
   readonly bell?: React.ReactNode;
   /** Whether this person has properties: it decides the one conditional menu entry. */
   readonly showErrands?: boolean;
+  /** Si quien mira revisa verificaciones: la segunda entrada condicional del menú. */
+  readonly showVerifications?: boolean;
   /** The menu's words, resolved by `AppShell` on the server. See `AppNav`. */
   readonly copy: Dictionary["nav"];
 }) {
@@ -99,7 +102,7 @@ export function AppDrawer({
           </SheetClose>
         </div>
 
-        <AppNav showErrands={showErrands} onNavigate={() => setOpen(false)} copy={copy} />
+        <AppNav showErrands={showErrands} showVerifications={showVerifications} onNavigate={() => setOpen(false)} copy={copy} />
       </SheetContent>
     </Sheet>
   );

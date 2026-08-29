@@ -108,6 +108,39 @@ if (clip !== publishedUrl) throw new Error(`copió ${clip}, esperaba ${published
 ok("copia el enlace al portapapeles", clip.replace(BASE, ""));
 await p.screenshot({ path: `${SHOT_DIR}/mis-inmuebles.png`, fullPage: true });
 
+// --- cada acción se distingue de las demás, y dice qué hace ---
+/*
+ * Cinco botones en una fila eran cinco palabras sueltas: "Aviso" no dice que produzca una hoja para
+ * imprimir y "Encargar" no dice que le vaya a escribir a alguien. Se afirman las dos mitades del
+ * arreglo — que **ninguna comparte el peso visual con otra**, porque dos botones idénticos se leen
+ * como uno repetido y se elige por posición; y que **cada una lleva su frase**, que es lo que separa
+ * el significado.
+ */
+const fila = p.locator("li", { hasText: `Casa amplia con patio en Palermo ${STAMP}` }).first();
+/*
+ * Por `data-variant` y no por `data-slot="button"`: envolver un botón en un `TooltipTrigger asChild`
+ * **le sobrescribe el `data-slot`** con `tooltip-trigger`, así que el selector obvio encuentra cero
+ * elementos y la aserción pasa sobre una lista vacía. Se descubrió cambiando dos pesos a propósito y
+ * viendo que seguía verde. `data-variant` es además exactamente lo que se está afirmando.
+ */
+const acciones = fila.locator("[data-variant]");
+const pesos = await acciones.evaluateAll((els) => els.map((el) => el.getAttribute("data-variant")));
+console.log("DEBUG botones globales:", await p.locator('[data-slot="button"]').count());
+console.log("DEBUG dentro:", await fila.locator("a,button").evaluateAll((e) => e.map((x) => [x.tagName, x.getAttribute("data-slot"), x.getAttribute("data-variant")])));
+if (new Set(pesos).size !== pesos.length) {
+  throw new Error("dos acciones comparten el mismo peso visual: " + JSON.stringify(pesos));
+}
+ok("cada acción de la tarjeta tiene un peso visual propio", pesos.join(" · "));
+
+/* Y la frase: se abre una y se lee, que es lo único que prueba que el tooltip existe de verdad. */
+await fila.getByRole("link", { name: "Aviso", exact: true }).hover();
+const explicacion = p.getByRole("tooltip");
+await explicacion.waitFor({ timeout: 10000 });
+if (!/imprimir|QR/i.test(await explicacion.innerText())) {
+  throw new Error("el tooltip no explica qué hace la acción: " + (await explicacion.innerText()));
+}
+ok("y una frase que dice qué hace", (await explicacion.innerText()).slice(0, 48) + "…");
+
 // --- editar ---
 await p.getByRole("link", { name: /Editar/i }).click();
 await p.waitForURL(/\/editar$/, { timeout: 20000 });

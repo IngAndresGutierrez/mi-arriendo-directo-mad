@@ -219,6 +219,19 @@ export type ApplicationDoc = {
    */
   readonly checksAuthorizedAt: string | null;
   /**
+   * When the tenant let **this** landlord see their payment-compliance score, ISO 8601, or `null`.
+   *
+   * A second authorisation and not a reuse of the one above, because they are different
+   * disclosures: the records search looks somebody up in public registries, and this shows a
+   * landlord a summary of how their tenant paid **other** landlords. Both are finalidades distinct
+   * from the signup consent and both are recorded per application, for *this* recipient.
+   *
+   * A timestamp rather than a boolean, like every other authorisation in this product: *when* it
+   * was given is half of what makes it provable, and Decreto 1074 art. 2.2.2.25.2.4 puts that
+   * burden on us.
+   */
+  readonly scoreAuthorizedAt: string | null;
+  /**
    * When the process finished, ISO 8601, or `null` while it is still running.
    *
    * Written by `recordReceiptVerdict` the moment the landlord confirms the first canon arrived —

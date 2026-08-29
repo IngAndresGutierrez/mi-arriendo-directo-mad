@@ -6,6 +6,7 @@ import type { Dictionary } from "@/shared/i18n";
 import {
   BuildingIcon,
   CalendarClockIcon,
+  BadgeCheckIcon,
   ClipboardListIcon,
   FileTextIcon,
   HouseIcon,
@@ -16,6 +17,7 @@ import {
 
 import {
   CONTRACTS_ROUTE,
+  ADMIN_VERIFICATIONS_ROUTE,
   ERRANDS_ROUTE,
   HOME_ROUTE,
   MY_PROPERTIES_ROUTE,
@@ -92,6 +94,7 @@ export function AppNav({
   collapsed = false,
   onNavigate,
   showErrands = false,
+  showVerifications = false,
   copy,
 }: {
   readonly collapsed?: boolean;
@@ -103,6 +106,19 @@ export function AppNav({
    * first paint is already right instead of the menu growing an item after hydration.
    */
   readonly showErrands?: boolean;
+  /**
+   * Si quien mira revisa verificaciones de titularidad.
+   *
+   * **La segunda entrada condicional, y existe porque la pantalla era inalcanzable.** La dejé fuera
+   * del menú razonando que anunciar un sitio al que dos de los tres roles no pueden entrar es peor
+   * que no ofrecerlo — cierto, y la conclusión estaba mal: lo que hace falta es enseñársela **solo a
+   * quien puede entrar**, que es lo mismo que ya hace "Encargos". Una pantalla a la que solo se
+   * llega tecleando la URL es una pantalla que no existe.
+   *
+   * Se decide en el servidor, desde el rol de la cookie de sesión, así que la primera pintada ya es
+   * la correcta en vez de crecerle una entrada al menú tras hidratar.
+   */
+  readonly showVerifications?: boolean;
   /**
    * The menu's words, resolved by `AppShell` on the server.
    *
@@ -118,9 +134,15 @@ export function AppNav({
    */
   /* Annotated, or the object literal widens `label` to `string` and stops being a dictionary key. */
   const errands: NavEntry = { label: "errands", icon: ClipboardListIcon, href: ERRANDS_ROUTE };
-  const entries = showErrands
-    ? [...NAV.slice(0, 2), errands, ...NAV.slice(2)]
-    : NAV;
+  const withErrands = showErrands ? [...NAV.slice(0, 2), errands, ...NAV.slice(2)] : NAV;
+
+  /* Al final: es una herramienta de revisión, no una sección del producto de nadie. */
+  const verifications: NavEntry = {
+    label: "verifications",
+    icon: BadgeCheckIcon,
+    href: ADMIN_VERIFICATIONS_ROUTE,
+  };
+  const entries = showVerifications ? [...withErrands, verifications] : withErrands;
 
   return (
     <nav

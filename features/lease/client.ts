@@ -90,3 +90,13 @@ export {
   type HandoverPhoto,
   type HandoverState,
 } from "./domain/handover";
+
+/** La nota de cumplimiento, su mitad pura. Lo que cruza al cliente nunca lleva los conteos. */
+export {
+  HISTORY_BAND_LABELS,
+  MIN_RATED_MONTHS,
+  starsLabel,
+  type PaymentScore,
+  type PaymentScoreDetail,
+} from "./domain/payment-score";
+export { PaymentScoreCard } from "./ui/payment-score-card";

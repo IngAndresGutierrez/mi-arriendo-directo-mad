@@ -37,7 +37,18 @@ export async function ProductChrome({ children }: { readonly children: ReactNode
   ]);
 
   return (
-    <AppShell bell={<NotificationBell notifications={items} unread={unread} />} showErrands={owns}>
+    <AppShell
+      bell={<NotificationBell notifications={items} unread={unread} />}
+      showErrands={owns}
+      /*
+        La cola de verificaciones, solo para quien puede abrirla.
+        **Sale del rol de la cookie y no de una lectura**: el rol ya viaja firmado en la sesión, así
+        que preguntarlo a Firestore sería un viaje de más por un dato que ya está en la mano — y es
+        el mismo rol que `requireRole("admin")` comprueba al entrar, así que el menú y el guardia no
+        pueden discrepar.
+      */
+      showVerifications={user?.role === "admin"}
+    >
       {children}
     </AppShell>
   );

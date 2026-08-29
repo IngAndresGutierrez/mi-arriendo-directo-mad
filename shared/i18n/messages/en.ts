@@ -65,6 +65,7 @@ export const en: Dictionary = {
     tenantProfile: "Tenant profile",
     tenantProfileShort: "My profile",
     errands: "Errands",
+    verifications: "Verifications",
     support: "Support",
     settings: "Settings",
     soon: "Soon",

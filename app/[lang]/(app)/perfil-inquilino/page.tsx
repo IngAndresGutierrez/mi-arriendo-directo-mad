@@ -8,7 +8,9 @@ import {
   erasureStatus,
   listConsents,
 } from "@/features/legal";
+import { OwnPaymentScoreCard, paymentScoreFor } from "@/features/lease";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
+import { bogotaToday } from "@/shared/format/date";
 import { findCountry } from "@/shared/phone/countries";
 import { getTenantProfile, TenantProfileForm } from "@/features/tenant-profile";
 
@@ -23,14 +25,15 @@ export default async function TenantProfilePage() {
   const user = await requireCompleteProfile();
 
   /*
-   * Four independent reads, in parallel. `Promise.all` and not four `await`s: none of them depends
+   * Five independent reads, in parallel. `Promise.all` and not four `await`s: none of them depends
    * on another, and chaining them would make this page as slow as their sum.
    */
-  const [dossier, account, consents, erasure] = await Promise.all([
+  const [dossier, account, consents, erasure, paymentScore] = await Promise.all([
     getTenantProfile(user.uid),
     getProfile(user.uid),
     listConsents(user.uid),
     erasureStatus(user.uid),
+    paymentScoreFor(user.uid, bogotaToday(new Date())),
   ]);
 
   /*
@@ -91,6 +94,16 @@ export default async function TenantProfilePage() {
           {t.personalDetails}
         </h2>
 
+        {/*
+          La nota de cumplimiento, del lado de quien la lleva.
+
+          **Que pueda verla no es una cortesía: es la Ley 1581.** Una calificación que la persona
+          calificada no puede consultar ni controvertir es exactamente lo que el hábeas data regula.
+          De ahí la ironía del diseño: se le pueden ocultar los pagos al propietario y **no** se le
+          puede ocultar la nota al inquilino. Va en "Mis datos" y no arriba porque es eso — un dato
+          sobre él, al lado de lo que autorizó y del botón para irse.
+        */}
+        <OwnPaymentScoreCard score={paymentScore} />
         <ConsentHistory consents={consents} />
         <DeleteAccountCard blocker={erasure} />
       </div>

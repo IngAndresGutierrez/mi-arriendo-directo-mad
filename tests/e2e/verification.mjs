@@ -121,6 +121,16 @@ await panel.waitFor({ timeout: 20000 });
  * Server Action está topado en 1 MB. El fichero se fabrica aquí mismo — un PDF mínimo válido basta,
  * porque lo que la acción comprueba contra el bucket es el tipo y el tamaño.
  */
+/*
+ * **El bloque del certificado vive detrás de un interruptor.** Pedirlo es una gestión aparte —ir a
+ * la SNR, pagarlo, bajarlo— y no algo que se haga de paso mientras se corrige el precio, así que
+ * desplegado siempre ocupaba media pantalla de edición con un formulario que casi nunca se usa.
+ */
+if ((await dueño.locator('input[data-slot="verification-documents"]').count()) !== 0) {
+  throw new Error("el formulario del certificado se ofrece sin que nadie lo haya pedido");
+}
+await dueño.getByRole("switch", { name: /verificar la titularidad/i }).click();
+
 await dueño.setInputFiles('input[data-slot="verification-documents"]', {
   name: "certificado-tradicion.pdf",
   mimeType: "application/pdf",
@@ -154,6 +164,19 @@ if (dueño.url().includes("/verificaciones")) {
 }
 ok("un propietario no entra a la cola de revisión", dueño.url().replace(BASE, ""));
 
+/*
+ * **Y tampoco la ve en el menú, mientras que quien revisa sí.** Las dos caras: la primera pasaría
+ * con la entrada borrada y la segunda con la entrada siempre visible. La pantalla estuvo sin entrada
+ * ninguna y era, en la práctica, inalcanzable — a una pantalla a la que solo se llega tecleando la
+ * URL no llega nadie.
+ */
+await dueño.goto(`${BASE}/inicio`, { waitUntil: "domcontentloaded" });
+await settled(dueño);
+const menuDueño = dueño.getByRole("navigation", { name: /Menú|principal/i }).first();
+if ((await menuDueño.getByRole("link", { name: /Verificaciones/i }).count()) !== 0) {
+  throw new Error("el menú de un propietario ofrece la cola de revisión");
+}
+
 // ---------- el revisor aprueba ----------
 /*
  * **El claim se pone DESPUÉS del onboarding, no antes.** `openSession` completa el perfil, y
@@ -184,6 +207,21 @@ if (!reemitida.ok()) throw new Error(`no se pudo reemitir la cookie: ${reemitida
 await revisor.goto(`${BASE}/verificaciones`, { waitUntil: "domcontentloaded" });
 await settled(revisor);
 
+await revisor.goto(`${BASE}/inicio`, { waitUntil: "domcontentloaded" });
+await settled(revisor);
+if (
+  (await revisor
+    .getByRole("navigation", { name: /Menú|principal/i })
+    .first()
+    .getByRole("link", { name: /Verificaciones/i })
+    .count()) !== 1
+) {
+  throw new Error("quien revisa no encuentra la cola en su menú");
+}
+ok("la cola está en el menú de quien revisa y en el de nadie más");
+
+await revisor.goto(`${BASE}/verificaciones`, { waitUntil: "domcontentloaded" });
+await settled(revisor);
 const fila = revisor.locator('[data-slot="verification-row"]', { hasText: TITULO });
 await fila.waitFor({ timeout: 20000 });
 if (!(await fila.innerText()).includes(MATRICULA)) {
@@ -253,6 +291,7 @@ ok("y el anuncio deja de mostrarla");
 // ---------- un rechazo nunca sale en el anuncio ----------
 await dueño.goto(EDITAR, { waitUntil: "domcontentloaded" });
 await settled(dueño);
+await dueño.getByRole("switch", { name: /verificar la titularidad/i }).click();
 await dueño.setInputFiles('input[data-slot="verification-documents"]', {
   name: "certificado-viejo.pdf",
   mimeType: "application/pdf",

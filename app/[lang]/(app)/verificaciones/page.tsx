@@ -6,17 +6,24 @@ import { adminStorage } from "@/shared/firebase/admin";
 
 export const metadata: Metadata = {
   title: "Verificaciones",
-  /* Behind an admin guard, but the crawler never gets that far — say it anyway, like `(app)`. */
-  robots: { index: false, follow: false },
+  /*
+   * **Sin `robots` propio.** Está dentro de `(app)`, cuyo layout ya lo declara, y los metadatos se
+   * fusionan **por campo**: un objeto aquí reemplazaría el del layout entero, que es exactamente
+   * como dos pantallas de este producto perdieron el `nofollow` en silencio.
+   */
 };
 
 /**
  * The reviewer's queue, and **the only administration screen in this product**.
  *
- * It sits outside `(app)` on purpose: it is not a section of anybody's portal. `requireRole("admin")`
- * closes it entirely, and putting it in the menu would announce a place two of the three roles
- * cannot enter — the same reason `/colaborador` lives outside the portal rather than as a section
- * of it.
+ * **Dentro de `(app)`, con el resto del portal**, y esa fue la segunda corrección: la primera versión
+ * vivía fuera razonando que no es una sección del producto de nadie. Cierto — y con la entrada en el
+ * menú se volvió una trampa: se entraba y el menú desaparecía, así que la única salida era el botón
+ * atrás del navegador. Una entrada de menú que lleva a una pantalla sin menú es un callejón.
+ *
+ * `requireRole("admin")` la cierra entera, y la entrada solo se le enseña a quien puede abrirla
+ * (`showVerifications` en `ProductChrome`), que es lo que hace que ofrecerla no sea anunciar un sitio
+ * cerrado.
  *
  * **The signing happens here and not in the component.** A certificado de tradición carries the full
  * street address and the owner's identity, so the file is denied to every client by `storage.rules`
@@ -39,7 +46,7 @@ export default async function VerificationsPage() {
   );
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-10">
+    <div className="mx-auto w-full max-w-3xl">
       <h1 className="text-3xl font-semibold tracking-tight text-primary dark:text-foreground">
         Verificaciones
       </h1>

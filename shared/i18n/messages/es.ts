@@ -75,6 +75,7 @@ export const es = {
     tenantProfile: "Perfil de inquilino",
     tenantProfileShort: "Mi perfil",
     errands: "Encargos",
+    verifications: "Verificaciones",
     support: "Soporte",
     settings: "Ajustes",
     /** The badge on an entry that is not built yet. */

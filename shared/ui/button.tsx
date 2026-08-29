@@ -35,6 +35,20 @@ const buttonVariants = cva(
           "border-brand-panel/40 bg-background text-brand-panel hover:border-brand-panel hover:bg-brand-panel/[0.06] dark:border-brand-panel-muted/40 dark:bg-transparent dark:text-brand-panel-muted dark:hover:bg-brand-panel-muted/10",
         secondary:
           "bg-secondary text-secondary-foreground hover:bg-[color-mix(in_oklch,var(--secondary),var(--foreground)_5%)] aria-expanded:bg-secondary aria-expanded:text-secondary-foreground",
+        /*
+         * MAD UI: relleno neutro, entre `secondary` y `outline`.
+         *
+         * Existe porque la tarjeta de un inmueble llegó a tener cinco acciones y dos de ellas
+         * compartían `outline`, que es la trampa que este archivo ya documenta un nivel más arriba:
+         * dos botones idénticos se leen como uno repetido y se elige por posición. `soft` es relleno
+         * como `secondary` pero sin el morado, así que dice "acción real, no la principal" sin
+         * competir con la que sí lo es.
+         *
+         * Sale de tokens (`--muted` / `--foreground`), no de un hex: es un nivel de énfasis nuevo, no
+         * un color nuevo — que es la única forma en que este sistema admite crecer.
+         */
+        soft:
+          "bg-muted text-foreground hover:bg-[color-mix(in_oklch,var(--muted),var(--foreground)_6%)]",
         ghost:
           "hover:bg-muted hover:text-foreground aria-expanded:bg-muted aria-expanded:text-foreground dark:hover:bg-muted/50",
         destructive:

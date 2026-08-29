@@ -41,6 +41,7 @@ import {
   getApplicationFor,
   AdvanceButton,
   BackgroundCheckPanel,
+  PaymentScorePanel,
   DocumentReviewPanel,
   LiveApplication,
   touchApplicationDocuments,
@@ -56,12 +57,13 @@ import {
   withSignedUrls,
   DocumentChecklist,
 } from "@/features/tenant-profile";
+import { paymentScoreFor, toDisclosedScore } from "@/features/lease";
 import { getProfile, requireCompleteProfile } from "@/features/profile";
 import { stageAnchor } from "@/features/notification";
 import { getOwnedProperty, getPropertyLocation } from "@/features/property";
 import { CONTRACTS_ROUTE, propertyDetailRoute, rentalRoute } from "@/shared/auth/routes";
 import { Button } from "@/shared/ui/button";
-import { formatLongDate } from "@/shared/format/date";
+import { bogotaToday, formatLongDate } from "@/shared/format/date";
 import { formatCOP } from "@/shared/format/money";
 
 export const metadata: Metadata = {
@@ -211,10 +213,15 @@ export default async function ApplicationPage(props: PageProps<"/[lang]/contrato
    * arriendo y la administración por separado — la postulación solo guarda el total — y pide el
    * departamento, que tampoco está ahí. Las tres lecturas van en paralelo: son independientes.
    */
-  const [tenantAccount, location, property] = await Promise.all([
+  const [tenantAccount, location, property, paymentScore] = await Promise.all([
     onGuarantee ? getProfile(application.tenantUid) : null,
     onGuarantee || onVisit ? getPropertyLocation(application.propertyId, user.uid) : null,
     onGuarantee ? getOwnedProperty(application.propertyId, user.uid) : null,
+    /*
+     * El cumplimiento de pago del inquilino. Se calcula siempre —también para él, que es quien
+     * decide si lo comparte— y **solo cruza a la pantalla recortado y con autorización**.
+     */
+    paymentScoreFor(application.tenantUid, bogotaToday(new Date())),
   ]);
 
   /*
@@ -394,25 +401,46 @@ export default async function ApplicationPage(props: PageProps<"/[lang]/contrato
             tenant_data: {
               title: isLandlord ? "Documentos del inquilino" : "Tus documentos",
               meta: `${progress.uploaded} de ${progress.required} subidos`,
-              content: isLandlord ? (
-                <DocumentReviewPanel
-                  labels={dossier}
-                  applicationId={application.id}
-                  documents={documents}
-                  reviews={application.documentReviews}
-                  readOnly={past("tenant_data")}
-                />
-              ) : (
-                <DocumentChecklist
-                  labels={dossier}
-                  copy={dossierCopy}
-                  occupation={application.dossier.occupation}
-                  documents={documents}
-                  reviews={application.documentReviews}
-                  // Nudges the application so the landlord's screen learns a file arrived.
-                  onChanged={touchApplicationDocuments.bind(null, application.id)}
-                  readOnly={past("tenant_data")}
-                />
+              content: (
+                <div className="space-y-4">
+                  {isLandlord ? (
+                    <DocumentReviewPanel
+                      labels={dossier}
+                      applicationId={application.id}
+                      documents={documents}
+                      reviews={application.documentReviews}
+                      readOnly={past("tenant_data")}
+                    />
+                  ) : (
+                    <DocumentChecklist
+                      labels={dossier}
+                      copy={dossierCopy}
+                      occupation={application.dossier.occupation}
+                      documents={documents}
+                      reviews={application.documentReviews}
+                      // Nudges the application so the landlord's screen learns a file arrived.
+                      onChanged={touchApplicationDocuments.bind(null, application.id)}
+                      readOnly={past("tenant_data")}
+                    />
+                  )}
+
+                  {/*
+                    El cumplimiento de pago va aquí, en la etapa donde el propietario está mirando
+                    quién es su inquilino, y no en una etapa propia: no es un paso que alguien
+                    ejecute, es un dato más de esta.
+
+                    **El corte está en el servidor.** `score` llega `null` cuando el inquilino no lo
+                    ha autorizado, así que la nota no viaja en la carga RSC — un componente que la
+                    recibiera y decidiera no pintarla la seguiría llevando dentro, que es donde este
+                    producto ya se quemó dos veces con el diccionario.
+                  */}
+                  <PaymentScorePanel
+                    applicationId={application.id}
+                    score={application.scoreAuthorizedAt ? toDisclosedScore(paymentScore) : null}
+                    authorized={application.scoreAuthorizedAt !== null}
+                    isLandlord={isLandlord}
+                  />
+                </div>
               ),
             },
             interview: {

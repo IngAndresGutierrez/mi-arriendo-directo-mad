@@ -2,7 +2,7 @@
 
 import type { Dictionary } from "@/shared/i18n";
 import type { PropertyLabels } from "../domain/labels";
-import { useState, useTransition } from "react";
+import { useState, useTransition, type ReactNode } from "react";
 import Image from "next/image";
 import { LocaleLink as Link } from "@/shared/i18n/locale-link";
 import { useRouter } from "next/navigation";
@@ -17,6 +17,7 @@ import {
 import { formatCOP } from "@/shared/format/money";
 import { Button } from "@/shared/ui/button";
 import { ConfirmDialog } from "@/shared/ui/confirm-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/shared/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
 
 import { deleteProperty, publishDraft } from "../actions/manage-property";
@@ -27,6 +28,25 @@ import {
   publishBlocker,
   type Property,
 } from "../domain/property";
+
+/**
+ * Cada acción de la tarjeta, con la frase que dice qué hace.
+ *
+ * **Cinco botones en una fila son cinco palabras sueltas**: "Aviso" no dice que produzca una hoja
+ * para imprimir, y "Encargar" no dice que le vaya a escribir a alguien por WhatsApp. El peso visual
+ * separa la importancia y **el tooltip separa el significado**, que es lo que de verdad hacía falta.
+ *
+ * `asChild` sobre el disparador: el botón sigue siendo el botón —o el enlace— y no queda envuelto en
+ * un `<span>` que le rompa el foco ni el `<a>` de dentro.
+ */
+function ActionTip({ text, children }: { readonly text: string; readonly children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent className="max-w-56 text-balance">{text}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 const STATUS_STYLES: Readonly<Record<Property["status"], string>> = {
   available: "bg-status-approved-bg text-status-approved",
@@ -168,6 +188,11 @@ export function PropertyManageCard({
           deleting recedes to a plain red word: a solid red button between two others invites the
           click it should discourage, and it asks for confirmation anyway.
         */}
+        {/*
+          Un solo `TooltipProvider` para la fila entera: envolver cada botón sería montar cinco
+          proveedores por tarjeta y, en una lista de seis, treinta.
+        */}
+        <TooltipProvider delayDuration={200}>
         <div className="flex flex-wrap items-center gap-2 pt-2">
           {/*
             A draft gets "Publicar" where a listing gets "Copiar enlace", and the swap is not
@@ -184,6 +209,13 @@ export function PropertyManageCard({
             que no continúa" in another costume.
           */}
           {property.status === "draft" ? (
+            <ActionTip
+              text={
+                blocker === null
+                  ? "Lo pone en el catálogo público. A partir de ahí cualquiera puede verlo y postularse."
+                  : "Necesita al menos una foto para poder publicarse."
+              }
+            >
             <Button
               type="button"
               variant="secondary"
@@ -201,11 +233,14 @@ export function PropertyManageCard({
               <SendIcon aria-hidden="true" />
               {isPublishing ? copy.publishingDraft : copy.publishDraft}
             </Button>
+            </ActionTip>
           ) : (
-            <Button type="button" variant="secondary" size="lg" onClick={copyLink}>
-              {copied ? <CheckIcon aria-hidden="true" /> : <LinkIcon aria-hidden="true" />}
-              {copied ? copy.linkCopied : copy.copyLink}
-            </Button>
+            <ActionTip text="Copia la dirección pública del anuncio para pegarla en un chat o en un grupo.">
+              <Button type="button" variant="secondary" size="lg" onClick={copyLink}>
+                {copied ? <CheckIcon aria-hidden="true" /> : <LinkIcon aria-hidden="true" />}
+                {copied ? copy.linkCopied : copy.copyLink}
+              </Button>
+            </ActionTip>
           )}
           {/*
             The rental notice — the listing as a sheet to print and a square to post.
@@ -218,19 +253,23 @@ export function PropertyManageCard({
             reason — both are ways of handing this listing to somebody else.
           */}
           {posterBlocker(property) === null && (
+            <ActionTip text="Genera un aviso con código QR: una hoja A4 para imprimir y un cuadrado para redes.">
+              <Button asChild variant="soft" size="lg">
+                <Link href={propertyPosterRoute(property.id)}>
+                  <QrCodeIcon aria-hidden="true" />
+                  {copy.notice}
+                </Link>
+              </Button>
+            </ActionTip>
+          )}
+          <ActionTip text="Cambia el precio, las fotos, la dirección o la matrícula de este anuncio.">
             <Button asChild variant="outline" size="lg">
-              <Link href={propertyPosterRoute(property.id)}>
-                <QrCodeIcon aria-hidden="true" />
-                {copy.notice}
+              <Link href={editPropertyRoute(property.id)}>
+                <PencilIcon aria-hidden="true" />
+                Editar
               </Link>
             </Button>
-          )}
-          <Button asChild variant="outline" size="lg">
-            <Link href={editPropertyRoute(property.id)}>
-              <PencilIcon aria-hidden="true" />
-              Editar
-            </Link>
-          </Button>
+          </ActionTip>
           {/*
             Handing a job on this flat to somebody else. It belongs here rather than in a section of
             its own for the same reason "Publicar" is not in the menu: you decide it while looking at
@@ -247,24 +286,29 @@ export function PropertyManageCard({
             six calls to action competing with each other, which is none — the same rule the public
             catalogue follows with its single `outline` per card.
           */}
-          <Button asChild variant="brand" size="lg">
-            <Link href={assignErrandRoute(property.id)}>
-              <UserPlusIcon aria-hidden="true" />
-              Encargar
-            </Link>
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="lg"
-            onClick={() => setConfirming(true)}
-            disabled={isDeleting}
-            className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2Icon aria-hidden="true" />
-            Eliminar
-          </Button>
+          <ActionTip text="Le pide a otra persona que muestre el inmueble. Le llega el encargo por WhatsApp y SMS.">
+            <Button asChild variant="brand" size="lg">
+              <Link href={assignErrandRoute(property.id)}>
+                <UserPlusIcon aria-hidden="true" />
+                Encargar
+              </Link>
+            </Button>
+          </ActionTip>
+          <ActionTip text="Retira el anuncio del catálogo y borra sus fotos. No se puede deshacer.">
+            <Button
+              type="button"
+              variant="ghost"
+              size="lg"
+              onClick={() => setConfirming(true)}
+              disabled={isDeleting}
+              className="ml-auto text-destructive hover:bg-destructive/10 hover:text-destructive"
+            >
+              <Trash2Icon aria-hidden="true" />
+              Eliminar
+            </Button>
+          </ActionTip>
         </div>
+        </TooltipProvider>
 
         {/*
           Why the button will not act, said in the page rather than only on the control. What to do

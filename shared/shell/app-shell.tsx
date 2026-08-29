@@ -25,11 +25,14 @@ export async function AppShell({
   children,
   bell,
   showErrands = false,
+  showVerifications = false,
 }: {
   readonly children: ReactNode;
   readonly bell?: ReactNode;
   /** Whether this person has properties: it decides the one conditional menu entry. */
   readonly showErrands?: boolean;
+  /** Si quien mira revisa verificaciones: la segunda entrada condicional del menú. */
+  readonly showVerifications?: boolean;
   /**
    * Whether the menu offers "Encargos".
    *
@@ -46,10 +49,10 @@ export async function AppShell({
   return (
     <TooltipProvider>
       <div className="flex min-h-svh bg-background">
-        <AppSidebar defaultCollapsed={collapsed} showErrands={showErrands} copy={copy} />
+        <AppSidebar defaultCollapsed={collapsed} showErrands={showErrands} showVerifications={showVerifications} copy={copy} />
 
         <div className="flex min-w-0 flex-1 flex-col">
-          <AppDrawer bell={bell} showErrands={showErrands} copy={copy} />
+          <AppDrawer bell={bell} showErrands={showErrands} showVerifications={showVerifications} copy={copy} />
 
           {/*
             The cap keeps the reading width sane on a wide monitor — without it a single card

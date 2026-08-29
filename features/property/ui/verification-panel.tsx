@@ -10,6 +10,8 @@ import { storageErrorMessage } from "@/shared/firebase/storage-errors";
 import { formatBytes } from "@/shared/format/bytes";
 import { formatBogotaDateTime } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
+import { Switch } from "@/shared/ui/switch";
+import { FieldHint } from "@/shared/form/field-hint";
 import { cn } from "@/shared/lib/utils";
 
 import { requestVerification } from "../actions/verification";
@@ -60,6 +62,7 @@ export function VerificationPanel({
   const [pending, start] = useTransition();
   const [picked, setPicked] = useState<readonly File[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const canAsk = blocker === null;
@@ -120,8 +123,51 @@ export function VerificationPanel({
         </p>
       ) : null}
 
+      {/*
+        **El bloque del certificado va detrás de un interruptor.**
+
+        Pedirlo es una gestión aparte —hay que ir a la SNR, pagar el certificado y bajarlo— y no algo
+        que se haga de paso mientras se corrige el precio. Desplegado siempre, ocupaba media pantalla
+        de edición con un formulario que la mayoría de las veces no se va a usar, y empujaba hacia
+        abajo lo que sí. Es la misma decisión que el interruptor de la póliza: el control se ofrece,
+        la consecuencia se explica al lado, y quien no lo va a usar no lo tiene encima.
+
+        Con `aria-labelledby` y no con un `aria-label` duplicado: un `Switch` de Radix es un
+        `<button role="switch">`, así que `<label for>` no lo nombra — este producto ya se anotó esa
+        trampa con los dos interruptores de cookies — y un nombre duplicado puede separarse de las
+        palabras que se ven.
+      */}
       {canAsk ? (
-        <div className="mt-5 space-y-3">
+        <div className="mt-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <Switch
+              id="pedir-verificacion"
+              aria-labelledby="pedir-verificacion-label"
+              checked={open}
+              onCheckedChange={setOpen}
+              disabled={pending}
+              className="mt-0.5"
+            />
+            <span className="flex flex-wrap items-center gap-1.5">
+              <span
+                id="pedir-verificacion-label"
+                className="text-sm font-medium text-foreground"
+              >
+                Quiero verificar la titularidad de este inmueble
+              </span>
+              <FieldHint id="pedir-verificacion" label="la verificación de titularidad">
+                Revisamos el certificado de tradición y libertad y, si figuras en él como
+                propietario, tu anuncio lleva una insignia que lo dice. No revisamos el estado del
+                inmueble ni respondemos por el arriendo. Necesitas un certificado expedido en los
+                últimos {CERTIFICATE_MAX_AGE_DAYS} días, que se pide en la SNR.
+              </FieldHint>
+            </span>
+          </div>
+        </div>
+      ) : null}
+
+      {canAsk && open ? (
+        <div className="mt-4 space-y-3 border-t border-border pt-4">
           <p className="text-sm text-foreground">
             Adjunta el <span className="font-medium">certificado de tradición y libertad</span> de
             este inmueble. Sirve uno expedido en los últimos {CERTIFICATE_MAX_AGE_DAYS} días: es lo
@@ -225,11 +271,11 @@ export function VerificationPanel({
             nunca sale en el anuncio.
           </p>
         </div>
-      ) : (
-        blocker !== "already_verified" && (
-          <p className="mt-5 text-sm text-muted-foreground">{blocker}</p>
-        )
-      )}
+      ) : null}
+
+      {!canAsk && blocker ? (
+        <p className="mt-5 text-sm text-muted-foreground">{blocker}</p>
+      ) : null}
 
       {error ? (
         <p role="alert" className="mt-3 text-sm text-destructive">
