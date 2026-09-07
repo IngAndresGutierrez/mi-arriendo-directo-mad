@@ -9,6 +9,21 @@
  */
 const TIME_ZONE = "America/Bogota";
 
+/**
+ * The words that turn an hour on screen into an hour somebody can act on.
+ *
+ * Every appointment in this product is stored as an instant and rendered in Bogotá time, which is
+ * the right answer and an invisible one: "3:00 p. m." on its own is read against whatever clock the
+ * person happens to be on, and a landlord managing a flat in Manizales from Madrid has no way to
+ * tell which. Saying it costs four words.
+ *
+ * It is a constant and not a literal because it is written beside **four** different formatters now
+ * — the interview's range, the visit's hour, and the errand in three places — and this module's own
+ * doc already states the rule those formatters were extracted for: two copies of one fact are two
+ * things that can drift, and the first to drift would be the hour somebody is expected at.
+ */
+export const BOGOTA_ZONE_NOTE = "(hora de Colombia)";
+
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 function instantOf(value: string): Date {

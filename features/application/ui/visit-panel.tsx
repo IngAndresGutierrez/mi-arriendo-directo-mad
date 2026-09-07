@@ -16,6 +16,7 @@ import {
 import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
+import { BOGOTA_ZONE_NOTE } from "@/shared/format/date";
 import { cn } from "@/shared/lib/utils";
 
 import { confirmVisit, declineVisit, proposeVisit, recordVisitVerdict } from "../actions/visit";
@@ -236,7 +237,7 @@ function Appointment({
       </p>
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <ClockIcon className="size-4 shrink-0" aria-hidden="true" />
-        {visitTime(visit.at)} (hora de Colombia)
+        {visitTime(visit.at)} {BOGOTA_ZONE_NOTE}
       </p>
 
       {/*

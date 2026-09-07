@@ -14,7 +14,7 @@ import {
 } from "@/features/collaboration";
 import { collaboratorErrandRoute, HOME_ROUTE } from "@/shared/auth/routes";
 import { getSessionUser } from "@/shared/auth/session";
-import { formatBogotaWeekdayTime } from "@/shared/format/date";
+import { BOGOTA_ZONE_NOTE, formatBogotaWeekdayTime } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
 
 export const metadata: Metadata = {
@@ -123,7 +123,7 @@ export default async function CollaboratorPage() {
                   <li className="flex items-center gap-2">
                     <CalendarClockIcon className="size-4 shrink-0" aria-hidden="true" />
                     <span className={late ? "font-medium text-destructive" : undefined}>
-                      {formatBogotaWeekdayTime(errand.dueAt)}
+                      {formatBogotaWeekdayTime(errand.dueAt)} {BOGOTA_ZONE_NOTE}
                       {late ? " · se pasó la fecha" : ""}
                     </span>
                   </li>

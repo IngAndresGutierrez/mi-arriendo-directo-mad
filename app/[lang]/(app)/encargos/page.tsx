@@ -13,7 +13,7 @@ import {
 } from "@/features/collaboration";
 import { requireCompleteProfile } from "@/features/profile";
 import { NEW_ERRAND_ROUTE } from "@/shared/auth/routes";
-import { formatBogotaWeekdayTime } from "@/shared/format/date";
+import { BOGOTA_ZONE_NOTE, formatBogotaWeekdayTime } from "@/shared/format/date";
 import { Button } from "@/shared/ui/button";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -113,7 +113,7 @@ export default async function LandlordErrandsPage() {
                     {errand.propertyTitle} · {errand.propertyArea}
                   </li>
                   <li className={late ? "font-medium text-destructive" : undefined}>
-                    {formatBogotaWeekdayTime(errand.dueAt)}
+                    {formatBogotaWeekdayTime(errand.dueAt)} {BOGOTA_ZONE_NOTE}
                     {late ? t.errandLate : ""}
                   </li>
                 </ul>

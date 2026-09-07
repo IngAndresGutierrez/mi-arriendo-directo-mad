@@ -16,6 +16,7 @@ import { Button } from "@/shared/ui/button";
 import { Input } from "@/shared/ui/input";
 import { Label } from "@/shared/ui/label";
 import { SelectField } from "@/shared/form/select-field";
+import { BOGOTA_ZONE_NOTE } from "@/shared/format/date";
 import { cn } from "@/shared/lib/utils";
 
 import {
@@ -213,7 +214,7 @@ function Appointment({
       </p>
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <ClockIcon className="size-4 shrink-0" aria-hidden="true" />
-        {interviewTimeRange(interview.at)} (hora de Colombia)
+        {interviewTimeRange(interview.at)} {BOGOTA_ZONE_NOTE}
       </p>
 
       {/*

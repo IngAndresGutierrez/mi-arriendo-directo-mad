@@ -192,6 +192,20 @@ export function ErrandForm({
             ) : null}
           </div>
 
+          {/*
+            **La hora se lee como hora de Colombia, y decirlo es la mitad del campo.** `toInstant`
+            fija lo que se escriba aquí a `-05:00` — Colombia no tiene horario de verano, así que el
+            desfase es exacto todo el año — y el encargo se pinta luego con `formatBogotaWeekdayTime`
+            en esa misma zona. O sea: 15:00 es siempre las 3:00 p. m. en Bogotá, esté el navegador
+            donde esté.
+
+            Sin la nota eso es correcto e **invisible**: un propietario que administra un apartamento
+            en Manizales desde Madrid no tiene forma de saber contra qué reloj está escribiendo, y
+            equivocarse de reloj es mandar a alguien a una puerta a la hora que no es. Va como `hint`
+            permanente y no en un tooltip porque es lo que el campo *necesita*, no lo que el campo
+            *es* — que es exactamente la línea que separa los dos en `TextField` —, y va en el campo
+            y no suelto debajo porque así queda enlazado con `aria-describedby` sin cablearlo a mano.
+          */}
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField
               id="errand-day"
@@ -205,6 +219,7 @@ export function ErrandForm({
               id="errand-time"
               label="Hora"
               type="time"
+              hint="La hora es la de Colombia (UTC-5), la misma que verá quien reciba el encargo."
               error={errors.time?.message}
               disabled={isPending}
               {...register("time")}
